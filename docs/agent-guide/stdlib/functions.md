@@ -59,7 +59,8 @@ equating  :: \a b. Eq b => (a -> b) -> a -> a -> Bool
 **Effect sequencing** (Core built-in, auto-imported):
 
 ```
-seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
+  Computation @e1 r1 r2 a -> Computation @e2 r2 r3 b -> Computation @e2 r1 r3 b
 ```
 
 ---
@@ -100,36 +101,38 @@ seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2
 
 All operators sorted by precedence (highest binds tightest):
 
-| Prec | Op     | Assoc | Meaning              | Source  |
-| ---- | ------ | ----- | -------------------- | ------- |
-| 9    | `.`    | right | function composition | Prelude |
-| 7    | `*`    | left  | multiplication       | Prelude |
-| 7    | `/`    | left  | division (Div)       | Prelude |
-| 6    | `+`    | left  | addition             | Prelude |
-| 6    | `-`    | left  | subtraction          | Prelude |
-| 6    | `<>`   | right | semigroup append     | Prelude |
-| 5    | `<+`   | right | list cons            | Prelude |
-| 4    | `<$>`  | left  | functor map          | Prelude |
-| 4    | `<*>`  | left  | applicative apply    | Prelude |
-| 4    | `*>`   | left  | applicative then     | Prelude |
-| 4    | `<*`   | left  | applicative but      | Prelude |
-| 4    | `==`   | none  | equality             | Prelude |
-| 4    | `/=`   | none  | inequality           | Prelude |
-| 4    | `<`    | none  | less than            | Prelude |
-| 4    | `>`    | none  | greater than         | Prelude |
-| 4    | `<=`   | none  | less or equal        | Prelude |
-| 4    | `>=`   | none  | greater or equal     | Prelude |
-| 3    | `&&`   | right | boolean and          | Prelude |
-| 3    | `<\|>` | left  | alternative choice   | Prelude |
-| 2    | `\|\|` | right | boolean or           | Prelude |
-| 1    | `<&>`  | left  | flipped fmap         | Prelude |
-| 1    | `>>=`  | left  | monad bind           | Prelude |
-| 1    | `>>`   | left  | monad sequence       | Prelude |
-| 1    | `&`    | left  | reverse application  | Prelude |
-| 1    | `=<<`  | right | flipped bind         | Prelude |
-| 1    | `>=>`  | right | Kleisli composition  | Prelude |
-| 1    | `<=<`  | right | flipped Kleisli      | Prelude |
-| 0    | `$`    | right | low-precedence apply | Prelude |
+| Prec | Op     | Assoc | Meaning              | Source      |
+| ---- | ------ | ----- | -------------------- | ----------- |
+| 9    | `.`    | right | function composition | Prelude     |
+| 7    | `*`    | left  | multiplication       | Prelude     |
+| 7    | `/`    | left  | division (Div)       | Prelude     |
+| 6    | `+`    | left  | addition             | Prelude     |
+| 6    | `-`    | left  | subtraction          | Prelude     |
+| 6    | `<>`   | right | semigroup append     | Prelude     |
+| 5    | `<+`   | right | list cons            | Prelude     |
+| 5    | `+>`   | right | stream cons          | Data.Stream |
+| 4    | `<$>`  | left  | functor map          | Prelude     |
+| 4    | `<*>`  | left  | applicative apply    | Prelude     |
+| 4    | `*>`   | left  | applicative then     | Prelude     |
+| 4    | `<*`   | left  | applicative but      | Prelude     |
+| 4    | `==`   | none  | equality             | Prelude     |
+| 4    | `/=`   | none  | inequality           | Prelude     |
+| 4    | `<`    | none  | less than            | Prelude     |
+| 4    | `>`    | none  | greater than         | Prelude     |
+| 4    | `<=`   | none  | less or equal        | Prelude     |
+| 4    | `>=`   | none  | greater or equal     | Prelude     |
+| 3    | `&&`   | right | boolean and          | Prelude     |
+| 3    | `***`  | right | parallel composition | Core        |
+| 3    | `<\|>` | left  | alternative choice   | Prelude     |
+| 2    | `\|\|` | right | boolean or           | Prelude     |
+| 1    | `<&>`  | left  | flipped fmap         | Prelude     |
+| 1    | `>>=`  | left  | monad bind           | Prelude     |
+| 1    | `>>`   | left  | monad sequence       | Prelude     |
+| 1    | `&`    | left  | reverse application  | Prelude     |
+| 1    | `=<<`  | right | flipped bind         | Prelude     |
+| 1    | `>=>`  | right | Kleisli composition  | Prelude     |
+| 1    | `<=<`  | right | flipped Kleisli      | Prelude     |
+| 0    | `$`    | right | low-precedence apply | Prelude     |
 
 Undeclared operators default to `infixl 9`.
 

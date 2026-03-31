@@ -139,6 +139,8 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `eng.RegisterModule(name, src)`            | Register a custom module          |
 | `eng.RegisterModuleFile(path)`             | Register module from .gicel file  |
 | `eng.RegisterModuleRec(name, src)`         | Register module with fix/rec      |
+| `eng.DenyAssumptions()`                    | Block user `assumption` decls     |
+| `eng.DisableInlining()`                    | Disable optimizer inlining pass   |
 | `eng.NewRuntime(ctx, source)`              | Compile to Runtime                |
 | `eng.Compile(ctx, source)`                 | Type-check; returns CompileResult |
 | `eng.Parse(source)`                        | Parse-only (syntax errors)        |
@@ -165,15 +167,19 @@ var stepErr *gicel.StepLimitError
 var depthErr *gicel.DepthLimitError
 var allocErr *gicel.AllocLimitError
 var nestErr *gicel.NestingLimitError
+var timeoutErr *gicel.TimeoutError
+var cancelErr *gicel.CancelledError
 if errors.As(err, &stepErr) { /* step limit exceeded */ }
 if errors.As(err, &depthErr) { /* depth limit exceeded */ }
 if errors.As(err, &allocErr) { /* allocErr.Used, allocErr.Limit */ }
 if errors.As(err, &nestErr) { /* structural nesting limit exceeded */ }
+if errors.As(err, &timeoutErr) { /* execution timed out */ }
+if errors.As(err, &cancelErr) { /* context cancelled */ }
 ```
 
 `Diagnostic`: `Code int`, `Phase string` ("lex"/"parse"/"check"), `Line int`, `Col int`, `Message string`, `Hints []DiagnosticHint` (secondary annotations, may be nil). `DiagnosticHint`: `Line int`, `Col int`, `Message string`.
 
-`RuntimeError`: `Message string`, `Line int`, `Col int` (1-based, populated by Runtime). Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Step/depth/alloc/nesting limit exceeded return distinct error types: `StepLimitError`, `DepthLimitError`, `AllocLimitError`, `NestingLimitError` (match with `errors.As`).
+`RuntimeError`: `Message string`, `Line int`, `Col int` (1-based, populated by Runtime). Covers: unbound variable, non-exhaustive match, division by zero, `fail`/`failWith`. Limit/timeout errors return distinct error types: `StepLimitError`, `DepthLimitError`, `AllocLimitError`, `NestingLimitError`, `TimeoutError`, `CancelledError` (match with `errors.As`).
 
 ### Hooks (per-execution via RunOptions)
 
@@ -219,4 +225,4 @@ The sandbox guarantees do **not** extend to `RegisterPrim` implementations. A bl
 
 **CLI module paths**: The `--module Name=path` flag reads any file accessible to the process. If an AI agent constructs CLI arguments, validate module paths against an allowed directory to prevent arbitrary file reads via parser error messages.
 
-**Assumption declarations**: User-written GICEL code cannot use `assumption` declarations (blocked at compile time). The Go API allows assumptions by default for host-controlled bindings; call `eng.DenyAssumptions()` to enforce the restriction in Go-embedded contexts where source code is untrusted.
+**Assumption declarations**: User-written GICEL code cannot use `assumption` declarations (blocked at compile time). The Go API allows assumptions by default for host-controlled bindings; call `eng.DenyAssumptions()` to enforce the restriction in Go-embedded contexts where source code is untrusted. Note: `RunSandbox` automatically calls `DenyAssumptions()` — only the `Engine` API requires explicit invocation.

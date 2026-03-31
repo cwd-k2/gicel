@@ -1,12 +1,13 @@
 ## 2. Language Overview
 
-### Keywords (14)
+### Keywords (15)
 
 | Keyword      | Purpose                                                                                               |
 | ------------ | ----------------------------------------------------------------------------------------------------- |
 | `case`       | Pattern matching                                                                                      |
 | `do`         | Monadic do-block                                                                                      |
 | `form`       | Algebraic form type / type class declaration                                                          |
+| `lazy`       | Lazy co-data declaration (constructor args implicitly wrapped in Thunk)                               |
 | `type`       | Type alias / type family declaration                                                                  |
 | `impl`       | Type class instance declaration                                                                       |
 | `infixl`     | Left-associative operator fixity                                                                      |
@@ -43,7 +44,7 @@ Both `rec` and `fix` require the `--recursion` flag (CLI) or `eng.EnableRecursio
 fib := fix $ \self n. if n <= 1 then n else self (n - 1) + self (n - 2)
 ```
 
-**`rec`** — computation-level fixpoint. Type: `\(r: Row) a. (Computation r r a -> Computation r r a) -> Computation r r a`. The pre and post rows must be equal (the effect signature is unchanged by the recursive call):
+**`rec`** — computation-level fixpoint. Type: `\(r: Row) a g. (Computation r r a @g -> Computation r r a @g) -> Computation r r a @g`. The pre and post rows must be equal (the effect signature is unchanged by the recursive call):
 
 ```
 -- Stateful loop via rec (run with --recursion flag)
@@ -98,7 +99,7 @@ Both `fix` and `rec` require the `--recursion` flag. Use `fix` for pure recursiv
 
 ### Declaration Boundaries
 
-Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `form`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), newlines and semicolons are both accepted as separators between statements/alternatives.
+Top-level declarations are separated by newlines or semicolons. Both are interchangeable at the top level; trailing and repeated semicolons are permitted. A new declaration starts when the next token (preceded by a newline or semicolon at depth 0) is one of: lowercase identifier, uppercase identifier, `form`, `lazy`, `type`, `infixl`, `infixr`, `infixn`, `impl`, `import`, or `(op)`. Inside braces (`do`, `case`, GADT), newlines and semicolons are both accepted as separators between statements/alternatives.
 
 Import declarations must appear before all other declarations.
 

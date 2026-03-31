@@ -2,24 +2,30 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.21.1 (2026-03-30)._
+_Last updated: v0.25.0 (2026-03-31)._
 
 ## Layer Model
 
 ```
+Layer 6  gicel (root)            public Go API facade
 Layer 5  app/engine              orchestration
 Layer 4  host/stdlib registry    Go integration
 Layer 3  compiler/check parse optimize   compilation
-Layer 2  lang/ir types           IR and type representation
-Layer 1  lang/syntax             surface syntax
+Layer 2  lang/ir types syntax    IR, type, and AST representation
 Layer 0  infra/span diagnostic budget    shared infrastructure
 ```
 
-Dependencies flow downward. No package imports from a higher layer.
+Dependencies flow downward. `lang/syntax` imports `lang/ir` and `lang/types` (lateral within Layer 2).
 
 ## Dependency DAG
 
 ```
+gicel (root)   ──→ app/engine
+               ──→ host/{stdlib,registry}
+               ──→ runtime/eval
+               ──→ lang/{ir,types}
+               ──→ infra/budget
+
 app/engine ──→ compiler/{check,parse,optimize}
              ──→ host/{stdlib,registry}
              ──→ runtime/{eval,vm}
@@ -34,14 +40,14 @@ host/stdlib ──→ host/registry
 host/registry ──→ runtime/eval
               ──→ lang/ir
 
-runtime/vm ──→ lang/ir
+runtime/vm ──→ runtime/eval
+           ──→ lang/{ir,types}
            ──→ infra/{budget,span}
 
 runtime/eval ──→ lang/ir
-             ──→ infra/{budget,span}
+             ──→ infra/span
 
 compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
-               ──→ compiler/parse
                ──→ lang/{syntax,types,ir}
                ──→ infra/{budget,diagnostic,span}
 
@@ -56,7 +62,7 @@ compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
   check/env ──→ lang/types
             ──→ infra/span
 
-  check/family ──→ check/unify
+  check/family ──→ check/{unify,env}
                ──→ lang/types
                ──→ infra/{budget,diagnostic,span}
 
@@ -65,9 +71,9 @@ compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
                 ──→ infra/{diagnostic,span}
 
   check/unify ──→ lang/types
-              ──→ infra/budget
+              ──→ infra/{budget,span}
 
-compiler/parse ──→ lang/syntax
+compiler/parse ──→ lang/{syntax,types}
                ──→ infra/{span,diagnostic}
 
 compiler/optimize ──→ lang/ir
@@ -77,7 +83,8 @@ lang/ir ──→ lang/types
 
 lang/types ──→ infra/span
 
-lang/syntax ──→ infra/span
+lang/syntax ──→ lang/{ir,types}
+            ──→ infra/span
 
 infra/diagnostic ──→ infra/span
 
@@ -101,28 +108,28 @@ infra/span   ──→ (isolated)
 | ------------- | ---------------------------------------------------------- |
 | `lang/syntax` | AST node types, token definitions, source-level helpers    |
 | `lang/types`  | Type (unified across universe levels), row types, evidence |
-| `lang/ir`     | Core IR (17 formers), program structure, walkers           |
+| `lang/ir`     | Core IR (19 formers), program structure, walkers           |
 
 ### compiler — source to Core IR
 
-| Package                   | Responsibility                                                  |
-| ------------------------- | --------------------------------------------------------------- |
-| `compiler/parse`          | Pratt-parser from source to AST                                 |
-| `compiler/check`          | Bidirectional type checking, elaboration to Core IR             |
-| `compiler/check/solve`    | OutsideIn(X) constraint solving, worklist, inert set            |
-| `compiler/check/unify`    | Type unification, meta-variable solving                         |
-| `compiler/check/family`   | Type family reduction                                           |
-| `compiler/check/exhaust`  | Pattern exhaustiveness checking (Maranget)                      |
-| `compiler/check/env`      | Module export types: aliases, classes, instances, type families |
-| `compiler/check/modscope` | Module import resolution, qualified name scoping                |
-| `compiler/optimize`       | Core IR simplification and fusion                               |
+| Package                   | Responsibility                                           |
+| ------------------------- | -------------------------------------------------------- |
+| `compiler/parse`          | Pratt-parser from source to AST                          |
+| `compiler/check`          | Bidirectional type checking, elaboration to Core IR      |
+| `compiler/check/solve`    | OutsideIn(X) constraint solving, worklist, inert set     |
+| `compiler/check/unify`    | Type unification, meta-variable solving                  |
+| `compiler/check/family`   | Type family reduction                                    |
+| `compiler/check/exhaust`  | Pattern exhaustiveness checking (Maranget)               |
+| `compiler/check/env`      | Typing context entries, module exports, naming utilities |
+| `compiler/check/modscope` | Module import resolution, qualified name scoping         |
+| `compiler/optimize`       | Core IR simplification and fusion                        |
 
 ### runtime — Core IR execution
 
-| Package        | Responsibility                                                      |
-| -------------- | ------------------------------------------------------------------- |
-| `runtime/eval` | Trampoline-based CBV evaluator, de Bruijn indexed array environment |
-| `runtime/vm`   | Bytecode VM with tail-call optimization, allocation tracking        |
+| Package        | Responsibility                                                                 |
+| -------------- | ------------------------------------------------------------------------------ |
+| `runtime/eval` | Shared value types (Closure, ConVal, ThunkVal, PrimVal, etc.) and CapEnv       |
+| `runtime/vm`   | Bytecode compiler (Core IR → bytecode) and VM with TCO and allocation tracking |
 
 ### host — Go integration
 
@@ -137,11 +144,18 @@ infra/span   ──→ (isolated)
 | ------------ | ----------------------------------------------- |
 | `app/engine` | Compilation pipeline, runtime assembly, sandbox |
 
+### root — public Go API
+
+| Package        | Responsibility                                          |
+| -------------- | ------------------------------------------------------- |
+| `gicel` (root) | Public facade: Engine, Runtime, RunSandbox, Pack, Value |
+
 ## Invariants
 
 - `lang/` has no imports from `compiler/`, `runtime/`, `host/`, or `app/`.
 - `infra/` has no imports from any other `internal/` package.
-- `compiler/parse` depends only on `lang/syntax` and `infra/`.
+- `compiler/parse` depends on `lang/{syntax,types}` and `infra/`.
 - `runtime/eval` and `runtime/vm` have no imports from `compiler/` or `host/`.
 - `host/registry` breaks the potential cycle between `host/stdlib` and `runtime/eval`.
-- `app/engine` is the only package that imports from all lower layers.
+- `app/engine` is the only internal package that imports from all lower layers.
+- `gicel` (root) is the public entry point; it wraps `app/engine` and re-exports key types.

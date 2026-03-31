@@ -30,7 +30,7 @@ case m { Just (Just (Just True)) => "deep"; _ => "other" }
 
 ### Literal Patterns
 
-Integer, string, and rune literals can be used directly in case patterns:
+Integer, double, string, and rune literals can be used directly in case patterns:
 
 ```
 import Prelude
@@ -156,7 +156,7 @@ main := force suspended
 
 ### Semicolons inside braces
 
-`;` and newlines are both valid at the **top level**. Inside braces (`do { }`, `case { }`, GADT), semicolons are **required** separators.
+`;` and newlines are both valid separators at all levels -- top-level declarations and inside braces (`do { }`, `case { }`, GADT).
 
 ```
 -- Wrong: parser reads `[] 0` as application
@@ -205,4 +205,4 @@ Programs using `get`/`put`, `print`, etc. require the host to supply the corresp
 
 ### `Effect {} a` is pure
 
-Empty row indices require no capabilities. Essentially pure, but still in the Computation type (via `Effect r a := Computation r r a`).
+Empty row indices require no capabilities. Essentially pure, but still in the Computation type (via `Effect r a := Computation Zero r r a`).

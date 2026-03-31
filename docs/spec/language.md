@@ -93,7 +93,7 @@ step := \x. do { ... }
 helper := do { ... }
 ```
 
-This rule does not apply to value-typed monads. `List`, `Maybe`, and other types that happen to support `do`-notation via `IxMonad` are values, not computations — they can be bound freely at the top level:
+This rule does not apply to value-typed monads. `List`, `Maybe`, and other types that happen to support `do`-notation via `GIMonad` are values, not computations — they can be bound freely at the top level:
 
 ```
 -- OK: List is a value type
@@ -105,13 +105,14 @@ triples := do { x <- range 1 10; ... }
 The two primitive operations that define the algebra of computation.
 
 ```
-pure : a -> Computation r r a
-bind: Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
+pure : \a (r: Row) g. a -> Computation @g r r a
+bind : \a b g1 g2 g3 (r1: Row) (r2: Row) (r3: Row).
+         Computation @g1 r1 r2 a -> (a -> Computation @g2 r2 r3 b) -> Computation @g3 r1 r3 b
 ```
 
-`pure` lifts a value into a computation that preserves capability state (identity transition).
+`pure` lifts a value into a computation that preserves capability state (identity transition). The grade parameter `g` is inferred.
 
-`bind` sequences two computations, composing their state transitions. The post-state of the first must match the pre-state of the second.
+`bind` sequences two computations, composing their state transitions and grades. The post-state of the first must match the pre-state of the second. Grade `g3` is resolved to `GradeCompose g1 g2` when used through `GIMonad`.
 
 Together, these operations form an **Atkey parameterized monad** (Atkey, JFP 2009) and must satisfy three laws:
 
@@ -123,7 +124,7 @@ bind (bind m f) g     =  bind m (\a. bind (f a) g)             -- associativity
 
 These laws are verified by construction in the evaluator, not by the type checker.
 
-`pure` and `bind` are not reserved keywords. They are first-class built-in functions that can be partially applied and passed to higher-order functions (e.g. `map pure xs`). When fully applied, the checker optimizes them to direct Core nodes (`Pure`, `Bind`) for correct capability environment threading. The `IxMonad` type class provides a generalized interface; the `Computation` instance delegates to these built-in functions.
+`pure` and `bind` are not reserved keywords. They are first-class built-in functions that can be partially applied and passed to higher-order functions (e.g. `map pure xs`). When fully applied, the checker optimizes them to direct Core nodes (`Pure`, `Bind`) for correct capability environment threading. The `GIMonad` type class provides a generalized interface; the `Computation` instance delegates to these built-in functions.
 
 #### Relationship to monad variants
 
@@ -141,8 +142,8 @@ GICEL uses the Atkey specialization because capability environments are _state t
 The two operations that mediate between computations and values in the opposite direction to `pure`.
 
 ```
-thunk: Computation pre post a -> Thunk pre post a
-force: Thunk pre post a -> Computation pre post a
+thunk: Computation @g pre post a -> Thunk @g pre post a
+force: Thunk @g pre post a -> Computation @g pre post a
 ```
 
 `thunk` suspends a computation without executing it, producing a first-class value. This is the CBPV `U` (thunk) operator.
@@ -220,22 +221,22 @@ Kind variables are introduced with explicit annotation: `\(k: Kind). ...`. Kind 
 ### 2.2.4 Computation Type
 
 ```
-Computation: Row -> Row -> Type -> Type
+Computation: g -> Row -> Row -> Type -> Type
 ```
 
-The sole computation classifier. First argument: pre-state (required capability environment). Second argument: post-state (resulting capability environment). Third argument: result type.
+The sole computation classifier. First argument: grade (from a `GradeAlgebra` instance). Second argument: pre-state (required capability environment). Third argument: post-state (resulting capability environment). Fourth argument: result type.
 
-The type alias `Effect r a := Computation r r a` denotes computations that preserve their capability state.
+The type alias `Effect r a := Computation Zero r r a` denotes computations that preserve their capability state with zero grade.
 
 ### 2.2.5 Thunk Type
 
 ```
-Thunk: Row -> Row -> Type -> Type
+Thunk: g -> Row -> Row -> Type -> Type
 ```
 
-The type of suspended computations. `Thunk pre post a` is a value that, when forced, behaves as `Computation pre post a`.
+The type of suspended computations. `Thunk @g pre post a` is a value that, when forced, behaves as `Computation @g pre post a`.
 
-The type alias `Suspended r a := Thunk r r a` denotes suspended computations that preserve their capability state, mirroring `Effect` for `Computation`.
+The type alias `Suspended r a := Thunk Zero r r a` denotes suspended computations that preserve their capability state with zero grade, mirroring `Effect` for `Computation`.
 
 ### 2.2.6 Record Type
 
@@ -305,14 +306,14 @@ Type, row, and kind equivalence. The equality theory includes:
 ## 3.1 Keywords
 
 ```
-case  do  form  type  impl  infixl  infixr  infixn  import  if  then  else  as  assumption
+case  do  form  lazy  type  impl  infixl  infixr  infixn  import  if  then  else  as  assumption
 ```
 
-Keywords are listed above (14 total). Note that `pure`, `bind`, `thunk`, `force`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied). `as` and `assumption` **are** keywords (reserved by the lexer).
+Keywords are listed above (15 total). Note that `pure`, `bind`, `thunk`, `force`, `rec`, and `fix` are **not** keywords — they are ordinary identifiers with built-in meaning. `lazy` introduces lazy co-data declarations where constructor arguments are implicitly wrapped in `Thunk`. `pure`, `bind`, `rec`, and `fix` are first-class functions (can be partially applied and passed to higher-order functions); `thunk` and `force` are term formers (must be fully applied). `as` and `assumption` **are** keywords (reserved by the lexer).
 
 `\` is used for both lambda (`\x. e`) and universal quantification (`\a. T`). Both use `.` as the body separator. The parser disambiguates by context (expression vs. type). Multi-parameter lambdas are supported: `\x y. e` desugars to `\x. \y. e`.
 
-`;` and newline are interchangeable as declaration/statement separators at the top level. Inside braces (`do`, `case`, GADT bodies), semicolons are required — newlines alone do not act as separators.
+`;` and newline are interchangeable as declaration/statement separators at all levels — both top-level declarations and inside braces (`do`, `case`, GADT bodies).
 
 ## 3.2 Identifiers
 
@@ -396,9 +397,10 @@ Kind      ::= 'Type' | 'Row' | 'Constraint' | 'Label' | 'Kind'
 Precedence of type operators (loosest to tightest):
 
 1. `\ ... .`
-2. `=>` (right-associative)
-3. `->` (right-associative)
-4. Type application (left-associative)
+2. `~` (type equality constraint, non-associative)
+3. `=>` (constraint qualification, right-associative)
+4. `->` (function arrow, right-associative)
+5. Type application by juxtaposition (left-associative)
 
 ## 3.6 Expression Syntax
 
@@ -480,14 +482,16 @@ Pattern   ::= Con PatArg*                                    -- constructor
             | Var                                            -- variable binding
             | '_'                                            -- wildcard
             | IntLit                                         -- integer literal
+            | DoubleLit                                      -- double literal
             | StringLit                                      -- string literal
             | RuneLit                                        -- rune literal
+            | '[' Pattern (',' Pattern)* ']'                 -- list pattern
             | '(' Pattern ')'                                -- parenthesized
             | '(' Pattern ',' Pattern (',' Pattern)* ')'     -- tuple pattern
             | '(' ')'                                        -- unit pattern
             | '{' FieldPat (',' FieldPat)* '}'               -- record pattern (open)
 
-PatArg    ::= Var | '_' | Con | IntLit | StringLit | RuneLit
+PatArg    ::= Var | '_' | Con | IntLit | DoubleLit | StringLit | RuneLit
             | '(' Pattern ')'                                -- nested pattern (parenthesized)
 
 FieldPat  ::= LowerName ':' Pattern
@@ -501,7 +505,7 @@ case xs { Cons Nothing rest => rest; Cons (Just x) rest => rest; Nil => Nil }
 case m { Just (Just (Just True)) => "deep"; _ => "other" }
 ```
 
-Literal patterns match by equality on `Int`, `String`, and `Rune`:
+Literal patterns match by equality on `Int`, `Double`, `String`, and `Rune`. List patterns `[p1, p2, p3]` desugar to `Cons p1 (Cons p2 (Cons p3 Nil))`:
 
 ```
 case n { 0 => "zero"; 1 => "one"; _ => "other" }
@@ -529,7 +533,8 @@ DeclBind  ::= Var '::' Type ';' Var ':=' Expr               -- annotated binding
 
 DeclData  ::= 'form' ConName ':=' '\' TyBinder+ '.' DataBody          -- parametric
             | 'form' ConName ':=' DataBody                              -- non-parametric
-            | 'form' ConName TyBinder* DataBody                         -- class-like (no :=)
+            | 'lazy' ConName ':=' '\' TyBinder+ '.' DataBody           -- lazy co-data (parametric)
+            | 'lazy' ConName ':=' DataBody                              -- lazy co-data (non-parametric)
 
 DataBody  ::= '{' ConField (';' ConField)* '}'                         -- GADT or class-like body
             | ConDecl ('|' ConDecl)*                                    -- ADT shorthand
@@ -576,26 +581,26 @@ form Expr := \a. {
 }
 ```
 
-**Class-like** — braces with lowercase-named fields declaring method signatures. No `:=` before the body. Parameters appear after the name, not in a lambda:
+**Class-like** — braces with lowercase-named fields declaring method signatures. Uses `:=` with lambda parameters and optional superclass constraints before the brace body:
 
 ```
-form Eq a {
+form Eq := \a. {
   eq: a -> a -> Bool
 }
 
-form Functor (f: Type -> Type) {
+form Functor := \(f: Type -> Type). {
   fmap: \a b. (a -> b) -> f a -> f b
 }
 ```
 
-Superclass constraints precede the body:
+Superclass constraints follow the lambda parameters:
 
 ```
-form Ord a Eq a => {
+form Ord := \a. Eq a => {
   compare: a -> a -> Ordering
 }
 
-form Applicative (f: Type -> Type) Functor f => {
+form Applicative := \(f: Type -> Type). Functor f => {
   wrap: \a. a -> f a;
   ap:   \a b. f (a -> b) -> f a -> f b
 }
@@ -715,7 +720,7 @@ Built-in operators:
 
 ```
 Maybe      : Type -> Type
-Computation: Row -> Row -> Type -> Type
+Computation: g -> Row -> Row -> Type -> Type   (grade-parametric)
 Record     : Row -> Type
 Eq         : Type -> Constraint
 ```
@@ -877,7 +882,7 @@ eval := \e. case e {
 -- IntLit is irrelevant: Expr Int does not unify with Expr Bool
 ```
 
-For literal patterns on `Int`, `String`, and `Rune`, the type's value space is open (cannot be enumerated), so a wildcard or variable catch-all is always required. Omitting the catch-all produces a non-exhaustive match error.
+For literal patterns on `Int`, `Double`, `String`, and `Rune`, the type's value space is open (cannot be enumerated), so a wildcard or variable catch-all is always required. Omitting the catch-all produces a non-exhaustive match error.
 
 **Conservative fallbacks.** The exhaustiveness checker assumes "covered" (no warning) in two cases where precise analysis is impractical: (1) pattern depth exceeding the internal limit (32 levels of nesting), and (2) opaque types whose constructors are not visible to the checker. In both cases, a non-exhaustive match that escapes static checking will produce a runtime pattern-match error. This is a defense-in-depth design: the static checker is best-effort, and the runtime provides a safety net.
 
@@ -1012,33 +1017,39 @@ Functor ─┐
           ├──→ Traversable
 Foldable ┘
 
-IxMonad   (independent — indexed monadic interface)
-Packed    (independent — collection packing)
+GradeAlgebra   (independent — grade lattice, Core)
+UsageSemiring  (independent — value-level grade arithmetic, Core)
+GIMonad        (independent — graded indexed monad, requires GradeAlgebra, Core)
+Packed         (independent — collection packing)
+Read           (independent)
+Bifunctor      (independent)
 
 Eq ──→ Num ──→ Div   (in Prelude)
 ```
 
-Type classes (Core + Prelude):
+Type classes (3 Core + 18 Prelude = 21 total):
 
-| Class         | Parameters                       | Key Methods                                                       |
-| ------------- | -------------------------------- | ----------------------------------------------------------------- |
-| `IxMonad`     | `m: Row -> Row -> Type -> Type`  | `ixpure`, `ixbind` (Core)                                         |
-| `Eq`          | `a`                              | `eq: a -> a -> Bool`                                              |
-| `Ord`         | `a` (requires Eq)                | `compare: a -> a -> Ordering`                                     |
-| `Num`         | `a` (requires Eq)                | `add`, `sub`, `mul`, `negate`                                     |
-| `Div`         | `a` (requires Num)               | `div: a -> a -> a`                                                |
-| `Show`        | `a`                              | `show: a -> String`                                               |
-| `Semigroup`   | `a`                              | `append: a -> a -> a`                                             |
-| `Monoid`      | `a` (requires Semigroup)         | `empty: a`                                                        |
-| `Functor`     | `f : Type -> Type`               | `fmap: \a b. (a -> b) -> f a -> f b`                              |
-| `Foldable`    | `t`                              | `foldr: \a b. (a -> b -> b) -> b -> t a -> b`                     |
-| `Applicative` | `f` (requires Functor)           | `wrap: \a. a -> f a`, `ap: \a b. f (a -> b) -> f a -> f b`        |
-| `Alternative` | `f` (requires Applicative)       | `none: \a. f a`, `alt: \a. f a -> f a -> f a`                     |
-| `Monad`       | `m: Type -> Type`                | `mpure: \a. a -> m a`, `mbind: \a b. m a -> (a -> m b) -> m b`    |
-| `Traversable` | `t` (requires Functor, Foldable) | `traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Packed`      | `c`, `e`                         | `pack: Slice e -> c`, `unpack: c -> Slice e`                      |
-| `FromList`    | `l` (assoc type: `Elem l`)       | `fromList: List (Elem l) -> l`                                    |
-| `ToList`      | `l` (requires FromList)          | `toList: l -> List (Elem l)`                                      |
+| Class           | Parameters                                       | Key Methods                                                       |
+| --------------- | ------------------------------------------------ | ----------------------------------------------------------------- |
+| `GradeAlgebra`  | `(g: Kind)`                                      | assoc types: `GradeJoin`, `GradeCompose`, `GradeDrop` (Core)      |
+| `UsageSemiring` | `(s: Type)`                                      | `zero`, `one`, `plus`, `mult` (Core)                              |
+| `GIMonad`       | `(g: Kind) (m: g -> Row -> Row -> Type -> Type)` | `gipure`, `gibind` (Core)                                         |
+| `Eq`            | `a`                                              | `eq: a -> a -> Bool`                                              |
+| `Ord`           | `a` (requires Eq)                                | `compare: a -> a -> Ordering`                                     |
+| `Num`           | `a` (requires Eq)                                | `add`, `sub`, `mul`, `negate`                                     |
+| `Div`           | `a` (requires Num)                               | `div: a -> a -> a`                                                |
+| `Show`          | `a`                                              | `show: a -> String`                                               |
+| `Semigroup`     | `a`                                              | `append: a -> a -> a`                                             |
+| `Monoid`        | `a` (requires Semigroup)                         | `empty: a`                                                        |
+| `Functor`       | `f : Type -> Type`                               | `fmap: \a b. (a -> b) -> f a -> f b`                              |
+| `Foldable`      | `t`                                              | `foldr: \a b. (a -> b -> b) -> b -> t a -> b`                     |
+| `Applicative`   | `f` (requires Functor)                           | `wrap: \a. a -> f a`, `ap: \a b. f (a -> b) -> f a -> f b`        |
+| `Alternative`   | `f` (requires Applicative)                       | `none: \a. f a`, `alt: \a. f a -> f a -> f a`                     |
+| `Monad`         | `m: Type -> Type`                                | `mpure: \a. a -> m a`, `mbind: \a b. m a -> (a -> m b) -> m b`    |
+| `Traversable`   | `t` (requires Functor, Foldable)                 | `traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)` |
+| `Packed`        | `c`, `e`                                         | `pack: Slice e -> c`, `unpack: c -> Slice e`                      |
+| `FromList`      | `l` (assoc type: `Elem l`)                       | `fromList: List (Elem l) -> l`                                    |
+| `ToList`        | `l` (requires FromList)                          | `toList: l -> List (Elem l)`                                      |
 
 `Num` and `Div` are type classes with instances for both `Int` and `Double`. Arithmetic operators `+`, `-`, `*` dispatch through `Num`; `/` dispatches through `Div`. Integer overflow wraps silently using Go's `int64` two's-complement semantics. Division by zero is a runtime error.
 
@@ -1331,8 +1342,8 @@ The post-state of each step must match the pre-state of the next — ensured by 
 Effects are encoded as capability row patterns, not monad transformers:
 
 ```
-type Effect :: Type := \r a. Computation r r a     -- state-preserving computation
-type Suspended :: Type := \r a. Thunk r r a        -- state-preserving suspension
+type Effect :: Type := \r a. Computation Zero r r a     -- state-preserving, zero-grade computation
+type Suspended :: Type := \r a. Thunk Zero r r a        -- state-preserving, zero-grade suspension
 
 -- Maybe as effect: fromMaybe uses the fail capability
 fromMaybe :: \a r. Maybe a -> Effect { fail: () | r } a
@@ -1346,27 +1357,29 @@ put :: \s r. s -> Effect { state: s | r } ()
 
 # 10. Core IR
 
-The Core intermediate representation has **17 formers**:
+The Core intermediate representation has **19 formers**:
 
-| Former         | Category     | Description                    |
-| -------------- | ------------ | ------------------------------ |
-| `Var`          | Variable     | Variable reference             |
-| `Lam`          | Function     | Lambda abstraction             |
-| `App`          | Function     | Function application           |
-| `TyLam`        | Polymorphism | Type abstraction               |
-| `TyApp`        | Polymorphism | Type application               |
-| `Con`          | Data         | Constructor application        |
-| `Case`         | Data         | Pattern matching               |
-| `Fix`          | Binding      | Fixed-point combinator         |
-| `Pure`         | Computation  | Lift value to computation (F)  |
-| `Bind`         | Computation  | Sequence computations          |
-| `Thunk`        | Computation  | Suspend computation (U)        |
-| `Force`        | Computation  | Resume thunked computation     |
-| `PrimOp`       | Primitive    | Host-provided operation        |
-| `Lit`          | Literal      | Integer, String, Rune literals |
-| `RecordLit`    | Record       | Record construction            |
-| `RecordProj`   | Record       | Field projection               |
-| `RecordUpdate` | Record       | Field update                   |
+| Former         | Category     | Description                                     |
+| -------------- | ------------ | ----------------------------------------------- |
+| `Var`          | Variable     | Variable reference                              |
+| `Lam`          | Function     | Lambda abstraction                              |
+| `App`          | Function     | Function application                            |
+| `TyLam`        | Polymorphism | Type abstraction                                |
+| `TyApp`        | Polymorphism | Type application                                |
+| `Con`          | Data         | Constructor application                         |
+| `Case`         | Data         | Pattern matching                                |
+| `Fix`          | Binding      | Fixed-point combinator                          |
+| `Pure`         | Computation  | Lift value to computation (F)                   |
+| `Bind`         | Computation  | Sequence computations                           |
+| `Thunk`        | Computation  | Suspend computation (U)                         |
+| `Force`        | Computation  | Resume thunked computation                      |
+| `Merge`        | Computation  | SMC parallel composition of computations        |
+| `PrimOp`       | Primitive    | Host-provided operation                         |
+| `Lit`          | Literal      | Integer, Double, String, Rune literals          |
+| `RecordLit`    | Record       | Record construction                             |
+| `RecordProj`   | Record       | Field projection                                |
+| `RecordUpdate` | Record       | Field update                                    |
+| `Error`        | Recovery     | Error placeholder (never reaches the evaluator) |
 
 Type classes, GADTs, DataKinds, modules, and constraints all elaborate to these formers — no additional Core nodes are needed.
 
@@ -1376,27 +1389,28 @@ Type classes, GADTs, DataKinds, modules, and constraints all elaborate to these 
 
 ## 11.1 Strategy
 
-Strict call-by-value (CBV) evaluation with an environment-based evaluator.
+Strict call-by-value (CBV) evaluation with a bytecode VM (flat fetch-decode-execute cycle, replacing the earlier tree-walking evaluator).
 
 ## 11.2 Runtime Values
 
 | Value         | Description                                                                      |
 | ------------- | -------------------------------------------------------------------------------- |
 | `HostVal`     | Opaque Go values (`int64`, `string`, `rune`, etc.)                               |
-| `Closure`     | Functions with captured environment                                              |
+| `VMClosure`   | Bytecode functions with captured locals array                                    |
 | `ConVal`      | Constructor applications                                                         |
-| `ThunkVal`    | Suspended computations                                                           |
+| `VMThunkVal`  | Suspended bytecode computations                                                  |
 | `PrimVal`     | Partially or fully applied primitive operations (curried until arity is reached) |
 | `RecordVal`   | Record values (sorted `[]RecordField` slice)                                     |
 | `IndirectVal` | Forward-reference cell for mutually-recursive top-level bindings                 |
-| `bounceVal`   | Internal trampoline value for TCO (not user-observable)                          |
 
 ## 11.3 Defense-in-Depth Limits
 
-The evaluator enforces multiple layers of protection:
+The VM enforces multiple layers of protection:
 
-- **Step limit**: maximum number of evaluation steps (Engine default: 1,000,000; CLI/Sandbox default: 100,000)
-- **Depth limit**: maximum call stack depth (Engine default: 1,000; CLI default: 10,000). With Bind-chain TCO, sequential do-blocks do not consume depth; this limit applies only to non-tail recursive closure calls.
+- **Step limit**: maximum number of evaluation steps (Engine default: 1,000,000; CLI default: 100,000; Sandbox default: 100,000)
+- **Depth limit**: maximum call stack depth (Engine default: 1,000; CLI default: 10,000; Sandbox default: 100)
+- **Nesting limit**: maximum structural nesting depth (CLI default: 512; Sandbox default: 256)
+- **Allocation limit**: maximum cumulative allocation bytes (CLI default: 100 MiB; Sandbox default: 10 MiB)
 - **Context cancellation**: Go `context.Context` integration for timeout
 - **Recursion guard**: recursive definitions rejected unless `EnableRecursion()` is called
 
@@ -1477,7 +1491,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 
 The Prelude is split into two parts:
 
-- **Core** (not replaceable): language-essential definitions — `IxMonad` class, `Computation` instance, `Effect` alias, `Suspended` alias, `seq` combinator, `Lift` type alias
+- **Core** (not replaceable): language-essential definitions — `GradeAlgebra` class, `UsageSemiring` class, `GIMonad` class, `Trivial` grade, `Computation` instance, `Effect` alias, `Suspended` alias, `Lift` type alias, `seq` combinator, `merge`/`(***)` parallel composition, `dag`/`Gate` dagger
 - **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.
@@ -1646,8 +1660,11 @@ form Maybe := \a. Just a | Nothing
 form List := \a. Cons a (List a) | Nil
 form Ordering := LT | EQ | GT
 form Result := \e a. Ok a | Err e
+form Mult := Zero | Linear | Affine | Unrestricted
 
-type Effect :: Type := \r a. Computation r r a
+type Effect :: Type := \r a. Computation Zero r r a
+type Suspended :: Type := \r a. Thunk Zero r r a
+type Lift := \(m: Type -> Type) (g: Kind) (r1: Row) (r2: Row) a. m a
 
 fst :: \a b. (a, b) -> a
 snd :: \a b. (a, b) -> b
@@ -1808,7 +1825,7 @@ Nested patterns are supported: `List (Maybe a)` matches `List (Maybe Int)`, bind
 
 **Core IR**: Fully reduced at compile time. No `TyFamilyApp` survives into Core. No runtime representation.
 
-**Keyword count**: 14. `type` is reused; `::` after the name is the disambiguator.
+**Keyword count**: 15. `type` is reused; `::` after the name is the disambiguator.
 
 ## 17.2 Multiplicity Annotations
 
@@ -1837,18 +1854,19 @@ Multiplicity annotations are checked by the type system but do not affect runtim
 
 ### 17.2.1 User-Defined Grade Algebras
 
-The `GradeAlgebra` class (defined in Prelude) enables user-defined grade lattices:
+The `GradeAlgebra` class (defined in Core) enables user-defined grade lattices:
 
 ```
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
+  type GradeCompose :: g -> g -> g;
   type GradeDrop :: g
 }
 ```
 
-`GradeJoin` is a binary type family: `GradeJoin(a, b)` computes the join (least upper bound) of two grades. Grade boundary enforcement checks `GradeJoin(Drop, grade) ~ grade` — a field is preservable iff joining the bottom element leaves the grade unchanged.
+`GradeJoin` computes the join (least upper bound) of two grades. `GradeCompose` computes the sequential composition of two grades (used by `bind` to compose grade parameters). `GradeDrop` is the identity element. Grade boundary enforcement checks `GradeJoin(Drop, grade) ~ grade` — a field is preservable iff joining the bottom element leaves the grade unchanged.
 
-The standard `Mult` algebra is provided by Prelude. Users can define custom algebras (e.g., security levels):
+The standard `Mult` algebra is provided by Prelude. `GradeAlgebra` is defined in Core (auto-imported). Users can define custom algebras (e.g., security levels):
 
 ```
 form Level := { Public: Level; Secret: Level }

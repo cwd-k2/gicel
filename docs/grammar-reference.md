@@ -47,7 +47,6 @@
 | `\`   | Lambda / universal quantification                                               |
 | `_`   | Wildcard pattern                                                                |
 | `~`   | Type equality constraint                                                        |
-| `-\|` | Right-associative type application (`F -\| A -\| B` = `F (A B)`)               |
 | `@`   | Explicit type application                                                       |
 | `\|`  | Constructor / row tail separator                                                |
 | `;`   | Declaration / statement separator                                               |
@@ -107,6 +106,23 @@ form List a := Cons a (List a) | Nil
 form Dict (c: Constraint) := MkDict c    -- Constraint-kinded param
 form Evidence (c: Constraint) a := MkEvidence c a
 ```
+
+### Lazy Co-Data Declaration
+
+```
+lazy Name := [\param*.] {
+  Con: TypeExpr;
+  Con: TypeExpr
+}
+```
+
+The `lazy` keyword introduces co-data types where constructor arguments are implicitly wrapped in `Thunk`. Users write normal types; the runtime handles suspension transparently.
+
+```
+lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a }
+```
+
+Pattern matching on lazy constructors auto-forces thunked fields.
 
 ### Data Type (GADT-style full constructor types)
 
@@ -250,7 +266,7 @@ type Name param* := TypeExpr
 Example:
 
 ```
-type Effect r a := Computation r r a
+type Effect r a := Computation Zero r r a
 ```
 
 ### Type Family (Closed)
@@ -388,11 +404,12 @@ infixr Prec Op    -- right-associative
 infixn Prec Op    -- non-associative
 ```
 
-Precedence: 0–9 (default: left-associative, 9). Example:
+Precedence: 0–9 (default: left-associative, 9). The operator must be a symbolic operator (not a lowercase identifier):
 
 ```
-infixl 6 plus
-infixr 5 cons
+infixl 6 +
+infixr 5 <+
+infixr 9 .
 ```
 
 ### Import Declaration
@@ -713,7 +730,7 @@ The `@Grade` suffix annotates a field with a grade. Without annotation, fields a
 { h: Handle @Linear | r }    -- graded field in open row
 ```
 
-The standard grade algebra uses `Mult` (Zero, Linear, Affine, Unrestricted), defined in Prelude via the `GradeAlgebra` class. User-defined grades are supported by implementing `GradeAlgebra` for a custom promoted kind:
+The standard grade algebra uses `Mult` (Zero, Linear, Affine, Unrestricted), defined in Prelude. The `GradeAlgebra` class is defined in Core with three associated type families: `GradeJoin` (join/LUB), `GradeCompose` (sequential composition), and `GradeDrop` (identity). User-defined grades are supported by implementing `GradeAlgebra` for a custom promoted kind:
 
 ```
 form Level := { Public: Level; Secret: Level }
@@ -724,6 +741,7 @@ type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b)
 }
 impl GradeAlgebra Level := {
   type GradeJoin := LevelJoin;
+  type GradeCompose := LevelJoin;
   type GradeDrop := Public
 }
 ```
@@ -797,6 +815,8 @@ _                -- wildcard
 42               -- integer literal pattern
 "hello"          -- string literal pattern
 'a'              -- rune literal pattern
+3.14             -- double literal pattern
+[x, y, z]        -- list pattern (desugars to Cons/Nil)
 Con              -- nullary constructor
 Con x y          -- constructor with arguments
 (Con x y)        -- parenthesized pattern
@@ -806,7 +826,7 @@ Con x y          -- constructor with arguments
 
 ### Literal Patterns
 
-Integer, string, and rune literals can appear as case patterns. They match by equality:
+Integer, double, string, and rune literals can appear as case patterns. List patterns (`[p1, p2]`) desugar to `Cons`/`Nil` chains. They match by equality:
 
 ```
 case n { 0 => "zero"; 1 => "one"; _ => "other" }
@@ -843,9 +863,10 @@ case m { Just (Just (Just True)) => "deep"; _ => "other" }
 | Level | Form        | Associativity |
 | ----- | ----------- | ------------- |
 | 0     | `\ ... .`   | —             |
-| 1     | `=>`        | right         |
-| 2     | `->`        | right         |
-| 3     | Application | left          |
+| 1     | `~`         | none          |
+| 2     | `=>`        | right         |
+| 3     | `->`        | right         |
+| 4     | Application | left          |
 | —     | Atoms       | —             |
 
 ---
@@ -856,30 +877,30 @@ Declarations are separated by newlines or semicolons at the top level. Both sepa
 
 At nesting depth 0, a new declaration begins when the next token (preceded by a newline or semicolon) is one of:
 
-`lowercase` | `uppercase` | `form` | `type` | `infixl` | `infixr` | `infixn` | `impl` | `import` | `(op)` (operator definition)
+`lowercase` | `uppercase` | `form` | `lazy` | `type` | `infixl` | `infixr` | `infixn` | `impl` | `import` | `(op)` (operator definition)
 
-Inside braces (`do`, `case`, block expressions, GADT declarations), semicolons are **required** separators between statements, branches, or constructors. Newlines alone do not act as separators within braces.
+Inside braces (`do`, `case`, block expressions, GADT declarations), both semicolons and newlines are accepted as separators between statements, branches, or constructors.
 
 ---
 
 ## Built-in Types
 
-| Type                     | Kind                      | Description                |
-| ------------------------ | ------------------------- | -------------------------- |
-| `Computation pre post a` | `Row → Row → Type → Type` | Effectful computation      |
-| `Thunk pre post a`       | `Row → Row → Type → Type` | Suspended computation      |
-| `Int`                    | `Type`                    | 64-bit integer             |
-| `Double`                 | `Type`                    | 64-bit floating point      |
-| `Byte`                   | `Type`                    | 8-bit unsigned integer     |
-| `String`                 | `Type`                    | Unicode string             |
-| `Rune`                   | `Type`                    | Unicode code point         |
-| `Slice a`                | `Type → Type`             | Contiguous immutable array |
-| `Array a`                | `Type → Type`             | Mutable array              |
-| `Ref a`                  | `Type → Type`             | Mutable reference cell     |
-| `Map k v`                | `Type → Type → Type`      | Ordered immutable map      |
-| `Set a`                  | `Type → Type`             | Ordered immutable set      |
-| `MMap k v`               | `Type → Type → Type`      | Mutable ordered map        |
-| `MSet a`                 | `Type → Type`             | Mutable ordered set        |
+| Type                        | Kind                          | Description                  |
+| --------------------------- | ----------------------------- | ---------------------------- |
+| `Computation @g pre post a` | `g → Row → Row → Type → Type` | Graded effectful computation |
+| `Thunk @g pre post a`       | `g → Row → Row → Type → Type` | Graded suspended computation |
+| `Int`                       | `Type`                        | 64-bit integer               |
+| `Double`                    | `Type`                        | 64-bit floating point        |
+| `Byte`                      | `Type`                        | 8-bit unsigned integer       |
+| `String`                    | `Type`                        | Unicode string               |
+| `Rune`                      | `Type`                        | Unicode code point           |
+| `Slice a`                   | `Type → Type`                 | Contiguous immutable array   |
+| `Array a`                   | `Type → Type`                 | Mutable array                |
+| `Ref a`                     | `Type → Type`                 | Mutable reference cell       |
+| `Map k v`                   | `Type → Type → Type`          | Ordered immutable map        |
+| `Set a`                     | `Type → Type`                 | Ordered immutable set        |
+| `MMap k v`                  | `Type → Type → Type`          | Mutable ordered map          |
+| `MSet a`                    | `Type → Type`                 | Mutable ordered set          |
 
 ---
 
@@ -910,6 +931,8 @@ infixl 4 *>        -- Applicative sequence
 infixl 4 <*        -- Applicative discard
 infixn 4 ==  /=  <  >  <=  >=
 infixr 5 <+        -- list cons (Prelude)
+infixr 5 +>        -- stream cons (Data.Stream)
+infixr 3 ***       -- parallel composition (Core)
 infixr 3 &&        -- logical AND
 infixl 3 <|>       -- Alternative choice
 infixr 2 ||        -- logical OR
@@ -923,10 +946,12 @@ infixr 1 <=<       -- Kleisli right-to-left
 infixr 0 $         -- low-precedence apply
 ```
 
-### Type Classes (20: 1 in Core, 19 in Prelude)
+### Type Classes (21: 3 in Core, 18 in Prelude)
 
 ```
-IxMonad                           (Core)
+GradeAlgebra                      (Core)
+UsageSemiring                     (Core)
+GIMonad (requires GradeAlgebra)   (Core)
 
 Eq ──→ Ord
 Eq ──→ Num ──→ Div
@@ -941,31 +966,31 @@ Foldable ┘
 Bifunctor
 Packed
 FromList ──→ ToList
-GradeAlgebra
 ```
 
-| Class          | Key Methods                                               |
-| -------------- | --------------------------------------------------------- |
-| `IxMonad`      | `ixpure`, `ixbind` (Core)                                 |
-| `Eq`           | `eq: a -> a -> Bool`                                      |
-| `Ord`          | `compare: a -> a -> Ordering`                             |
-| `Num`          | `add`, `sub`, `mul`, `negate`                             |
-| `Div`          | `div: a -> a -> a`                                        |
-| `Show`         | `show: a -> String`                                       |
-| `Read`         | `readStr: String -> Maybe a`                              |
-| `Semigroup`    | `append: a -> a -> a`                                     |
-| `Monoid`       | `empty: a`                                                |
-| `Functor`      | `fmap: (a -> b) -> f a -> f b`                            |
-| `Foldable`     | `foldr: (a -> b -> b) -> b -> t a -> b`                   |
-| `Applicative`  | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`          |
-| `Alternative`  | `none: f a`, `alt: f a -> f a -> f a`                     |
-| `Monad`        | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`      |
-| `Traversable`  | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)` |
-| `Bifunctor`    | `bimap: (a -> c) -> (b -> d) -> f a b -> f c d`           |
-| `Packed`       | `pack: Slice e -> c`, `unpack: c -> Slice e`              |
-| `FromList`     | `fromList: List (Elem l) -> l` (assoc type: `Elem`)       |
-| `ToList`       | `toList: l -> List (Elem l)`                              |
-| `GradeAlgebra` | `gradeJoin`, `gradeMeet`, `gradeBottom`, `gradeTop`       |
+| Class           | Key Methods                                                  |
+| --------------- | ------------------------------------------------------------ |
+| `GradeAlgebra`  | assoc types: `GradeJoin`, `GradeCompose`, `GradeDrop` (Core) |
+| `UsageSemiring` | `zero`, `one`, `plus`, `mult` (Core)                         |
+| `GIMonad`       | `gipure`, `gibind` (Core)                                    |
+| `Eq`            | `eq: a -> a -> Bool`                                         |
+| `Ord`           | `compare: a -> a -> Ordering`                                |
+| `Num`           | `add`, `sub`, `mul`, `negate`                                |
+| `Div`           | `div: a -> a -> a`                                           |
+| `Show`          | `show: a -> String`                                          |
+| `Read`          | `read: String -> Maybe a`                                    |
+| `Semigroup`     | `append: a -> a -> a`                                        |
+| `Monoid`        | `empty: a`                                                   |
+| `Functor`       | `fmap: (a -> b) -> f a -> f b`                               |
+| `Foldable`      | `foldr: (a -> b -> b) -> b -> t a -> b`                      |
+| `Applicative`   | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`             |
+| `Alternative`   | `none: f a`, `alt: f a -> f a -> f a`                        |
+| `Monad`         | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`         |
+| `Traversable`   | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)`    |
+| `Bifunctor`     | `bimap: (a -> c) -> (b -> d) -> f a b -> f c d`              |
+| `Packed`        | `pack: Slice e -> c`, `unpack: c -> Slice e`                 |
+| `FromList`      | `fromList: List (Elem l) -> l` (assoc type: `Elem`)          |
+| `ToList`        | `toList: l -> List (Elem l)`                                 |
 
 ---
 

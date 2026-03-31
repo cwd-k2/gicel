@@ -47,8 +47,10 @@ No `of` keyword. Branches separated by `;`. Patterns:
 x                              -- variable binding
 _                              -- wildcard
 42                             -- integer literal
+3.14                           -- double literal
 "hello"                        -- string literal
 'a'                            -- rune literal
+[x, y, z]                      -- list literal pattern (desugars to Cons/Nil)
 Con                            -- nullary constructor
 Con x y                        -- constructor with arguments
 Con (Just x) y                 -- nested constructor (parens for multi-arg)
@@ -153,8 +155,10 @@ bind comp (\x. body)           -- explicit monadic bind
 | Level | Form        | Associativity |
 | ----- | ----------- | ------------- |
 | 0     | `\ ... .`   | --            |
-| 1     | `=>` / `->` | right         |
-| 2     | Application | left          |
+| 1     | `~`         | none          |
+| 2     | `=>`        | right         |
+| 3     | `->`        | right         |
+| 4     | Application | left          |
 | --    | Atoms       | --            |
 
 ---

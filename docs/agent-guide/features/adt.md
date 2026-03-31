@@ -70,6 +70,22 @@ case m {
 
 Literal patterns (integers, strings, runes) require a wildcard catch-all since literal types are open.
 
+### Lazy Co-Data Declaration
+
+The `lazy` keyword introduces co-data types where constructor arguments are implicitly wrapped in `Thunk`. This enables lazy evaluation without manual thunking:
+
+```
+lazy Name := \param*. { Con: Type -> ... -> Name param; ... }
+```
+
+Example:
+
+```
+lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a }
+```
+
+In a `lazy` form, the `Stream a` argument to `LCons` is automatically wrapped in `Thunk` at the representation level. Users write `LCons x rest` — the runtime handles suspension transparently. Pattern matching on lazy constructors auto-forces thunked fields.
+
 ### DataKinds Promotion
 
 Data types are automatically promoted to kinds. Nullary constructors become types of that kind:
@@ -92,5 +108,5 @@ type Name := \param*. TypeExpr
 Example:
 
 ```
-type Effect := \r a. Computation r r a
+type Effect := \r a. Computation Zero r r a
 ```

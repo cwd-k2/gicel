@@ -2,23 +2,24 @@
 
 ### Computation pre post a
 
-The core abstraction is `Computation pre post a` -- an Atkey-style parameterized monad (indexed monad). It represents an effectful computation that:
+The core abstraction is `Computation @g pre post a` -- a graded Atkey-style parameterized monad (graded indexed monad). It represents an effectful computation that:
 
+- Is graded by `g` (a type-level grade from a `GradeAlgebra` instance)
 - Requires capability environment `pre` (a row type) at the start
 - Produces capability environment `post` (a row type) at the end
 - Returns a value of type `a`
 
-When `pre` and `post` are the same, the computation preserves its environment. The type alias `Effect r a := Computation r r a` is provided for this common case.
+When `pre` and `post` are the same and the grade is `Zero`, the computation preserves its environment with no grade information. The type alias `Effect r a := Computation Zero r r a` is provided for this common case.
 
 ### pure and bind
 
 ```
-pure :: \a (r: Row). a -> Computation r r a
-bind :: \a b (r1: Row) (r2: Row) (r3: Row).
-          Computation r1 r2 a -> (a -> Computation r2 r3 b) -> Computation r1 r3 b
+pure :: \a (r: Row) g. a -> Computation @g r r a
+bind :: \a b g1 g2 g3 (r1: Row) (r2: Row) (r3: Row).
+          Computation @g1 r1 r2 a -> (a -> Computation @g2 r2 r3 b) -> Computation @g3 r1 r3 b
 ```
 
-These are built-in -- always available without import. Note how `bind` composes pre/post indices: `r1->r2` then `r2->r3` yields `r1->r3`.
+These are built-in -- always available without import. Note how `bind` composes pre/post indices: `r1->r2` then `r2->r3` yields `r1->r3`. Grade parameters are inferred automatically; `g3` is resolved to `GradeCompose g1 g2` when used through `GIMonad`.
 
 ### Do-notation
 
@@ -109,16 +110,16 @@ CapEnv is copy-on-write: effects thread through Computation indices. `put` does 
 `thunk` suspends a computation into a first-class value (CBPV's U):
 
 ```
-thunk :: Computation pre post a -> Thunk pre post a
+thunk :: Computation @g pre post a -> Thunk @g pre post a
 ```
 
 `force` runs a suspended computation:
 
 ```
-force :: Thunk pre post a -> Computation pre post a
+force :: Thunk @g pre post a -> Computation @g pre post a
 ```
 
-The type alias `Suspended r a := Thunk r r a` mirrors `Effect` for suspended computations that preserve their capability state.
+The type alias `Suspended r a := Thunk Zero r r a` mirrors `Effect` for suspended computations that preserve their capability state with zero grade.
 
 ### Named Capabilities
 
@@ -170,8 +171,8 @@ Lookup #a { a: Int, b: String }   -- reduces to Int
 Provided by Core (always available without import) for sequencing when you do not need the intermediate result:
 
 ```
-seq :: \a b (r1: Row) (r2: Row) (r3: Row).
-  Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
+  Computation @e1 r1 r2 a -> Computation @e2 r2 r3 b -> Computation @e2 r1 r3 b
 ```
 
 ---

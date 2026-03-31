@@ -75,10 +75,14 @@ Functor --> Applicative --> Alternative
 Functor -+-> Traversable
 Foldable-+
 FromList --> ToList
-GIMonad   (independent, requires GradeAlgebra)
-Monad     (independent)
-Packed    (independent)
-Show      (independent)
+GIMonad        (independent, requires GradeAlgebra — Core)
+GradeAlgebra   (independent — Core)
+UsageSemiring  (independent — Core)
+Monad          (independent)
+Packed         (independent)
+Show           (independent)
+Read           (independent)
+Bifunctor      (independent)
 ```
 
 The class hierarchy includes `GIMonad` (Core) and Prelude classes such as `Eq`, `Ord`, `Show`, `Num`, `Div`, `Semigroup`, `Monoid`, `Functor`, `Foldable`, `Applicative`, `Alternative`, `Monad`, `Traversable`, `Packed`, `FromList`, `ToList`, among others.

@@ -3,8 +3,10 @@
 Provides lazy list (stream) operations. Internally uses recursion (`fix`) via `RegisterModuleRec`; no `--recursion` flag needed by the user. Load with `eng.Use(gicel.DataStream)` and import with `import Data.Stream`.
 
 ```
-form Stream := \a. { LCons: a -> (() -> Stream a) -> Stream a; LNil: Stream a }
+lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a }
 ```
+
+The `lazy` keyword means constructor arguments are implicitly wrapped in `Thunk` at the representation level. Users write `LCons x rest` without manual thunking.
 
 | Name        | Type                                                        | Description                           |
 | ----------- | ----------------------------------------------------------- | ------------------------------------- |

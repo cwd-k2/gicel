@@ -40,7 +40,7 @@ intToByte :: Int -> Maybe Byte
 
 Instances: `Eq`, `Ord`, `Show`.
 
-**Rune** — Unicode code point. Literals: `'a'`, `'\n'`, `'\x41'`, `'\0'`. Conversions:
+**Rune** — Unicode code point. Literals: `'a'`, `'\n'`, `'\0'`. Escape sequences: `\n`, `\t`, `\r`, `\\`, `\'`, `\"`, `\0`. Conversions:
 
 ```
 toRunes  :: String -> List Rune
@@ -53,10 +53,12 @@ Classification functions: `isAlpha`, `isDigit`, `isAlphaNum`, `isSpace`, `isUppe
 ### Type Aliases
 
 ```
-type Effect := \r a. Computation r r a
-type Suspended := \r a. Thunk r r a
-type Lift := \(m: Type -> Type) (r1: Row) (r2: Row) a. m a
+type Effect := \r a. Computation Zero r r a
+type Suspended := \r a. Thunk Zero r r a
+type Lift := \(m: Type -> Type) (g: Kind) (r1: Row) (r2: Row) a. m a
 ```
+
+`Effect` and `Suspended` fix the grade to `Zero` (the trivial grade). `Lift` wraps a plain `Type -> Type` monad into the graded indexed monad shape expected by `GIMonad`.
 
 ### Type Classes
 
@@ -219,8 +221,8 @@ form ToList := \l. FromList l => {
 
 | Class         | Instances                                                                                                       |
 | ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `GIMonad`     | `Computation` (built-in), `Lift Maybe`, `Lift List`                                                             |
-| `Monad`       | `Maybe`, `List`                                                                                                 |
+| `GIMonad`     | `Computation` (built-in), `Lift Maybe`, `Lift List`, `Lift (Result e)`                                          |
+| `Monad`       | `Maybe`, `List`, `Result e`                                                                                     |
 | `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a`, `Int`, `Double`, `String`, `Rune`, `Byte` |
 | `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a`, `Int`, `Double`, `String`, `Rune`, `Byte` |
 | `Num`         | `Int`, `Double`                                                                                                 |
