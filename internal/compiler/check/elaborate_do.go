@@ -342,7 +342,8 @@ func (ch *Checker) rejectDoEnding(st syntax.Stmt) bool {
 // localLetGen infers a binding expression and attempts let-generalization.
 // Watermark-based: only metas born during this inference are quantified.
 // If any unresolved constraint is ambiguous (its metas don't appear in the
-// result type), generalization is skipped and constraints are resolved eagerly.
+// result type), generalization is skipped and constraints are deferred to
+// the enclosing scope (where type information from annotations can resolve them).
 func (ch *Checker) localLetGen(expr syntax.Expr) (types.Type, ir.Core) {
 	watermark := ch.freshID
 	savedWorklist := ch.solver.SaveWorklist()
@@ -350,13 +351,11 @@ func (ch *Checker) localLetGen(expr syntax.Expr) (types.Type, ir.Core) {
 	bindCore, unresolved := ch.resolveDeferredConstraintsDeferrable(bindCore)
 	bindTy = ch.unifier.Zonk(bindTy)
 	if ch.hasAmbiguousLocal(bindTy, unresolved, watermark) {
-		// Ambiguous constraints — resolve eagerly, stay monomorphic.
-		// Put unresolved back on the worklist so they can be resolved.
+		// Ambiguous constraints — defer to enclosing scope.
+		// The outer context (which may have type annotations) will resolve them.
 		for _, uc := range unresolved {
-			ch.solver.Emit(uc)
+			savedWorklist = append(savedWorklist, uc)
 		}
-		bindCore = ch.resolveDeferredConstraints(bindCore)
-		bindTy = ch.unifier.Zonk(bindTy)
 	} else {
 		bindTy, bindCore = ch.generalizeLocal(bindTy, bindCore, unresolved, watermark)
 	}
