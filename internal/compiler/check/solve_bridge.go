@@ -37,6 +37,7 @@ func (ch *Checker) InstallGivenEq(id int, ty types.Type)     { ch.unifier.Instal
 func (ch *Checker) RemoveGivenEq(id int)                     { ch.unifier.RemoveGivenEq(id) }
 func (ch *Checker) ScanContext(fn func(CtxEntry) bool)       { ch.ctx.Scan(fn) }
 func (ch *Checker) LookupDictVar(className string) []*CtxVar { return ch.ctx.LookupDictVar(className) }
+func (ch *Checker) DictVarClasses() []string                 { return ch.ctx.DictVarClasses() }
 func (ch *Checker) LookupEvidence(className string) []*CtxEvidence {
 	return ch.ctx.LookupEvidence(className)
 }

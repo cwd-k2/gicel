@@ -87,11 +87,18 @@ type localEntry struct {
 	slot int
 }
 
+// Initial capacities derived from empirical Proto statistics across GICEL programs:
+//   code:  p50=7, p90=67, p95=102 — pre-allocate to cover ~90% without growth
+//   spans: p50=1, p90=9 — roughly 1 span per ~7 code bytes
+// Other fields (constants, strings, protos, matchDescs, etc.) are p50=0;
+// pre-allocating would waste memory on the majority of emitters.
 func newEmitter(c *Compiler, parent *emitter) *emitter {
 	return &emitter{
 		compiler:    c,
 		parent:      parent,
 		fixSelfSlot: -1,
+		code:        make([]byte, 0, 64),
+		spans:       make([]SpanEntry, 0, 8),
 	}
 }
 

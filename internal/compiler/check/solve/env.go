@@ -27,6 +27,7 @@ type Env interface {
 	ScanContext(func(env.CtxEntry) bool)
 	LookupDictVar(className string) []*env.CtxVar
 	LookupEvidence(className string) []*env.CtxEvidence
+	DictVarClasses() []string
 
 	// Budget
 	ResetSolverSteps()

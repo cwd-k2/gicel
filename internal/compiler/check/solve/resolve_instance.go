@@ -34,23 +34,24 @@ func (s *Solver) resolveFromContext(className string, args []types.Type, sp span
 }
 
 // resolveFromSuperclasses searches context for dictionaries whose superclass
-// hierarchy contains the target class. Uses the dictVarIndex to check only
-// classes that have the target in their superclass closure.
+// hierarchy contains the target class. Iterates only dict variable classes
+// present in the context whose SuperClosure includes the target, avoiding
+// a full linear context scan.
 func (s *Solver) resolveFromSuperclasses(className string, args []types.Type, sp span.Span) ir.Core {
-	// Scan all indexed dict vars: for each class in the registry that has
-	// className in its SuperClosure, check its dict vars.
-	// This avoids a full context scan when the context is large.
-	var result ir.Core
-	s.env.ScanContext(func(entry env.CtxEntry) bool {
-		if v, ok := entry.(*env.CtxVar); ok && !v.SolverInvisible {
-			if expr := s.extractSuperDict(v, className, args, sp); expr != nil {
-				result = expr
-				return false
+	for _, parentClass := range s.env.DictVarClasses() {
+		// Skip if this class doesn't have className as a transitive super.
+		if classInfo, ok := s.env.LookupClass(parentClass); ok {
+			if classInfo.SuperClosure != nil && !classInfo.SuperClosure[className] {
+				continue
 			}
 		}
-		return true
-	})
-	return result
+		for _, v := range s.env.LookupDictVar(parentClass) {
+			if expr := s.extractSuperDict(v, className, args, sp); expr != nil {
+				return expr
+			}
+		}
+	}
+	return nil
 }
 
 // resolveFromQuantifiedEvidence searches context for quantified evidence

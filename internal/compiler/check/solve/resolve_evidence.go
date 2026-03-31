@@ -121,21 +121,17 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		return &ir.Var{Name: inst.DictBindName, Module: inst.Module, S: sp}
 	}
 
-	// Also search context for quantified evidence variables.
+	// Search context for quantified evidence variables using the evidence index.
 	// Full structural match: class name, arity, head args (via trial unification),
 	// and context compatibility — same verification as the global instance path above.
 	var qcResult ir.Core
-	s.env.ScanContext(func(entry env.CtxEntry) bool {
-		e, ok := entry.(*env.CtxEvidence)
-		if !ok || e.Quantified == nil {
-			return true
+	for _, e := range s.env.LookupEvidence(qc.Head.ClassName) {
+		if e.Quantified == nil {
+			continue
 		}
 		eq := e.Quantified
-		if eq.Head.ClassName != qc.Head.ClassName {
-			return true
-		}
 		if len(eq.Head.Args) != len(qc.Head.Args) {
-			return true
+			continue
 		}
 		// Fresh metas for both sides' quantified variables.
 		wantedSubst := make(map[string]types.Type, len(qc.Vars))
@@ -170,12 +166,12 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 			}
 			return true
 		}) {
-			return true
+			continue
 		}
 		// Solutions are not needed — only the binding name matters.
 		qcResult = &ir.Var{Name: e.DictName, S: sp}
-		return false
-	})
+		break
+	}
 	if qcResult != nil {
 		return qcResult
 	}

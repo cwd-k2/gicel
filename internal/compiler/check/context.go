@@ -119,6 +119,17 @@ func (c *Context) LookupEvidence(className string) []*CtxEvidence {
 	return result
 }
 
+// DictVarClasses returns all class names that have dict variables in the context.
+func (c *Context) DictVarClasses() []string {
+	names := make([]string, 0, len(c.dictVarIndex))
+	for k, idxs := range c.dictVarIndex {
+		if len(idxs) > 0 {
+			names = append(names, k)
+		}
+	}
+	return names
+}
+
 // LookupDictVar returns all non-invisible CtxVar dict entries for a given
 // class name, ordered from most recent to oldest.
 func (c *Context) LookupDictVar(className string) []*CtxVar {
