@@ -19,9 +19,10 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	}
 
 	// Register type constructor kind.
-	// The result kind of a form declaration is always Type.
-	// If a kind annotation is present, validate that it is consistent.
-	var kind types.Type = types.TypeOfTypes
+	// The result kind is Type at a level computed from parameter kinds:
+	// if all params are Type l_i, result is Type (max l_1 ... l_n).
+	// If any param is not Type-kinded, result defaults to TypeOfTypes (L1).
+	var kind types.Type = formResultKind(paramKinds)
 	for i := len(parts.Params) - 1; i >= 0; i-- {
 		kind = &types.TyArrow{From: paramKinds[i], To: kind}
 	}
@@ -185,4 +186,34 @@ func typeArity(ty types.Type) int {
 			return 0
 		}
 	}
+}
+
+// formResultKind computes the result kind for a form declaration from its
+// parameter kinds. If all parameters are Type l_i, the result is Type (max l_1 ... l_n).
+// Otherwise, defaults to TypeOfTypes (Type at level 1).
+func formResultKind(paramKinds []types.Type) types.Type {
+	if len(paramKinds) == 0 {
+		return types.TypeOfTypes
+	}
+	var levels []types.LevelExpr
+	for _, pk := range paramKinds {
+		tc, ok := pk.(*types.TyCon)
+		if !ok || tc.Name != "Type" {
+			return types.TypeOfTypes
+		}
+		level := tc.Level
+		if level == nil {
+			level = types.L0
+		}
+		levels = append(levels, level)
+	}
+	// Fold levels with LevelMax.
+	result := levels[0]
+	for _, l := range levels[1:] {
+		if types.LevelEqual(result, l) {
+			continue // max(l, l) = l
+		}
+		result = &types.LevelMax{A: result, B: l}
+	}
+	return &types.TyCon{Name: "Type", Level: result}
 }

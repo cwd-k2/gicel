@@ -19,7 +19,9 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 		if f, ok := ty.(*types.TyForall); ok {
 			if isLevelKind(f.Kind) {
 				lm := ch.unifier.FreshLevelMeta()
+				km := ch.freshMeta(types.SortZero)
 				ty = types.SubstLevel(f.Body, f.Var, lm)
+				ty = types.Subst(ty, f.Var, km)
 			} else {
 				meta := ch.freshMeta(f.Kind)
 				ty = types.Subst(f.Body, f.Var, meta)
@@ -192,7 +194,9 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		if f, ok := ty.(*types.TyForall); ok {
 			if isLevelKind(f.Kind) {
 				lm := ch.unifier.FreshLevelMeta()
+				km := ch.freshMeta(types.SortZero)
 				ty = types.SubstLevel(f.Body, f.Var, lm)
+				ty = types.Subst(ty, f.Var, km)
 				// Levels are erased — no TyApp node emitted.
 				continue
 			}

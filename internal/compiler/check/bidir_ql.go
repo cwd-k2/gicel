@@ -105,7 +105,9 @@ func (ch *Checker) checkAppQL(head syntax.Expr, args []spineArg, expected types.
 			if f, ok := ty.(*types.TyForall); ok {
 				if isLevelKind(f.Kind) {
 					lm := ch.unifier.FreshLevelMeta()
+					km := ch.freshMeta(types.SortZero)
 					ty = types.SubstLevel(f.Body, f.Var, lm)
+					ty = types.Subst(ty, f.Var, km)
 				} else {
 					meta := ch.freshMeta(f.Kind)
 					body := types.Subst(f.Body, f.Var, meta)

@@ -164,16 +164,11 @@ func (u *Unifier) ZonkLevelDefault(l types.LevelExpr) types.LevelExpr {
 	case *types.LevelMax:
 		zA := u.ZonkLevelDefault(ll.A)
 		zB := u.ZonkLevelDefault(ll.B)
-		if zA == ll.A && zB == ll.B {
-			return ll
-		}
-		return &types.LevelMax{A: zA, B: zB}
+		// Normalize: max(n, m) → max(n, m) as concrete, max(l, l) → l.
+		return normalizeLevel(&types.LevelMax{A: zA, B: zB})
 	case *types.LevelSucc:
 		zE := u.ZonkLevelDefault(ll.E)
-		if zE == ll.E {
-			return ll
-		}
-		return &types.LevelSucc{E: zE}
+		return normalizeLevel(&types.LevelSucc{E: zE})
 	default:
 		return l
 	}

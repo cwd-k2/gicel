@@ -293,9 +293,12 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
 		if isLevelKind(f.Kind) {
-			// Level quantifier: introduce a fresh level skolem and substitute.
+			// Level quantifier: introduce a fresh skolem.
+			// Substitute in both level positions (TyCon.Level via SubstLevel)
+			// and type positions (TyVar via Subst with a kind-level TyVar).
 			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
 			body := types.SubstLevel(f.Body, f.Var, &types.LevelVar{Name: freshName})
+			body = types.Subst(body, f.Var, &types.TyVar{Name: freshName})
 			bodyCore := ch.check(expr, body)
 			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 		}
@@ -469,10 +472,11 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
 	if f, ok := inferred.(*types.TyForall); ok {
 		if isLevelKind(f.Kind) {
-			// Level quantifier: instantiate with a fresh LevelMeta.
+			// Level quantifier: instantiate with a fresh LevelMeta + TyMeta.
 			lm := ch.unifier.FreshLevelMeta()
+			km := ch.freshMeta(types.SortZero)
 			body := types.SubstLevel(f.Body, f.Var, lm)
-			// Levels are erased — no TyApp node emitted.
+			body = types.Subst(body, f.Var, km)
 			return ch.subsCheck(body, expected, expr, s)
 		}
 		if isSortKind(f.Kind) {
