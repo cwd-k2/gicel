@@ -242,24 +242,11 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			}
 		}
 	}
-	// 3-arg legacy: Computation {row} {row} result (grade omitted).
-	// Detected by checking that the first arg is a row literal (TyEvidenceRow).
-	// Non-row first args (TyCon, TyVar, etc.) are treated as the 4-arg form.
-	// Produces TyCBPV with Grade=nil (backward compatible with unification).
-	if app2, ok := fun.(*types.TyApp); ok {
-		if app1, ok := app2.Fun.(*types.TyApp); ok {
-			if con, ok := app1.Fun.(*types.TyCon); ok {
-				if _, isRow := app1.Arg.(*types.TyEvidenceRow); isRow {
-					switch con.Name {
-					case types.TyConComputation:
-						return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
-					case types.TyConThunk:
-						return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
-					}
-				}
-			}
-		}
-	}
+	// 3-arg legacy (Computation pre post result) is NOT handled here.
+	// The resolver only catches 4-arg. 3-arg forms stay as TyApp chains
+	// and are normalized to TyCBPV by normalizeCompApp during unification.
+	// This prevents misinterpreting the grade as the pre-state when a
+	// 4-arg form is being built incrementally.
 	// General alias/family expansion: collect the TyApp spine and check if the
 	// head is an alias or type family with matching parameter count.
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}

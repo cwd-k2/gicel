@@ -370,18 +370,15 @@ func normalizeCompApp(t types.Type) types.Type {
 		}
 	}
 	// 3-arg legacy: Computation pre post result (grade omitted).
-	// Only matches when the first arg is a row type (TyEvidenceRow).
 	con, ok := app3.Fun.(*types.TyCon)
 	if !ok {
 		return t
 	}
-	if _, isRow := app3.Arg.(*types.TyEvidenceRow); isRow {
-		switch con.Name {
-		case types.TyConComputation:
-			return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
-		case types.TyConThunk:
-			return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
-		}
+	switch con.Name {
+	case types.TyConComputation:
+		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+	case types.TyConThunk:
+		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
 	}
 	return t
 }
