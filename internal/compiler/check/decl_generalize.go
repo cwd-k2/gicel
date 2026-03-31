@@ -17,7 +17,26 @@ import (
 //
 //	→ \ a. Num a => a -> a  with Core: \dict x. ...
 func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved []*CtClass, maxLevel int) (types.Type, ir.Core) {
-	typeMetas := collectUnsolvedMetas(maxLevel, ty)
+	collectFn := func(tys ...types.Type) []metaInfo {
+		return collectUnsolvedMetas(maxLevel, tys...)
+	}
+	return ch.generalizeWith(ty, expr, unresolved, collectFn)
+}
+
+// generalizeLocal replaces unsolved metavariables born after watermark
+// with universally quantified type variables. Used for nested
+// let-generalization in block expressions and do-block pure binds.
+func (ch *Checker) generalizeLocal(ty types.Type, expr ir.Core, unresolved []*CtClass, watermark int) (types.Type, ir.Core) {
+	collectFn := func(tys ...types.Type) []metaInfo {
+		return collectUnsolvedMetasAfter(watermark, tys...)
+	}
+	return ch.generalizeWith(ty, expr, unresolved, collectFn)
+}
+
+// generalizeWith is the shared implementation for generalizeConstrained and
+// generalizeLocal. The collectFn parameter determines which metas to collect.
+func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtClass, collectFn func(...types.Type) []metaInfo) (types.Type, ir.Core) {
+	typeMetas := collectFn(ty)
 	// Build set of meta IDs that appear in the result type.
 	typeMetaIDs := make(map[int]bool, len(typeMetas))
 	for _, m := range typeMetas {
@@ -27,7 +46,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 	// Also collect metas from unresolved constraint args.
 	metas := typeMetas
 	for _, uc := range unresolved {
-		metas = append(metas, collectUnsolvedMetas(maxLevel, uc.Args...)...)
+		metas = append(metas, collectFn(uc.Args...)...)
 	}
 	if len(metas) == 0 && len(unresolved) == 0 {
 		return ty, expr
@@ -120,6 +139,24 @@ func collectUnsolvedMetas(maxLevel int, tys ...types.Type) []metaInfo {
 	for _, ty := range tys {
 		result = append(result, types.CollectTypes(ty, func(t types.Type) (metaInfo, bool) {
 			if m, ok := t.(*types.TyMeta); ok && !seen[m.ID] && m.Level <= maxLevel {
+				seen[m.ID] = true
+				return metaInfo{id: m.ID, kind: m.Kind}, true
+			}
+			return metaInfo{}, false
+		})...)
+	}
+	return result
+}
+
+// collectUnsolvedMetasAfter walks one or more types and collects TyMeta
+// nodes whose ID exceeds watermark. Used for nested let-generalization:
+// only metas born during a particular binding's inference are candidates.
+func collectUnsolvedMetasAfter(watermark int, tys ...types.Type) []metaInfo {
+	seen := make(map[int]bool)
+	var result []metaInfo
+	for _, ty := range tys {
+		result = append(result, types.CollectTypes(ty, func(t types.Type) (metaInfo, bool) {
+			if m, ok := t.(*types.TyMeta); ok && !seen[m.ID] && m.ID > watermark {
 				seen[m.ID] = true
 				return metaInfo{id: m.ID, kind: m.Kind}, true
 			}

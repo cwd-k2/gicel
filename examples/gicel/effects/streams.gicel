@@ -3,9 +3,9 @@
 -- Streams are lazy (co-data) lists: constructor arguments are auto-thunked.
 -- This example demonstrates every function in the Data.Stream stdlib module.
 --
--- API: LCons, LNil, head, tail, take, drop, filter, zipWith, zip,
---      iterate, takeWhile, repeat, fmap (Functor), foldr (Foldable),
---      fromList/toList, show (Show)
+-- API: LCons, LNil, +> (prepend), head, tail, take, drop, filter,
+--      zipWith, zip, iterate, takeWhile, repeat, fmap (Functor),
+--      foldr (Foldable), fromList/toList, show (Show)
 --
 -- Run: bin/gicel run --recursion examples/gicel/effects/streams.gicel
 
@@ -20,6 +20,9 @@ nats := iterate (+ 1) 0
 
 -- repeat: infinite constant stream
 ones := repeat 1
+
+-- +> (prepend): cons an element onto a stream
+prepended := 0 +> 1 +> 2 +> LNil :: Stream Int
 
 -- fromList: convert a strict list to a lazy stream
 converted :: Stream Int
@@ -95,6 +98,7 @@ main := do {
   putLine "── Construction ──";
   putLine $ "nats:        " <> show (take 10 nats);
   putLine $ "ones:        " <> show (take 5 ones);
+  putLine $ "prepend +>:  " <> show prepended;
   putLine $ "fromList:    " <> show converted;
   putLine $ "fibs:        " <> show (take 12 fibs);
   putLine $ "powers of 2: " <> show (take 10 powersOf2);

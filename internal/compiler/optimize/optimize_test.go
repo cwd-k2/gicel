@@ -109,7 +109,9 @@ func con(name string, args ...ir.Core) ir.Core { return &ir.Con{Name: name, Args
 func pcon(name string, args ...ir.Pattern) ir.Pattern {
 	return &ir.PCon{Con: name, Args: args}
 }
-func pvar(name string) ir.Pattern             { return &ir.PVar{Name: name} }
+func pvar(name string) ir.Pattern              { return &ir.PVar{Name: name} }
+func pwild() ir.Pattern                        { return &ir.PWild{} }
+func plit(val any) ir.Pattern                   { return &ir.PLit{Value: val} }
 func alt(pat ir.Pattern, body ir.Core) ir.Alt { return ir.Alt{Pattern: pat, Body: body} }
 func cas(scrut ir.Core, alts ...ir.Alt) ir.Core {
 	return &ir.Case{Scrutinee: scrut, Alts: alts}
@@ -144,6 +146,121 @@ func TestR1_CaseOfKnownCtorMultiArg(t *testing.T) {
 	result := optimize(input, nil)
 	if !coreEq(result, v("a")) {
 		t.Fatalf("R1 multi-arg failed: got %v", result)
+	}
+}
+
+// R1b: Case-of-known-literal
+func TestR1b_CaseOfKnownLit(t *testing.T) {
+	// case 0 { 0 → a; 1 → b }  →  a
+	input := cas(
+		lit(int64(0)),
+		alt(plit(int64(0)), v("a")),
+		alt(plit(int64(1)), v("b")),
+	)
+	result := optimize(input, nil)
+	if !coreEq(result, v("a")) {
+		t.Fatalf("R1b match failed: got %v", result)
+	}
+}
+
+func TestR1b_CaseOfKnownLitWildcard(t *testing.T) {
+	// case 2 { 0 → a; _ → b }  →  b
+	input := cas(
+		lit(int64(2)),
+		alt(plit(int64(0)), v("a")),
+		alt(pwild(), v("b")),
+	)
+	result := optimize(input, nil)
+	if !coreEq(result, v("b")) {
+		t.Fatalf("R1b wildcard fallback failed: got %v", result)
+	}
+}
+
+func TestR1b_CaseOfKnownLitVar(t *testing.T) {
+	// case 42 { 0 → a; x → x }  →  42
+	input := cas(
+		lit(int64(42)),
+		alt(plit(int64(0)), v("a")),
+		alt(pvar("x"), v("x")),
+	)
+	result := optimize(input, nil)
+	if !coreEq(result, lit(int64(42))) {
+		t.Fatalf("R1b var binding failed: got %v", result)
+	}
+}
+
+func TestR1b_CaseOfKnownLitString(t *testing.T) {
+	// case "hello" { "hello" → a; "world" → b }  →  a
+	input := cas(
+		lit("hello"),
+		alt(plit("hello"), v("a")),
+		alt(plit("world"), v("b")),
+	)
+	result := optimize(input, nil)
+	if !coreEq(result, v("a")) {
+		t.Fatalf("R1b string match failed: got %v", result)
+	}
+}
+
+func TestR1b_CaseOfKnownLitNoMatch(t *testing.T) {
+	// case 3 { 0 → a; 1 → b }  →  unchanged (no wildcard)
+	input := cas(
+		lit(int64(3)),
+		alt(plit(int64(0)), v("a")),
+		alt(plit(int64(1)), v("b")),
+	)
+	result := optimize(input, nil)
+	if !coreEq(result, input) {
+		t.Fatalf("R1b no-match should be unchanged")
+	}
+}
+
+// R8: Bind-of-case distribution
+func TestR8_BindOfCase(t *testing.T) {
+	// bind (case x { A → pure 1; B → pure 2 }) r body
+	// → case x { A → bind (pure 1) r body; B → bind (pure 2) r body }
+	// After multi-pass: case x { A → body[r:=1]; B → body[r:=2] }
+	input := &ir.Bind{
+		Comp: cas(v("x"),
+			alt(pcon("A"), &ir.Pure{Expr: lit(int64(1))}),
+			alt(pcon("B"), &ir.Pure{Expr: lit(int64(2))}),
+		),
+		Var:  "r",
+		Body: v("r"),
+	}
+	result := optimize(input, nil)
+	// After bind-of-case + bind-pure elimination:
+	// case x { A → 1; B → 2 }
+	cs, ok := result.(*ir.Case)
+	if !ok {
+		t.Fatalf("R8: expected Case, got %T", result)
+	}
+	if !coreEq(cs.Scrutinee, v("x")) {
+		t.Fatalf("R8: scrutinee should be x")
+	}
+	if !coreEq(cs.Alts[0].Body, lit(int64(1))) {
+		t.Fatalf("R8: alt 0 body should be 1, got %v", cs.Alts[0].Body)
+	}
+	if !coreEq(cs.Alts[1].Body, lit(int64(2))) {
+		t.Fatalf("R8: alt 1 body should be 2, got %v", cs.Alts[1].Body)
+	}
+}
+
+func TestR8_BindOfCase_SizeGuard(t *testing.T) {
+	// bind (case x { A → e }) r <large body>  →  unchanged
+	// Build a body larger than maxDuplicateSize.
+	large := v("z")
+	for range maxDuplicateSize + 1 {
+		large = app(large, v("w"))
+	}
+	input := &ir.Bind{
+		Comp: cas(v("x"), alt(pcon("A"), v("e"))),
+		Var:  "r",
+		Body: large,
+	}
+	result := optimize(input, nil)
+	if _, ok := result.(*ir.Bind); !ok {
+		t.Fatalf("R8 size guard: expected Bind (unchanged), got %T", result)
 	}
 }
 
@@ -314,6 +431,25 @@ func TestR12_SlicePackedRoundtrip(t *testing.T) {
 	result := optimize(input, rules)
 	if !coreEq(result, v("xs")) {
 		t.Fatalf("R12 failed: got %v", result)
+	}
+}
+
+// R14: List packed roundtrip
+func TestR14_ListPackedRoundtrip(t *testing.T) {
+	rules := []func(ir.Core) ir.Core{testRoundtrip("_listFromSlice", "_listToSlice")}
+	input := primop("_listFromSlice", 1, primop("_listToSlice", 1, v("xs")))
+	result := optimize(input, rules)
+	if !coreEq(result, v("xs")) {
+		t.Fatalf("R14 failed: got %v", result)
+	}
+}
+
+func TestR14_ListPackedRoundtripReverse(t *testing.T) {
+	rules := []func(ir.Core) ir.Core{testRoundtrip("_listToSlice", "_listFromSlice")}
+	input := primop("_listToSlice", 1, primop("_listFromSlice", 1, v("xs")))
+	result := optimize(input, rules)
+	if !coreEq(result, v("xs")) {
+		t.Fatalf("R14 reverse failed: got %v", result)
 	}
 }
 

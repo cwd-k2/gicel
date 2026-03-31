@@ -339,12 +339,58 @@ func (ch *Checker) rejectDoEnding(st syntax.Stmt) bool {
 	return false
 }
 
+// localLetGen infers a binding expression and attempts let-generalization.
+// Watermark-based: only metas born during this inference are quantified.
+// If any unresolved constraint is ambiguous (its metas don't appear in the
+// result type), generalization is skipped and constraints are resolved eagerly.
+func (ch *Checker) localLetGen(expr syntax.Expr) (types.Type, ir.Core) {
+	watermark := ch.freshID
+	savedWorklist := ch.solver.SaveWorklist()
+	bindTy, bindCore := ch.infer(expr)
+	bindCore, unresolved := ch.resolveDeferredConstraintsDeferrable(bindCore)
+	bindTy = ch.unifier.Zonk(bindTy)
+	if ch.hasAmbiguousLocal(bindTy, unresolved, watermark) {
+		// Ambiguous constraints — resolve eagerly, stay monomorphic.
+		// Put unresolved back on the worklist so they can be resolved.
+		for _, uc := range unresolved {
+			ch.solver.Emit(uc)
+		}
+		bindCore = ch.resolveDeferredConstraints(bindCore)
+		bindTy = ch.unifier.Zonk(bindTy)
+	} else {
+		bindTy, bindCore = ch.generalizeLocal(bindTy, bindCore, unresolved, watermark)
+	}
+	ch.solver.RestoreWorklistAppend(savedWorklist)
+	return bindTy, bindCore
+}
+
+// hasAmbiguousLocal checks whether any unresolved constraint has metas
+// (born after watermark) that don't appear in the result type.
+func (ch *Checker) hasAmbiguousLocal(ty types.Type, unresolved []*CtClass, watermark int) bool {
+	if len(unresolved) == 0 {
+		return false
+	}
+	typeMetas := collectUnsolvedMetasAfter(watermark, ty)
+	typeMetaIDs := make(map[int]bool, len(typeMetas))
+	for _, m := range typeMetas {
+		typeMetaIDs[m.id] = true
+	}
+	for _, uc := range unresolved {
+		for _, cm := range collectUnsolvedMetasAfter(watermark, uc.Args...) {
+			if !typeMetaIDs[cm.id] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // elaboratePureBind desugars x := e into App(Lam(x, rest), e).
 // The binding is in scope for the duration of the rest callback.
 // Caller must ensure st.Pat is a simple PatVar or PatWild.
 func (ch *Checker) elaboratePureBind(st *syntax.StmtPureBind, rest func() ir.Core) ir.Core {
 	name, _ := syntax.PatVarName(st.Pat)
-	bindTy, bindCore := ch.infer(st.Expr)
+	bindTy, bindCore := ch.localLetGen(st.Expr)
 	ch.ctx.Push(&CtxVar{Name: name, Type: bindTy})
 	restCore := rest()
 	ch.ctx.Pop()
@@ -368,11 +414,12 @@ func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, ir.Core) {
 	}
 	binds := make([]bindInfo, len(e.Binds))
 	for i, bind := range e.Binds {
-		bindTy, bindCore := ch.infer(bind.Expr)
 		if name, ok := syntax.PatVarName(bind.Pat); ok {
+			bindTy, bindCore := ch.localLetGen(bind.Expr)
 			binds[i] = bindInfo{pat: bind.Pat, ty: bindTy, core: bindCore, s: bind.S}
 			ch.ctx.Push(&CtxVar{Name: name, Type: bindTy})
 		} else {
+			bindTy, bindCore := ch.infer(bind.Expr)
 			pr := ch.checkPattern(bind.Pat, bindTy)
 			binds[i] = bindInfo{pat: bind.Pat, ty: bindTy, core: bindCore, pr: &pr, s: bind.S}
 			for bname, bty := range pr.Bindings {

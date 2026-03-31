@@ -12,7 +12,8 @@ const maxDuplicateSize = 50
 //
 // Before: case (case e { p1 => b1; p2 => b2 }) { q1 => w1; q2 => w2 }
 // After:  case e { p1 => case b1 { q1 => w1; q2 => w2 }
-//                   p2 => case b2 { q1 => w1; q2 => w2 } }
+//
+//	p2 => case b2 { q1 => w1; q2 => w2 } }
 func caseOfCase(c ir.Core) ir.Core {
 	outer, ok := c.(*ir.Case)
 	if !ok {
@@ -41,6 +42,47 @@ func caseOfCase(c ir.Core) ir.Core {
 				Scrutinee: alt.Body,
 				Alts:      cloneAlts(outer.Alts),
 				S:         outer.S,
+			},
+			Generated: alt.Generated,
+			S:         alt.S,
+		}
+	}
+	return &ir.Case{Scrutinee: inner.Scrutinee, Alts: newAlts, S: inner.S}
+}
+
+// bindOfCase transforms bind (case e alts) x body by pushing the bind
+// continuation into each branch of the case.
+//
+// Before: bind (case e { p1 => b1; p2 => b2 }) x body
+// After:  case e { p1 => bind b1 x body; p2 => bind b2 x body }
+func bindOfCase(c ir.Core) ir.Core {
+	bind, ok := c.(*ir.Bind)
+	if !ok {
+		return c
+	}
+	inner, ok := bind.Comp.(*ir.Case)
+	if !ok {
+		return c
+	}
+
+	// Guard against code blowup: measure outer body size.
+	bodySize := nodeSize(bind.Body, maxDuplicateSize+1)
+	if bodySize > maxDuplicateSize {
+		return c
+	}
+
+	// Push bind into each branch.
+	newAlts := make([]ir.Alt, len(inner.Alts))
+	for i, alt := range inner.Alts {
+		newAlts[i] = ir.Alt{
+			Pattern: alt.Pattern,
+			Body: &ir.Bind{
+				Comp:      alt.Body,
+				Var:       bind.Var,
+				Discard:   bind.Discard,
+				Body:      ir.Clone(bind.Body),
+				Generated: bind.Generated,
+				S:         bind.S,
 			},
 			Generated: alt.Generated,
 			S:         alt.S,

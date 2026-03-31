@@ -2,6 +2,10 @@ import Prelude
 
 lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }
 
+infixr 5 +>
+(+>) :: \a. a -> Stream a -> Stream a
+(+>) := LCons
+
 head :: \a. Stream a -> Maybe a
 head := \s. case s { LNil => Nothing; LCons x _ => Just x }
 

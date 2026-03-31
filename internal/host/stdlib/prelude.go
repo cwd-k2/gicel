@@ -114,8 +114,9 @@ var Prelude Pack = func(e Registrar) error {
 	// --- Additional List primitives ---
 	e.RegisterPrim("_listGroupBy", groupByImpl)
 
-	// Fusion rule: packed roundtrip elimination.
+	// Fusion rules: packed roundtrip elimination.
 	e.RegisterRewriteRule(strPackedRoundtrip)
+	e.RegisterRewriteRule(listPackedRoundtrip)
 
 	return e.RegisterModule("Prelude", PreludeSource)
 }

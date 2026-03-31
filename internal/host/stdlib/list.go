@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -299,6 +300,31 @@ func rangeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		items[i] = &eval.HostVal{Inner: from + i}
 	}
 	return buildList(items), ce, nil
+}
+
+// Primitive names for list-slice conversion used in fusion rules.
+const (
+	primListFromSlice = "_listFromSlice"
+	primListToSlice   = "_listToSlice"
+)
+
+// R14: _listFromSlice (_listToSlice xs) → xs  and  _listToSlice (_listFromSlice xs) → xs
+func listPackedRoundtrip(c ir.Core) ir.Core {
+	po, ok := c.(*ir.PrimOp)
+	if !ok || len(po.Args) != 1 {
+		return c
+	}
+	inner, ok := po.Args[0].(*ir.PrimOp)
+	if !ok || len(inner.Args) != 1 {
+		return c
+	}
+	if po.Name == primListFromSlice && inner.Name == primListToSlice {
+		return inner.Args[0]
+	}
+	if po.Name == primListToSlice && inner.Name == primListFromSlice {
+		return inner.Args[0]
+	}
+	return c
 }
 
 // buildList creates a ConVal Cons/Nil chain from a slice.

@@ -599,6 +599,96 @@ main := (mymax 3 7, mymax True False)
 	}
 }
 
+// ===== Nested let-generalization (Phase 2-3) =====
+
+func TestNestedLetGen_Block_Polymorphic(t *testing.T) {
+	// Block expression: { id := \x. x; (id 1, id True) }
+	// id should be generalized to forall a. a -> a within the block.
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main := { id := \x. x; (id 1, id True) }
+`)
+	if err != nil {
+		t.Fatalf("nested let-gen block should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("nested let-gen block should run: %v", err)
+	}
+	rv, ok := result.Value.(*eval.RecordVal)
+	if !ok || rv.Len() != 2 {
+		t.Fatalf("expected (1, True), got %v", result.Value)
+	}
+}
+
+func TestNestedLetGen_Block_Constrained(t *testing.T) {
+	// Block expression with constrained let: { same := \x y. eq x y; (same 1 2, same True True) }
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main := { same := \x y. eq x y; (same 1 2, same True True) }
+`)
+	if err != nil {
+		t.Fatalf("nested constrained let-gen should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("nested constrained let-gen should run: %v", err)
+	}
+	rv, ok := result.Value.(*eval.RecordVal)
+	if !ok || rv.Len() != 2 {
+		t.Fatalf("expected (False, True), got %v", result.Value)
+	}
+}
+
+func TestNestedLetGen_Do_PureBind(t *testing.T) {
+	// Do-block pure bind: do { id := \x. x; pure (id 1, id True) }
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main := do { id := \x. x; pure (id 1, id True) }
+`)
+	if err != nil {
+		t.Fatalf("do pure bind let-gen should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("do pure bind let-gen should run: %v", err)
+	}
+	rv, ok := result.Value.(*eval.RecordVal)
+	if !ok || rv.Len() != 2 {
+		t.Fatalf("expected (1, True), got %v", result.Value)
+	}
+}
+
+func TestNestedLetGen_UnderLambda_NoOverGeneralize(t *testing.T) {
+	// Under a lambda: \x. { f := \y. eq x y; f 42 }
+	// f's type involves x's meta from the outer lambda.
+	// With watermark filtering, x's meta is NOT generalized in f.
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+check := \x. { f := \y. eq x y; f 42 }
+main := (check 42, check 0)
+`)
+	if err != nil {
+		t.Fatalf("under-lambda let should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("under-lambda let should run: %v", err)
+	}
+	rv, ok := result.Value.(*eval.RecordVal)
+	if !ok || rv.Len() != 2 {
+		t.Fatalf("expected (True, False), got %v", result.Value)
+	}
+}
+
 func TestStdlibClassHierarchy(t *testing.T) {
 	// Verify all 8 classes compile and instances work
 	eng := NewEngine()

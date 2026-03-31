@@ -54,12 +54,14 @@ func (rw *rewriter) apply(c ir.Core) ir.Core {
 	// Phase 1: algebraic simplifications (always active).
 	c = betaReduce(c)
 	c = caseOfKnownCtor(c)
+	c = caseOfKnownLit(c)
 	c = bindPureElim(c)
 	c = forceThunkElim(c)
 	c = recordProjKnown(c)
 	c = recordUpdateChain(c)
-	// Phase 3: case-of-case (exposes more known-ctor opportunities).
+	// Phase 3: case-of-case and bind-of-case (expose more simplification opportunities).
 	c = caseOfCase(c)
+	c = bindOfCase(c)
 	// Phase 4: registered fusion rules.
 	for _, rule := range rw.rules {
 		c = rule(c)
@@ -122,6 +124,38 @@ func caseOfKnownCtor(c ir.Core) ir.Core {
 			return alt.Body
 		}
 		return substMany(alt.Body, subs, subsFV)
+	}
+	return c
+}
+
+// R1b: Case (Lit v) alts  →  matching alt (literal scrutinee)
+func caseOfKnownLit(c ir.Core) ir.Core {
+	cs, ok := c.(*ir.Case)
+	if !ok {
+		return c
+	}
+	lit, ok := cs.Scrutinee.(*ir.Lit)
+	if !ok {
+		return c
+	}
+	var wildcard *ir.Alt
+	for i := range cs.Alts {
+		alt := &cs.Alts[i]
+		switch p := alt.Pattern.(type) {
+		case *ir.PLit:
+			if p.Value == lit.Value {
+				return alt.Body
+			}
+		case *ir.PWild:
+			wildcard = alt
+		case *ir.PVar:
+			// A PVar binds the literal: substitute it.
+			fv := ir.FreeVars(lit)
+			return substFV(alt.Body, p.Name, lit, fv)
+		}
+	}
+	if wildcard != nil {
+		return wildcard.Body
 	}
 	return c
 }
