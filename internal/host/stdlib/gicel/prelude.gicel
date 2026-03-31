@@ -32,6 +32,38 @@ impl GradeAlgebra Mult := {
   type GradeDrop := Zero
 }
 
+-- Value-level multiplicity operations (parallel to MultJoin/MultCompose).
+multPlus :: Mult -> Mult -> Mult
+multPlus := \m1 m2. case (m1, m2) {
+  (Unrestricted, _) => Unrestricted;
+  (_, Unrestricted) => Unrestricted;
+  (Affine, _)       => Affine;
+  (_, Affine)       => Affine;
+  (Linear, Zero)    => Affine;
+  (Zero, Linear)    => Affine;
+  (Linear, Linear)  => Linear;
+  (Zero, Zero)      => Zero
+}
+
+multMult :: Mult -> Mult -> Mult
+multMult := \m1 m2. case (m1, m2) {
+  (Zero, _)          => Zero;
+  (_, Zero)          => Zero;
+  (Unrestricted, x)  => x;
+  (x, Unrestricted)  => x;
+  (Linear, Linear)   => Linear;
+  (Linear, Affine)   => Affine;
+  (Affine, Linear)   => Affine;
+  (Affine, Affine)   => Affine
+}
+
+impl UsageSemiring Mult := {
+  zero := Zero;
+  one := Unrestricted;
+  plus := multPlus;
+  mult := multMult
+}
+
 form Eq := \a. { eq: a -> a -> Bool }
 form Ord := \a. Eq a => { compare: a -> a -> Ordering }
 form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
