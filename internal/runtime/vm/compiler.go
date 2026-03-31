@@ -59,6 +59,7 @@ type emitter struct {
 	protos      []*Proto
 	matchDescs  []MatchDesc
 	recordDescs []RecordDesc
+	mergeDescs  []MergeDesc
 	spans       []SpanEntry
 
 	// Local variable slots: maps de Bruijn name to slot index.
@@ -126,6 +127,8 @@ func irNodeKind(c ir.Core) string {
 		return "Thunk"
 	case *ir.Force:
 		return "Force"
+	case *ir.Merge:
+		return "Merge"
 	case *ir.PrimOp:
 		return "PrimOp"
 	case *ir.RecordLit:
@@ -231,6 +234,15 @@ func (e *emitter) addRecordDesc(rd RecordDesc) uint16 {
 	return uint16(idx)
 }
 
+func (e *emitter) addMergeDesc(md MergeDesc) uint16 {
+	if len(e.mergeDescs) >= maxPoolSize {
+		panic("vm/compiler: merge descriptor pool overflow")
+	}
+	idx := len(e.mergeDescs)
+	e.mergeDescs = append(e.mergeDescs, md)
+	return uint16(idx)
+}
+
 // --- local variable management ---
 
 // allocLocal reserves the next slot and records the name.
@@ -317,6 +329,9 @@ func (e *emitter) compileExpr(expr ir.Core, tail bool) {
 
 	case *ir.Force:
 		e.compileForce(node, tail)
+
+	case *ir.Merge:
+		e.compileMerge(node)
 
 	case *ir.PrimOp:
 		e.compilePrimOp(node)
@@ -447,6 +462,45 @@ func (e *emitter) compileThunk(thunk *ir.Thunk) {
 	child := e.compileChildProto("", thunk.Comp, true, thunk.FV, thunk.FVIndices)
 	protoIdx := e.addProto(child)
 	e.emitU16(OpThunk, protoIdx)
+}
+
+func (e *emitter) compileMerge(merge *ir.Merge) {
+	e.addSpan(merge.S)
+	// Compile Left and Right as effectful thunk protos.
+	// Unlike regular thunks, merge children add ForceEffectful before Return
+	// to fully execute the computation (not just return a deferred PrimVal).
+	leftProto := e.compileMergeChildProto(merge.Left, merge.LeftFV, merge.LeftFVIdx)
+	leftIdx := e.addProto(leftProto)
+	e.emitU16(OpThunk, leftIdx)
+
+	rightProto := e.compileMergeChildProto(merge.Right, merge.RightFV, merge.RightFVIdx)
+	rightIdx := e.addProto(rightProto)
+	e.emitU16(OpThunk, rightIdx)
+
+	descIdx := e.addMergeDesc(MergeDesc{
+		LeftLabels:  merge.LeftLabels,
+		RightLabels: merge.RightLabels,
+	})
+	e.emitU16(OpMerge, descIdx)
+}
+
+// compileMergeChildProto compiles a merge child computation as an effectful thunk.
+// Adds ForceEffectful before Return to fully execute the computation.
+func (e *emitter) compileMergeChildProto(body ir.Core, fv []string, fvIndices []int) *Proto {
+	child := newEmitter(e.compiler, e)
+	child.isThunk = true
+
+	capturedNames, captureSlots := e.resolveCapturesFiltered(fv, fvIndices)
+	child.captures = captureSlots
+	for _, name := range capturedNames {
+		child.allocLocal(name)
+	}
+
+	child.compileExpr(body, false)
+	child.emit(OpForceEffectful) // force the computation result
+	child.emit(OpReturn)
+
+	return child.finalize(e.compiler.source)
 }
 
 func (e *emitter) compileForce(force *ir.Force, tail bool) {
@@ -639,6 +693,7 @@ func (e *emitter) finalize(source *span.Source) *Proto {
 		FixSelfSlot: e.fixSelfSlot,
 		MatchDescs:  e.matchDescs,
 		RecordDescs: e.recordDescs,
+		MergeDescs:  e.mergeDescs,
 		Spans:       e.spans,
 		Source:      source,
 		BindNames:   e.bindNames,

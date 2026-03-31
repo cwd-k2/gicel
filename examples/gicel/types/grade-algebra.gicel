@@ -1,16 +1,22 @@
 -- GICEL Example: User-Defined Grade Algebra
 --
--- The GradeAlgebra class enables user-defined grade lattices.
--- This example defines a security level grade and uses it in
--- capability row annotations.
+-- The GradeAlgebra class enables user-defined grade lattices that annotate
+-- computation effects. Grades track resource usage, security levels, or
+-- other quantitative properties through the type system.
+--
+-- GICEL provides a built-in Mult grade (Zero/Linear/Affine/Unrestricted)
+-- in Prelude. This example defines a custom security-level grade.
+--
 -- Run: bin/gicel run examples/gicel/types/grade-algebra.gicel
 
 import Prelude
+import Console
 
--- Define a security level lattice.
+-- Define a three-level security lattice.
+-- Public < Confidential < Secret
 form Level := { Public: Level; Confidential: Level; Secret: Level }
 
--- Join: lattice maximum.
+-- Join: lattice maximum (used when capabilities are combined).
 type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) {
   (Secret, _)       => Secret;
   (_, Secret)       => Secret;
@@ -19,14 +25,52 @@ type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b)
   (x, _)            => x
 }
 
+-- Compose: sequential effect composition (same as join for this lattice).
+type LevelCompose :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) {
+  (Secret, _)       => Secret;
+  (_, Secret)       => Secret;
+  (Confidential, _) => Confidential;
+  (_, Confidential) => Confidential;
+  (x, _)            => x
+}
+
 -- Register as a GradeAlgebra instance.
--- Drop = Public (the bottom element: preservable by default).
+-- Drop = Public (the identity element: no effect required).
+-- Join = LevelJoin (parallel combination of security levels).
+-- Compose = LevelCompose (sequential combination).
 impl GradeAlgebra Level := {
   type GradeJoin := LevelJoin;
+  type GradeCompose := LevelCompose;
   type GradeDrop := Public
 }
 
--- The standard Mult algebra (Zero/Linear/Affine/Unrestricted)
--- is defined in Prelude and available automatically.
+-- Show instance for display.
+impl Show Level := {
+  show := \l. case l {
+    Public       => "Public";
+    Confidential => "Confidential";
+    Secret       => "Secret"
+  }
+}
 
-main := 42
+-- The standard Mult algebra (Zero/Linear/Affine/Unrestricted)
+-- is defined in Prelude and available automatically:
+--
+--   impl GradeAlgebra Mult := {
+--     type GradeJoin := MultJoin;
+--     type GradeCompose := MultCompose;
+--     type GradeDrop := Zero
+--   }
+--
+-- Mult grades track usage multiplicity:
+--   Zero         — not used
+--   Linear       — used exactly once
+--   Affine       — used at most once
+--   Unrestricted — used any number of times
+
+main := do {
+  putLine $ "Public:       " <> show Public;
+  putLine $ "Confidential: " <> show Confidential;
+  putLine $ "Secret:       " <> show Secret;
+  putLine "Grade algebra registered for Level and Mult (Prelude)."
+}

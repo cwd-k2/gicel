@@ -283,6 +283,8 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		return &ir.Thunk{Comp: substMany(n.Comp, subs, subsFV), FV: n.FV, S: n.S}
 	case *ir.Force:
 		return &ir.Force{Expr: substMany(n.Expr, subs, subsFV), S: n.S}
+	case *ir.Merge:
+		return &ir.Merge{Left: substMany(n.Left, subs, subsFV), Right: substMany(n.Right, subs, subsFV), LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, S: n.S}
 	case *ir.PrimOp:
 		args := make([]ir.Core, len(n.Args))
 		for i, a := range n.Args {

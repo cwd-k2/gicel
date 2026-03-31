@@ -57,8 +57,14 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			_, result := d.elaborate(e.Stmts, e.S)
 			return result
 		}
+		if ch.hasDirectGIMonadInstance(monadHead, e.S) {
+			head, _ := types.AppSpineHead(monadHead)
+			d := &doElaborator{ch: ch, mode: doModeGraded, monadHead: head, expected: expected}
+			_, result := d.elaborate(e.Stmts, e.S)
+			return result
+		}
 		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
-			"do notation for "+types.Pretty(expected)+" requires a Monad or IxMonad instance")
+			"do notation for "+types.Pretty(expected)+" requires a Monad, IxMonad, or GIMonad instance")
 		return &ir.Error{S: e.S}
 	}
 
@@ -306,4 +312,100 @@ func (ch *Checker) mkIxBind(monadHead types.Type, comp ir.Core, varName string, 
 		Arg: &ir.Lam{Param: varName, Body: body, S: s},
 		S:   s,
 	}
+}
+
+// --- GIMonad (graded indexed monad) dispatch ---
+
+// GIMonad method indices (offset from the start of the methods block, after supers).
+// GIMonad has 1 super (GradeAlgebra g).
+const (
+	giMethodPure = 0 // gipure
+	giMethodBind = 1 // gibind
+)
+
+// hasDirectGIMonadInstance checks whether the GIMonad class has a direct
+// resolvable instance for the bare type constructor head of monadHead.
+func (ch *Checker) hasDirectGIMonadInstance(monadHead types.Type, s span.Span) bool {
+	if _, ok := ch.reg.LookupClass("GIMonad"); !ok {
+		return false
+	}
+	head, _ := types.AppSpineHead(monadHead)
+	gradeMeta := ch.freshMeta(types.TypeOfTypes)
+	_, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta, head}, s)
+	return ok
+}
+
+// extractGIMethod resolves a GIMonad dictionary for monadHead and extracts
+// the method at methodIdx.
+func (ch *Checker) extractGIMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
+	classInfo, _ := ch.reg.LookupClass("GIMonad")
+	if classInfo == nil {
+		ch.addCodedError(diagnostic.ErrNoInstance, s, "GIMonad class not available")
+		return &ir.Error{S: s}
+	}
+
+	gradeMeta := ch.freshMeta(types.TypeOfTypes)
+	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta, monadHead}, s); ok {
+		fieldIdx := len(classInfo.Supers) + methodIdx
+		return ch.solver.ExtractDictField(classInfo, dict, fieldIdx, "gim", s)
+	}
+
+	ch.addCodedError(diagnostic.ErrNoInstance, s, "no GIMonad instance for "+types.Pretty(monadHead))
+	return &ir.Error{S: s}
+}
+
+// mkGIPure generates Core for graded monadic pure using the GIMonad dictionary.
+func (ch *Checker) mkGIPure(monadHead types.Type, val ir.Core, s span.Span) ir.Core {
+	selector := ch.extractGIMethod(monadHead, giMethodPure, s)
+	return &ir.App{Fun: selector, Arg: val, S: s}
+}
+
+// mkGIBind generates Core for a graded monadic bind using the GIMonad dictionary.
+func (ch *Checker) mkGIBind(monadHead types.Type, comp ir.Core, varName string, body ir.Core, s span.Span) ir.Core {
+	selector := ch.extractGIMethod(monadHead, giMethodBind, s)
+	return &ir.App{
+		Fun: &ir.App{Fun: selector, Arg: comp, S: s},
+		Arg: &ir.Lam{Param: varName, Body: body, S: s},
+		S:   s,
+	}
+}
+
+// gradedBind handles x <- comp; rest in GIMonad mode.
+func (d *doElaborator) gradedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	ch := d.ch
+
+	var compCore ir.Core
+	var resultTy types.Type
+
+	if pureVal := extractPureArg(comp); pureVal != nil {
+		rty, vc := ch.infer(pureVal)
+		compCore = ch.mkGIPure(d.monadHead, vc, stmtS)
+		resultTy = rty
+	} else {
+		compTy, cc := ch.infer(comp)
+		compCore = cc
+		resultTy = ch.extractMonadResult(compTy, d.monadHead, stmtS)
+	}
+
+	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
+	_, restCore := d.elaborate(rest, doS)
+	ch.ctx.Pop()
+	return d.expected, ch.mkGIBind(d.monadHead, compCore, varName, restCore, stmtS)
+}
+
+// gradedExprStmt handles comp; rest (expression statement) in GIMonad mode.
+func (d *doElaborator) gradedExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	ch := d.ch
+
+	var compCore ir.Core
+	if pureVal := extractPureArg(expr); pureVal != nil {
+		_, vc := ch.infer(pureVal)
+		compCore = ch.mkGIPure(d.monadHead, vc, stmtS)
+	} else {
+		_, cc := ch.infer(expr)
+		compCore = cc
+	}
+
+	_, restCore := d.elaborate(rest, doS)
+	return d.expected, ch.mkGIBind(d.monadHead, compCore, "_", restCore, stmtS)
 }

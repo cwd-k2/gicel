@@ -2,13 +2,14 @@
 
 ## Lexical Structure
 
-### Keywords (14)
+### Keywords (15)
 
 | Keyword      | Purpose                           |
 | ------------ | --------------------------------- |
 | `case`       | Pattern matching                  |
 | `do`         | Monadic do-block                  |
 | `form`       | Algebraic form type / type class  |
+| `lazy`       | Lazy co-data declaration          |
 | `type`       | Type alias / type family          |
 | `impl`       | Type class instance               |
 | `infixl`     | Left-associative operator fixity  |

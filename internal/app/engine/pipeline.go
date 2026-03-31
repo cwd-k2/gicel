@@ -23,6 +23,7 @@ type pipelineCtx struct {
 	traceHook       check.CheckTraceHook
 	entryPoint      string
 	denyAssumptions bool
+	noInline        bool
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -171,9 +172,25 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, er
 		return nil, nil, &CompileError{Errors: checkErrs}
 	}
 
-	pc.postCheck(prog, nil) // inlining disabled: heuristic needs refinement
+	var userBindings map[string]bool
+	if !pc.noInline {
+		userBindings = collectUserBindings(prog)
+	}
+	pc.postCheck(prog, userBindings)
 
 	return prog, src, nil
+}
+
+// collectUserBindings returns the set of non-generated binding names
+// eligible for selective inlining.
+func collectUserBindings(prog *ir.Program) map[string]bool {
+	m := make(map[string]bool)
+	for _, b := range prog.Bindings {
+		if !b.Generated {
+			m[b.Name] = true
+		}
+	}
+	return m
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.

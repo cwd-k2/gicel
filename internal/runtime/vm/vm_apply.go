@@ -232,6 +232,39 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 	return v, capEnv, nil
 }
 
+// forceMergeChild executes a thunk (merge child proto) with a specific CapEnv
+// using the barrier-frame approach. Returns the result value and final CapEnv.
+func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv, frame *Frame) (eval.Value, eval.CapEnv, error) {
+	thv, ok := v.(*eval.VMThunkVal)
+	if !ok {
+		// Not a thunk — already a value. Return as-is with the given CapEnv.
+		return v, capEnv, nil
+	}
+	proto := thv.Proto.(*Proto)
+	if err := vm.budget.Step(); err != nil {
+		return nil, capEnv, err
+	}
+	savedLocals := len(vm.locals)
+	savedFP := vm.fp
+	vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
+	vm.fp = len(vm.frames) - 1
+	barrierFrame := &vm.frames[vm.fp]
+	if err := vm.callThunk(proto, thv.Captured, barrierFrame); err != nil {
+		vm.locals = vm.locals[:savedLocals]
+		vm.fp = savedFP
+		vm.frames = vm.frames[:savedFP+1]
+		return nil, capEnv, err
+	}
+	result, err := vm.execute()
+	vm.locals = vm.locals[:savedLocals]
+	vm.fp = savedFP
+	vm.frames = vm.frames[:savedFP+1]
+	if err != nil {
+		return nil, capEnv, err
+	}
+	return result.Value, result.CapEnv, nil
+}
+
 // applyPrim handles application to a PrimVal.
 func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	args := make([]eval.Value, len(pv.Args)+1)

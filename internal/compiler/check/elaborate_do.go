@@ -23,6 +23,7 @@ const (
 	doModeInfer   doMode = iota // fresh metas for pre/post; returns inferred type
 	doModeChecked               // threads known pre/post from TyCBPV
 	doModeMonadic               // IxMonad class dispatch via dictionary
+	doModeGraded                // GIMonad class dispatch via dictionary (grade-aware)
 )
 
 // doElaborator parameterizes the differences between the three do elaboration paths.
@@ -35,7 +36,7 @@ type doElaborator struct {
 	// checked mode: threading state.
 	comp *types.TyCBPV
 
-	// monadic mode: IxMonad dispatch parameters.
+	// monadic/graded mode: class dispatch parameters.
 	monadHead types.Type
 	expected  types.Type
 
@@ -52,7 +53,7 @@ func (d *doElaborator) errPair(s span.Span) (types.Type, ir.Core) {
 	switch d.mode {
 	case doModeChecked:
 		return d.comp, errCore
-	case doModeMonadic:
+	case doModeMonadic, doModeGraded:
 		return d.expected, errCore
 	default:
 		return &types.TyError{S: s}, errCore
@@ -120,6 +121,15 @@ func (d *doElaborator) elaborateBase(expr syntax.Expr, s span.Span) (types.Type,
 			}
 		}
 		return d.expected, ch.check(expr, d.expected)
+	case doModeGraded:
+		// Intercept `pure val` / `gipure val` at the end of a graded do block.
+		if pureVal := extractPureArg(expr); pureVal != nil {
+			if app, ok := d.expected.(*types.TyApp); ok {
+				valCore := ch.check(pureVal, app.Arg)
+				return d.expected, ch.mkGIPure(d.monadHead, valCore, s)
+			}
+		}
+		return d.expected, ch.check(expr, d.expected)
 	}
 	return d.errPair(s)
 }
@@ -133,6 +143,8 @@ func (d *doElaborator) elaborateBind(varName string, comp syntax.Expr, rest []sy
 		return d.checkedBind(varName, comp, rest, stmtS, doS, "do bind")
 	case doModeMonadic:
 		return d.monadicBind(varName, comp, rest, stmtS, doS)
+	case doModeGraded:
+		return d.gradedBind(varName, comp, rest, stmtS, doS)
 	}
 	return d.errPair(stmtS)
 }
@@ -146,6 +158,8 @@ func (d *doElaborator) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, s
 		return d.checkedBind("_", expr, rest, stmtS, doS, "do statement")
 	case doModeMonadic:
 		return d.monadicExprStmt(expr, rest, stmtS, doS)
+	case doModeGraded:
+		return d.gradedExprStmt(expr, rest, stmtS, doS)
 	}
 	return d.errPair(stmtS)
 }

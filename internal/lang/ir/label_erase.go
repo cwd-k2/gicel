@@ -158,6 +158,14 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		}
 		return &Force{Expr: expr, S: n.S}
 
+	case *Merge:
+		left := eraseLabelRec(n.Left, labelVars)
+		right := eraseLabelRec(n.Right, labelVars)
+		if left == n.Left && right == n.Right {
+			return n
+		}
+		return &Merge{Left: left, Right: right, LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, S: n.S}
+
 	case *Fix:
 		body := eraseLabelRec(n.Body, labelVars)
 		if body == n.Body {

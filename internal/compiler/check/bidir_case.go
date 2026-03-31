@@ -317,11 +317,16 @@ func (ch *Checker) autoForceLazy(pat ir.Pattern, body ir.Core, s span.Span) ir.C
 	for i := len(fields) - 1; i >= 0; i-- {
 		f := fields[i]
 		pcon.Args[f.index] = &ir.PVar{Name: f.internalName, S: f.s}
+		// NOTE: This ir.Bind is generated post-type-check. The Force/Bind
+		// typing is sound (Force : Thunk a → Computation a, Bind sequences
+		// computations), but is not verified by the type checker. A future
+		// IR verification pass must account for these generated nodes.
 		body = &ir.Bind{
-			Comp: &ir.Force{Expr: &ir.Var{Name: f.internalName, S: s}, S: s},
-			Var:  f.userName,
-			Body: body,
-			S:    s,
+			Comp:      &ir.Force{Expr: &ir.Var{Name: f.internalName, S: s}, S: s},
+			Var:       f.userName,
+			Body:      body,
+			Generated: true,
+			S:         s,
 		}
 	}
 	return body

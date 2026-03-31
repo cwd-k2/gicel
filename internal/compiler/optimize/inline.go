@@ -1,10 +1,6 @@
 package optimize
 
-import (
-	"strings"
-
-	"github.com/cwd-k2/gicel/internal/lang/ir"
-)
+import "github.com/cwd-k2/gicel/internal/lang/ir"
 
 // maxInlineSize is the maximum node count for a binding to be considered
 // an inline candidate.
@@ -27,7 +23,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool) map
 		if !userBindings[b.Name] {
 			continue
 		}
-		if strings.Contains(b.Name, "$") {
+		if b.Generated {
 			continue
 		}
 		if _, ok := b.Expr.(*ir.Lam); !ok {

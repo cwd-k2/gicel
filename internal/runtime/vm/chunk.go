@@ -29,6 +29,9 @@ type Proto struct {
 	// RecordDescs holds record construction/update descriptors.
 	RecordDescs []RecordDesc
 
+	// MergeDescs holds merge descriptors (CapEnv label split info).
+	MergeDescs []MergeDesc
+
 	// Debug information.
 	Spans     []SpanEntry  // bytecode offset → source span
 	Source    *span.Source // source text for error attribution
@@ -70,6 +73,12 @@ type MatchDesc struct {
 // RecordDesc describes fields for record construction or update.
 type RecordDesc struct {
 	Labels []string // field labels in the order values appear on the stack
+}
+
+// MergeDesc describes CapEnv label splitting for parallel composition.
+type MergeDesc struct {
+	LeftLabels  []string // capability labels for left computation
+	RightLabels []string // capability labels for right computation
 }
 
 // SpanAt returns the source span for the given bytecode offset,

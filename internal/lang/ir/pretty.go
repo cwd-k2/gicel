@@ -58,6 +58,8 @@ func prettyCore(c Core, indent int) string {
 		return "(thunk " + prettyCore(n.Comp, indent) + ")"
 	case *Force:
 		return "(force " + prettyCore(n.Expr, indent) + ")"
+	case *Merge:
+		return "(merge " + prettyCore(n.Left, indent) + " " + prettyCore(n.Right, indent) + ")"
 	case *PrimOp:
 		if len(n.Args) == 0 {
 			return "(prim " + n.Name + ")"

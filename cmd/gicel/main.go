@@ -569,6 +569,9 @@ func cmdRun(args []string) int {
 	eng.SetNestingLimit(*maxNesting)
 	eng.SetAllocLimit(*maxAlloc)
 	eng.SetEntryPoint(*entry)
+	if *explain {
+		eng.DisableInlining()
+	}
 
 	rt, err := eng.NewRuntime(ctx, string(source))
 	if err != nil {

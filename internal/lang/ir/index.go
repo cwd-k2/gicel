@@ -155,6 +155,10 @@ func assignIndices(c Core, localScope map[string]int, depth int) {
 	case *Force:
 		assignIndices(n.Expr, localScope, depth+1)
 
+	case *Merge:
+		assignMergeChild(n.Left, n.LeftFV, localScope, depth, &n.LeftFVIdx)
+		assignMergeChild(n.Right, n.RightFV, localScope, depth, &n.RightFVIdx)
+
 	case *PrimOp:
 		for _, arg := range n.Args {
 			assignIndices(arg, localScope, depth+1)
@@ -306,6 +310,31 @@ func assignThunk(n *Thunk, enclosingScope map[string]int, depth int) {
 		capturedScope[name] = len(localFVNames) - 1 - i
 	}
 	assignIndices(n.Comp, capturedScope, depth+1)
+}
+
+// assignMergeChild assigns indices for a Merge child (like Thunk but writes FVIdx to the Merge node).
+func assignMergeChild(body Core, fv []string, enclosingScope map[string]int, depth int, fvIdx *[]int) {
+	if fv == nil {
+		assignIndices(body, enclosingScope, depth+1)
+		*fvIdx = nil
+		return
+	}
+	var localFVNames []string
+	*fvIdx = []int{}
+	for _, name := range fv {
+		if enclosingScope == nil {
+			continue
+		}
+		if idx, ok := enclosingScope[name]; ok {
+			localFVNames = append(localFVNames, name)
+			*fvIdx = append(*fvIdx, idx)
+		}
+	}
+	capturedScope := make(map[string]int, len(localFVNames))
+	for i, name := range localFVNames {
+		capturedScope[name] = len(localFVNames) - 1 - i
+	}
+	assignIndices(body, capturedScope, depth+1)
 }
 
 // shiftScope returns a copy of scope with all indices incremented by n.

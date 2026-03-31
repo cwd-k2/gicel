@@ -79,6 +79,9 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 		freeVarsRec(n.Comp, bound, fv, depth+1)
 	case *Force:
 		freeVarsRec(n.Expr, bound, fv, depth+1)
+	case *Merge:
+		freeVarsRec(n.Left, bound, fv, depth+1)
+		freeVarsRec(n.Right, bound, fv, depth+1)
 	case *PrimOp:
 		for _, arg := range n.Args {
 			freeVarsRec(arg, bound, fv, depth+1)
@@ -270,6 +273,20 @@ func annotateFV(c Core, depth int) fvResult {
 		return compFV
 	case *Force:
 		return annotateFV(n.Expr, depth+1)
+	case *Merge:
+		leftFV := annotateFV(n.Left, depth+1)
+		if leftFV.overflow {
+			n.LeftFV = nil
+		} else {
+			n.LeftFV = setToSlice(leftFV.vars)
+		}
+		rightFV := annotateFV(n.Right, depth+1)
+		if rightFV.overflow {
+			n.RightFV = nil
+		} else {
+			n.RightFV = setToSlice(rightFV.vars)
+		}
+		return mergeFV(leftFV, rightFV)
 	case *PrimOp:
 		var result fvResult
 		for _, arg := range n.Args {

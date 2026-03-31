@@ -85,3 +85,34 @@ func (c CapEnv) MarkShared() CapEnv {
 	c.shared = true
 	return c
 }
+
+// Filter returns a new CapEnv containing only the given labels.
+func (c CapEnv) Filter(labels []string) CapEnv {
+	if c.caps == nil || len(labels) == 0 {
+		return CapEnv{}
+	}
+	m := make(map[string]any, len(labels))
+	for _, l := range labels {
+		if v, ok := c.caps[l]; ok {
+			m[l] = v
+		}
+	}
+	return CapEnv{caps: m}
+}
+
+// MergeWith returns a new CapEnv combining entries from both environments.
+// If both contain the same label, the value from other takes precedence.
+func (c CapEnv) MergeWith(other CapEnv) CapEnv {
+	if c.caps == nil && other.caps == nil {
+		return CapEnv{}
+	}
+	size := len(c.caps) + len(other.caps)
+	m := make(map[string]any, size)
+	for k, v := range c.caps {
+		m[k] = v
+	}
+	for k, v := range other.caps {
+		m[k] = v
+	}
+	return CapEnv{caps: m}
+}

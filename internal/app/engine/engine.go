@@ -37,6 +37,7 @@ type Engine struct {
 
 	entryPoint      string               // entry binding name (default: "main")
 	denyAssumptions bool                 // when true, user code cannot use assumption declarations
+	noInline        bool                 // when true, skip selective inlining (e.g. for explain traces)
 	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
 }
 
@@ -153,6 +154,10 @@ func (e *Engine) SetEntryPoint(name string) { e.entryPoint = name }
 // RegisterModule / RegisterModuleRec calls.
 func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
 
+// DisableInlining prevents selective inlining of user-defined bindings.
+// Use when explain traces must preserve function boundaries.
+func (e *Engine) DisableInlining() { e.noInline = true }
+
 // RegisterModuleFile reads a .gicel file and registers it as a module.
 func (e *Engine) RegisterModuleFile(path string) error {
 	data, err := os.ReadFile(path)
@@ -177,6 +182,7 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		traceHook:       e.checkTraceHook,
 		entryPoint:      ep,
 		denyAssumptions: e.denyAssumptions,
+		noInline:        e.noInline,
 	}
 }
 

@@ -119,6 +119,13 @@ const (
 	// Operand: u16 constant pool index.
 	OpPrimPartial
 
+	// --- Merge (parallel composition) ---
+
+	// OpMerge pops two computation values, splits CapEnv by labels, forces
+	// each with its split CapEnv, merges resulting CapEnvs, pushes pair record.
+	// Operand: u16 merge descriptor index.
+	OpMerge
+
 	// --- Budget ---
 
 	// OpRaise pops a HostVal(string) from TOS and raises it as a RuntimeError.
@@ -158,7 +165,7 @@ func InstructionSize(op Opcode) int {
 		OpRecordProj, OpRecord, OpRecordUpdate,
 		OpFixClosure, OpFixThunk,
 		OpPrimPartial,
-		OpBind:
+		OpBind, OpMerge:
 		return 3 // opcode + u16
 
 	case OpCon, OpPrim:
@@ -219,6 +226,7 @@ var opNames = [opcodeCount]string{
 	OpFixThunk:       "FIX_THUNK",
 	OpPrim:           "PRIM",
 	OpPrimPartial:    "PRIM_PARTIAL",
+	OpMerge:          "MERGE",
 	OpRaise:          "RAISE",
 	OpStep:           "STEP",
 }

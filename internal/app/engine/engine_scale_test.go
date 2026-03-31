@@ -71,7 +71,7 @@ func measureScale(t *testing.T, n int, runs int) scaleResult {
 		t2 := time.Now()
 
 		// Stage 3: post-check (optimize + annotate + index)
-		pc.postCheck(prog)
+		pc.postCheck(prog, nil)
 		t3 := time.Now()
 
 		runtime.ReadMemStats(&m2)
