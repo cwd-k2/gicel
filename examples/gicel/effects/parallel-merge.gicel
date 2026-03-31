@@ -1,0 +1,39 @@
+-- GICEL Example: Parallel Composition (SMC)
+--
+-- The `merge` primitive (and its infix alias `***`) runs two computations
+-- with disjoint capability sets, splitting the capability environment.
+-- The `dag` primitive swaps pre/post rows (dagger functor in SMC theory).
+--
+-- Type-level: merge enforces disjoint row composition via the Merge type family.
+-- Runtime: each computation receives only its portion of the CapEnv.
+--
+-- Run: bin/gicel run examples/gicel/effects/parallel-merge.gicel
+
+import Prelude
+import Effect.State
+import Console
+
+-- dag swaps pre and post capability rows.
+-- dag (dag gate) = gate — the involution property.
+-- At runtime, dag is identity (the row swap is purely type-level).
+swapGate := \u. do { _ <- put 0; pure () }
+roundTrip := \u. dag (dag (swapGate u))
+
+main := do {
+  -- merge: run two computations in parallel, each with its own CapEnv slice.
+  -- Left reads state, right does pure computation.
+  _ <- put 42;
+  (a, b) <- merge (do { x <- get; pure (x + 1) }) (do { pure 99 });
+  putLine $ "merge: (" <> show (a :: Int) <> ", " <> show (b :: Int) <> ")";
+
+  -- The *** operator is syntactic sugar for merge.
+  _ <- put 10;
+  (c, d) <- (do { modify (* 3); get }) *** (do { pure 7 });
+  putLine $ "(***): (" <> show (c :: Int) <> ", " <> show (d :: Int) <> ")";
+
+  -- dag involution: dag (dag gate) = gate.
+  _ <- put 5;
+  _ <- roundTrip ();
+  n <- get;
+  putLine $ "dag:   state after round-trip = " <> show (n :: Int)
+}

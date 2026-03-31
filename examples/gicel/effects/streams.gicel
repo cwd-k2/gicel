@@ -1,0 +1,133 @@
+-- GICEL Example: Lazy Streams (Data.Stream)
+--
+-- Streams are lazy (co-data) lists: constructor arguments are auto-thunked.
+-- This example demonstrates every function in the Data.Stream stdlib module.
+--
+-- API: LCons, LNil, head, tail, take, drop, filter, zipWith, zip,
+--      iterate, takeWhile, repeat, fmap (Functor), foldr (Foldable),
+--      fromList/toList, show (Show)
+--
+-- Run: bin/gicel run --recursion examples/gicel/effects/streams.gicel
+
+import Prelude
+import Data.Stream
+import Console
+
+-- ── Construction ──
+
+-- iterate: f(f(f(...x)))
+nats := iterate (+ 1) 0
+
+-- repeat: infinite constant stream
+ones := repeat 1
+
+-- fromList: convert a strict list to a lazy stream
+converted :: Stream Int
+converted := fromList (Cons 10 (Cons 20 (Cons 30 Nil)))
+
+-- Self-referential stream via fix
+fibs := {
+  go := fix \self a b. LCons a (self b (a + b));
+  go 0 1
+}
+
+powersOf2 := iterate (* 2) 1
+
+-- ── Observation ──
+
+-- head / tail: Maybe-valued accessors
+hdNats := head nats             -- Just 0
+tlNats := head =<< tail nats    -- Just 1 (head of tail)
+hdEmpty := head (LNil :: Stream Int) -- Nothing
+
+-- take: first n elements as a strict list
+first10 := take 10 nats
+
+-- drop: skip first n elements
+after5 := take 5 (drop 5 nats) -- [5,6,7,8,9]
+
+-- takeWhile: elements while predicate holds
+smallFibs := takeWhile (< 100) fibs
+
+-- ── Transformation ──
+
+-- fmap (Functor): element-wise map
+doubled := take 8 (fmap (* 2) nats)
+
+-- filter: keep elements satisfying predicate
+evenNats := take 8 (filter (\x. mod x 2 == 0) nats)
+
+evenFibs := take 6 (filter (\x. mod x 2 == 0) fibs)
+
+-- zipWith / zip: element-wise combination
+summed := take 8 (zipWith (+) fibs nats)
+paired := take 5 (zip nats fibs)
+
+-- ── Folding ──
+
+-- foldr (Foldable) — must be used on finite streams (via take/toList)
+finite :: Stream Int
+finite := fromList (Cons 1 (Cons 2 (Cons 3 Nil)))
+sumFinite := foldr (+) (0 :: Int) finite
+
+-- toList: convert stream to strict list (only for finite streams)
+roundTrip :: List Int
+roundTrip := toList (fromList (Cons 1 (Cons 2 (Cons 3 Nil))))
+
+-- ── Show ──
+
+-- Show instance truncates at 10 elements with "...]" suffix
+showInfinite := show nats       -- "[0, 1, 2, ..., 9, ...]"
+showFinite := show converted    -- "[10, 20, 30]"
+
+-- ── Composition ──
+
+-- Chaining lazy operations: no intermediate allocation
+squaresOfEvens := take 6 (fmap (\x. x * x) (filter (\x. mod x 2 == 0) nats))
+
+-- Partial sums via scanl-like pattern
+partialSums := {
+  go := fix \self n acc. LCons acc (self (n + 1) (acc + n + 1));
+  go 1 1
+}
+
+main := do {
+  putLine "── Construction ──";
+  putLine $ "nats:        " <> show (take 10 nats);
+  putLine $ "ones:        " <> show (take 5 ones);
+  putLine $ "fromList:    " <> show converted;
+  putLine $ "fibs:        " <> show (take 12 fibs);
+  putLine $ "powers of 2: " <> show (take 10 powersOf2);
+
+  putLine "";
+  putLine "── Observation ──";
+  putLine $ "head nats:   " <> show hdNats;
+  putLine $ "head.tail:   " <> show tlNats;
+  putLine $ "head empty:  " <> show hdEmpty;
+  putLine $ "take 10:     " <> show first10;
+  putLine $ "drop 5:      " <> show after5;
+  putLine $ "fibs < 100:  " <> show smallFibs;
+
+  putLine "";
+  putLine "── Transformation ──";
+  putLine $ "doubled:     " <> show doubled;
+  putLine $ "even nats:   " <> show evenNats;
+  putLine $ "even fibs:   " <> show evenFibs;
+  putLine $ "fib + nat:   " <> show summed;
+  putLine $ "zip:         " <> show paired;
+
+  putLine "";
+  putLine "── Folding ──";
+  putLine $ "sum [1,2,3]: " <> show sumFinite;
+  putLine $ "round-trip:  " <> show roundTrip;
+
+  putLine "";
+  putLine "── Show ──";
+  putLine $ "infinite:    " <> showInfinite;
+  putLine $ "finite:      " <> showFinite;
+
+  putLine "";
+  putLine "── Composition ──";
+  putLine $ "sq of evens: " <> show squaresOfEvens;
+  putLine $ "partial sum: " <> show (take 10 partialSums)
+}

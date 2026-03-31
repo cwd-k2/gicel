@@ -1,0 +1,137 @@
+-- GICEL Example: Lazy Co-Data
+--
+-- The `lazy` keyword declares co-data types: algebraic types whose constructor
+-- arguments are implicitly wrapped in memoizing thunks. Pattern matching
+-- auto-forces thunked fields. This implements call-by-need evaluation within
+-- GICEL's call-by-value semantics, following the data/co-data distinction
+-- of call-by-push-value (CBPV).
+--
+-- Key behaviors:
+--   1. Constructor args are auto-thunked (no manual `thunk` needed)
+--   2. Pattern match vars are auto-forced (no manual `force` needed)
+--   3. Thunks are memoized — forced at most once, result cached
+--
+-- Run: bin/gicel run --recursion examples/gicel/effects/lazy-codata.gicel
+
+import Prelude
+import Console
+
+-- ── User-Defined Lazy Types ──
+
+-- A lazy pair: both components are suspended until pattern-matched.
+lazy LPair := \a b. { MkLPair: a -> b -> LPair a b; }
+
+lfst := \p. case p { MkLPair a _ => a }
+lsnd := \p. case p { MkLPair _ b => b }
+
+-- A lazy optional: the contained value is suspended.
+lazy LMaybe := \a. { LJust: a -> LMaybe a; LNothing: LMaybe a; }
+
+lfromMaybe := \def m. case m {
+  LNothing => def;
+  LJust x  => x
+}
+
+-- ── User-Defined Lazy List ──
+
+lazy LList := \a. {
+  LCons: a -> LList a -> LList a;
+  LNil: LList a;
+}
+
+lrange := fix \self lo hi.
+  if lo > hi
+     then LNil
+     else LCons lo (self (lo + 1) hi)
+
+ltake := fix \self n xs.
+  if n <= 0
+     then Nil
+     else case xs {
+       LNil => Nil;
+       LCons x rest => Cons x (self (n - 1) rest)
+     }
+
+lmap := \f. fix \self xs. case xs {
+  LNil => LNil;
+  LCons x rest => LCons (f x) (self rest)
+}
+
+lfilter := \p. fix \self xs. case xs {
+  LNil => LNil;
+  LCons x rest =>
+    if p x
+       then LCons x (self rest)
+       else self rest
+}
+
+llength := fix \self acc xs. case xs {
+  LNil => acc;
+  LCons _ rest => self (acc + 1) rest
+}
+
+-- ── Infinite Streams ──
+
+natsFrom := fix \self n. LCons n (self (n + 1))
+
+-- ── Nested Lazy Structures ──
+
+-- Lazy list of lazy pairs
+lazyPairs := {
+  go := fix \self n. LCons (MkLPair n (n * n)) (self (n + 1));
+  go 1
+}
+
+-- ── Empty Lazy Structures ──
+
+emptyLList :: LList Int
+emptyLList := LNil
+
+emptyPairDefault := lfromMaybe (0 :: Int) (LNothing :: LMaybe Int)
+
+main := do {
+  putLine "── Lazy Pair ──";
+  p := MkLPair (1 + 2) (3 + 4);
+  putLine $ "fst: " <> show (lfst p) <> ", snd: " <> show (lsnd p);
+
+  putLine "";
+  putLine "── Lazy Maybe ──";
+  putLine $ "LJust 42:   " <> show (lfromMaybe (0 :: Int) (LJust 42));
+  putLine $ "LNothing:   " <> show emptyPairDefault;
+
+  putLine "";
+  putLine "── Lazy List ──";
+  xs := lrange 1 20;
+  putLine $ "range 1..20, take 5:  " <> show (ltake 5 xs);
+  putLine $ "length range 1..20:   " <> show (llength 0 xs);
+
+  doubled := lmap (* 2) xs;
+  putLine $ "doubled, take 5:      " <> show (ltake 5 doubled);
+
+  evens := lfilter (\x. mod x 2 == 0) xs;
+  putLine $ "evens, take 5:        " <> show (ltake 5 evens);
+
+  putLine "";
+  putLine "── Empty ──";
+  putLine $ "empty take 3:         " <> show (ltake 3 emptyLList);
+
+  putLine "";
+  putLine "── Infinite ──";
+  nats := natsFrom 0;
+  putLine $ "nats, take 8:         " <> show (ltake 8 nats);
+
+  squares := lmap (\x. x * x) (natsFrom 1);
+  putLine $ "squares, take 6:      " <> show (ltake 6 squares);
+
+  -- chained: filter then map over infinite stream
+  oddSquares := lmap (\x. x * x) (lfilter (\x. mod x 2 == 1) (natsFrom 1));
+  putLine $ "odd squares, take 5:  " <> show (ltake 5 oddSquares);
+
+  putLine "";
+  putLine "── Nested Lazy ──";
+  -- Lazy list of lazy pairs: only accessed elements are forced
+  pairs := ltake 4 (lmap (\p. case p { MkLPair a b => (a, b) }) lazyPairs);
+  putLine $ "pairs take 4:         " <> show pairs;
+
+  pure ()
+}
