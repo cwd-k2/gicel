@@ -135,27 +135,20 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		}
 		return
 	}
-	// When the parameter kind is Type with a LevelMeta (from unannotated
-	// params), resolve via level unification rather than skipping entirely.
-	// This provides implicit kind polymorphism constrained by universe level:
-	// unannotated parameters accept any kind at a compatible level.
+	// When the parameter kind is Type (any level, including LevelMeta),
+	// resolve via level unification. This provides implicit kind polymorphism
+	// constrained by universe level: Type(L1) accepts any L1 kind (Type, Row,
+	// promoted data kinds), and Type(?l) infers the level from usage.
 	if tc, ok := ka.From.(*types.TyCon); ok && tc.Name == "Type" {
-		if _, isLevelMeta := tc.Level.(*types.LevelMeta); isLevelMeta {
-			argKind := r.kindOfType(arg)
-			if argKind == nil {
-				return
-			}
-			argKind = r.unifier.Zonk(argKind)
-			if argCon, ok := argKind.(*types.TyCon); ok {
-				_ = r.unifier.UnifyLevels(tc.Level, argCon.Level)
-			}
+		argKind := r.kindOfType(arg)
+		if argKind == nil {
 			return
 		}
-		// Concrete Type(L1): also skip for backward compatibility
-		// with explicitly annotated `:: Type` parameters.
-		if types.LevelEqual(tc.Level, types.L1) {
-			return
+		argKind = r.unifier.Zonk(argKind)
+		if argCon, ok := argKind.(*types.TyCon); ok {
+			_ = r.unifier.UnifyLevels(tc.Level, argCon.Level)
 		}
+		return
 	}
 	argKind := r.kindOfType(arg)
 	if argKind == nil {
