@@ -426,6 +426,11 @@ func isSortKind(k types.Type) bool {
 	return false
 }
 
+// isLevelKind checks whether a kind is TypeOfLevels (the Level kind).
+func isLevelKind(k types.Type) bool {
+	return k == types.TypeOfLevels
+}
+
 func (s *CheckState) errorPair(sp span.Span) (types.Type, ir.Core) {
 	return &types.TyError{S: sp}, &ir.Error{S: sp}
 }

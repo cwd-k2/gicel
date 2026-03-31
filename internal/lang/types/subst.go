@@ -209,6 +209,110 @@ func SubstKindInType(t Type, varName string, replacement Type) Type {
 	return Subst(t, varName, replacement)
 }
 
+// SubstLevel replaces a level variable inside TyCon.Level fields throughout a type.
+// This is separate from Subst because level variables live in LevelExpr positions
+// inside TyCon (and TyCBPV grade), not in Type positions.
+func SubstLevel(t Type, levelVarName string, replacement LevelExpr) Type {
+	return substLevel(t, levelVarName, replacement, 0)
+}
+
+func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
+	if depth > maxTraversalDepth {
+		return t
+	}
+	switch ty := t.(type) {
+	case *TyCon:
+		newLevel := substLevelExpr(ty.Level, name, repl)
+		if newLevel == ty.Level {
+			return ty
+		}
+		return &TyCon{Name: ty.Name, Level: newLevel, S: ty.S}
+	case *TyApp:
+		newFun := substLevel(ty.Fun, name, repl, depth+1)
+		newArg := substLevel(ty.Arg, name, repl, depth+1)
+		if newFun == ty.Fun && newArg == ty.Arg {
+			return ty
+		}
+		return &TyApp{Fun: newFun, Arg: newArg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
+	case *TyArrow:
+		newFrom := substLevel(ty.From, name, repl, depth+1)
+		newTo := substLevel(ty.To, name, repl, depth+1)
+		if newFrom == ty.From && newTo == ty.To {
+			return ty
+		}
+		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
+	case *TyForall:
+		if ty.Var == name {
+			return ty // shadowed
+		}
+		newKind := substLevel(ty.Kind, name, repl, depth+1)
+		newBody := substLevel(ty.Body, name, repl, depth+1)
+		if newKind == ty.Kind && newBody == ty.Body {
+			return ty
+		}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
+	case *TyCBPV:
+		newPre := substLevel(ty.Pre, name, repl, depth+1)
+		newPost := substLevel(ty.Post, name, repl, depth+1)
+		newResult := substLevel(ty.Result, name, repl, depth+1)
+		newGrade := ty.Grade
+		if newGrade != nil {
+			newGrade = substLevel(newGrade, name, repl, depth+1)
+		}
+		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result && newGrade == ty.Grade {
+			return ty
+		}
+		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Grade: newGrade, Flags: MetaFreeFlags(newPre, newPost, newResult, newGrade), S: ty.S}
+	case *TyFamilyApp:
+		var args []Type
+		for i, a := range ty.Args {
+			newA := substLevel(a, name, repl, depth+1)
+			if args == nil && newA != a {
+				args = make([]Type, len(ty.Args))
+				copy(args[:i], ty.Args[:i])
+			}
+			if args != nil {
+				args[i] = newA
+			}
+		}
+		if args == nil {
+			return ty
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+	default:
+		return ty
+	}
+}
+
+// substLevelExpr replaces a LevelVar by name inside a LevelExpr.
+func substLevelExpr(l LevelExpr, name string, repl LevelExpr) LevelExpr {
+	if l == nil {
+		return nil
+	}
+	switch le := l.(type) {
+	case *LevelVar:
+		if le.Name == name {
+			return repl
+		}
+		return le
+	case *LevelMax:
+		newA := substLevelExpr(le.A, name, repl)
+		newB := substLevelExpr(le.B, name, repl)
+		if newA == le.A && newB == le.B {
+			return le
+		}
+		return &LevelMax{A: newA, B: newB}
+	case *LevelSucc:
+		newE := substLevelExpr(le.E, name, repl)
+		if newE == le.E {
+			return le
+		}
+		return &LevelSucc{E: newE}
+	default:
+		return l
+	}
+}
+
 // SubstMany applies multiple substitutions simultaneously.
 // Unlike sequential Subst calls, this performs a single pass:
 // all variables are replaced in one traversal, so substitution

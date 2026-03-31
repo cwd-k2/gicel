@@ -17,8 +17,13 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	// must be instantiated before arrow decomposition.
 	for {
 		if f, ok := ty.(*types.TyForall); ok {
-			meta := ch.freshMeta(f.Kind)
-			ty = types.Subst(f.Body, f.Var, meta)
+			if isLevelKind(f.Kind) {
+				lm := ch.unifier.FreshLevelMeta()
+				ty = types.SubstLevel(f.Body, f.Var, lm)
+			} else {
+				meta := ch.freshMeta(f.Kind)
+				ty = types.Subst(f.Body, f.Var, meta)
+			}
 		} else {
 			break
 		}
@@ -185,6 +190,12 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 	for {
 		ty = ch.unifier.Zonk(ty)
 		if f, ok := ty.(*types.TyForall); ok {
+			if isLevelKind(f.Kind) {
+				lm := ch.unifier.FreshLevelMeta()
+				ty = types.SubstLevel(f.Body, f.Var, lm)
+				// Levels are erased — no TyApp node emitted.
+				continue
+			}
 			meta := ch.freshMeta(f.Kind)
 			if ch.config.Trace != nil {
 				ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",

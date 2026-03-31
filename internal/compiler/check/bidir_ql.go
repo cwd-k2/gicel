@@ -103,10 +103,15 @@ func (ch *Checker) checkAppQL(head syntax.Expr, args []spineArg, expected types.
 		// Peel foralls (standard instantiation).
 		for {
 			if f, ok := ty.(*types.TyForall); ok {
-				meta := ch.freshMeta(f.Kind)
-				body := types.Subst(f.Body, f.Var, meta)
-				headCore = &ir.TyApp{Expr: headCore, TyArg: meta, S: s}
-				ty = body
+				if isLevelKind(f.Kind) {
+					lm := ch.unifier.FreshLevelMeta()
+					ty = types.SubstLevel(f.Body, f.Var, lm)
+				} else {
+					meta := ch.freshMeta(f.Kind)
+					body := types.Subst(f.Body, f.Var, meta)
+					headCore = &ir.TyApp{Expr: headCore, TyArg: meta, S: s}
+					ty = body
+				}
 			} else {
 				break
 			}

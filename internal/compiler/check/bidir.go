@@ -292,6 +292,13 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
 	if f, ok := expected.(*types.TyForall); ok {
+		if isLevelKind(f.Kind) {
+			// Level quantifier: introduce a fresh level skolem and substitute.
+			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
+			body := types.SubstLevel(f.Body, f.Var, &types.LevelVar{Name: freshName})
+			bodyCore := ch.check(expr, body)
+			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
+		}
 		if isSortKind(f.Kind) {
 			// Kind-level quantifier: introduce a fresh kind skolem (TyVar)
 			// and substitute in all kind positions.
@@ -461,6 +468,13 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 
 	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
 	if f, ok := inferred.(*types.TyForall); ok {
+		if isLevelKind(f.Kind) {
+			// Level quantifier: instantiate with a fresh LevelMeta.
+			lm := ch.unifier.FreshLevelMeta()
+			body := types.SubstLevel(f.Body, f.Var, lm)
+			// Levels are erased — no TyApp node emitted.
+			return ch.subsCheck(body, expected, expr, s)
+		}
 		if isSortKind(f.Kind) {
 			// Kind-level quantifier: instantiate with a fresh kind metavariable
 			km := ch.freshMeta(types.SortZero)
