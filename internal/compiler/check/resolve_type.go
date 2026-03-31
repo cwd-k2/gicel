@@ -274,6 +274,11 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
 		if info, ok := r.lookupAlias(con.Name); ok && len(info.Params) == len(args) {
+			// Guard against cyclic alias expansion: if the body references
+			// the alias itself, substitution produces an infinite loop.
+			if aliasBodyRefsSelf(con.Name, info.Body) {
+				return nil
+			}
 			body := info.Body
 			for i, p := range info.Params {
 				body = types.Subst(body, p, args[i])
@@ -293,4 +298,20 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 		}
 	}
 	return nil
+}
+
+// aliasBodyRefsSelf checks if a type alias body contains a direct reference
+// to the alias itself, indicating a cyclic definition.
+func aliasBodyRefsSelf(name string, ty types.Type) bool {
+	switch t := ty.(type) {
+	case *types.TyCon:
+		return t.Name == name
+	case *types.TyApp:
+		return aliasBodyRefsSelf(name, t.Fun) || aliasBodyRefsSelf(name, t.Arg)
+	case *types.TyArrow:
+		return aliasBodyRefsSelf(name, t.From) || aliasBodyRefsSelf(name, t.To)
+	case *types.TyForall:
+		return aliasBodyRefsSelf(name, t.Body)
+	}
+	return false
 }
