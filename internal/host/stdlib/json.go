@@ -35,10 +35,167 @@ var JSON Pack = func(e Registrar) error {
 	e.RegisterPrim("_fromJSONPair", fromJSONPairImpl)
 	e.RegisterPrim("_fromJSONResult", fromJSONResultImpl)
 
+	// Generic encoder
+	e.RegisterPrim("_jsonEncode", jsonEncodeImpl)
+
 	return e.RegisterModule("Data.JSON", jsonSource)
 }
 
 var jsonSource = mustReadSource("json")
+
+// --- jsonEncode: runtime-introspective JSON serializer ---
+
+func jsonEncodeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	var buf strings.Builder
+	writeJSONValue(&buf, args[0])
+	return &eval.HostVal{Inner: buf.String()}, ce, nil
+}
+
+func writeJSONValue(buf *strings.Builder, v eval.Value) {
+	switch val := v.(type) {
+	case *eval.HostVal:
+		writeJSONHost(buf, val.Inner)
+	case *eval.ConVal:
+		writeJSONCon(buf, val)
+	case *eval.RecordVal:
+		if eval.IsTuple(val) {
+			writeJSONTuple(buf, val)
+		} else {
+			writeJSONRecord(buf, val)
+		}
+	default:
+		buf.WriteString("null")
+	}
+}
+
+func writeJSONHost(buf *strings.Builder, v any) {
+	switch val := v.(type) {
+	case int:
+		buf.WriteString(strconv.Itoa(val))
+	case int64:
+		buf.WriteString(strconv.FormatInt(val, 10))
+	case float64:
+		if math.IsNaN(val) || math.IsInf(val, 0) {
+			buf.WriteString("null")
+		} else {
+			buf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
+		}
+	case string:
+		b, _ := json.Marshal(val)
+		buf.Write(b)
+	case rune:
+		b, _ := json.Marshal(string(val))
+		buf.Write(b)
+	case bool:
+		if val {
+			buf.WriteString("true")
+		} else {
+			buf.WriteString("false")
+		}
+	case byte:
+		buf.WriteString(strconv.Itoa(int(val)))
+	default:
+		buf.WriteString("null")
+	}
+}
+
+func writeJSONCon(buf *strings.Builder, val *eval.ConVal) {
+	// List
+	if elems, ok := eval.CollectList(val); ok {
+		buf.WriteByte('[')
+		for i, e := range elems {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			writeJSONValue(buf, e)
+		}
+		buf.WriteByte(']')
+		return
+	}
+	// Bool
+	if b, ok := eval.IsBool(val); ok {
+		if b {
+			buf.WriteString("true")
+		} else {
+			buf.WriteString("false")
+		}
+		return
+	}
+	// Maybe
+	if val.Con == "Nothing" && len(val.Args) == 0 {
+		buf.WriteString("null")
+		return
+	}
+	if val.Con == "Just" && len(val.Args) == 1 {
+		writeJSONValue(buf, val.Args[0])
+		return
+	}
+	// Result
+	if val.Con == "Ok" && len(val.Args) == 1 {
+		buf.WriteString(`{"ok":`)
+		writeJSONValue(buf, val.Args[0])
+		buf.WriteByte('}')
+		return
+	}
+	if val.Con == "Err" && len(val.Args) == 1 {
+		buf.WriteString(`{"err":`)
+		writeJSONValue(buf, val.Args[0])
+		buf.WriteByte('}')
+		return
+	}
+	// Unit
+	if val.Con == "()" && len(val.Args) == 0 {
+		buf.WriteString("null")
+		return
+	}
+	// Generic ADT
+	buf.WriteString(`{"tag":`)
+	b, _ := json.Marshal(val.Con)
+	buf.Write(b)
+	if len(val.Args) > 0 {
+		buf.WriteString(`,"fields":[`)
+		for i, a := range val.Args {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			writeJSONValue(buf, a)
+		}
+		buf.WriteByte(']')
+	}
+	buf.WriteByte('}')
+}
+
+func writeJSONTuple(buf *strings.Builder, r *eval.RecordVal) {
+	n := r.Len()
+	if n == 0 {
+		buf.WriteString("null")
+		return
+	}
+	buf.WriteByte('[')
+	for i := range n {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		v, _ := r.Get(ir.TupleLabel(i + 1))
+		writeJSONValue(buf, v)
+	}
+	buf.WriteByte(']')
+}
+
+func writeJSONRecord(buf *strings.Builder, r *eval.RecordVal) {
+	fields := r.RawFields()
+	buf.WriteByte('{')
+	for i, f := range fields {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		b, _ := json.Marshal(f.Label)
+		buf.Write(b)
+		buf.WriteByte(':')
+		writeJSONValue(buf, f.Value)
+	}
+	buf.WriteByte('}')
+}
 
 // --- helpers ---
 

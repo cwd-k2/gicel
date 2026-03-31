@@ -490,7 +490,7 @@ func (s *Scanner) scanRune(start int) syn.Token {
 }
 
 var keywords = map[string]syn.TokenKind{
-	"as":         syn.TokAs,
+	// "as" is contextual — only special after import, usable as variable name.
 	"assumption": syn.TokAssumption,
 	"case":       syn.TokCase,
 	"do":         syn.TokDo,

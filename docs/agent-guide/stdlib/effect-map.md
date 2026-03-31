@@ -43,4 +43,20 @@ Provides mutable ordered maps backed by AVL trees, gated by the `{ mmap: () }` e
 - Uses the same AVL tree infrastructure as `Data.Map`; the difference is in-place root mutation.
 - Named `newAt`/`fromListAt` take an explicit `(k -> k -> Ordering)` compare function instead of `Ord k =>` (the compare is stored in the handle at creation time).
 
+**Example:**
+
+```gicel
+import Prelude
+import Effect.Map as MMap
+
+main := thunk do {
+  m <- MMap.new @Int @String;
+  MMap.insert 1 "one" m;
+  MMap.insert 2 "two" m;
+  v <- MMap.lookup 1 m;
+  pure v
+}
+-- Just "one"
+```
+
 > **Tip:** Use qualified imports: `import Effect.Map as MMap`.

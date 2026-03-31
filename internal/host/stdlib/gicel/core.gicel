@@ -83,3 +83,4 @@ type Gate := \(pre: Row) (post: Row). Computation pre post ()
 
 dag :: \(pre: Row) (post: Row). Gate pre post -> Gate post pre
 dag := assumption
+

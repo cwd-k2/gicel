@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/cwd-k2/gicel"
@@ -174,6 +175,12 @@ func formatCapEntry(v any) any {
 func formatValue(v gicel.Value) any {
 	switch val := v.(type) {
 	case *gicel.HostVal:
+		// Sanitize non-finite floats: Go's json.Encoder rejects +Inf, -Inf, NaN.
+		if f, ok := val.Inner.(float64); ok {
+			if math.IsNaN(f) || math.IsInf(f, 0) {
+				return nil
+			}
+		}
 		return val.Inner
 	case *gicel.ConVal:
 		if elems, ok := gicel.CollectList(val); ok {

@@ -21,3 +21,13 @@ fromResult := \r. case r {
 -- Named capability variant.
 failWithAt :: \(l: Label) e r a. e -> Effect { l: e | r } a
 failWithAt := assumption
+
+-- try forces a suspended computation, catching fail effects.
+-- Success → Ok value (CapEnv propagated). Failure → Err detail (CapEnv rolled back).
+-- The inner thunk wraps force+bind to ensure the computation is fully
+-- executed (triggering effectful PrimVals) before the Go primitive catches.
+_try :: \e a r. Suspended { fail: e | r } a -> Effect r (Result e a)
+_try := assumption
+
+try :: \e a r. Suspended { fail: e | r } a -> Effect r (Result e a)
+try := \comp. _try (thunk (bind (force comp) pure))

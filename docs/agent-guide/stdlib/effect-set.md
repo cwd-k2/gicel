@@ -41,4 +41,21 @@ Provides mutable ordered sets backed by AVL trees (internally MMap k ()), gated 
 - `union`, `intersection`, and `difference` return new sets; operands are unchanged.
 - Named `newAt`/`fromListAt` take an explicit `(k -> k -> Ordering)` compare function instead of `Ord k =>`.
 
+**Example:**
+
+```gicel
+import Prelude
+import Effect.Set as MSet
+
+main := thunk do {
+  s <- MSet.new @Int;
+  MSet.insert 3 s;
+  MSet.insert 1 s;
+  MSet.insert 3 s;
+  n <- MSet.size s;
+  pure n
+}
+-- 2
+```
+
 > **Tip:** Use qualified imports: `import Effect.Set as MSet`.

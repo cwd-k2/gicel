@@ -29,9 +29,22 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 **Notes:**
 
 - Sets are persistent (immutable). Insert/delete return new sets.
-- Instances: `(Ord k, Show k) => Show (Set k)`, `Ord k => FromList (Set k)`, `Ord k => ToList (Set k)`, `Foldable (Set k)`.
+- Instances: `(Ord k, Show k) => Show (Set k)`, `Ord k => FromList (Set k)`, `Ord k => ToList (Set k)`.
 - `toList` returns elements in sorted order.
 - `toList` and `fromList` are typeclass instance methods (`ToList`, `FromList`), not direct module exports. They work unqualified but cannot be used with qualified syntax.
+
+**Example:**
+
+```gicel
+import Prelude
+import Data.Set as Set
+
+main :=
+  let s1 := Set.fromList [3, 1, 4, 1, 5, 9]
+  let s2 := Set.fromList [5, 9, 2, 6]
+  (toList (Set.intersection s1 s2), Set.size s1)
+-- ([5, 9], 5)
+```
 
 > **Tip:** `Data.Set` exports `insert`, `member`, `delete`, `size` which overlap with `Data.Map`.
 > Use qualified imports when both are needed: `import Data.Map as Map`, `import Data.Set as Set`.

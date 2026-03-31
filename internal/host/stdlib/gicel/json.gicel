@@ -98,3 +98,14 @@ impl (FromJSON a, FromJSON b) => FromJSON (a, b) := {
 impl (FromJSON e, FromJSON a) => FromJSON (Result e a) := {
   fromJSON := _fromJSONResult fromJSON fromJSON
 }
+
+-- ─── Generic encoder ────────────────────────────────────────────────────────
+
+-- jsonEncode serializes any value to a JSON string using runtime introspection.
+-- Records → JSON objects, lists → arrays, tuples → arrays, Maybe → nullable,
+-- Result → {ok:v}/{err:e}, other ADTs → {tag:"Con", fields:[...]}.
+_jsonEncode :: \a. a -> String
+_jsonEncode := assumption
+
+jsonEncode :: \a. a -> String
+jsonEncode := _jsonEncode

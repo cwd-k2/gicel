@@ -24,7 +24,8 @@ func (p *Parser) parseImportDecl() syn.DeclImport {
 	imp := syn.DeclImport{ModuleName: modName}
 
 	// Check for qualified import: import M as N
-	if p.peek().Kind == syn.TokAs {
+	// "as" is a contextual keyword — only special here, usable as variable name elsewhere.
+	if p.peek().Kind == syn.TokLower && p.peek().Text == "as" {
 		p.advance() // consume "as"
 		imp.Alias = p.expectUpper()
 		imp.S = span.Span{Start: start, End: p.prevEnd()}

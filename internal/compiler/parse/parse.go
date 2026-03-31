@@ -362,7 +362,13 @@ func (p *Parser) atDeclBoundary() bool {
 		return false
 	}
 	switch tok.Kind {
-	case syn.TokLower, syn.TokUpper, syn.TokForm, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokImpl, syn.TokImport:
+	case syn.TokLower, syn.TokUpper:
+		// A newline + name is a declaration boundary only if followed by
+		// := (binding) or :: (annotation). Otherwise it is a continuation
+		// of the previous expression (e.g., multi-line RHS after :=).
+		next := p.tb.peekAt(1)
+		return next.Kind == syn.TokColonEq || next.Kind == syn.TokColonColon
+	case syn.TokForm, syn.TokType, syn.TokInfixl, syn.TokInfixr, syn.TokInfixn, syn.TokImpl, syn.TokImport:
 		return true
 	case syn.TokLParen:
 		// (op) declaration pattern

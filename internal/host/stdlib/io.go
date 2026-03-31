@@ -2,7 +2,6 @@ package stdlib
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -30,7 +29,7 @@ func printImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 }
 
 func debugImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	s := fmt.Sprintf("%v", args[0])
+	s := eval.PrettyValue(args[0])
 	newCe := appendIO(ce, s)
 	return unitVal, newCe, nil
 }

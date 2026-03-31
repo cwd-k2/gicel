@@ -32,7 +32,7 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 **Notes:**
 
 - Maps are persistent (immutable). Insert/delete return new maps.
-- Instances: `(Ord k, Show k, Show v) => Show (Map k v)`, `Ord k => FromList (Map k v)`, `Ord k => ToList (Map k v)`, `Foldable (Map k)`.
+- Instances: `(Ord k, Show k, Show v) => Show (Map k v)`, `Ord k => FromList (Map k v)`, `Ord k => ToList (Map k v)`.
 - `toList` returns pairs sorted by key.
 - `toList` and `fromList` are typeclass instance methods (`ToList`, `FromList`), not direct module exports. They work unqualified but cannot be used with qualified syntax (e.g., `M.fromList` will fail; use unqualified `fromList` instead).
 
