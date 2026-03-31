@@ -1,6 +1,6 @@
 # Independent Items
 
-他のパスと依存関係を持たない項目。並行して着手可能。
+他のパスと依存関係を持たない項目。
 
 ## Type-Level Syntax Extensions
 
@@ -28,6 +28,12 @@ Map String -| List -| Maybe -| Int
 
 `->` とは **対ではなく対比**。`->` は関数型構築（矢印）、`-|` は適用の区切り（壁）。異なる操作であることが記号自体から伝わる。turnstile `⊢` の連想 — 「ここから先が引数」という境界の意味論。row の `|` と意味が通底する。
 
+## Session Types Runtime
+
+Session types は check-only で正しく動作する。Runtime 実行には host primitive (send/recv/close) が必要。
+
+対応方針: check-only としての完成度を先に上げ、runtime 対応は host primitive 設計を伴う。
+
 ## Design Fork Points
 
 | Fork Point                                  | Current State                            | Decision Trigger                            |
@@ -36,50 +42,23 @@ Map String -| List -| Maybe -| Int
 | Algebraic effects/handlers vs indexed monad | GIMonad (graded indexed monad, 設計確定) | Handlers が AI agent use case に優る場合    |
 | Tensor product kind (`QType`)               | Not present (rows cover current needs)   | Quantum entanglement or non-separable state |
 
-### Tensor Product Kind
-
-Row merging (separable composition) は SMC で提供されるが、quantum entanglement (inseparable composition) には真のテンソル積 `A ⊗ B` が必要。Row label は addressable (projectable)、tensor product は inseparable (non-projectable)。Classical capability = rows、quantum entanglement = tensors — kind レベルで分離。SMC 完成まではテンソル積なしで完結する。
-
 ## Intentional Capability Bounds
 
-### Non-entry top-level bindings must be values (CBPV discipline)
+- **Non-entry top-level bindings must be values** (CBPV discipline, E0291)
+- **Compiler-generated names use `$` convention** — Lexer rejects user `$`
+- **Tuples are records with `_N` labels** — `(a, b, c)` = `Record { _1: a, _2: b, _3: c }`
+- **Exhaustiveness witness is best-effort** — error reporting 専用
 
-非 entry の top-level binding に bare `Computation` 型は不可 (E0291)。`thunk` で `Thunk` 型に変換する。entry point (default `main`) のみ免除。
+## Assessed and Not Adopted
 
-### Compiler-generated names use `$` convention
+検討した上で採用しなかった設計判断。
 
-辞書コンストラクタ等は `$` を含む。Lexer はユーザ識別子の `$` を拒否し衝突を防止。
-
-### Tuples are records with `_N` labels
-
-`(a, b, c)` は `Record { _1: a, _2: b, _3: c }` に desugar。
-
-### Exhaustiveness witness reconstruction is best-effort
-
-witness formatting は best-effort shape recovery。error reporting 専用、semantic 判断には不使用。
-
-## Session Types Maturity
-
-Session types は check-only で正しく動作する。Runtime 実行には host primitive (send/recv/close) が必要。
-
-課題:
-
-- session の CLI example は削除済み（check-only で実行不可）。Go example (examples/go/session) のみ
-- structuring rule (bare Computation prohibition) が session 文脈で十分説明されていない
-- runtime 対応は host primitive 設計を伴う
-
-対応方針: check-only としての完成度を先に上げ、runtime 対応は [smc.md](smc.md) Phase 2 (parallel composition) と合わせて検討。
-
-## Intentionally Not Planned
-
-| Extension    | Reason                                             |
-| ------------ | -------------------------------------------------- |
-| 依存型       | 型レベル計算の複雑度。sandbox の予測可能性を損なう |
-| リファイン型 | 同上。SMT solver 依存を避ける                      |
-| 実行系の変更 | evaluator/VM は安定。型レベルの拡張に閉じる        |
-
-## Far Future (assessed, not planned)
-
-| Extension                     | Category    | Status                                          |
-| ----------------------------- | ----------- | ----------------------------------------------- |
-| Tensor product kind (`QType`) | Type system | Not planned. Full SMC + quantum use case needed |
+| 項目                              | 判断   | 理由                                                                                                                                                 |
+| --------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 依存型                            | 不採用 | 型レベル計算の複雑度。sandbox の予測可能性を損なう                                                                                                   |
+| リファイン型                      | 不採用 | SMT solver 依存を避ける                                                                                                                              |
+| 実行系の変更                      | 不採用 | evaluator/VM は安定。型レベルの拡張に閉じる                                                                                                          |
+| inferDo GIMonad dispatch          | 見送り | DK bidirectional の方向性制約として理論的に正当。annotation-required は正しい制限。Approach C (context-propagation) が最有力だがユースケースが限定的 |
+| Polytype guard (impredicativity)  | 不採用 | 既存の `Just id :: Maybe (∀a. a→a)` が壊れる。Quick Look を選択                                                                                      |
+| Semiring law 型レベル enforcement | 不採用 | 依存型の設計制約に抵触。具体値 reduce で現時点の実害なし。→ [infrastructure.md](infrastructure.md)                                                   |
+| Tensor product kind (`QType`)     | 未着手 | Full SMC + quantum use case が必要                                                                                                                   |
