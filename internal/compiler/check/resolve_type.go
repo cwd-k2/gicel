@@ -278,6 +278,13 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			for i, p := range info.Params {
 				body = types.Subst(body, p, args[i])
 			}
+			// Re-check the expanded result: alias expansion may produce a
+			// saturated Computation/Thunk TyApp chain that needs TyCBPV conversion.
+			if app, ok := body.(*types.TyApp); ok {
+				if expanded := r.tryExpandApp(app.Fun, app.Arg, s); expanded != nil {
+					return expanded
+				}
+			}
 			return body
 		}
 		// Type family: saturated application → TyFamilyApp.
