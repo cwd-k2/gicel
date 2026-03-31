@@ -236,7 +236,7 @@ func TestTypeHelpers(t *testing.T) {
 	}
 
 	// CompType constructs a computation type.
-	compTy := CompType(EmptyRowType(), EmptyRowType(), ConType("Bool"))
+	compTy := CompType(EmptyRowType(), EmptyRowType(), ConType("Bool"), nil)
 	if got := TypePretty(compTy); !strings.Contains(got, "Bool") {
 		t.Errorf("expected Bool in computation type, got %s", got)
 	}

@@ -489,11 +489,12 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	if comp, ok := ty.(*types.TyCBPV); ok {
 		return comp.Result
 	}
-	// Try to unify with a fresh Computation.
+	// Try to unify with a fresh Computation (graded).
+	grade := ch.freshMeta(types.TypeOfTypes)
 	pre := ch.freshMeta(types.TypeOfRows)
 	post := ch.freshMeta(types.TypeOfRows)
 	result := ch.freshMeta(types.TypeOfTypes)
-	expected := types.MkComp(pre, post, result)
+	expected := types.MkCompGraded(pre, post, result, grade)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, "expected computation type, got "+types.Pretty(ty))
 		return &types.TyError{S: s}

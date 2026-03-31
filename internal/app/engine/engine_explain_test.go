@@ -60,7 +60,7 @@ func TestExplainLineNumbersForBindAndMatch(t *testing.T) {
 
 	// Use an opaque binding so the optimizer cannot eliminate the bind.
 	eng.DeclareBinding("getBool", CompType(
-		EmptyRowType(), EmptyRowType(), ConType("Bool"),
+		EmptyRowType(), EmptyRowType(), ConType("Bool"), nil,
 	))
 
 	var steps []eval.ExplainStep

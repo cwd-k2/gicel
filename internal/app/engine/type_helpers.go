@@ -27,8 +27,12 @@ func ArrowType(from, to types.Type) types.Type {
 	return types.MkArrow(from, to)
 }
 
-// CompType creates a Computation type: Computation pre post result.
-func CompType(pre, post, result types.Type) types.Type {
+// CompType creates a Computation type: Computation pre post result @grade.
+// If grade is nil, a Computation with no grade annotation is created.
+func CompType(pre, post, result, grade types.Type) types.Type {
+	if grade != nil {
+		return types.MkCompGraded(pre, post, result, grade)
+	}
 	return types.MkComp(pre, post, result)
 }
 

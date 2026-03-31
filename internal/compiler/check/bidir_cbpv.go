@@ -41,12 +41,10 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 	argTy, argCore := ch.infer(e.Arg)
 	r := ch.freshMeta(types.TypeOfRows)
 	grade := ch.resolveGradeDrop()
-	var resultTy types.Type
-	if grade != nil {
-		resultTy = types.MkCompGraded(r, r, argTy, grade)
-	} else {
-		resultTy = types.MkComp(r, r, argTy)
+	if grade == nil {
+		grade = ch.freshMeta(types.TypeOfTypes)
 	}
+	resultTy := types.MkCompGraded(r, r, argTy, grade)
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", types.Pretty(argTy), types.Pretty(resultTy))
 	}
@@ -76,7 +74,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	if lam, ok := contExpr.(*syntax.ExprLam); ok && len(lam.Params) >= 1 {
 		bindVar = ch.patternName(lam.Params[0])
 		ch.ctx.Push(&CtxVar{Name: bindVar, Type: ch.unifier.Zonk(a)})
-		bodyTy := types.MkComp(ch.unifier.Zonk(r2), r3, b)
+		bodyTy := types.MkCompGraded(ch.unifier.Zonk(r2), r3, b, g)
 		if len(lam.Params) == 1 {
 			bodyCore = ch.check(lam.Body, bodyTy)
 		} else {
@@ -86,7 +84,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		ch.ctx.Pop()
 	} else {
 		bindVar = ch.freshName(prefixBind)
-		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkComp(ch.unifier.Zonk(r2), r3, b))
+		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkCompGraded(ch.unifier.Zonk(r2), r3, b, g))
 		contCore := ch.check(contExpr, contExpected)
 		bodyCore = &ir.App{
 			Fun: contCore,
@@ -97,27 +95,16 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 
 	// Compose grades from comp and body computations.
 	compGrade := ch.extractCompGrade(compTy)
-	bodyGrade := ch.extractCompGrade(types.MkComp(ch.unifier.Zonk(r2), ch.unifier.Zonk(r3), ch.unifier.Zonk(b)))
+	bodyGrade := ch.extractCompGrade(types.MkCompGraded(ch.unifier.Zonk(r2), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), g))
 	grade := ch.composeGrades(compGrade, bodyGrade)
-	var resultTy types.Type
-	if grade != nil {
-		resultTy = types.MkCompGraded(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), grade)
-	} else {
-		resultTy = types.MkComp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b))
+	if grade == nil {
+		grade = g
 	}
+	resultTy := types.MkCompGraded(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), grade)
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
 	}
 	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, Generated: true, S: s}
-}
-
-// cbpvTaggedTriple extracts (pre, post, result) from a CBPV type only if the
-// tag matches the expected source form. Returns nil fields on mismatch.
-func cbpvTaggedTriple(ty types.Type, expectedTag types.CBPVTag) (pre, post, result types.Type) {
-	if t, ok := ty.(*types.TyCBPV); ok && t.Tag == expectedTag {
-		return t.Pre, t.Post, t.Result
-	}
-	return nil, nil, nil
 }
 
 // inferDualForm infers the CBPV dual: thunk (Comp→Thunk) or force (Thunk→Comp).
@@ -125,33 +112,38 @@ func cbpvTaggedTriple(ty types.Type, expectedTag types.CBPVTag) (pre, post, resu
 func (ch *Checker) inferDualForm(
 	e *syntax.ExprApp, label string,
 	sourceTag types.CBPVTag,
-	mkExpected func(pre, post, result types.Type) types.Type,
-	mkResult func(pre, post, result types.Type) types.Type,
+	mkExpected func(pre, post, result, grade types.Type) types.Type,
+	mkResult func(pre, post, result, grade types.Type) types.Type,
 	mkCore func(argCore ir.Core) ir.Core,
 ) (types.Type, ir.Core) {
 	argTy, argCore := ch.infer(e.Arg)
 	argTy = ch.unifier.Zonk(argTy)
 
-	// Fast path: direct triple extraction with tag verification.
-	if pre, post, result := cbpvTaggedTriple(argTy, sourceTag); pre != nil {
-		resultTy := mkResult(pre, post, result)
+	// Fast path: direct extraction with tag verification.
+	if t, ok := argTy.(*types.TyCBPV); ok && t.Tag == sourceTag {
+		grade := t.Grade
+		if grade == nil {
+			grade = ch.freshMeta(types.TypeOfTypes)
+		}
+		resultTy := mkResult(t.Pre, t.Post, t.Result, grade)
 		if ch.config.Trace != nil {
 			ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
 		}
 		return resultTy, mkCore(argCore)
 	}
 
-	// Fallback: unify with a fresh triple.
+	// Fallback: unify with a fresh quadruple.
 	pre := ch.freshMeta(types.TypeOfRows)
 	post := ch.freshMeta(types.TypeOfRows)
 	result := ch.freshMeta(types.TypeOfTypes)
-	expected := mkExpected(pre, post, result)
+	grade := ch.freshMeta(types.TypeOfTypes)
+	expected := mkExpected(pre, post, result, grade)
 	if err := ch.unifier.Unify(argTy, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadThunk, err, e.S,
 			label+" requires a "+types.Pretty(expected)+" argument, got "+types.Pretty(argTy))
 		return &types.TyError{S: e.S}, mkCore(argCore)
 	}
-	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result))
+	resultTy := mkResult(ch.unifier.Zonk(pre), ch.unifier.Zonk(post), ch.unifier.Zonk(result), ch.unifier.Zonk(grade))
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, e.S, "%s: %s ⇒ %s", label, types.Pretty(argTy), types.Pretty(resultTy))
 	}
@@ -165,17 +157,20 @@ func isMergeOp(name string) bool {
 
 // inferMerge handles merge left right → ir.Merge with CapEnv label extraction.
 // merge :: Computation pre1 post1 a -> Computation pre2 post2 b
-//       -> Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
+//
+//	-> Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
 func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (types.Type, ir.Core) {
+	g1 := ch.freshMeta(types.TypeOfTypes)
 	pre1 := ch.freshMeta(types.TypeOfRows)
 	post1 := ch.freshMeta(types.TypeOfRows)
 	a := ch.freshMeta(types.TypeOfTypes)
+	g2 := ch.freshMeta(types.TypeOfTypes)
 	pre2 := ch.freshMeta(types.TypeOfRows)
 	post2 := ch.freshMeta(types.TypeOfRows)
 	b := ch.freshMeta(types.TypeOfTypes)
 
-	leftCore := ch.check(leftExpr, types.MkComp(pre1, post1, a))
-	rightCore := ch.check(rightExpr, types.MkComp(pre2, post2, b))
+	leftCore := ch.check(leftExpr, types.MkCompGraded(pre1, post1, a, g1))
+	rightCore := ch.check(rightExpr, types.MkCompGraded(pre2, post2, b, g2))
 
 	// Extract row labels from the resolved pre-states.
 	leftLabels := ch.extractRowLabels(ch.unifier.Zonk(pre1))
@@ -192,7 +187,11 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 			types.RowField{Label: ir.TupleLabel(2), Type: b},
 		),
 	}
-	resultTy := types.MkComp(mergedPre, mergedPost, result)
+	mergedGrade := ch.composeGrades(g1, g2)
+	if mergedGrade == nil {
+		mergedGrade = ch.freshMeta(types.TypeOfTypes)
+	}
+	resultTy := types.MkCompGraded(mergedPre, mergedPost, result, mergedGrade)
 
 	return resultTy, &ir.Merge{
 		Left:        leftCore,
@@ -232,8 +231,8 @@ func (ch *Checker) applyMergeFamily(r1, r2 types.Type, s span.Span) types.Type {
 func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "thunk",
 		types.TagComp, // thunk expects a Computation argument
-		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
-		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
+		func(p, q, r, g types.Type) types.Type { return types.MkCompGraded(p, q, r, g) },
+		func(p, q, r, _ types.Type) types.Type { return types.MkThunk(p, q, r) },
 		func(c ir.Core) ir.Core { return &ir.Thunk{Comp: c, S: e.S} },
 	)
 }
@@ -241,8 +240,8 @@ func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "force",
 		types.TagThunk, // force expects a Thunk argument
-		func(p, q, r types.Type) types.Type { return types.MkThunk(p, q, r) },
-		func(p, q, r types.Type) types.Type { return types.MkComp(p, q, r) },
+		func(p, q, r, _ types.Type) types.Type { return types.MkThunk(p, q, r) },
+		func(p, q, r, g types.Type) types.Type { return types.MkCompGraded(p, q, r, g) },
 		func(c ir.Core) ir.Core { return &ir.Force{Expr: c, S: e.S} },
 	)
 }
