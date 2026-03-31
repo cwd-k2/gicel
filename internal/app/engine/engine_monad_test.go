@@ -521,6 +521,131 @@ main := do {
 	}
 }
 
+// --- Result e Monad / GIMonad Lift do-block tests ---
+
+func TestResultMonadDoOk(t *testing.T) {
+	// do { x <- Ok 10; y <- Ok 20; pure (x + y) } :: Result String Int → Ok 30
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main :: Result String Int
+main := do {
+  x <- Ok 10;
+  y <- Ok 20;
+  pure (x + y)
+}
+`)
+	if err != nil {
+		t.Fatalf("Result do block should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Ok" || len(con.Args) != 1 {
+		t.Fatalf("expected Ok 30, got %v", result.Value)
+	}
+	if hv, ok := con.Args[0].(*eval.HostVal); !ok || hv.Inner != int64(30) {
+		t.Fatalf("expected Ok 30, got Ok %v", con.Args[0])
+	}
+}
+
+func TestResultMonadDoErr(t *testing.T) {
+	// Err short-circuits remaining binds.
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main :: Result String Int
+main := do {
+  x <- Ok 10;
+  _ <- (Err "boom" :: Result String Int);
+  pure (x + 1)
+}
+`)
+	if err != nil {
+		t.Fatalf("Result do block Err should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Err" {
+		t.Fatalf("expected Err, got %v", result.Value)
+	}
+}
+
+func TestResultMonadDoChain(t *testing.T) {
+	// Multi-step pipeline with Result.
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+safeDiv :: Int -> Int -> Result String Int
+safeDiv := \x y.
+  if eq y 0
+    then Err "division by zero"
+    else Ok (div x y)
+main :: Result String Int
+main := do {
+  a <- safeDiv 100 5;
+  b <- safeDiv a 4;
+  pure b
+}
+`)
+	if err != nil {
+		t.Fatalf("Result chain should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Ok" || len(con.Args) != 1 {
+		t.Fatalf("expected Ok 5, got %v", result.Value)
+	}
+	if hv, ok := con.Args[0].(*eval.HostVal); !ok || hv.Inner != int64(5) {
+		t.Fatalf("expected Ok 5, got Ok %v", con.Args[0])
+	}
+}
+
+func TestResultMonadDoChainDivByZero(t *testing.T) {
+	// Err propagation mid-chain.
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+safeDiv :: Int -> Int -> Result String Int
+safeDiv := \x y.
+  if eq y 0
+    then Err "division by zero"
+    else Ok (div x y)
+main :: Result String Int
+main := do {
+  a <- safeDiv 100 0;
+  b <- safeDiv a 4;
+  pure b
+}
+`)
+	if err != nil {
+		t.Fatalf("Result chain div-by-zero should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Err" || len(con.Args) != 1 {
+		t.Fatalf("expected Err \"division by zero\", got %v", result.Value)
+	}
+	if hv, ok := con.Args[0].(*eval.HostVal); !ok || hv.Inner != "division by zero" {
+		t.Fatalf("expected Err \"division by zero\", got Err %v", con.Args[0])
+	}
+}
+
 func TestComputationDoRegression(t *testing.T) {
 	// Ensure Computation do blocks still use Core.Bind (not class dispatch).
 	eng := NewEngine()
