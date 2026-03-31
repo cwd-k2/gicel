@@ -84,10 +84,7 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) ir.Core {
 	ch.tryUnify(retTy, expected)
 
 	argCore := ch.check(e.Arg, argTy)
-	// Auto-thunk: lazy constructor arguments are suspended (same as inferApply).
-	if ch.isLazyConApp(funCore) {
-		argCore = &ir.Thunk{Comp: argCore, S: e.Arg.Span()}
-	}
+	argCore = ch.wrapAutoThunk(funCore, argCore, e.Arg.Span())
 	appCore := &ir.App{Fun: funCore, Arg: argCore, S: e.S}
 	return ch.subsCheck(retTy, expected, appCore, e.S)
 }
@@ -95,6 +92,13 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) ir.Core {
 // checkInfix handles infix expressions in check mode.
 // Pre-unifies the final return type with expected before checking arguments.
 func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core {
+	// Special form: merge / *** as infix operator.
+	if isMergeOp(e.Op) {
+		if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+			ty, core := ch.inferMerge(e.Left, e.Right, e.S)
+			return ch.subsCheck(ty, expected, core, e.S)
+		}
+	}
 	opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 	if !ok {
 		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unbound operator: "+e.Op)

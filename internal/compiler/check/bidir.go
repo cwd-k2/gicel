@@ -129,8 +129,18 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		// bind takes two args: bind comp (\x. e) → Core.Bind.
 		// Detect App(App(Var("bind"), comp), cont).
 		if inner, ok := e.Fun.(*syntax.ExprApp); ok {
-			if v, ok := inner.Fun.(*syntax.ExprVar); ok && v.Name == "bind" {
-				return ch.inferBind(inner.Arg, e.Arg, e.S)
+			if v, ok := inner.Fun.(*syntax.ExprVar); ok {
+				switch v.Name {
+				case "bind":
+					return ch.inferBind(inner.Arg, e.Arg, e.S)
+				default:
+					if isMergeOp(v.Name) {
+						// Only intercept if merge/*** is from Core (not user-defined in current module).
+						if _, mod, ok := ch.ctx.LookupVarFull(v.Name); !ok || mod != "" {
+							return ch.inferMerge(inner.Arg, e.Arg, e.S)
+						}
+					}
+				}
 			}
 		}
 		// fix/rec in infer context: produce ir.Fix nodes directly.
@@ -158,6 +168,12 @@ func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
 		panic("internal: unresolved ExprInfixSpine reached type checker")
 
 	case *syntax.ExprInfix:
+		// Special form: merge / *** as infix operator.
+		if isMergeOp(e.Op) {
+			if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+				return ch.inferMerge(e.Left, e.Right, e.S)
+			}
+		}
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 		if !ok {

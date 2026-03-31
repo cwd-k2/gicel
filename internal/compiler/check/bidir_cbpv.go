@@ -157,6 +157,69 @@ func (ch *Checker) inferDualForm(
 	return resultTy, mkCore(argCore)
 }
 
+// isMergeOp reports whether name is one of the merge/*** special form identifiers.
+func isMergeOp(name string) bool {
+	return name == "merge" || name == "(***)" || name == "***"
+}
+
+// inferMerge handles merge left right → ir.Merge with CapEnv label extraction.
+// merge :: Computation pre1 post1 a -> Computation pre2 post2 b
+//       -> Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
+func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (types.Type, ir.Core) {
+	pre1 := ch.freshMeta(types.TypeOfRows)
+	post1 := ch.freshMeta(types.TypeOfRows)
+	a := ch.freshMeta(types.TypeOfTypes)
+	pre2 := ch.freshMeta(types.TypeOfRows)
+	post2 := ch.freshMeta(types.TypeOfRows)
+	b := ch.freshMeta(types.TypeOfTypes)
+
+	leftCore := ch.check(leftExpr, types.MkComp(pre1, post1, a))
+	rightCore := ch.check(rightExpr, types.MkComp(pre2, post2, b))
+
+	// Extract row labels from the resolved pre-states.
+	leftLabels := ch.extractRowLabels(ch.unifier.Zonk(pre1))
+	rightLabels := ch.extractRowLabels(ch.unifier.Zonk(pre2))
+
+	// Result type: Computation (Merge pre1 pre2) (Merge post1 post2) result
+	// The result meta will be unified with the pair (a, b) by the caller's context.
+	mergedPre := ch.applyMergeFamily(pre1, pre2, s)
+	mergedPost := ch.applyMergeFamily(post1, post2, s)
+	result := ch.freshMeta(types.TypeOfTypes)
+	resultTy := types.MkComp(mergedPre, mergedPost, result)
+
+	return resultTy, &ir.Merge{
+		Left:        leftCore,
+		Right:       rightCore,
+		LeftLabels:  leftLabels,
+		RightLabels: rightLabels,
+		S:           s,
+	}
+}
+
+// extractRowLabels returns sorted label names from a resolved capability row.
+func (ch *Checker) extractRowLabels(ty types.Type) []string {
+	ty = ch.unifier.Zonk(ty)
+	row, ok := ty.(*types.TyEvidenceRow)
+	if !ok {
+		return nil
+	}
+	fields := row.CapFields()
+	labels := make([]string, len(fields))
+	for i, f := range fields {
+		labels[i] = f.Label
+	}
+	return labels
+}
+
+// applyMergeFamily applies the Merge type family to two row types.
+func (ch *Checker) applyMergeFamily(r1, r2 types.Type, s span.Span) types.Type {
+	r1 = ch.unifier.Zonk(r1)
+	r2 = ch.unifier.Zonk(r2)
+	// Merge type family is applied via TyApp(TyApp(TyCon("Merge"), r1), r2).
+	merged := &types.TyApp{Fun: &types.TyApp{Fun: types.Con("Merge"), Arg: r1}, Arg: r2}
+	return ch.reduceFamilyInType(merged)
+}
+
 func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "thunk",
 		types.TagComp, // thunk expects a Computation argument
