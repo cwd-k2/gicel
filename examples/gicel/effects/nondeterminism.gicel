@@ -13,10 +13,15 @@ import Console
 
 range :: Int -> Int -> List Int
 range := fix (\self lo hi.
-  if lo > hi then [] else Cons lo (self (lo + 1) hi))
+  if lo > hi
+     then []
+     else Cons lo (self (lo + 1) hi))
 
 guard :: Bool -> List ()
-guard := \c. if c then [()] else []
+guard := \c.
+  if c
+     then [()]
+     else []
 
 -- ── Layer 1: List do-notation ──────────────────────────────
 -- The type annotation :: List T steers do to the List IxMonad.
@@ -81,7 +86,10 @@ fromList := fix (\self xs. case xs {
 
 -- Guard: fail unless condition holds.
 guardND :: Bool -> NDFree ()
-guardND := \c. if c then NDPure () else NDFail
+guardND := \c.
+  if c
+     then NDPure ()
+     else NDFail
 
 -- N-Queens (N=4): place queens so none attack each other.
 safe :: Int -> List Int -> Int -> Bool

@@ -14,7 +14,10 @@ form Convert := \a b. {
 }
 
 impl Convert Bool Int := {
-  convert := \b. if b then 1 else 0
+  convert := \b.
+    if b
+       then 1
+       else 0
 }
 
 impl Convert (Maybe a) (List a) := {
@@ -33,7 +36,10 @@ impl Serialize Int String := {
 }
 
 impl Serialize Bool Int := {
-  encode := \b. if b then 1 else 0;
+  encode := \b.
+    if b
+       then 1
+       else 0;
   decode := \n. True
 }
 

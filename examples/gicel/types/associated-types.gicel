@@ -29,7 +29,10 @@ clength :: \c. Container c => c -> Int
 clength := cfold (\_ n. n + 1) 0
 
 cany :: \c. Container c => (CItem c -> Bool) -> c -> Bool
-cany := \p. cfold (\x acc. if acc then True else p x) False
+cany := \p. cfold (\x acc.
+  if acc
+     then True
+     else p x) False
 
 -- Wrappable: associated type for the wrapped representation.
 form Wrappable := \w. {

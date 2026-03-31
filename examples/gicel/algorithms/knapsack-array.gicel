@@ -13,7 +13,10 @@ items := [(2, 3), (3, 4), (4, 5), (5, 6)]
 capacity := 10
 
 max :: Int -> Int -> Int
-max := \a b. if a > b then a else b
+max := \a b.
+  if a > b
+     then a
+     else b
 
 -- Build the DP table using in-place mutation.
 -- dp[j] = maximum value achievable with capacity j.

@@ -77,8 +77,9 @@ takeWhile :: \a. (a -> Bool) -> Stream a -> List a
 takeWhile := \p. fix \self s. case s {
   LNil => Nil;
   LCons x t =>
-    if p x then Cons x (self t)
-    else Nil
+    if p x
+      then Cons x (self t)
+      else Nil
 }
 
 repeat :: \a. a -> Stream a
@@ -88,7 +89,9 @@ impl Show a => Show (Stream a) := {
   show := \s. {
     preview := take 11 s;
     elems := take 10 s;
-    suffix := if length preview > 10 then ", ...]" else "]";
+    suffix := if length preview > 10
+                 then ", ...]"
+                 else "]";
     "[" <> join ", " (fmap show elems) <> suffix
   }
 }

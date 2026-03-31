@@ -48,6 +48,10 @@ func TestProbeF_PatternBindTriple(t *testing.T) {
 // TestProbeF_PatternBindWithIfThenElse — tuple bind followed by if-then-else.
 func TestProbeF_PatternBindWithIfThenElse(t *testing.T) {
 	source := `form Bool := { True: Bool; False: Bool; }
-main := { (a, b) := (1, 2); if True then a else b }`
+main := { (a, b) := (1, 2);
+  if True
+     then a
+     else b
+}`
 	checkSource(t, source, nil)
 }

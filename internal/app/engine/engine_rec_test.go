@@ -88,7 +88,9 @@ main := do {
   put 0;
   rec (\self. do {
     x <- get;
-    if x >= 10 then pure x else do { put (x + 1); self }
+    if x >= 10
+       then pure x
+       else do { put (x + 1); self }
   })
 }
 `)
@@ -124,7 +126,9 @@ main := do {
   put 1;
   rec (\self. do {
     x <- get;
-    if x >= 100 then pure x else do { put (x * 2); self }
+    if x >= 100
+       then pure x
+       else do { put (x * 2); self }
   })
 }
 `)
@@ -146,7 +150,9 @@ main := do {
   put 0;
   rec (\self. do {
     x <- get;
-    if x >= 5 then pure (Just x) else do { put (x + 1); self }
+    if x >= 5
+       then pure (Just x)
+       else do { put (x + 1); self }
   })
 }
 `)
@@ -195,7 +201,9 @@ main := do {
   putAt @#counter 0;
   rec (\self. do {
     c <- getAt @#counter;
-    if c >= 5 then pure c else do { putAt @#counter (c + 1); self }
+    if c >= 5
+       then pure c
+       else do { putAt @#counter (c + 1); self }
   })
 }
 `)
@@ -293,7 +301,9 @@ main := do {
   put 0;
   rec (\self. do {
     x <- get;
-    if x >= 3 then pure (x, x * x) else do { put (x + 1); self }
+    if x >= 3
+       then pure (x, x * x)
+       else do { put (x + 1); self }
   })
 }
 `)
@@ -393,7 +403,9 @@ main := do {
   put 1;
   rec (\self. do {
     x <- get;
-    if x >= 1000 then pure x else do { modify (+ x); self }
+    if x >= 1000
+       then pure x
+       else do { modify (+ x); self }
   })
 }
 `)
@@ -463,7 +475,9 @@ main := do {
   put 0;
   rec (\self. do {
     x <- get;
-    if x >= 10 then pure x else do { put (x + 1); self }
+    if x >= 10
+       then pure x
+       else do { put (x + 1); self }
   })
 }
 `)

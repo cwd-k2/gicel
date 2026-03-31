@@ -54,7 +54,9 @@ ex3 := runCont earlyExit id    -- 42
 clampPositive :: Cont Int Int
 clampPositive := do {
   x <- MkCont (\k. k (negate 3));
-  if x < 0 then abort 0 else mpure x
+  if x < 0
+     then abort 0
+     else mpure x
 }
 
 ex4 := runCont clampPositive id  -- 0 (negative → clamped)

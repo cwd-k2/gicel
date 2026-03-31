@@ -11,13 +11,18 @@ import Console
 -- Generate range [lo..hi]
 range :: Int -> Int -> List Int
 range := fix $ \self lo hi.
-  if lo > hi then [] else Cons lo $ self (lo + 1) hi
+  if lo > hi
+     then []
+     else Cons lo $ self (lo + 1) hi
 
 -- Identity matrix of size n
 identity :: Int -> List (List Int)
 identity := \n. {
   idxs := range 0 (n - 1);
-  map (\i. map (\j. if i == j then 1 else 0) idxs) idxs
+  map (\i. map (\j.
+    if i == j
+       then 1
+       else 0) idxs) idxs
 }
 
 -- ── Element-wise operations ─────────────────────────────────
@@ -74,7 +79,10 @@ det := fix $ \self m. case m {
     _   => {
       idxs := range 0 (length row - 1);
       foldl (+) 0 $ map (\j. {
-        sign := if mod j 2 == 0 then 1 else negate 1;
+        sign :=
+          if mod j 2 == 0
+             then 1
+             else negate 1;
         sign * at j row * self (minor j m)
       }) idxs
     }

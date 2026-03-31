@@ -36,7 +36,10 @@ isLarge := \s. { a := area s; a > 50 }
 
 -- Wrap a Color in Maybe based on a condition
 colorIf :: Bool -> Color -> Maybe Color
-colorIf := \cond c. if cond then Just c else Nothing
+colorIf := \cond c.
+  if cond
+     then Just c
+     else Nothing
 
 -- Nested pattern: match constructor inside Maybe directly
 describeShape :: Maybe Shape -> Bool

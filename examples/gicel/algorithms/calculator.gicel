@@ -43,7 +43,10 @@ digitVal := \c. case c {
 skipWS :: List Rune -> List Rune
 skipWS := fix $ \self cs. case cs {
   Nil => Nil;
-  Cons c rest => if c == ' ' then self rest else cs
+  Cons c rest =>
+    if c == ' '
+       then self rest
+       else cs
 }
 
 parseNum :: List Rune -> Maybe (Int, List Rune)
@@ -51,13 +54,17 @@ parseNum := \cs. {
   go := fix $ \self acc cs2. case cs2 {
     Nil => (acc, Nil);
     Cons c rest =>
-      if isDigit c then self (acc * 10 + digitVal c) rest
-      else (acc, cs2)
+      if isDigit c
+         then self (acc * 10 + digitVal c) rest
+         else (acc, cs2)
   };
   cs1 := skipWS cs;
   case cs1 {
     Nil => Nothing;
-    Cons c _ => if isDigit c then Just (go 0 cs1) else Nothing
+    Cons c _ =>
+      if isDigit c
+         then Just (go 0 cs1)
+         else Nothing
   }
 }
 

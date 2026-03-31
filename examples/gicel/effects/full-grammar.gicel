@@ -47,7 +47,10 @@ impl Describe Color := {
 -- [impl] — implement for Bool (from prelude)
 -- [if/then/else] — conditional expression
 impl Describe Bool := {
-  describe := \b. if b then "true" else "false"
+  describe := \b.
+    if b
+       then "true"
+       else "false"
 }
 
 -- [\] — polymorphic type binder

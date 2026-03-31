@@ -36,7 +36,10 @@ sieve := \limit. do {
     if i > limit then pure $ reverse acc
     else do {
       v <- read i is;
-      collect (i + 1, if maybe False id v then Cons i acc else acc)
+      collect (i + 1,
+        if maybe False id v
+           then Cons i acc
+           else acc)
     }
 }
 
