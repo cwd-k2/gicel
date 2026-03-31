@@ -160,18 +160,37 @@ func (p *Parser) parseKindAtom() syn.TypeExpr {
 
 func (p *Parser) parseTypeApp() syn.TypeExpr {
 	f := p.parseTypeAtom()
+	// Detect @ grade annotation immediately after Computation/Thunk head.
+	// @ in other positions is reserved for row field multiplicity annotations.
+	gradeAllowed := isCompOrThunkHead(f)
 	pg := p.newProgressGuard("type application chain")
-	for p.isTypeAtomStart() {
+	for p.isTypeAtomStart() || (gradeAllowed && p.peek().Kind == syn.TokAt) {
 		if !pg.Begin() {
 			break
 		}
+		isGrade := false
+		if gradeAllowed && p.peek().Kind == syn.TokAt {
+			p.advance()
+			isGrade = true
+			gradeAllowed = false // only the first @ is a grade
+		}
 		arg := p.parseTypeAtom()
 		f = &syn.TyExprApp{
-			Fun: f, Arg: arg,
+			Fun: f, Arg: arg, IsGrade: isGrade,
 			S: span.Span{Start: f.Span().Start, End: arg.Span().End},
+		}
+		if isGrade {
+			gradeAllowed = false
 		}
 	}
 	return f
+}
+
+func isCompOrThunkHead(t syn.TypeExpr) bool {
+	if con, ok := t.(*syn.TyExprCon); ok {
+		return con.Name == "Computation" || con.Name == "Thunk"
+	}
+	return false
 }
 
 func (p *Parser) parseTypeAtom() syn.TypeExpr {

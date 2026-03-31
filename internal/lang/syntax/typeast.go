@@ -27,9 +27,10 @@ type TyExprQualCon struct {
 }
 
 type TyExprApp struct {
-	Fun TypeExpr
-	Arg TypeExpr
-	S   span.Span
+	Fun     TypeExpr
+	Arg     TypeExpr
+	IsGrade bool // true when Arg was introduced via @ (grade annotation)
+	S       span.Span
 }
 
 type TyExprArrow struct {

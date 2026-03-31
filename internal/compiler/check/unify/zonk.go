@@ -49,10 +49,19 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 	case *types.TyApp:
 		zFun := u.zonkInner(ty.Fun)
 		zArg := u.zonkInner(ty.Arg)
+		var result types.Type
 		if zFun == ty.Fun && zArg == ty.Arg {
-			return ty
+			result = ty
+		} else {
+			result = &types.TyApp{Fun: zFun, Arg: zArg, IsGrade: ty.IsGrade, Flags: types.MetaFreeFlags(zFun, zArg), S: ty.S}
 		}
-		return &types.TyApp{Fun: zFun, Arg: zArg, Flags: types.MetaFreeFlags(zFun, zArg), S: ty.S}
+		// Try 4-arg normalization only (depth-4 Computation/Thunk chains).
+		// 3-arg normalization is deferred to normalizeCompApp during unification
+		// to avoid the 3-arg/4-arg ambiguity at resolver time.
+		if norm := normalizeCompApp4Only(result); norm != result {
+			return norm
+		}
+		return result
 	case *types.TyArrow:
 		zFrom := u.zonkInner(ty.From)
 		zTo := u.zonkInner(ty.To)

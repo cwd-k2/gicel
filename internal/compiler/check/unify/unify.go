@@ -370,6 +370,10 @@ func normalizeCompApp(t types.Type) types.Type {
 		}
 	}
 	// 3-arg legacy: Computation pre post result (grade omitted).
+	// normalizeCompApp runs during unification/zonking, where the full chain
+	// is visible. Safe to normalize without Row restriction because depth-3
+	// with Computation head can only be 3-arg at this point (4-arg would
+	// have been caught by the 4-arg check above which requires depth-4).
 	con, ok := app3.Fun.(*types.TyCon)
 	if !ok {
 		return t
@@ -379,6 +383,38 @@ func normalizeCompApp(t types.Type) types.Type {
 		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
 	case types.TyConThunk:
 		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
+	}
+	return t
+}
+
+// normalizeCompApp4Only normalizes only 4-arg Computation/Thunk TyApp chains.
+// Used in Zonk where 3-arg normalization would be premature.
+func normalizeCompApp4Only(t types.Type) types.Type {
+	app1, ok := t.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app2, ok := app1.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app3, ok := app2.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	app4, ok := app3.Fun.(*types.TyApp)
+	if !ok {
+		return t
+	}
+	con, ok := app4.Fun.(*types.TyCon)
+	if !ok {
+		return t
+	}
+	switch con.Name {
+	case types.TyConComputation:
+		return &types.TyCBPV{Tag: types.TagComp, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+	case types.TyConThunk:
+		return &types.TyCBPV{Tag: types.TagThunk, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
 	}
 	return t
 }

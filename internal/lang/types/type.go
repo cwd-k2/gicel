@@ -36,10 +36,11 @@ type TyCon struct {
 
 // TyApp is a general type application (F T).
 type TyApp struct {
-	Fun   Type
-	Arg   Type
-	Flags uint8 // see FlagMetaFree
-	S     span.Span
+	Fun     Type
+	Arg     Type
+	IsGrade bool  // true when Arg is a grade annotation via @
+	Flags   uint8 // see FlagMetaFree
+	S       span.Span
 }
 
 // TyArrow is a function type (A -> B).

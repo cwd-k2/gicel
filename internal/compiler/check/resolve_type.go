@@ -25,6 +25,14 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		if result != nil {
 			return result
 		}
+		// @ grade annotation: wrap in TyApp but mark for 4-arg detection.
+		// When fun is TyCon("Computation"/"Thunk") and IsGrade, this is the
+		// first arg (grade) of a 4-arg form. Store as tagged TyApp so the
+		// next tryExpandApp iteration can detect the 4-arg pattern.
+		if t.IsGrade {
+			r.checkTypeAppKind(fun, arg, t.S)
+			return &types.TyApp{Fun: fun, Arg: arg, IsGrade: true, S: t.S}
+		}
 		r.checkTypeAppKind(fun, arg, t.S)
 		return &types.TyApp{Fun: fun, Arg: arg, S: t.S}
 	case *syntax.TyExprArrow:
@@ -242,11 +250,24 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			}
 		}
 	}
-	// 3-arg legacy (Computation pre post result) is NOT handled here.
-	// The resolver only catches 4-arg. 3-arg forms stay as TyApp chains
-	// and are normalized to TyCBPV by normalizeCompApp during unification.
-	// This prevents misinterpreting the grade as the pre-state when a
-	// 4-arg form is being built incrementally.
+	// 3-arg legacy: Computation pre post result (no @ grade annotation).
+	// Only fires when the first arg is a row literal (TyEvidenceRow),
+	// distinguishing from partial 4-arg applications where the first arg
+	// is a grade (TyCon, TyVar, etc.).
+	if app2, ok := fun.(*types.TyApp); ok {
+		if app1, ok := app2.Fun.(*types.TyApp); ok {
+			if con, ok := app1.Fun.(*types.TyCon); ok {
+				if _, isRow := app1.Arg.(*types.TyEvidenceRow); isRow {
+					switch con.Name {
+					case types.TyConComputation:
+						return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
+					case types.TyConThunk:
+						return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
+					}
+				}
+			}
+		}
+	}
 	// General alias/family expansion: collect the TyApp spine and check if the
 	// head is an alias or type family with matching parameter count.
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
