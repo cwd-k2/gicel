@@ -1,4 +1,4 @@
-// IR verifier tests — structural invariant checks.
+// IR verifier tests — structural and annotation invariant checks.
 // Does NOT cover: type-level verification (future work).
 package ir
 
@@ -94,8 +94,39 @@ func TestVerifyV2_ForceBadPrefix(t *testing.T) {
 	}
 }
 
-func TestVerifyV3_DoubleThunk(t *testing.T) {
-	// Invalid: App{Arg: Thunk{Comp: Thunk{...}}}
+// V4a: double-Force detection.
+
+func TestVerifyV4a_DoubleForce(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Force{Expr: &Force{Expr: &Var{Name: "x"}}}},
+		},
+	}
+	errs := VerifyProgram(prog)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+	if !strings.Contains(errs[0].Message, "double Force") {
+		t.Fatalf("expected 'double Force' message, got %q", errs[0].Message)
+	}
+}
+
+func TestVerifyV4a_SingleForce(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Force{Expr: &Var{Name: "t"}}},
+		},
+	}
+	errs := VerifyProgram(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+// V4b: double-Thunk detection (universal, generalizes former V3).
+
+func TestVerifyV4b_DoubleThunkInApp(t *testing.T) {
+	// Previously V3: App{Arg: Thunk{Comp: Thunk{...}}} — now caught by V4b on Thunk node.
 	prog := &Program{
 		Bindings: []Binding{
 			{Name: "main", Expr: &App{
@@ -110,6 +141,83 @@ func TestVerifyV3_DoubleThunk(t *testing.T) {
 	}
 	if !strings.Contains(errs[0].Message, "double Thunk") {
 		t.Fatalf("expected 'double Thunk' message, got %q", errs[0].Message)
+	}
+}
+
+func TestVerifyV4b_DoubleThunkStandalone(t *testing.T) {
+	// Double-Thunk outside App context — V3 would miss this, V4b catches it.
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Thunk{Comp: &Thunk{Comp: &Pure{Expr: &Lit{Value: int64(1)}}}}},
+		},
+	}
+	errs := VerifyProgram(prog)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+	if !strings.Contains(errs[0].Message, "double Thunk") {
+		t.Fatalf("expected 'double Thunk' message, got %q", errs[0].Message)
+	}
+}
+
+func TestVerifyV4b_SingleThunk(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Thunk{Comp: &Pure{Expr: &Lit{Value: int64(1)}}}},
+		},
+	}
+	errs := VerifyProgram(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+// V5b: Var.Key annotation check.
+
+func TestVerifyV5b_VarKeyEmpty(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Var{Name: "x", Key: ""}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d", len(errs))
+	}
+	if !strings.Contains(errs[0].Message, "Key is empty") {
+		t.Fatalf("expected 'Key is empty' message, got %q", errs[0].Message)
+	}
+}
+
+func TestVerifyV5b_VarKeyPopulated(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Var{Name: "x", Key: "x"}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestVerifyAnnotationsClean(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "main", Expr: &Pure{Expr: &Lit{Value: int64(42)}}},
+			{Name: "f", Expr: &Lam{
+				Param: "x",
+				Body: &Bind{
+					Comp: &Force{Expr: &Var{Name: "t", Key: "t"}},
+					Var:  "v",
+					Body: &Pure{Expr: &Var{Name: "v", Key: "v"}},
+				},
+			}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
 	}
 }
 

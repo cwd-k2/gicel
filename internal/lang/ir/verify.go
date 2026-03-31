@@ -22,7 +22,8 @@ func (e *VerifyError) Error() string {
 // Checked invariants:
 //   - V1: No ir.Error nodes survive to post-check.
 //   - V2: Auto-force generated Bind has structure: Bind{Generated:true, Comp: Force{Var{$lz...}}}.
-//   - V3: No double-thunk in lazy constructor arguments: App{Arg: Thunk{Comp: Thunk{...}}}.
+//   - V4a: No double-Force: Force{Expr: Force{...}}.
+//   - V4b: No double-Thunk: Thunk{Comp: Thunk{...}} (generalizes former V3).
 func VerifyProgram(prog *Program) []VerifyError {
 	var errs []VerifyError
 	for _, b := range prog.Bindings {
@@ -42,8 +43,10 @@ func verifyCore(c Core, errs []VerifyError) []VerifyError {
 			})
 		case *Bind:
 			errs = verifyBind(n, errs)
-		case *App:
-			errs = verifyApp(n, errs)
+		case *Force:
+			errs = verifyForce(n, errs)
+		case *Thunk:
+			errs = verifyThunk(n, errs)
 		}
 		return true
 	})
@@ -79,16 +82,46 @@ func verifyBind(b *Bind, errs []VerifyError) []VerifyError {
 	return errs
 }
 
-// verifyApp checks V3: no double-thunk in constructor arguments.
-func verifyApp(a *App, errs []VerifyError) []VerifyError {
-	thunk, ok := a.Arg.(*Thunk)
-	if !ok {
-		return errs
-	}
-	if _, ok := thunk.Comp.(*Thunk); ok {
+// verifyForce checks V4a: no double-Force.
+func verifyForce(f *Force, errs []VerifyError) []VerifyError {
+	if _, ok := f.Expr.(*Force); ok {
 		errs = append(errs, VerifyError{
-			Node:    a,
-			Message: "double Thunk in App argument: App{Arg: Thunk{Comp: Thunk{...}}}",
+			Node:    f,
+			Message: "double Force: Force{Expr: Force{...}}",
+		})
+	}
+	return errs
+}
+
+// verifyThunk checks V4b: no double-Thunk anywhere.
+func verifyThunk(th *Thunk, errs []VerifyError) []VerifyError {
+	if _, ok := th.Comp.(*Thunk); ok {
+		errs = append(errs, VerifyError{
+			Node:    th,
+			Message: "double Thunk: Thunk{Comp: Thunk{...}}",
+		})
+	}
+	return errs
+}
+
+// VerifyAnnotations checks annotation-layer invariants of a Core IR program.
+// Must be called after AnnotateFreeVarsProgram and AssignIndicesProgram.
+//
+// Checked invariants:
+//   - V5b: Every Var node has a non-empty Key after annotation.
+func VerifyAnnotations(prog *Program) []VerifyError {
+	var errs []VerifyError
+	for _, b := range prog.Bindings {
+		Walk(b.Expr, func(node Core) bool {
+			if v, ok := node.(*Var); ok {
+				if v.Key == "" {
+					errs = append(errs, VerifyError{
+						Node:    v,
+						Message: fmt.Sprintf("Var{%q}.Key is empty after annotation", v.Name),
+					})
+				}
+			}
+			return true
 		})
 	}
 	return errs

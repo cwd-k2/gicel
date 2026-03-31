@@ -23,30 +23,36 @@ const (
 	phaseCheckValues         declPhase = 7 // remaining value definitions
 )
 
+// classLikeResult holds instance headers and unevaluated method bodies
+// produced by registerClassLikeForms (Phase 2), consumed by checkInstances (Phase 6).
+// A zero value (nil fields) is valid when the superclass graph has cycles.
+type classLikeResult struct {
+	instances    []*InstanceInfo
+	methodBodies map[*InstanceInfo]map[string]syntax.Expr
+}
+
 // declPipeline coordinates the multi-phase declaration checking process.
-// Cross-phase state (annotations, instance headers) lives here rather than
-// as loose locals, making the data flow between phases explicit.
+// Inter-phase data flows through explicit typed returns and parameters.
+// Phases also mutate CheckState (ctx, reg, unifier) as side effects;
+// these cross-cutting concerns are not threaded explicitly.
 //
 // Phase ordering and dependencies:
 //
 //	Phase                       Depends on           Produces
 //	─────────────────────────────────────────────────────────────────
 //	RegisterTypes               (none)               typeKinds, aliases, families, data types
-//	RegisterClassLike           RegisterTypes        classes, instances (headers), family reducers
+//	RegisterClassLike           RegisterTypes        classLikeResult (instances, methodBodies)
 //	CollectAnnotations          RegisterClassLike    annotations map
 //	CheckAssumptions            CollectAnnotations   context vars (assumption bindings)
-//	PreregisterBindings         RegisterClassLike    context vars (annotated binding types)
+//	PreregisterBindings         CollectAnnotations   context vars (annotated binding types)
 //	CheckInstances              PreregisterBindings  instance bodies, dict bindings
 //	CheckValues                 CheckInstances       remaining value bindings
 type declPipeline struct {
 	ch            *Checker
 	decls         []syntax.Decl
 	prog          *ir.Program
-	annotations   map[string]types.Type
-	instances     []*InstanceInfo
-	methodBodies  map[*InstanceInfo]map[string]syntax.Expr // instance → unevaluated method exprs (pipeline-local)
-	formBodyCache map[*syntax.DeclForm]formBodyParts       // shared decomposition results
-	currentPhase  declPhase                                // monotonically increasing phase tracker
+	formBodyCache map[*syntax.DeclForm]formBodyParts // shared decomposition cache (Phases 1-2)
+	currentPhase  declPhase                          // monotonically increasing phase tracker
 }
 
 // enterPhase asserts that the pipeline is transitioning to a later phase.
@@ -91,26 +97,34 @@ func (p *declPipeline) decomposeForm(d *syntax.DeclForm) formBodyParts {
 
 func (p *declPipeline) run() *ir.Program {
 	p.checkDuplicateBindings()
+
 	p.enterPhase(phaseRegisterTypes)
 	p.registerTypes()
+
 	p.enterPhase(phaseRegisterClassLike)
-	p.registerClassLikeForms()
+	clr := p.registerClassLikeForms()
 	if p.ch.checkCancelled() {
 		return p.prog
 	}
+
 	p.enterPhase(phaseCollectAnnotations)
-	p.collectAnnotations()
+	annotations := p.collectAnnotations()
+
 	p.enterPhase(phaseCheckAssumptions)
-	p.checkAssumptions()
+	p.checkAssumptions(annotations)
+
 	p.enterPhase(phasePreregisterBindings)
-	p.preregisterBindings()
+	p.preregisterBindings(annotations)
 	if p.ch.checkCancelled() {
 		return p.prog
 	}
+
 	p.enterPhase(phaseCheckInstances)
-	p.checkInstances()
+	p.checkInstances(clr)
+
 	p.enterPhase(phaseCheckValues)
-	p.checkValues()
+	p.checkValues(annotations)
+
 	return p.prog
 }
 
@@ -142,7 +156,8 @@ func (p *declPipeline) registerTypes() {
 
 // registerClassLikeForms handles phases 4–5.6: class-like form declarations,
 // impl headers, type family reducer installation, and strict type name activation.
-func (p *declPipeline) registerClassLikeForms() {
+// Returns instance headers and method bodies for checkInstances (Phase 6).
+func (p *declPipeline) registerClassLikeForms() classLikeResult {
 	// Process class-like form declarations (forms with all-lowercase fields).
 	for _, d := range p.decls {
 		if form, ok := d.(*syntax.DeclForm); ok {
@@ -156,15 +171,16 @@ func (p *declPipeline) registerClassLikeForms() {
 	// Cycles (A requires B, B requires A) would cause infinite loops or
 	// uninitialized forward references during dictionary construction.
 	if p.ch.validateSuperclassGraph() {
-		return
+		return classLikeResult{}
 	}
-	p.methodBodies = make(map[*InstanceInfo]map[string]syntax.Expr)
+	var clr classLikeResult
+	clr.methodBodies = make(map[*InstanceInfo]map[string]syntax.Expr)
 	for _, d := range p.decls {
 		if impl, ok := d.(*syntax.DeclImpl); ok {
 			info, methods := p.ch.processImplHeader(impl)
 			if info != nil {
-				p.instances = append(p.instances, info)
-				p.methodBodies[info] = methods
+				clr.instances = append(clr.instances, info)
+				clr.methodBodies[info] = methods
 			}
 		}
 	}
@@ -174,27 +190,30 @@ func (p *declPipeline) registerClassLikeForms() {
 	if p.ch.config.StrictTypeNames {
 		p.ch.strictTypeNames = true
 	}
+	return clr
 }
 
 // collectAnnotations resolves type annotations (phase 6).
 // Free type variables are implicitly universally quantified.
-func (p *declPipeline) collectAnnotations() {
-	p.annotations = make(map[string]types.Type)
+// Returns the annotation map consumed by Phases 4, 5, and 7.
+func (p *declPipeline) collectAnnotations() map[string]types.Type {
+	annotations := make(map[string]types.Type)
 	for _, d := range p.decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
 			ty := p.ch.resolveTypeExpr(ann.Type)
-			p.annotations[ann.Name] = quantifyFreeVars(ty)
+			annotations[ann.Name] = quantifyFreeVars(ty)
 		}
 	}
+	return annotations
 }
 
 // checkAssumptions processes assumption declarations (phase 7).
 // These must be checked before instance bodies that may reference them.
-func (p *declPipeline) checkAssumptions() {
+func (p *declPipeline) checkAssumptions(annotations map[string]types.Type) {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if isAssumptionDef(def) {
-				p.ch.processValueDef(def, p.annotations, p.prog)
+				p.ch.processValueDef(def, annotations, p.prog)
 			}
 		}
 	}
@@ -204,13 +223,13 @@ func (p *declPipeline) checkAssumptions() {
 // Only the type is registered; bodies are checked in checkValues.
 // This allows instance methods to reference these bindings, matching
 // the open-scope semantics of Wadler & Blott type classes.
-func (p *declPipeline) preregisterBindings() {
+func (p *declPipeline) preregisterBindings(annotations map[string]types.Type) {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if isAssumptionDef(def) {
 				continue
 			}
-			if annTy, hasAnn := p.annotations[def.Name]; hasAnn {
+			if annTy, hasAnn := annotations[def.Name]; hasAnn {
 				p.ch.ctx.Push(&CtxVar{Name: def.Name, Type: annTy, Module: p.ch.scope.CurrentModule()})
 			}
 		}
@@ -218,20 +237,20 @@ func (p *declPipeline) preregisterBindings() {
 }
 
 // checkInstances type-checks instance bodies and generates dict bindings (phase 8).
-func (p *declPipeline) checkInstances() {
-	for _, inst := range p.instances {
-		p.ch.processInstanceBody(inst, p.methodBodies[inst], p.prog)
+func (p *declPipeline) checkInstances(clr classLikeResult) {
+	for _, inst := range clr.instances {
+		p.ch.processInstanceBody(inst, clr.methodBodies[inst], p.prog)
 	}
 }
 
 // checkValues processes remaining (non-assumption) value definitions (phase 9).
-func (p *declPipeline) checkValues() {
+func (p *declPipeline) checkValues(annotations map[string]types.Type) {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if isAssumptionDef(def) {
 				continue
 			}
-			p.ch.processValueDef(def, p.annotations, p.prog)
+			p.ch.processValueDef(def, annotations, p.prog)
 		}
 	}
 }

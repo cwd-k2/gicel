@@ -148,7 +148,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 }
 
 // postCheck applies the shared post-type-checking pipeline:
-// label erasure → optimize → annotate free vars → assign de Bruijn indices.
+// label erasure → [verify structure] → optimize → annotate FV → assign indices → [verify annotations].
 // userBindings limits selective inlining to the given names (nil = no inlining).
 func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) {
 	ir.EraseLabelArgsProgram(prog)
@@ -160,6 +160,11 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings)
 	ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog)
+	if pc.verifyIR {
+		if errs := ir.VerifyAnnotations(prog); len(errs) > 0 {
+			panic("IR annotation verification failed: " + errs[0].Error())
+		}
+	}
 }
 
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
