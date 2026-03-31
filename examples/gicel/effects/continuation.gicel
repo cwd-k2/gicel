@@ -1,8 +1,8 @@
 -- GICEL Example: Continuation Monad
 --
 -- The continuation monad Cont r a wraps a CPS function (a -> r) -> r.
--- With a Monad instance (mpure/mbind), continuations are threaded
--- explicitly. Demonstrates CPS pipelines, control flow manipulation,
+-- With a Monad instance and do-notation, continuations compose
+-- cleanly. Demonstrates CPS pipelines, control flow manipulation,
 -- and early exit via abort.
 -- Run: bin/gicel run examples/gicel/effects/continuation.gicel
 
@@ -21,15 +21,17 @@ impl Monad (Cont r) := {
   mbind := \ma f. MkCont (\k. runCont ma (\a. runCont (f a) k))
 }
 
--- ── CPS pipeline with explicit bind ──────────────────────────
--- Each mbind passes its value through the continuation chain.
+-- ── CPS pipeline with do-notation ───────────────────────────
+-- Each bind passes its value through the continuation chain.
 -- The final continuation (supplied by runCont) controls the result.
 
 sumCont :: Cont Int Int
-sumCont := mbind (MkCont (\k. k 10)) (\x.
-  mbind (MkCont (\k. k 20)) (\y.
-  mbind (MkCont (\k. k 30)) (\z.
-  mpure (x + y + z))))
+sumCont := do {
+  x <- MkCont (\k. k 10);
+  y <- MkCont (\k. k 20);
+  z <- MkCont (\k. k 30);
+  pure (x + y + z)
+}
 
 ex1 := runCont sumCont id           -- 60
 ex2 := runCont sumCont (\n. n * 2)  -- 120 (double the final result)
@@ -40,18 +42,22 @@ abort :: \r a. r -> Cont r a
 abort := \v. MkCont (\_. v)
 
 earlyExit :: Cont Int Int
-earlyExit := mbind (MkCont (\k. k 5)) (\x.
-  mbind (abort 42) (\_.         -- discards the rest
-  mpure (x + 999)))             -- never reached
+earlyExit := do {
+  x <- MkCont (\k. k 5);
+  _ <- abort 42;               -- discards the rest
+  pure (x + 999)               -- never reached
+}
 
 ex3 := runCont earlyExit id    -- 42
 
 -- Conditional abort: exit early if the value is negative.
 clampPositive :: Cont Int Int
-clampPositive := mbind (MkCont (\k. k (negate 3))) (\x.
+clampPositive := do {
+  x <- MkCont (\k. k (negate 3));
   if x < 0
      then abort 0
-     else mpure x)
+     else mpure x
+}
 
 ex4 := runCont clampPositive id  -- 0 (negative → clamped)
 
@@ -74,11 +80,13 @@ mulCPS := \x y k. k (x * y)
 ex7 := addCPS 3 4 (\s. mulCPS s 2 id)
 
 -- ── Composing continuations ──────────────────────────────────
--- mbind makes CPS composition explicit.
+-- do-notation makes CPS composition clean.
 
 pipeline :: Cont Int Int
-pipeline := mbind (MkCont (\k. k 3 + k 7)) (\a.  -- k called twice: 3 and 7
-  mpure (a * 10))
+pipeline := do {
+  a <- MkCont (\k. k 3 + k 7);  -- k called twice: 3 and 7
+  pure (a * 10)
+}
 
 -- k 3 = 30, k 7 = 70, result = 30 + 70
 ex8 := runCont pipeline id  -- 100
