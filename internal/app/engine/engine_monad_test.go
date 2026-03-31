@@ -433,6 +433,94 @@ main := do {
 	}
 }
 
+// GIMonad Lift dispatch — verifies Maybe/List do-blocks work via
+// GIMonad g (Lift M) instances, not Monad fallback.
+// Lift M g r r a ≡ M a (type alias), so dispatch is transparent.
+
+func TestGIMonadLiftMaybeDoBlock(t *testing.T) {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main :: Maybe Int
+main := do {
+  x <- Just 10;
+  y <- Just 20;
+  pure (x + y)
+}
+`)
+	if err != nil {
+		t.Fatalf("GIMonad Lift Maybe should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Just" || len(con.Args) != 1 {
+		t.Fatalf("expected Just 30, got %v", result.Value)
+	}
+	if hv, ok := con.Args[0].(*eval.HostVal); !ok || hv.Inner != int64(30) {
+		t.Fatalf("expected Just 30, got Just %v", con.Args[0])
+	}
+}
+
+func TestGIMonadLiftListDoBlock(t *testing.T) {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main :: List Int
+main := do {
+  x <- [1, 2];
+  y <- [10, 20];
+  pure (x + y)
+}
+`)
+	if err != nil {
+		t.Fatalf("GIMonad Lift List should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// [1+10, 1+20, 2+10, 2+20] = [11, 21, 12, 22]
+	// Verify result is a non-empty Cons chain.
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Cons" {
+		t.Fatalf("expected Cons chain, got %v", result.Value)
+	}
+	first, ok := con.Args[0].(*eval.HostVal)
+	if !ok || first.Inner != int64(11) {
+		t.Fatalf("expected first element 11, got %v", con.Args[0])
+	}
+}
+
+func TestGIMonadLiftMaybeNothing(t *testing.T) {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+main :: Maybe Int
+main := do {
+  x <- Just 5;
+  _ <- (Nothing :: Maybe Int);
+  pure x
+}
+`)
+	if err != nil {
+		t.Fatalf("GIMonad Lift Maybe Nothing should compile: %v", err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := result.Value.(*eval.ConVal)
+	if !ok || con.Con != "Nothing" {
+		t.Fatalf("expected Nothing, got %v", result.Value)
+	}
+}
+
 func TestComputationDoRegression(t *testing.T) {
 	// Ensure Computation do blocks still use Core.Bind (not class dispatch).
 	eng := NewEngine()
