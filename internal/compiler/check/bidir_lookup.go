@@ -50,10 +50,18 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 func (ch *Checker) inferApply(funTy types.Type, funCore ir.Core, arg syntax.Expr, s span.Span) (types.Type, ir.Core) {
 	argTy, retTy := ch.matchArrow(funTy, s)
 	argCore := ch.check(arg, argTy)
-	if ch.isLazyConApp(funCore) {
-		argCore = &ir.Thunk{Comp: argCore, S: arg.Span()}
-	}
+	argCore = ch.wrapAutoThunk(funCore, argCore, arg.Span())
 	return retTy, &ir.App{Fun: funCore, Arg: argCore, S: s}
+}
+
+// wrapAutoThunk wraps argCore in ir.Thunk if funCore is a lazy constructor application.
+// Lazy co-data constructors suspend their arguments at construction time;
+// the corresponding auto-force happens at pattern match (see autoForceLazy).
+func (ch *Checker) wrapAutoThunk(funCore ir.Core, argCore ir.Core, s span.Span) ir.Core {
+	if ch.isLazyConApp(funCore) {
+		return &ir.Thunk{Comp: argCore, S: s}
+	}
+	return argCore
 }
 
 // isLazyConApp returns true if the Core node is a constructor application

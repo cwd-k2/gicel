@@ -10,26 +10,37 @@ import (
 // merge : Computation pre₁ post₁ a → Computation pre₂ post₂ b
 //       → Computation (Merge pre₁ pre₂) (Merge post₁ post₂) (a, b)
 //
-// At runtime, both computations are executed sequentially with the same
-// capability environment. Disjointness of pre₁ and pre₂ is guaranteed
-// by the type checker's Merge row family. The results are paired.
+// Direct application (merge comp1 comp2) is intercepted at compile time
+// as a special form and compiled to ir.Merge → OpMerge, which provides
+// correct CapEnv isolation. This PrimImpl is the fallback for indirect
+// usage (e.g. let f = merge; f comp1 comp2), where CBV evaluates the
+// arguments before reaching merge. In this case, effects have already
+// been executed sequentially and the values are used directly.
 var MergeImpl eval.PrimImpl = func(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	// args[0] = first effectful computation (PrimVal or closure)
-	// args[1] = second effectful computation (PrimVal or closure)
-	// Both are suspended computations — force by applying to Unit.
-	val1, ce, err := apply(args[0], unitVal, ce)
+	val1, ce, err := forceOrUse(args[0], ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
-	val2, ce, err := apply(args[1], unitVal, ce)
+	val2, ce, err := forceOrUse(args[1], ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
-	// Return (a, b) as Record { _1: a, _2: b }.
 	return eval.NewRecordFromMap(map[string]eval.Value{
 		"_1": val1,
 		"_2": val2,
 	}), ce, nil
+}
+
+// forceOrUse forces a suspended computation by applying unit, or returns
+// an already-evaluated value as-is. In CBV, Computation-typed arguments
+// may arrive pre-evaluated when merge is used indirectly (not as special form).
+func forceOrUse(v eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	switch v.(type) {
+	case *eval.VMClosure, *eval.Closure, *eval.PrimVal, *eval.VMThunkVal, *eval.ThunkVal:
+		return apply(v, unitVal, ce)
+	default:
+		return v, ce, nil
+	}
 }
 
 // DagImpl implements the dag primitive for capability row inversion.
