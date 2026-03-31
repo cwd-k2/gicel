@@ -132,3 +132,53 @@ main := applyApplyApplyId applyApplyId
 `
 	checkSource(t, source, nil)
 }
+
+// =====================================================================
+// Quick Look impredicativity — multi-arg constructor with polytype.
+// Uses self-contained form definitions (no Prelude dependency).
+// =====================================================================
+
+// TestProbeA_QuickLook_PairLambdaPoly — Mk (\x.x) True :: Pair (\a. a -> a) Bool
+func TestProbeA_QuickLook_PairLambdaPoly(t *testing.T) {
+	source := `
+form Bool := { True: Bool; False: Bool; }
+form Pair := \a b. { Mk: a -> b -> Pair a b; }
+main :: Pair (\a. a -> a) Bool
+main := Mk (\x. x) True
+`
+	checkSource(t, source, nil)
+}
+
+// TestProbeA_QuickLook_ListLambdaPoly — MkCons (\x.x) MkNil :: MyList (\a. a -> a)
+func TestProbeA_QuickLook_ListLambdaPoly(t *testing.T) {
+	source := `
+form MyList := \a. { MkCons: a -> MyList a -> MyList a; MkNil: MyList a; }
+id :: \a. a -> a
+id := \x. x
+main :: MyList (\a. a -> a)
+main := MkCons (\x. x) MkNil
+`
+	checkSource(t, source, nil)
+}
+
+// TestProbeA_QuickLook_ListIdPoly — MkCons id MkNil :: MyList (\a. a -> a)
+func TestProbeA_QuickLook_ListIdPoly(t *testing.T) {
+	source := `
+form MyList := \a. { MkCons: a -> MyList a -> MyList a; MkNil: MyList a; }
+id :: \a. a -> a
+id := \x. x
+main :: MyList (\a. a -> a)
+main := MkCons id MkNil
+`
+	checkSource(t, source, nil)
+}
+
+// TestProbeA_QuickLook_NestedConsPoly — nested cons with polytype.
+func TestProbeA_QuickLook_NestedConsPoly(t *testing.T) {
+	source := `
+form MyList := \a. { MkCons: a -> MyList a -> MyList a; MkNil: MyList a; }
+main :: MyList (\a. a -> a)
+main := MkCons (\x. x) (MkCons (\y. y) MkNil)
+`
+	checkSource(t, source, nil)
+}

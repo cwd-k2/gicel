@@ -75,6 +75,19 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) ir.Core {
 		}
 	}
 
+	// Quick Look path: for multi-argument applications where the head is a
+	// known variable/constructor, collect the spine, infer the head, instantiate,
+	// then qlUnify retTy with expected to propagate polytype info into metas
+	// BEFORE checking arguments. This enables impredicative instantiation.
+	if _, ok := e.Fun.(*syntax.ExprApp); ok {
+		head, args := collectSpine(e)
+		if len(args) >= 2 {
+			if result, ok := ch.checkAppQL(head, args, expected, e.S); ok {
+				return result
+			}
+		}
+	}
+
 	// General case: infer function, decompose arrow, pre-unify return type.
 	funTy, funCore := ch.infer(e.Fun)
 	argTy, retTy := ch.matchArrow(funTy, e.S)
