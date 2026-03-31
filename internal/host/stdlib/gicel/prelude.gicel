@@ -319,8 +319,9 @@ infixl 1 >>
 (>>) :: \(m: Type -> Type) a b. Monad m => m a -> m b -> m b
 (>>) := \m1 m2. mbind m1 (\_. m2)
 
--- GIMonad instances for Maybe and List via Lift provide `pure`/`gipure`
--- dispatch in monadic contexts (e.g. `Just 5 >>= \x. pure x`).
+-- GIMonad instances for Maybe and List via Lift.
+-- These provide gipure/gibind for do-notation dispatch when the
+-- expected type involves Lift-wrapped monads.
 impl GradeAlgebra g => GIMonad g (Lift Maybe) := {
   gipure := Just;
   gibind := \ma f. case ma {

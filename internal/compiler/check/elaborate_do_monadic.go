@@ -43,8 +43,15 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			_, result := d.elaborate(e.Stmts, e.S)
 			return result
 		}
+		// Monad fallback: desugar to mbind/mpure for Type→Type monads.
+		// GIMonad handles graded indexed monads; Monad handles plain monads
+		// (Maybe, List, Cont, etc.) that lack row/grade parameters.
+		if ch.hasMonadInstance(monadHead, e.S) {
+			desugared := ch.desugarDoToMonad(e.Stmts, e.S)
+			return ch.check(desugared, expected)
+		}
 		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
-			"do notation for "+types.Pretty(expected)+" requires a GIMonad instance")
+			"do notation for "+types.Pretty(expected)+" requires a GIMonad or Monad instance")
 		return &ir.Error{S: e.S}
 	}
 
@@ -176,6 +183,129 @@ func (ch *Checker) mkGIBind(monadHead types.Type, comp ir.Core, varName string, 
 		S:   s,
 	}
 }
+
+// --- Monad (Type→Type) fallback ---
+
+// hasMonadInstance checks whether the Monad class has a resolvable instance
+// for the given monadHead, without emitting errors.
+func (ch *Checker) hasMonadInstance(monadHead types.Type, s span.Span) bool {
+	if _, ok := ch.reg.LookupClass("Monad"); !ok {
+		return false
+	}
+	_, ok := ch.tryResolveInstance("Monad", []types.Type{monadHead}, s)
+	return ok
+}
+
+// rewritePureToMpure rewrites `pure expr` to `mpure expr` at the AST level.
+// The `pure` builtin is linked to GIMonad/Computation; for Monad dispatch
+// we need `mpure` instead. Non-pure expressions are returned as-is.
+func rewritePureToMpure(expr syntax.Expr) syntax.Expr {
+	if app, ok := expr.(*syntax.ExprApp); ok {
+		if v, ok := app.Fun.(*syntax.ExprVar); ok {
+			if v.Name == "pure" || v.Name == "gipure" {
+				return &syntax.ExprApp{
+					Fun: &syntax.ExprVar{Name: "mpure", S: v.S},
+					Arg: app.Arg,
+					S:   app.S,
+				}
+			}
+		}
+	}
+	return expr
+}
+
+// desugarDoToMonad desugars a do-block into explicit mbind/mpure calls.
+// do { x <- a; b }  →  mbind a (\x. b)
+// do { a; b }        →  mbind a (\_ . b)
+// do { a }           →  a
+func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Expr {
+	if len(stmts) == 0 {
+		return &syntax.ExprError{S: s}
+	}
+	if len(stmts) == 1 {
+		switch st := stmts[0].(type) {
+		case *syntax.StmtExpr:
+			return rewritePureToMpure(st.Expr)
+		case *syntax.StmtBind:
+			return st.Comp
+		case *syntax.StmtPureBind:
+			return st.Expr
+		}
+		return &syntax.ExprError{S: s}
+	}
+	rest := ch.desugarDoToMonad(stmts[1:], s)
+	switch st := stmts[0].(type) {
+	case *syntax.StmtBind:
+		var lamBody syntax.Expr
+		var lamParam syntax.Pattern
+		if name, ok := syntax.PatVarName(st.Pat); ok {
+			lamParam = &syntax.PatVar{Name: name, S: st.S}
+			lamBody = rest
+		} else {
+			freshName := ch.freshName("$p")
+			lamParam = &syntax.PatVar{Name: freshName, S: st.S}
+			lamBody = &syntax.ExprCase{
+				Scrutinee: &syntax.ExprVar{Name: freshName, S: st.S},
+				Alts:      []syntax.AstAlt{{Pattern: st.Pat, Body: rest, S: st.S}},
+				S:         st.S,
+			}
+		}
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprApp{
+				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
+				Arg: rewritePureToMpure(st.Comp),
+				S:   st.S,
+			},
+			Arg: &syntax.ExprLam{
+				Params: []syntax.Pattern{lamParam},
+				Body:   lamBody,
+				S:      st.S,
+			},
+			S: st.S,
+		}
+	case *syntax.StmtExpr:
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprApp{
+				Fun: &syntax.ExprVar{Name: "mbind", S: st.S},
+				Arg: rewritePureToMpure(st.Expr),
+				S:   st.S,
+			},
+			Arg: &syntax.ExprLam{
+				Params: []syntax.Pattern{&syntax.PatWild{S: st.S}},
+				Body:   rest,
+				S:      st.S,
+			},
+			S: st.S,
+		}
+	case *syntax.StmtPureBind:
+		var lamBody syntax.Expr
+		var lamParam syntax.Pattern
+		if name, ok := syntax.PatVarName(st.Pat); ok {
+			lamParam = &syntax.PatVar{Name: name, S: st.S}
+			lamBody = rest
+		} else {
+			freshName := ch.freshName("$p")
+			lamParam = &syntax.PatVar{Name: freshName, S: st.S}
+			lamBody = &syntax.ExprCase{
+				Scrutinee: &syntax.ExprVar{Name: freshName, S: st.S},
+				Alts:      []syntax.AstAlt{{Pattern: st.Pat, Body: rest, S: st.S}},
+				S:         st.S,
+			}
+		}
+		return &syntax.ExprApp{
+			Fun: &syntax.ExprLam{
+				Params: []syntax.Pattern{lamParam},
+				Body:   lamBody,
+				S:      st.S,
+			},
+			Arg: st.Expr,
+			S:   st.S,
+		}
+	}
+	return &syntax.ExprError{S: s}
+}
+
+// --- GIMonad (graded indexed monad) dispatch ---
 
 // gradedBind handles x <- comp; rest in GIMonad mode.
 func (d *doElaborator) gradedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
