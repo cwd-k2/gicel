@@ -113,6 +113,27 @@ type Force struct {
 	S    span.Span
 }
 
+// Merge — parallel composition of two computations.
+// Splits CapEnv by label sets, runs both computations, reunites CapEnvs.
+// LeftLabels/RightLabels are refined by RefineMergeLabels after constraint
+// resolution (initial extraction in inferMerge may see unresolved metas).
+// PreLeft/PreRight store pre-state types for deferred label extraction;
+// cleared after refinement.
+// FV/FVIndices are populated by AnnotateFreeVars/AssignIndices (like Thunk).
+type Merge struct {
+	Left        Core
+	Right       Core
+	LeftLabels  []string   // capability labels for left computation
+	RightLabels []string   // capability labels for right computation
+	PreLeft     types.Type // pre-state type for deferred label extraction (cleared after refinement)
+	PreRight    types.Type // pre-state type for deferred label extraction (cleared after refinement)
+	LeftFV      []string   // free vars of Left (populated by AnnotateFreeVars)
+	LeftFVIdx   []int      // FV positions in enclosing env (populated by AssignIndices)
+	RightFV     []string   // free vars of Right
+	RightFVIdx  []int      // FV positions in enclosing env
+	S           span.Span
+}
+
 // PrimOp — host-provided primitive operation.
 // Effectful marks primitives whose return type is Computation (they access CapEnv).
 // Effectful PrimOps are deferred at evaluation time and forced only in Bind or at top-level.
@@ -176,6 +197,7 @@ func (*Pure) coreNode()         {}
 func (*Bind) coreNode()         {}
 func (*Thunk) coreNode()        {}
 func (*Force) coreNode()        {}
+func (*Merge) coreNode()        {}
 func (*PrimOp) coreNode()       {}
 func (*Lit) coreNode()          {}
 func (*RecordLit) coreNode()    {}
@@ -196,6 +218,7 @@ func (c *Pure) Span() span.Span         { return c.S }
 func (c *Bind) Span() span.Span         { return c.S }
 func (c *Thunk) Span() span.Span        { return c.S }
 func (c *Force) Span() span.Span        { return c.S }
+func (c *Merge) Span() span.Span        { return c.S }
 func (c *PrimOp) Span() span.Span       { return c.S }
 func (c *Lit) Span() span.Span          { return c.S }
 func (c *RecordLit) Span() span.Span    { return c.S }

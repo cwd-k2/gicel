@@ -202,6 +202,7 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
+	ch.refineMergeLabels(coreProgram)
 	return coreProgram, ch.errors
 }
 
@@ -210,8 +211,37 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
+	ch.refineMergeLabels(coreProgram)
 	exports := ch.ExportModule(coreProgram)
 	return coreProgram, exports, ch.errors
+}
+
+// refineMergeLabels walks the IR after constraint resolution and re-extracts
+// CapEnv labels for Merge nodes whose pre-state meta variables are now solved.
+func (ch *Checker) refineMergeLabels(prog *ir.Program) {
+	for i := range prog.Bindings {
+		ir.Walk(prog.Bindings[i].Expr, func(c ir.Core) bool {
+			m, ok := c.(*ir.Merge)
+			if !ok {
+				return true
+			}
+			if m.PreLeft != nil {
+				labels := ch.extractRowLabels(ch.unifier.Zonk(m.PreLeft))
+				if labels != nil {
+					m.LeftLabels = labels
+				}
+				m.PreLeft = nil
+			}
+			if m.PreRight != nil {
+				labels := ch.extractRowLabels(ch.unifier.Zonk(m.PreRight))
+				if labels != nil {
+					m.RightLabels = labels
+				}
+				m.PreRight = nil
+			}
+			return true
+		})
+	}
 }
 
 // newChecker initializes a Checker, imports modules, and returns it

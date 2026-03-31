@@ -198,6 +198,8 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 		Right:       rightCore,
 		LeftLabels:  leftLabels,
 		RightLabels: rightLabels,
+		PreLeft:     pre1,
+		PreRight:    pre2,
 		S:           s,
 	}
 }

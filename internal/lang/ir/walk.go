@@ -49,6 +49,9 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 		walkRec(n.Comp, visit, depth+1)
 	case *Force:
 		walkRec(n.Expr, visit, depth+1)
+	case *Merge:
+		walkRec(n.Left, visit, depth+1)
+		walkRec(n.Right, visit, depth+1)
 	case *PrimOp:
 		for _, arg := range n.Args {
 			walkRec(arg, visit, depth+1)
@@ -237,6 +240,13 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 			return f(n)
 		}
 		return f(&Force{Expr: newExpr, S: n.S})
+	case *Merge:
+		newLeft := transformRec(n.Left, f, depth+1)
+		newRight := transformRec(n.Right, f, depth+1)
+		if newLeft == n.Left && newRight == n.Right {
+			return f(n)
+		}
+		return f(&Merge{Left: newLeft, Right: newRight, LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, PreLeft: n.PreLeft, PreRight: n.PreRight, S: n.S})
 	case *PrimOp:
 		args, changed := transformSlice(n.Args, f, depth)
 		if !changed {

@@ -296,3 +296,43 @@ main := do {
 		t.Errorf("expected _2 = 2, got %v", eval.PrettyValue(v2))
 	}
 }
+
+func TestMergeCapEnvIsolation(t *testing.T) {
+	// Verify that CapEnv splitting actually isolates capabilities.
+	// Left computation uses "state" capability; right uses none.
+	// After refineMergeLabels, left should see {state} and right should see {}.
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.State)
+
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+
+main := do {
+  _ <- put 0;
+  r <- merge (do { _ <- put 99; get }) (do { pure (42 :: Int) });
+  pure r
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": int64(0)}
+	res, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, ok := res.Value.(*eval.RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal, got %T: %v", res.Value, eval.PrettyValue(res.Value))
+	}
+	v1, _ := rec.Get("_1")
+	v2, _ := rec.Get("_2")
+	if hv, ok := v1.(*eval.HostVal); !ok || hv.Inner != int64(99) {
+		t.Errorf("expected _1 = 99, got %v", eval.PrettyValue(v1))
+	}
+	if hv, ok := v2.(*eval.HostVal); !ok || hv.Inner != int64(42) {
+		t.Errorf("expected _2 = 42, got %v", eval.PrettyValue(v2))
+	}
+}

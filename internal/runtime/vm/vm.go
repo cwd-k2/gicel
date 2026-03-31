@@ -408,6 +408,38 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				}
 			}
 
+		case OpMerge:
+			mergeIP := frame.ip - 1
+			descIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			desc := frame.proto.MergeDescs[descIdx]
+			rightVal := vm.pop()
+			leftVal := vm.pop()
+			origCapEnv := frame.capEnv.MarkShared()
+			_ = frame.proto.SpanAt(mergeIP)
+			// Split CapEnv by label sets when available. Type-level Merge row
+			// family guarantees disjointness. When labels are nil (unresolved
+			// metas at compile time), fall back to shared CapEnv.
+			leftCap, rightCap := origCapEnv, origCapEnv
+			if desc.LeftLabels != nil || desc.RightLabels != nil {
+				leftCap = origCapEnv.Filter(desc.LeftLabels)
+				rightCap = origCapEnv.Filter(desc.RightLabels)
+			}
+			val1, leftCE, err := vm.forceMergeChild(leftVal, leftCap, frame)
+			if err != nil {
+				return eval.EvalResult{}, err
+			}
+			val2, rightCE, err := vm.forceMergeChild(rightVal, rightCap, frame)
+			if err != nil {
+				return eval.EvalResult{}, err
+			}
+			// Merge resulting CapEnvs and push pair record.
+			frame.capEnv = leftCE.MergeWith(rightCE)
+			vm.push(eval.NewRecordFromMap(map[string]eval.Value{
+				"_1": val1,
+				"_2": val2,
+			}))
+
 		case OpCon:
 			nameIdx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
