@@ -180,11 +180,17 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 	leftLabels := ch.extractRowLabels(ch.unifier.Zonk(pre1))
 	rightLabels := ch.extractRowLabels(ch.unifier.Zonk(pre2))
 
-	// Result type: Computation (Merge pre1 pre2) (Merge post1 post2) result
-	// The result meta will be unified with the pair (a, b) by the caller's context.
+	// Result type: Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
+	// Tuple = Record { _1: a, _2: b }, matching the runtime OpMerge output.
 	mergedPre := ch.applyMergeFamily(pre1, pre2, s)
 	mergedPost := ch.applyMergeFamily(post1, post2, s)
-	result := ch.freshMeta(types.TypeOfTypes)
+	result := &types.TyApp{
+		Fun: types.Con(types.TyConRecord),
+		Arg: types.ClosedRow(
+			types.RowField{Label: ir.TupleLabel(1), Type: a},
+			types.RowField{Label: ir.TupleLabel(2), Type: b},
+		),
+	}
 	resultTy := types.MkComp(mergedPre, mergedPost, result)
 
 	return resultTy, &ir.Merge{
