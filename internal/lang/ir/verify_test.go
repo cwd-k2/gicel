@@ -207,6 +207,7 @@ func TestVerifyAnnotationsClean(t *testing.T) {
 			{Name: "main", Expr: &Pure{Expr: &Lit{Value: int64(42)}}},
 			{Name: "f", Expr: &Lam{
 				Param: "x",
+				FV:    []string{"t"}, // body FV = {t, v} - {x} - {v from Bind} = {t}
 				Body: &Bind{
 					Comp: &Force{Expr: &Var{Name: "t", Key: "t"}},
 					Var:  "v",
@@ -218,6 +219,95 @@ func TestVerifyAnnotationsClean(t *testing.T) {
 	errs := VerifyAnnotations(prog)
 	if len(errs) != 0 {
 		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+// V5a: FV coherence checks.
+
+func TestVerifyV5a_LamFVCorrect(t *testing.T) {
+	// Lam{param: "x", body: Var{y}} — FV should be ["y"]
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "f", Expr: &Lam{
+				Param: "x",
+				FV:    []string{"y"},
+				Body:  &Var{Name: "y", Key: "y"},
+			}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestVerifyV5a_LamFVMismatch(t *testing.T) {
+	// Lam{param: "x", body: Var{y}} — FV wrongly annotated as ["z"]
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "f", Expr: &Lam{
+				Param: "x",
+				FV:    []string{"z"},
+				Body:  &Var{Name: "y", Key: "y"},
+			}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
+	}
+	if !strings.Contains(errs[0].Message, "Lam.FV mismatch") {
+		t.Fatalf("expected 'Lam.FV mismatch' message, got %q", errs[0].Message)
+	}
+}
+
+func TestVerifyV5a_LamFVNilOverflow(t *testing.T) {
+	// FV = nil means overflow — should be skipped, no error.
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "f", Expr: &Lam{
+				Param: "x",
+				FV:    nil,
+				Body:  &Var{Name: "y", Key: "y"},
+			}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors for nil FV (overflow), got %d: %v", len(errs), errs)
+	}
+}
+
+func TestVerifyV5a_ThunkFVCorrect(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "t", Expr: &Thunk{
+				FV:   []string{"x"},
+				Comp: &Pure{Expr: &Var{Name: "x", Key: "x"}},
+			}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestVerifyV5a_ThunkFVMismatch(t *testing.T) {
+	prog := &Program{
+		Bindings: []Binding{
+			{Name: "t", Expr: &Thunk{
+				FV:   []string{}, // wrong: should be ["x"]
+				Comp: &Pure{Expr: &Var{Name: "x", Key: "x"}},
+			}},
+		},
+	}
+	errs := VerifyAnnotations(prog)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %d: %v", len(errs), errs)
+	}
+	if !strings.Contains(errs[0].Message, "Thunk.FV mismatch") {
+		t.Fatalf("expected 'Thunk.FV mismatch' message, got %q", errs[0].Message)
 	}
 }
 
