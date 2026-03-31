@@ -19,18 +19,13 @@ Level 2 (Sort₀) ──  Kind (Level 1 の classifier)
 - HKT kind 変数: `form Functor := \(f: k -> Type)` — lowercase → 暗黙 kind 変数
 - 暗黙 kind 多相: unannotated param は `TypeOfTypes` skip で promoted kinds を受容
 
-## Phase A: LevelMeta 活性化 ← DONE
+## Phase A: LevelMeta 活性化 — DONE
 
-**実装済み** (v0.24+)。`checkTypeAppKind` の `TypeOfTypes` skip を除去し、`Type` パラメータに対する統一的な `UnifyLevels` パスに統合。
+LevelMeta ベースの kind 推論。TypeOfTypes skip 除去、統一的 UnifyLevels パス。
 
-**完了事項**:
+## PolyKinds Phase D — DONE
 
-1. ✅ `resolveKindExpr` で unannotated param に `LevelMeta`（推論メタ変数）を fresh で割り当て（既存）
-2. ✅ `TypeOfTypes` skip を除去し、`LevelMeta` 単一化で kind を解決
-3. ✅ `ZonkLevelDefault` で未解決 `LevelMeta` → L0 にデフォルト（既存）
-4. ✅ cumulativity ルール (`levelAdjacentCumulativity`)（既存）
-
-**効果**: kind 推論が理論的に正当化される。ヒューリスティックの排除。
+LevelMeta と具体 Type kind パスの統合。L1 skip 解消。
 
 ## Phase B: 明示的レベル量化
 
@@ -61,13 +56,6 @@ form Pair := \(a: Type l1) (b: Type l2). { fst: a; snd: b; };
 **前提**: Phase B。
 
 **理論的注意**: LevelMax 制約の decidability は Phase B 着手前に確認が必要。Agda/Lean の制約解決器が参考になる。
-
-## PolyKinds
-
-Phase A が前提。本格的な kind 多相:
-
-- ~~現在の暗黙 kind 多相 (unannotated param → TypeOfTypes skip) を LevelMeta ベースの正当な推論に置換~~ **Done** (Phase A)
-- kind 変数が任意の promoted data kind を受容できるようになる
 
 ## 到達後の姿
 

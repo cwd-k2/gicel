@@ -28,17 +28,6 @@ Map String -| List -| Maybe -| Int
 
 `->` とは **対ではなく対比**。`->` は関数型構築（矢印）、`-|` は適用の区切り（壁）。異なる操作であることが記号自体から伝わる。turnstile `⊢` の連想 — 「ここから先が引数」という境界の意味論。row の `|` と意味が通底する。
 
-### lazy co-data
-
-`form` と対等な宣言キーワード。全フィールドを遅延評価（メモ化 thunk）にする。CBPV の data/co-data 区別を構文に反映。
-
-```gicel
-form List   := \a. { Cons: a -> List a -> List a; Nil: List a; }   -- data（正格）
-lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }  -- co-data（遅延）
-```
-
-**実装済み。** Parser → Checker → Runtime → Stdlib 完了。`+>` (Prepend) 演算子も追加済み (v0.24+)。
-
 ## Design Fork Points
 
 | Fork Point                                  | Current State                            | Decision Trigger                            |
@@ -91,8 +80,6 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 ## Far Future (assessed, not planned)
 
-| Extension                                                 | Category         | Status                                                        |
-| --------------------------------------------------------- | ---------------- | ------------------------------------------------------------- |
-| Tensor product kind (`QType`)                             | Type system      | Not planned. Full SMC + quantum use case needed               |
-| ~~Optimizer Phase 2-3 (selective inline + case-of-case)~~ | ~~Optimization~~ | **Done.** caseOfKnownLit, Bind-of-Case, List roundtrip fusion |
-| Impredicativity (full)                                    | Type system      | Partial: Maybe/tuples work, List does not. Boundary unclear   |
+| Extension                     | Category    | Status                                          |
+| ----------------------------- | ----------- | ----------------------------------------------- |
+| Tensor product kind (`QType`) | Type system | Not planned. Full SMC + quantum use case needed |

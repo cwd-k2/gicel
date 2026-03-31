@@ -2,31 +2,13 @@
 
 Atkey indexed monad (monad in Prof) から Free †-SMC への段階的拡張。
 
-**依存チェーン**: Phase 2 → Phase 3 → Phase 4。
+## Phase 2: Parallel Composition — DONE
 
-## Phase 2: Parallel Composition
+`Merge`/`***` — disjoint row merge による parallel composition。型検査器 + VM opcode 実装済み。
 
-```gicel
-Merge :: Computation pre₁ post₁ a -> Computation pre₂ post₂ b
-      -> Computation pre₃ post₃ (a, b)
-      -- pre₃, post₃ は型検査器が内部的に disjoint merge で計算
+## Phase 3: Dagger — DONE
 
-infixr 3 ***
-(***) := Merge   -- 演算子は構築子の sugar
-```
-
-Host-provided primitive。Runtime: capability 環境を分割し、両 computation を独立実行、結果環境をマージ。
-
-**実装**: 型検査器内部の disjoint row merge。`classifyFields` + `Merge` builtin type family で基盤あり。
-
-## Phase 3: Dagger
-
-```gicel
-type Gate pre post := Computation pre post ()
-dag :: Gate pre post -> Gate post pre
-```
-
-pre/post スワップ。`dag (dag f) = f` は構造的に保証。`dag (f ; g) = dag g ; dag f` は host 実装が保証。
+`dag` — pre/post swap。型レベルで保証、runtime は identity。
 
 ## Phase 4: Multiplicity Generalization
 
