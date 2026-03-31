@@ -9,6 +9,52 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// listMapImpl maps a function over a Cons/Nil list, returning a new list.
+// _listMap :: (a -> b) -> List a -> List b
+func listMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	items, ok := listToSlice(args[1])
+	if !ok {
+		return nil, ce, errExpected("listMap", "List", args[1])
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costConsNode); err != nil {
+		return nil, ce, err
+	}
+	mapped := make([]eval.Value, len(items))
+	for i, item := range items {
+		result, newCe, err := apply(f, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		mapped[i] = result
+	}
+	return buildList(mapped), ce, nil
+}
+
+// listFoldrImpl is a right fold over a Cons/Nil list.
+// _listFoldr :: (a -> b -> b) -> b -> List a -> b
+func listFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	z := args[1]
+	items, ok := listToSlice(args[2])
+	if !ok {
+		return nil, ce, errExpected("listFoldr", "List", args[2])
+	}
+	acc := z
+	for i := len(items) - 1; i >= 0; i-- {
+		partial, newCe, err := apply(f, items[i], ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		acc, ce, err = apply(partial, acc, newCe)
+		if err != nil {
+			return nil, ce, err
+		}
+	}
+	return acc, ce, nil
+}
+
 // foldlImpl is a strict left fold that uses the Applier callback to apply closures.
 func foldlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	f := args[0]    // (b -> a -> b)

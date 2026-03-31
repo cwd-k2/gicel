@@ -728,6 +728,95 @@ func TestR11_SliceFoldrMapFusion(t *testing.T) {
 	}
 }
 
+// ===== R15: List map/map fusion =====
+
+func testListMapMapFusion(c ir.Core) ir.Core {
+	po, ok := c.(*ir.PrimOp)
+	if !ok || po.Name != "_listMap" || len(po.Args) != 2 {
+		return c
+	}
+	inner, ok := po.Args[1].(*ir.PrimOp)
+	if !ok || inner.Name != "_listMap" || len(inner.Args) != 2 {
+		return c
+	}
+	f, g, xs := po.Args[0], inner.Args[0], inner.Args[1]
+	x := "$opt_x"
+	composed := &ir.Lam{Param: x, Body: &ir.App{
+		Fun: f, Arg: &ir.App{Fun: g, Arg: &ir.Var{Name: x}},
+	}}
+	return &ir.PrimOp{Name: "_listMap", Arity: 2, Args: []ir.Core{composed, xs}, S: po.S}
+}
+
+func TestR15_ListMapMap(t *testing.T) {
+	input := primop("_listMap", 2, v("f"), primop("_listMap", 2, v("g"), v("xs")))
+	result := optimize(input, []func(ir.Core) ir.Core{testListMapMapFusion})
+	po, ok := result.(*ir.PrimOp)
+	if !ok || po.Name != "_listMap" {
+		t.Fatalf("R15: expected _listMap, got %T", result)
+	}
+	if len(po.Args) != 2 {
+		t.Fatalf("R15: expected 2 args, got %d", len(po.Args))
+	}
+	comp, ok := po.Args[0].(*ir.Lam)
+	if !ok {
+		t.Fatalf("R15: expected composed lambda, got %T", po.Args[0])
+	}
+	innerApp, ok := comp.Body.(*ir.App)
+	if !ok || !coreEq(innerApp.Fun, v("f")) {
+		t.Fatalf("R15: expected f applied to (g $x)")
+	}
+	if !coreEq(po.Args[1], v("xs")) {
+		t.Fatalf("R15: expected xs as second arg")
+	}
+}
+
+// ===== R16: List foldr/map fusion =====
+
+func testListFoldrMapFusion(c ir.Core) ir.Core {
+	po, ok := c.(*ir.PrimOp)
+	if !ok || po.Name != "_listFoldr" || len(po.Args) != 3 {
+		return c
+	}
+	inner, ok := po.Args[2].(*ir.PrimOp)
+	if !ok || inner.Name != "_listMap" || len(inner.Args) != 2 {
+		return c
+	}
+	k, z, f, xs := po.Args[0], po.Args[1], inner.Args[0], inner.Args[1]
+	x, acc := "$opt_x", "$opt_acc"
+	fused := &ir.Lam{Param: x, Body: &ir.Lam{Param: acc, Body: &ir.App{
+		Fun: &ir.App{Fun: k, Arg: &ir.App{Fun: f, Arg: &ir.Var{Name: x}}},
+		Arg: &ir.Var{Name: acc},
+	}}}
+	return &ir.PrimOp{Name: "_listFoldr", Arity: 3, Args: []ir.Core{fused, z, xs}, S: po.S}
+}
+
+func TestR16_ListFoldrMapFusion(t *testing.T) {
+	// _listFoldr k z (_listMap f xs) → _listFoldr (\$x $acc -> k (f $x) $acc) z xs
+	input := primop("_listFoldr", 3, v("k"), v("z"), primop("_listMap", 2, v("f"), v("xs")))
+	result := optimize(input, []func(ir.Core) ir.Core{testListFoldrMapFusion})
+	po, ok := result.(*ir.PrimOp)
+	if !ok || po.Name != "_listFoldr" {
+		t.Fatalf("R16: expected _listFoldr, got %T", result)
+	}
+	if len(po.Args) != 3 {
+		t.Fatalf("R16: expected 3 args, got %d", len(po.Args))
+	}
+	outerLam, ok := po.Args[0].(*ir.Lam)
+	if !ok || outerLam.Param != "$opt_x" {
+		t.Fatalf("R16: expected outer lambda with param $opt_x")
+	}
+	innerLam, ok := outerLam.Body.(*ir.Lam)
+	if !ok || innerLam.Param != "$opt_acc" {
+		t.Fatalf("R16: expected inner lambda with param $opt_acc")
+	}
+	if !coreEq(po.Args[1], v("z")) {
+		t.Fatalf("R16: second arg should be z")
+	}
+	if !coreEq(po.Args[2], v("xs")) {
+		t.Fatalf("R16: third arg should be xs")
+	}
+}
+
 // ===== Multi-pass convergence (M12) =====
 
 func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {

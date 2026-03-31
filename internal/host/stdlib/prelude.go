@@ -36,12 +36,14 @@ var Prelude Pack = func(e Registrar) error {
 	e.RegisterPrim("_ceiling", ceilingImpl)
 	e.RegisterPrim("_truncate", truncateImpl)
 
-	// --- List primitives (18) ---
+	// --- List primitives (20) ---
 	e.RegisterPrim("_listFromSlice", fromSliceImpl)
 	e.RegisterPrim("_listToSlice", toSliceImpl)
 	e.RegisterPrim("_listLength", lengthImpl)
 	e.RegisterPrim("_listConcat", concatImpl)
 	e.RegisterPrim("_listFoldl", foldlImpl)
+	e.RegisterPrim(primListMap, listMapImpl)
+	e.RegisterPrim(primListFoldr, listFoldrImpl)
 	e.RegisterPrim("_listTake", takeImpl)
 	e.RegisterPrim("_listDrop", dropImpl)
 	e.RegisterPrim("_listIndex", indexImpl)
@@ -114,9 +116,11 @@ var Prelude Pack = func(e Registrar) error {
 	// --- Additional List primitives ---
 	e.RegisterPrim("_listGroupBy", groupByImpl)
 
-	// Fusion rules: packed roundtrip elimination.
+	// Fusion rules.
 	e.RegisterRewriteRule(strPackedRoundtrip)
 	e.RegisterRewriteRule(listPackedRoundtrip)
+	e.RegisterRewriteRule(listMapMapFusion)
+	e.RegisterRewriteRule(listFoldrMapFusion)
 
 	return e.RegisterModule("Prelude", PreludeSource)
 }
