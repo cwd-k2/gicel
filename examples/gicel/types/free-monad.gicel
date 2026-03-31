@@ -1,6 +1,6 @@
 -- GICEL Example: Free Monads
 --
--- Custom Monad instances for monadic DSLs with do notation.
+-- Custom Monad instances for monadic DSLs with explicit bind.
 -- Two styles of Free monad:
 --   1. Direct embedding — effect constructors in the monad type
 --   2. Generic Free f — factors out the effect functor via Functor f
@@ -37,14 +37,12 @@ kvGet := \key. KVGet key KVDone
 kvPut :: String -> Int -> KV ()
 kvPut := \key val. KVPut key val (KVDone ())
 
--- do notation over the key-value DSL.
+-- Explicit bind over the key-value DSL.
 kvProgram :: KV Int
-kvProgram := do {
-  x <- kvGet "a";
-  kvPut "b" (x + 1);
-  y <- kvGet "b";
-  pure (x + y)
-}
+kvProgram := mbind (kvGet "a") (\x.
+  mbind (kvPut "b" (x + 1)) (\_.
+  mbind (kvGet "b") (\y.
+  mpure (x + y))))
 
 -- Pure interpreter: "a" always returns 10, "b" is mutable.
 runKV :: \a. KV a -> Int -> a
@@ -91,15 +89,13 @@ inc := Step (Inc (Done ()))
 getCount :: Free CounterF Int
 getCount := Step (GetCount Done)
 
--- do notation over the counter DSL.
+-- Explicit bind over the counter DSL.
 counterProgram :: Free CounterF Int
-counterProgram := do {
-  inc;
-  inc;
-  inc;
-  n <- getCount;
-  pure (n * 100)
-}
+counterProgram := mbind inc (\_.
+  mbind inc (\_.
+  mbind inc (\_.
+  mbind getCount (\n.
+  mpure (n * 100)))))
 
 -- Interpreter: fold the Free structure with a running count.
 runCounter :: \a. Free CounterF a -> Int -> a

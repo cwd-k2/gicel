@@ -319,20 +319,19 @@ infixl 1 >>
 (>>) :: \(m: Type -> Type) a b. Monad m => m a -> m b -> m b
 (>>) := \m1 m2. mbind m1 (\_. m2)
 
--- IxMonad instances for Maybe and List provide `pure`/`ixpure` dispatch
--- in monadic contexts (e.g. `Just 5 >>= \x. pure x`). Auto-lifted to
--- IxMonad (Lift Maybe) / IxMonad (Lift List) by the checker.
-impl IxMonad Maybe := {
-  ixpure := Just;
-  ixbind := \ma f. case ma {
+-- GIMonad instances for Maybe and List via Lift provide `pure`/`gipure`
+-- dispatch in monadic contexts (e.g. `Just 5 >>= \x. pure x`).
+impl GradeAlgebra g => GIMonad g (Lift Maybe) := {
+  gipure := Just;
+  gibind := \ma f. case ma {
     Nothing => Nothing;
     Just a  => f a
   }
 }
 
-impl IxMonad List := {
-  ixpure := singleton;
-  ixbind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
+impl GradeAlgebra g => GIMonad g (Lift List) := {
+  gipure := singleton;
+  gibind := \xs f. foldr (\x acc. append (f x) acc) Nil xs
 }
 
 form Packed := \c e. {

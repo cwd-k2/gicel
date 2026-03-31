@@ -144,16 +144,6 @@ form Traversable := \t. (Functor t, Foldable t) => {
 }
 ```
 
-**IxMonad**
-
-```
-form IxMonad := \(m: Row -> Row -> Type -> Type). {
-  ixpure: \a (r: Row). a -> m r r a;
-  ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
-              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
-}
-```
-
 **Show**
 
 ```
@@ -229,7 +219,7 @@ form ToList := \l. FromList l => {
 
 | Class         | Instances                                                                                                       |
 | ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `IxMonad`     | `Computation` (built-in), `Maybe`, `List`                                                                       |
+| `GIMonad`     | `Computation` (built-in), `Lift Maybe`, `Lift List`                                                             |
 | `Monad`       | `Maybe`, `List`                                                                                                 |
 | `Eq`          | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a`, `Int`, `Double`, `String`, `Rune`, `Byte` |
 | `Ord`         | `Bool`, `()`, `Ordering`, `Maybe a`, `(a,b)`, `List a`, `Result e a`, `Int`, `Double`, `String`, `Rune`, `Byte` |

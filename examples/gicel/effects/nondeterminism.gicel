@@ -1,8 +1,8 @@
 -- GICEL Example: Nondeterministic Search
 --
--- Two layers of the same idea, both using do notation:
---   1. List do — the simplest way (via Monad List instance)
---   2. Free monad do — reified computation as a data structure
+-- Two layers of the same idea:
+--   1. List do — the simplest way (via GIMonad Lift List instance)
+--   2. Free monad — reified computation with explicit mbind
 -- Requires: --recursion (for Free monad and range)
 -- Run: bin/gicel run --recursion examples/gicel/effects/nondeterminism.gicel
 
@@ -24,7 +24,7 @@ guard := \c.
      else []
 
 -- ── Layer 1: List do-notation ──────────────────────────────
--- The type annotation :: List T steers do to the List IxMonad.
+-- The type annotation :: List T steers do to the List GIMonad.
 -- x <- [1,2,3] means "for each x in [1,2,3]".
 
 -- Pythagorean triples a² + b² = c² (a ≤ b ≤ c ≤ 10)
@@ -54,9 +54,9 @@ sumPairs := do {
 }
 -- [(1,6),(2,5),(3,4),(4,3),(5,2),(6,1)]
 
--- ── Layer 2: Free monad do-notation ────────────────────────
+-- ── Layer 2: Free monad (explicit bind) ────────────────────
 -- The computation is a tree. The interpreter walks it.
--- NDFree gets a Monad instance, so do notation works directly.
+-- NDFree uses the Monad instance (mpure/mbind) for composition.
 
 form NDFree := \a. { NDPure: a -> NDFree a; NDChoice: NDFree a -> NDFree a -> NDFree a; NDFail: NDFree a }
 
@@ -101,16 +101,14 @@ safe := fix (\self col qs d. case qs {
     False => self col rest (d + 1) }}
 })
 
--- do notation on NDFree: fromList provides choices, guardND prunes.
+-- Explicit mbind on NDFree: fromList provides choices, guardND prunes.
 nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
   if eq (length placed) n
     then mpure (reverse placed)
-    else do {
-      col <- fromList $ range 0 (n - 1);
-      guardND $ safe col placed 1;
-      self n $ Cons col placed
-    })
+    else mbind (fromList $ range 0 (n - 1)) (\col.
+         mbind (guardND $ safe col placed 1) (\_.
+         self n $ Cons col placed)))
 
 queens4 := runND (nqueens 4 [])
 -- [[1,3,0,2], [2,0,3,1]]

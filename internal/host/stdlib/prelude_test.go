@@ -7,8 +7,9 @@ import (
 
 func TestCoreSourceContainsEssentials(t *testing.T) {
 	for _, want := range []string{
-		"form IxMonad",
-		"impl IxMonad Computation",
+		"form GIMonad",
+		"form GradeAlgebra",
+		"GIMonad g Computation",
 		"type Lift",
 		"type Effect",
 		"seq :=",
@@ -54,8 +55,8 @@ func TestPreludeSourceContainsStdlib(t *testing.T) {
 
 func TestPreludeSourceDoesNotContainCore(t *testing.T) {
 	for _, unwanted := range []string{
-		"form IxMonad",
-		"impl IxMonad Computation",
+		"form GIMonad",
+		"form GradeAlgebra",
 		"type Lift",
 		"type Effect",
 	} {

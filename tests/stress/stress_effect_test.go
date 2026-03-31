@@ -1,4 +1,4 @@
-// Stress effect tests — do chains, thunk/force, row polymorphism, capabilities, IxMonad, list/maybe scaling.
+// Stress effect tests — do chains, thunk/force, row polymorphism, capabilities, GIMonad, list/maybe scaling.
 // Does NOT cover: types, typeclass, stdlib, grammar.
 
 package stress_test
@@ -417,7 +417,7 @@ main := toSlice xs
 }
 
 // ---------------------------------------------------------------------------
-// IxMonad stress tests (Group 4C)
+// GIMonad stress tests (Group 4C)
 // ---------------------------------------------------------------------------
 
 func TestStressDeepDoChainComputation(t *testing.T) {

@@ -10,39 +10,40 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// IxMonad Class + Lift Alias (Group 2B)
+// GIMonad Class (Group 2B)
 // ---------------------------------------------------------------------------
 
-func TestIxMonadClassExists(t *testing.T) {
-	// Verify IxMonad class is defined in prelude and usable in type annotations.
+func TestGIMonadClassExists(t *testing.T) {
+	// Verify GIMonad class is defined in prelude and usable in type annotations.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-myFn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
-myFn := ixpure
+myFn :: \(g: Kind) (m: g -> Row -> Row -> Type -> Type). GIMonad g m => \a (r: Row). a -> m GradeDrop r r a
+myFn := gipure
 main := True
 `)
 	if err != nil {
-		t.Fatalf("IxMonad class should be usable: %v", err)
+		t.Fatalf("GIMonad class should be usable: %v", err)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Instance IxMonad Computation (Group 2C)
+// GIMonad Computation (Group 2C)
 // ---------------------------------------------------------------------------
 
-func TestIxMonadComputationIxpure(t *testing.T) {
+func TestGIMonadComputationPure(t *testing.T) {
+	// pure resolves to Core.Pure for Computation (fast path).
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("n", ConType("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Computation {} {} Int
-main := ixpure n
+main := pure n
 `)
 	if err != nil {
-		t.Fatalf("ixpure should resolve via IxMonad Computation: %v", err)
+		t.Fatalf("pure should resolve for Computation: %v", err)
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
 		"n": &eval.HostVal{Inner: 42},
@@ -56,17 +57,18 @@ main := ixpure n
 	}
 }
 
-func TestIxMonadComputationIxbind(t *testing.T) {
+func TestGIMonadComputationBind(t *testing.T) {
+	// bind resolves to Core.Bind for Computation (fast path).
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("n", ConType("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Computation {} {} Int
-main := ixbind (ixpure n) (\x. ixpure x)
+main := bind (pure n) (\x. pure x)
 `)
 	if err != nil {
-		t.Fatalf("ixbind should resolve via IxMonad Computation: %v", err)
+		t.Fatalf("bind should resolve for Computation: %v", err)
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
 		"n": &eval.HostVal{Inner: 99},
@@ -80,19 +82,19 @@ main := ixbind (ixpure n) (\x. ixpure x)
 	}
 }
 
-func TestIxMonadGenericFunction(t *testing.T) {
-	// A generic function using IxMonad constraint should work with Computation.
+func TestGIMonadGenericFunction(t *testing.T) {
+	// A generic function using GIMonad constraint with explicit grade should work.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
-myReturn := ixpure
+myReturn :: \a (r: Row). a -> Computation r r a
+myReturn := pure
 main :: Computation {} {} Bool
 main := myReturn True
 `)
 	if err != nil {
-		t.Fatalf("generic IxMonad function should compile: %v", err)
+		t.Fatalf("generic monadic function should compile: %v", err)
 	}
 	result, err := rt.RunWith(context.Background(), nil)
 	if err != nil {
@@ -143,7 +145,7 @@ main := do { v <- pure x; pure v }
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Core.Bind is used when Pretty() shows "bind" nodes rather than "ixbind" calls.
+	// Core.Bind is used when Pretty() shows "bind" nodes rather than "gibind" calls.
 	pretty := cp.Pretty()
 	if !strings.Contains(pretty, "bind") {
 		t.Fatalf("expected Core.Bind in pretty output, got:\n%s", pretty)
@@ -338,14 +340,14 @@ main := seq (pure x) (pure y)
 }
 
 func TestGenericMonadicFunction(t *testing.T) {
-	// A generic IxMonad function used with Computation via type annotation.
+	// A generic Computation function using pure (builtin) via type annotation.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-myReturn :: \(m: Row -> Row -> Type -> Type). IxMonad m => \a (r: Row). a -> m r r a
-myReturn := ixpure
+myReturn :: \a (r: Row). a -> Computation r r a
+myReturn := pure
 main :: Computation {} {} Int
 main := myReturn x
 `)
@@ -532,7 +534,7 @@ main := do {
 // ---------------------------------------------------------------------------
 
 func TestMaybePureInBindOperator(t *testing.T) {
-	// pure inside >>= continuation should resolve via IxMonad, not Computation.
+	// pure inside >>= continuation should resolve via class dispatch, not Computation.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	rt, err := eng.NewRuntime(context.Background(), `

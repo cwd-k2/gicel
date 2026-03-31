@@ -1,7 +1,7 @@
 -- GICEL Example: MaybeT Monad Transformer
 --
 -- MaybeT m a = m (Maybe a) — layers Maybe failure over an existing monad.
--- Demonstrates HKT, monad transformer, do-notation.
+-- Demonstrates HKT, monad transformer, explicit bind composition.
 -- Run: bin/gicel run examples/gicel/patterns/maybet.gicel
 
 import Prelude
@@ -38,20 +38,25 @@ safeDivM := \x y.
   else MkMaybeT $ Just $ Just (x / y)
 
 -- 10 / 2 = 5, then 5 / 0 → Nothing (short-circuits)
-test_fail := runMaybeT $ do { a <- safeDivM 10 2; b <- safeDivM a 0; pure (a + b) }
+test_fail := runMaybeT $
+  mbind (safeDivM 10 2) (\a.
+  mbind (safeDivM a 0) (\b.
+  mpure (a + b)))
 -- Just Nothing
 
 -- 10 / 2 = 5, then 5 / 1 = 5, result = 10
-test_ok := runMaybeT $ do { a <- safeDivM 10 2; b <- safeDivM a 1; pure (a + b) }
+test_ok := runMaybeT $
+  mbind (safeDivM 10 2) (\a.
+  mbind (safeDivM a 1) (\b.
+  mpure (a + b)))
 -- Just (Just 10)
 
 -- Chain of three: 100 / 10 / 5 / 1 = 2
-test_chain := runMaybeT $ do {
-  a <- safeDivM 100 10;
-  b <- safeDivM a 5;
-  c <- safeDivM b 1;
-  pure c
-}
+test_chain := runMaybeT $
+  mbind (safeDivM 100 10) (\a.
+  mbind (safeDivM a 5) (\b.
+  mbind (safeDivM b 1) (\c.
+  mpure c)))
 -- Just (Just 2)
 
 main := do {

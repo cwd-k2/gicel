@@ -1,7 +1,8 @@
 package stdlib
 
-// CoreSource contains Computation-essential definitions: IxMonad class,
-// Computation instance, kind-lifting alias, effect alias, and the then combinator.
+// CoreSource contains Computation-essential definitions: GIMonad class,
+// GradeAlgebra, Computation instance, kind-lifting alias, effect alias,
+// and the seq combinator.
 // Compiled as the "Core" module by NewEngine() and auto-imported into all modules.
 var CoreSource = mustReadSource("core")
 

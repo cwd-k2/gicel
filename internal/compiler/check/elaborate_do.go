@@ -11,7 +11,7 @@ import (
 
 // Do elaboration files:
 //   elaborate_do.go          — doElaborator, shared helpers, unified elaboration loop
-//   elaborate_do_monadic.go  — checkDo dispatch, IxMonad helpers (extractMonadHead, mkIxBind, etc.)
+//   elaborate_do_monadic.go  — checkDo dispatch, GIMonad helpers (extractMonadHead, mkGIBind, etc.)
 //   grade.go                 — grade boundary check (checkGradeBoundary)
 
 // --- doElaborator: unified do-block elaboration ---
@@ -22,7 +22,6 @@ type doMode int
 const (
 	doModeInfer   doMode = iota // fresh metas for pre/post; returns inferred type
 	doModeChecked               // threads known pre/post from TyCBPV
-	doModeMonadic               // IxMonad class dispatch via dictionary
 	doModeGraded                // GIMonad class dispatch via dictionary (grade-aware)
 )
 
@@ -53,7 +52,7 @@ func (d *doElaborator) errPair(s span.Span) (types.Type, ir.Core) {
 	switch d.mode {
 	case doModeChecked:
 		return d.comp, errCore
-	case doModeMonadic, doModeGraded:
+	case doModeGraded:
 		return d.expected, errCore
 	default:
 		return &types.TyError{S: s}, errCore
@@ -112,15 +111,6 @@ func (d *doElaborator) elaborateBase(expr syntax.Expr, s span.Span) (types.Type,
 		return ch.infer(expr)
 	case doModeChecked:
 		return d.comp, ch.check(expr, d.comp)
-	case doModeMonadic:
-		// Intercept `pure val` / `ixpure val` at the end of a monadic do block.
-		if pureVal := extractPureArg(expr); pureVal != nil {
-			if app, ok := d.expected.(*types.TyApp); ok {
-				valCore := ch.check(pureVal, app.Arg)
-				return d.expected, ch.mkIxPure(d.monadHead, valCore, s)
-			}
-		}
-		return d.expected, ch.check(expr, d.expected)
 	case doModeGraded:
 		// Intercept `pure val` / `gipure val` at the end of a graded do block.
 		if pureVal := extractPureArg(expr); pureVal != nil {
@@ -141,8 +131,6 @@ func (d *doElaborator) elaborateBind(varName string, comp syntax.Expr, rest []sy
 		return d.inferBind(varName, comp, rest, stmtS, doS)
 	case doModeChecked:
 		return d.checkedBind(varName, comp, rest, stmtS, doS, "do bind")
-	case doModeMonadic:
-		return d.monadicBind(varName, comp, rest, stmtS, doS)
 	case doModeGraded:
 		return d.gradedBind(varName, comp, rest, stmtS, doS)
 	}
@@ -156,8 +144,6 @@ func (d *doElaborator) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, s
 		return d.inferExprStmt(expr, rest, stmtS, doS)
 	case doModeChecked:
 		return d.checkedBind("_", expr, rest, stmtS, doS, "do statement")
-	case doModeMonadic:
-		return d.monadicExprStmt(expr, rest, stmtS, doS)
 	case doModeGraded:
 		return d.gradedExprStmt(expr, rest, stmtS, doS)
 	}
@@ -327,48 +313,6 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 	// the downstream subsumption check will report the actual type mismatch.
 	ch.emitEq(restTy, d.comp, stmtS, nil)
 	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Discard: !isBind, Body: restCore, S: stmtS}
-}
-
-// --- Monadic mode ---
-
-func (d *doElaborator) monadicBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	ch := d.ch
-
-	var compCore ir.Core
-	var resultTy types.Type
-
-	// Intercept `x <- pure val` / `x <- ixpure val`.
-	if pureVal := extractPureArg(comp); pureVal != nil {
-		rty, vc := ch.infer(pureVal)
-		compCore = ch.mkIxPure(d.monadHead, vc, stmtS)
-		resultTy = rty
-	} else {
-		compTy, cc := ch.infer(comp)
-		compCore = cc
-		resultTy = ch.extractMonadResult(compTy, d.monadHead, stmtS)
-	}
-
-	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
-	_, restCore := d.elaborate(rest, doS)
-	ch.ctx.Pop()
-	return d.expected, ch.mkIxBind(d.monadHead, compCore, varName, restCore, stmtS)
-}
-
-func (d *doElaborator) monadicExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	ch := d.ch
-
-	var compCore ir.Core
-	// Intercept `pure val` / `ixpure val`.
-	if pureVal := extractPureArg(expr); pureVal != nil {
-		_, vc := ch.infer(pureVal)
-		compCore = ch.mkIxPure(d.monadHead, vc, stmtS)
-	} else {
-		_, cc := ch.infer(expr)
-		compCore = cc
-	}
-
-	_, restCore := d.elaborate(rest, doS)
-	return d.expected, ch.mkIxBind(d.monadHead, compCore, "_", restCore, stmtS)
 }
 
 // --- Entry points ---

@@ -73,7 +73,7 @@ form MyBool := { Yes: MyBool; No: MyBool; }
 }
 
 func TestSetPreludeCoreStillAvailable(t *testing.T) {
-	// Core definitions (IxMonad, Effect, then) available even with custom Prelude.
+	// Core definitions (GIMonad, Effect, seq) available even with custom Prelude.
 	eng := NewEngine()
 	eng.RegisterModule("Prelude", `
 form Bool := { True: Bool; False: Bool; }

@@ -630,9 +630,9 @@ func TestAdversarial_ManyTypeErrors(t *testing.T) {
 // User-defined Monad do notation
 // ===========================================================================
 
-// TestAdversarial_MonadDoNotation verifies do-notation works with a user-defined
-// Monad instance (Reader monad) where the bind type parameters a and b differ.
-func TestAdversarial_MonadDoNotation(t *testing.T) {
+// TestAdversarial_MonadBindOperator verifies Monad mbind/mpure work with a
+// user-defined Monad instance (Reader monad) via >>= operator.
+func TestAdversarial_MonadBindOperator(t *testing.T) {
 	src := `
 import Prelude
 form Reader := \e a. { MkReader: (e -> a) -> Reader e a; }
@@ -644,7 +644,7 @@ impl Monad (Reader e) := {
   mpure := \a. MkReader (\_. a);
   mbind := \ma f. MkReader (\env. runReader (f (runReader ma env)) env)
 }
-main := runReader (do { x <- ask; pure (append "port=" (show x)) } :: Reader Int String) 8080
+main := runReader ((ask >>= \x. mpure (append "port=" (show x))) :: Reader Int String) 8080
 `
 	result, err := gicel.RunSandbox(src, &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Prelude},

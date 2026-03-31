@@ -6,7 +6,7 @@ form GradeAlgebra := \(g: Kind). {
 }
 
 -- Trivial grade algebra: a single-element grade that carries no information.
--- Used for ungraded indexed monads (IxMonad = GIMonad Trivial).
+-- Used for ungraded indexed monads (GIMonad Trivial).
 form Trivial := { Triv: Trivial }
 
 type TrivialJoin :: Trivial -> Trivial -> Trivial :=
@@ -25,14 +25,6 @@ form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type). GradeAlgebra g 
   gipure: \a (r: Row). a -> m GradeDrop r r a;
   gibind: \a b (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
               m e1 r1 r2 a -> (a -> m e2 r2 r3 b) -> m (GradeCompose e1 e2) r1 r3 b
-}
-
--- IxMonad: ungraded indexed monad. Equivalent to GIMonad Trivial conceptually.
--- Kept as a class (not alias) for direct impl support. Grade is always Triv.
-form IxMonad := \(m: Trivial -> Row -> Row -> Type -> Type). {
-  ixpure: \a (r: Row). a -> m Triv r r a;
-  ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
-              m Triv r1 r2 a -> (a -> m Triv r2 r3 b) -> m Triv r1 r3 b
 }
 
 type Lift := \(m: Type -> Type) (g: Kind) (r1: Row) (r2: Row) a. m a

@@ -1,4 +1,4 @@
--- Stress test 21: IxMonad and monadic patterns
+-- Stress test 21: GIMonad and monadic patterns
 -- Exercises Maybe monad, List monad, Computation monad, class hierarchy,
 -- cross-feature interactions, type class dispatch, and edge cases.
 import Prelude
@@ -132,7 +132,7 @@ listFoldrTest := foldr (\x _. x) False (Cons True (Cons False Nil))
 -- 17-18. (removed: bare Computation bindings inlined into main)
 
 -- ======================================================================
--- Type class hierarchy with IxMonad
+-- Type class hierarchy with GIMonad
 -- ======================================================================
 
 -- 19. Eq on Maybe, using class dispatch
@@ -209,10 +209,10 @@ semigroupInFmap :: Maybe Ordering
 semigroupInFmap := fmap (\x. append x EQ) (Just LT)
 
 -- ======================================================================
--- IxMonad class method direct use
+-- GIMonad class: pure/bind for Computation
 -- ======================================================================
 
--- 33. ixpure via Computation annotation
+-- 33. pure via Computation annotation
 -- 33-34. (inlined into main — bare Computation not allowed at non-entry top level)
 
 -- ======================================================================
@@ -253,6 +253,6 @@ main := (maybeChain,
   (deepPairEq,
   (resultOkTest,
   (semigroupInFmap,
-  ((ixpure True :: Computation {} {} Bool),
-  (ixbind (ixpure True) (\x. ixpure x) :: Computation {} {} Bool)
+  ((pure True :: Computation {} {} Bool),
+  (bind (pure True) (\x. pure x) :: Computation {} {} Bool)
   )))))))))))))))))))))))))))))))))))

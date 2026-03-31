@@ -256,7 +256,7 @@ func unwindImplDataCon(rhs syntax.TypeExpr) (string, []syntax.TypeExpr) {
 
 // autoLiftTypeArgs applies automatic Lift wrapping to type arguments whose kinds
 // don't match the expected class parameter kinds.
-// e.g. instance IxMonad Maybe → instance IxMonad (Lift Maybe)
+// e.g. instance GIMonad g Maybe → instance GIMonad g (Lift Maybe)
 func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Type) {
 	for i := 0; i < len(typeArgs) && i < len(paramKinds); i++ {
 		argKind := ch.kindOfType(typeArgs[i])

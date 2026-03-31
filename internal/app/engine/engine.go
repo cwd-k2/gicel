@@ -55,7 +55,7 @@ func NewEngine() *Engine {
 	// Core primitives: SMC parallel composition and dagger.
 	e.RegisterPrim("merge", stdlib.MergeImpl)
 	e.RegisterPrim("dag", stdlib.DagImpl)
-	// Core is always registered — provides IxMonad, Computation primitives.
+	// Core is always registered — provides GIMonad, Computation primitives.
 	if err := e.RegisterModule("Core", stdlib.CoreSource); err != nil {
 		panic("internal: core module: " + err.Error())
 	}
@@ -304,4 +304,3 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	}
 	return pc.assembleRuntime(prog, src), nil
 }
-

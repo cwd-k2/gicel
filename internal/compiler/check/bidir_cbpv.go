@@ -10,8 +10,8 @@ import (
 
 // checkPure handles 'pure <expr>' in check mode.
 // When expected type is Computation, delegates to the infer path (Core.Pure).
-// When expected type is a non-Computation monad (e.g. Maybe), uses IxMonad
-// class dispatch to resolve ixpure — same logic as do-block elaboration.
+// When expected type is a non-Computation monad (e.g. Maybe via Lift),
+// uses GIMonad class dispatch to resolve gipure.
 func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) ir.Core {
 	expected = ch.unifier.Zonk(expected)
 
@@ -21,12 +21,13 @@ func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) ir.Core {
 		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 	}
 
-	// Class dispatch: extract monad head, resolve IxMonad, use mkIxPure.
+	// Class dispatch: extract monad head, resolve GIMonad, use mkGIPure.
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
 		if app, ok := expected.(*types.TyApp); ok {
+			head, _ := types.AppSpineHead(monadHead)
 			valCore := ch.check(e.Arg, app.Arg)
-			return ch.mkIxPure(monadHead, valCore, e.S)
+			return ch.mkGIPure(head, valCore, e.S)
 		}
 	}
 

@@ -535,7 +535,7 @@ func TestLiftAliasExpansion(t *testing.T) {
 	eng.Use(stdlib.Prelude)
 	_, err := eng.NewRuntime(context.Background(), `
 import Prelude
-test :: Lift Maybe {} {} Bool
+test :: Lift Maybe Triv {} {} Bool
 test := Just True
 main := True
 `)

@@ -86,7 +86,7 @@ func FuzzCheck(f *testing.F) {
 
 // --- Stage 3b: Type Checker (bare, no Prelude) ---
 // Tests checker robustness against arbitrary input without Prelude environment.
-// Catches nil-guard omissions (e.g. missing IxMonad class).
+// Catches nil-guard omissions (e.g. missing GIMonad class).
 func FuzzCheckBare(f *testing.F) {
 	f.Add([]byte("id := \\x. x; main := id True"))
 	f.Add([]byte("form T := { A: T; B: T; }; main := A"))
