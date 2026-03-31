@@ -56,15 +56,16 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, ir.Core) {
 	compTy, compCore := ch.infer(compExpr)
 
-	g := ch.freshMeta(types.TypeOfTypes)
+	g1 := ch.freshMeta(types.TypeOfTypes)
 	r1 := ch.freshMeta(types.TypeOfRows)
 	r2 := ch.freshMeta(types.TypeOfRows)
 	a := ch.freshMeta(types.TypeOfTypes)
-	if err := ch.unifier.Unify(compTy, types.MkCompGraded(r1, r2, a, g)); err != nil {
+	if err := ch.unifier.Unify(compTy, types.MkCompGraded(r1, r2, a, g1)); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, compExpr.Span(), "bind: first argument must be a computation, got "+types.Pretty(compTy))
 		return ch.errorPair(s)
 	}
 
+	g2 := ch.freshMeta(types.TypeOfTypes)
 	r3 := ch.freshMeta(types.TypeOfRows)
 	b := ch.freshMeta(types.TypeOfTypes)
 
@@ -74,7 +75,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	if lam, ok := contExpr.(*syntax.ExprLam); ok && len(lam.Params) >= 1 {
 		bindVar = ch.patternName(lam.Params[0])
 		ch.ctx.Push(&CtxVar{Name: bindVar, Type: ch.unifier.Zonk(a)})
-		bodyTy := types.MkCompGraded(ch.unifier.Zonk(r2), r3, b, g)
+		bodyTy := types.MkCompGraded(ch.unifier.Zonk(r2), r3, b, g2)
 		if len(lam.Params) == 1 {
 			bodyCore = ch.check(lam.Body, bodyTy)
 		} else {
@@ -84,7 +85,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		ch.ctx.Pop()
 	} else {
 		bindVar = ch.freshName(prefixBind)
-		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkCompGraded(ch.unifier.Zonk(r2), r3, b, g))
+		contExpected := types.MkArrow(ch.unifier.Zonk(a), types.MkCompGraded(ch.unifier.Zonk(r2), r3, b, g2))
 		contCore := ch.check(contExpr, contExpected)
 		bodyCore = &ir.App{
 			Fun: contCore,
@@ -93,12 +94,12 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		}
 	}
 
-	// Compose grades from comp and body computations.
+	// Compose grades: g1 (comp) ∘ g2 (continuation) → result grade.
 	compGrade := ch.extractCompGrade(compTy)
-	bodyGrade := ch.extractCompGrade(types.MkCompGraded(ch.unifier.Zonk(r2), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), g))
+	bodyGrade := ch.unifier.Zonk(g2)
 	grade := ch.composeGrades(compGrade, bodyGrade)
 	if grade == nil {
-		grade = g
+		grade = ch.freshMeta(types.TypeOfTypes)
 	}
 	resultTy := types.MkCompGraded(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), grade)
 	if ch.config.Trace != nil {

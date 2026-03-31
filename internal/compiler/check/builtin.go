@@ -37,22 +37,25 @@ var builtinTypes = map[string]types.Type{
 					types.MkCompGraded(types.Var("r"), types.Var("r"), types.Var("a"), types.Var("g")),
 				)))),
 
-	// bind : \ a b g1 g2 (r1: Row) (r2: Row) (r3: Row).
-	//   Computation r1 r2 a @g1 -> (a -> Computation r2 r3 b @g2) -> Computation r1 r3 b @g2
+	// bind : \ a b g1 g2 g3 (r1: Row) (r2: Row) (r3: Row).
+	//   Computation g1 r1 r2 a -> (a -> Computation g2 r2 r3 b) -> Computation g3 r1 r3 b
+	// g3 is the composed grade — resolved by inferBind (composeGrades) or
+	// unified with GradeCompose(e1,e2) when used as GIMonad gibind.
 	"bind": types.MkForall("a", types.TypeOfTypes,
 		types.MkForall("b", types.TypeOfTypes,
 			types.MkForall("g1", types.TypeOfTypes,
 				types.MkForall("g2", types.TypeOfTypes,
-					types.MkForall("r1", types.TypeOfRows,
-						types.MkForall("r2", types.TypeOfRows,
-							types.MkForall("r3", types.TypeOfRows,
-								types.MkArrow(
-									types.MkCompGraded(types.Var("r1"), types.Var("r2"), types.Var("a"), types.Var("g1")),
+					types.MkForall("g3", types.TypeOfTypes,
+						types.MkForall("r1", types.TypeOfRows,
+							types.MkForall("r2", types.TypeOfRows,
+								types.MkForall("r3", types.TypeOfRows,
 									types.MkArrow(
-										types.MkArrow(types.Var("a"), types.MkCompGraded(types.Var("r2"), types.Var("r3"), types.Var("b"), types.Var("g2"))),
-										types.MkCompGraded(types.Var("r1"), types.Var("r3"), types.Var("b"), types.Var("g2")),
-									),
-								)))))))),
+										types.MkCompGraded(types.Var("r1"), types.Var("r2"), types.Var("a"), types.Var("g1")),
+										types.MkArrow(
+											types.MkArrow(types.Var("a"), types.MkCompGraded(types.Var("r2"), types.Var("r3"), types.Var("b"), types.Var("g2"))),
+											types.MkCompGraded(types.Var("r1"), types.Var("r3"), types.Var("b"), types.Var("g3")),
+										),
+									))))))))),
 }
 
 // gatedBuiltins are built-ins that require host opt-in.
