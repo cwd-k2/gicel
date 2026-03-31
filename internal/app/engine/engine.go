@@ -38,6 +38,7 @@ type Engine struct {
 	entryPoint      string               // entry binding name (default: "main")
 	denyAssumptions bool                 // when true, user code cannot use assumption declarations
 	noInline        bool                 // when true, skip selective inlining (e.g. for explain traces)
+	verifyIR        bool                 // when true, run structural IR verification in post-check
 	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
 }
 
@@ -98,6 +99,13 @@ func (e *Engine) EnableRecursion() {
 // Stdlib modules are unaffected. Use this in sandbox/agent contexts.
 func (e *Engine) DenyAssumptions() {
 	e.denyAssumptions = true
+}
+
+// EnableVerifyIR enables structural IR verification in the post-check pipeline.
+// The verifier checks auto-force/auto-thunk invariants and Error node absence.
+// Intended for testing and debug builds; panics on first violation.
+func (e *Engine) EnableVerifyIR() {
+	e.verifyIR = true
 }
 
 // RegisterRewriteRule adds a fusion rule to the optimization pipeline.
@@ -183,6 +191,7 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		entryPoint:      ep,
 		denyAssumptions: e.denyAssumptions,
 		noInline:        e.noInline,
+		verifyIR:        e.verifyIR,
 	}
 }
 

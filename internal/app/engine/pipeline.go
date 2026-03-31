@@ -24,6 +24,7 @@ type pipelineCtx struct {
 	entryPoint      string
 	denyAssumptions bool
 	noInline        bool
+	verifyIR        bool // when true, run structural IR verification after label erasure
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -151,6 +152,11 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 // userBindings limits selective inlining to the given names (nil = no inlining).
 func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) {
 	ir.EraseLabelArgsProgram(prog)
+	if pc.verifyIR {
+		if errs := ir.VerifyProgram(prog); len(errs) > 0 {
+			panic("IR verification failed: " + errs[0].Error())
+		}
+	}
 	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings)
 	ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog)
