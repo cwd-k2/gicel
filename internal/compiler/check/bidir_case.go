@@ -116,7 +116,8 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 }
 
 // joinGrades joins a result field's grades with another branch's grades.
-// Uses the LUB type family when available; falls back to unification.
+// Uses the GradeJoin associated type family from GradeAlgebra when available;
+// falls back to unification.
 func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span.Span) {
 	if len(result.Grades) == 0 && len(other) == 0 {
 		return
@@ -138,22 +139,29 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 				result.Label, len(result.Grades), len(other)))
 		return
 	}
+
+	// Resolve the grade algebra to get the join family name.
+	gk := gradeAlgebraKind(ch)
+	algebra := ch.resolveGradeAlgebra(gk)
+
 	for i := range result.Grades {
 		a := ch.unifier.Zonk(result.Grades[i])
 		b := ch.unifier.Zonk(other[i])
-		lubResult, ok := ch.reduceTyFamily("LUB", []types.Type{a, b}, s)
-		if ok {
-			result.Grades[i] = lubResult
-			continue
-		}
-		// Stuck: emit CtFunEq for deferred LUB reduction.
-		args := []types.Type{a, b}
-		blocking := ch.unifier.CollectBlockingMetas(args)
-		if len(blocking) > 0 {
-			if _, lubFam := ch.reg.LookupFamily("LUB"); lubFam {
-				resultMeta := ch.freshMeta(types.TypeOfTypes)
+
+		// Try GradeJoin family reduction.
+		if algebra.valid && algebra.joinFamily != "" {
+			joinResult, ok := ch.reduceTyFamily(algebra.joinFamily, []types.Type{a, b}, s)
+			if ok {
+				result.Grades[i] = joinResult
+				continue
+			}
+			// Stuck: emit CtFunEq for deferred join reduction.
+			args := []types.Type{a, b}
+			blocking := ch.unifier.CollectBlockingMetas(args)
+			if len(blocking) > 0 {
+				resultMeta := ch.freshMeta(gk)
 				ct := &CtFunEq{
-					FamilyName: "LUB",
+					FamilyName: algebra.joinFamily,
 					Args:       args,
 					ResultMeta: resultMeta,
 					BlockingOn: blocking,
@@ -164,7 +172,7 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 				continue
 			}
 		}
-		// No LUB family or no blocking metas: fall back to equality constraint.
+		// No GradeAlgebra or no blocking metas: fall back to equality constraint.
 		ch.emitEq(a, b, s, nil)
 	}
 }

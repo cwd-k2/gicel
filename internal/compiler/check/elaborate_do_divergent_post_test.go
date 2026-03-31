@@ -139,15 +139,27 @@ f := \b. case b {
 func TestDivergentPostLUBHeterogeneousMult(t *testing.T) {
 	// Branch True:  post = { h: Unit @Linear }
 	// Branch False: post = { h: Unit @Affine }
-	// LUB(Linear, Affine) = Linear → joined post has h @Linear.
+	// MultJoin(Linear, Affine) = Linear → joined post has h @Linear.
 	source := `
 form Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+type MultJoin :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Linear, _) => Linear;
   (_, Linear) => Linear;
   (Affine, _) => Affine;
   (_, Affine) => Affine;
   (Unrestricted, Unrestricted) => Unrestricted
+}
+type MultCompose :: Mult := MultJoin
+type MultDrop :: Mult := Unrestricted
+form GradeAlgebra := \(g: Kind). {
+  type GradeJoin :: g -> g -> g;
+  type GradeCompose :: g -> g -> g;
+  type GradeDrop :: g
+}
+impl GradeAlgebra Mult := {
+  type GradeJoin := MultJoin;
+  type GradeCompose := MultCompose;
+  type GradeDrop := Unrestricted
 }
 form Bool := { True: Bool; False: Bool; }
 form Unit := { Unit: Unit; }
@@ -165,15 +177,26 @@ f := \b. case b {
 }
 
 func TestDivergentPostLUBSymmetric(t *testing.T) {
-	// LUB(Affine, Linear) = Linear (symmetric with above).
+	// MultJoin(Affine, Linear) = Linear (symmetric with above).
 	source := `
 form Mult := { Unrestricted: (); Affine: (); Linear: (); }
-type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
+type MultJoin :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Linear, _) => Linear;
   (_, Linear) => Linear;
   (Affine, _) => Affine;
   (_, Affine) => Affine;
   (Unrestricted, Unrestricted) => Unrestricted
+}
+type MultCompose :: Mult := MultJoin
+form GradeAlgebra := \(g: Kind). {
+  type GradeJoin :: g -> g -> g;
+  type GradeCompose :: g -> g -> g;
+  type GradeDrop :: g
+}
+impl GradeAlgebra Mult := {
+  type GradeJoin := MultJoin;
+  type GradeCompose := MultCompose;
+  type GradeDrop := Unrestricted
 }
 form Bool := { True: Bool; False: Bool; }
 form Unit := { Unit: Unit; }
