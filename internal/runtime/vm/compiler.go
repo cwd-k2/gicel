@@ -10,9 +10,17 @@ import (
 )
 
 // Compiler translates Core IR into bytecode Protos.
+//
+// codeBuf and spanBuf are scratchpad buffers reused across emitter lifetimes
+// (goja pattern). Since child emitters are compiled sequentially, a single
+// buffer per slice type suffices. newEmitter borrows the buffer; finalize
+// copies the used portion into a right-sized slice and returns the backing
+// array to the Compiler.
 type Compiler struct {
 	globalSlots map[string]int
 	source      *span.Source
+	codeBuf     []byte
+	spanBuf     []SpanEntry
 }
 
 // NewCompiler creates a Compiler with the given global slot mapping.
@@ -87,18 +95,30 @@ type localEntry struct {
 	slot int
 }
 
-// Initial capacities derived from empirical Proto statistics across GICEL programs:
-//   code:  p50=7, p90=67, p95=102 — pre-allocate to cover ~90% without growth
-//   spans: p50=1, p90=9 — roughly 1 span per ~7 code bytes
-// Other fields (constants, strings, protos, matchDescs, etc.) are p50=0;
-// pre-allocating would waste memory on the majority of emitters.
 func newEmitter(c *Compiler, parent *emitter) *emitter {
+	// Borrow scratchpad buffers from the Compiler. Since child emitters
+	// are compiled sequentially (depth-first), the buffer is always
+	// available when a new emitter is created at the same nesting level.
+	code := c.codeBuf
+	c.codeBuf = nil
+	if code == nil {
+		code = make([]byte, 0, 64)
+	} else {
+		code = code[:0]
+	}
+	spans := c.spanBuf
+	c.spanBuf = nil
+	if spans == nil {
+		spans = make([]SpanEntry, 0, 8)
+	} else {
+		spans = spans[:0]
+	}
 	return &emitter{
 		compiler:    c,
 		parent:      parent,
 		fixSelfSlot: -1,
-		code:        make([]byte, 0, 64),
-		spans:       make([]SpanEntry, 0, 8),
+		code:        code,
+		spans:       spans,
 	}
 }
 
@@ -687,9 +707,30 @@ func (e *emitter) addProto(p *Proto) uint16 {
 }
 
 // finalize produces a Proto from the accumulated state.
+// The code and spans backing arrays are returned to the Compiler scratchpad
+// (keeping the larger of current scratchpad vs. this emitter's buffer).
+// The Proto receives right-sized copies.
 func (e *emitter) finalize(source *span.Source) *Proto {
+	// Copy used portions into right-sized slices for the Proto.
+	var code []byte
+	if len(e.code) > 0 {
+		code = make([]byte, len(e.code))
+		copy(code, e.code)
+	}
+	var spans []SpanEntry
+	if len(e.spans) > 0 {
+		spans = make([]SpanEntry, len(e.spans))
+		copy(spans, e.spans)
+	}
+	// Return backing arrays to the Compiler scratchpad (keep the larger).
+	if cap(e.code) > cap(e.compiler.codeBuf) {
+		e.compiler.codeBuf = e.code
+	}
+	if cap(e.spans) > cap(e.compiler.spanBuf) {
+		e.compiler.spanBuf = e.spans
+	}
 	return &Proto{
-		Code:        e.code,
+		Code:        code,
 		Constants:   e.constants,
 		Strings:     e.strings,
 		Protos:      e.protos,
@@ -701,7 +742,7 @@ func (e *emitter) finalize(source *span.Source) *Proto {
 		MatchDescs:  e.matchDescs,
 		RecordDescs: e.recordDescs,
 		MergeDescs:  e.mergeDescs,
-		Spans:       e.spans,
+		Spans:       spans,
 		Source:      source,
 		BindNames:   e.bindNames,
 	}

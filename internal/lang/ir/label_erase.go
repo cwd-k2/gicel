@@ -52,6 +52,13 @@ func bodyHasLabelTyVar(c Core, name string) bool {
 
 // eraseLabelRec recursively walks Core IR, tracking label-kinded TyLam
 // bindings in scope to enable variable label erasure.
+//
+// This pass uses in-place parent-pointer mutation: when a child changes
+// but the parent node type stays the same, the parent's field is updated
+// directly instead of allocating a new parent. New node allocation occurs
+// only when the node type itself changes (TyApp → App, TyLam → Lam).
+// This is safe because the IR is freshly produced by the type checker and
+// is not yet cached or shared.
 func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 	if c == nil {
 		return nil
@@ -59,165 +66,145 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 	switch n := c.(type) {
 	case *TyLam:
 		if types.Equal(n.Kind, types.TypeOfLabels) && bodyHasLabelTyVar(n.Body, n.TyParam) {
-			// Lower TyLam with Label kind to term-level Lam, but only when
-			// the body actually contains TyApp{_, TyVar{name}} referencing
-			// this parameter (i.e., explicit @l usage in source code).
-			// Polymorphic wrappers (e.g., newAt := _primNamed) have TyMeta
-			// in TyApp.TyArg, not TyVar, so they are left as TyLam (erased
-			// at runtime, letting the label pass through to the primitive).
 			if labelVars == nil {
 				labelVars = make(map[string]bool)
 			}
 			labelVars[n.TyParam] = true
 			body := eraseLabelRec(n.Body, labelVars)
 			delete(labelVars, n.TyParam)
+			// Type change: TyLam → Lam. Must allocate.
 			return &Lam{Param: n.TyParam, Body: body, S: n.S}
 		}
 		body := eraseLabelRec(n.Body, labelVars)
-		if body == n.Body {
-			return n
+		if body != n.Body {
+			n.Body = body
 		}
-		return &TyLam{TyParam: n.TyParam, Kind: n.Kind, Body: body, S: n.S}
+		return n
 
 	case *TyApp:
 		expr := eraseLabelRec(n.Expr, labelVars)
-		// Case 1: concrete label literal.
+		// Case 1: concrete label literal. Type change: TyApp → App.
 		if con, ok := n.TyArg.(*types.TyCon); ok && types.IsKindLevel(con.Level) && con.IsLabel {
 			return &App{Fun: expr, Arg: &Lit{Value: con.Name}, S: n.S}
 		}
-		// Case 2: label type variable bound by an enclosing TyLam.
+		// Case 2: label type variable. Type change: TyApp → App.
 		if tv, ok := n.TyArg.(*types.TyVar); ok && labelVars[tv.Name] {
 			return &App{Fun: expr, Arg: &Var{Name: tv.Name, S: n.S}, S: n.S}
 		}
-		if expr == n.Expr {
-			return n
+		if expr != n.Expr {
+			n.Expr = expr
 		}
-		return &TyApp{Expr: expr, TyArg: n.TyArg, S: n.S}
+		return n
 
 	case *Lam:
 		body := eraseLabelRec(n.Body, labelVars)
-		if body == n.Body {
-			return n
+		if body != n.Body {
+			n.Body = body
 		}
-		return &Lam{Param: n.Param, Body: body, Generated: n.Generated, S: n.S}
+		return n
 
 	case *App:
 		fun := eraseLabelRec(n.Fun, labelVars)
 		arg := eraseLabelRec(n.Arg, labelVars)
-		if fun == n.Fun && arg == n.Arg {
-			return n
+		if fun != n.Fun {
+			n.Fun = fun
 		}
-		return &App{Fun: fun, Arg: arg, S: n.S}
+		if arg != n.Arg {
+			n.Arg = arg
+		}
+		return n
 
 	case *Case:
 		scr := eraseLabelRec(n.Scrutinee, labelVars)
-		alts := n.Alts
-		changed := scr != n.Scrutinee
-		for i, a := range alts {
+		if scr != n.Scrutinee {
+			n.Scrutinee = scr
+		}
+		for i, a := range n.Alts {
 			b := eraseLabelRec(a.Body, labelVars)
 			if b != a.Body {
-				if !changed {
-					alts = make([]Alt, len(n.Alts))
-					copy(alts, n.Alts)
-					changed = true
-				}
-				alts[i] = Alt{Pattern: a.Pattern, Body: b}
+				n.Alts[i].Body = b
 			}
 		}
-		if !changed {
-			return n
-		}
-		return &Case{Scrutinee: scr, Alts: alts, S: n.S}
+		return n
 
 	case *Bind:
 		comp := eraseLabelRec(n.Comp, labelVars)
 		body := eraseLabelRec(n.Body, labelVars)
-		if comp == n.Comp && body == n.Body {
-			return n
+		if comp != n.Comp {
+			n.Comp = comp
 		}
-		return &Bind{Var: n.Var, Comp: comp, Body: body, S: n.S}
+		if body != n.Body {
+			n.Body = body
+		}
+		return n
 
 	case *Pure:
 		expr := eraseLabelRec(n.Expr, labelVars)
-		if expr == n.Expr {
-			return n
+		if expr != n.Expr {
+			n.Expr = expr
 		}
-		return &Pure{Expr: expr, S: n.S}
+		return n
 
 	case *Thunk:
 		comp := eraseLabelRec(n.Comp, labelVars)
-		if comp == n.Comp {
-			return n
+		if comp != n.Comp {
+			n.Comp = comp
 		}
-		return &Thunk{Comp: comp, S: n.S}
+		return n
 
 	case *Force:
 		expr := eraseLabelRec(n.Expr, labelVars)
-		if expr == n.Expr {
-			return n
+		if expr != n.Expr {
+			n.Expr = expr
 		}
-		return &Force{Expr: expr, S: n.S}
+		return n
 
 	case *Merge:
 		left := eraseLabelRec(n.Left, labelVars)
 		right := eraseLabelRec(n.Right, labelVars)
-		if left == n.Left && right == n.Right {
-			return n
+		if left != n.Left {
+			n.Left = left
 		}
-		return &Merge{Left: left, Right: right, LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, S: n.S}
+		if right != n.Right {
+			n.Right = right
+		}
+		return n
 
 	case *Fix:
 		body := eraseLabelRec(n.Body, labelVars)
-		if body == n.Body {
-			return n
+		if body != n.Body {
+			n.Body = body
 		}
-		return &Fix{Name: n.Name, Body: body, S: n.S}
+		return n
 
 	case *RecordLit:
-		fields := n.Fields
-		changed := false
-		for i, f := range fields {
+		for i, f := range n.Fields {
 			v := eraseLabelRec(f.Value, labelVars)
 			if v != f.Value {
-				if !changed {
-					fields = make([]Field, len(n.Fields))
-					copy(fields, n.Fields)
-					changed = true
-				}
-				fields[i] = Field{Label: f.Label, Value: v}
+				n.Fields[i].Value = v
 			}
 		}
-		if !changed {
-			return n
-		}
-		return &RecordLit{Fields: fields, S: n.S}
+		return n
 
 	case *RecordProj:
 		rec := eraseLabelRec(n.Record, labelVars)
-		if rec == n.Record {
-			return n
+		if rec != n.Record {
+			n.Record = rec
 		}
-		return &RecordProj{Record: rec, Label: n.Label, S: n.S}
+		return n
 
 	case *RecordUpdate:
 		rec := eraseLabelRec(n.Record, labelVars)
-		updates := n.Updates
-		changed := rec != n.Record
-		for i, f := range updates {
+		if rec != n.Record {
+			n.Record = rec
+		}
+		for i, f := range n.Updates {
 			v := eraseLabelRec(f.Value, labelVars)
 			if v != f.Value {
-				if !changed {
-					updates = make([]Field, len(n.Updates))
-					copy(updates, n.Updates)
-					changed = true
-				}
-				updates[i] = Field{Label: f.Label, Value: v}
+				n.Updates[i].Value = v
 			}
 		}
-		if !changed {
-			return n
-		}
-		return &RecordUpdate{Record: rec, Updates: updates, S: n.S}
+		return n
 
 	default:
 		// Var, Lit, Con, PrimOp, Field, Error — leaf nodes or not label-relevant.
