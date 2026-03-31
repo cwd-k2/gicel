@@ -30,11 +30,10 @@ func Pretty(t Type) string {
 		if ty.Tag == TagThunk {
 			name = TyConThunk
 		}
-		s := name + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
 		if ty.Grade != nil {
-			s += " @" + prettyAtom(ty.Grade)
+			return name + " " + prettyAtom(ty.Grade) + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
 		}
-		return s
+		return name + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
 	case *TyEvidenceRow:
 		return prettyEvidenceRow(ty)
 	case *TyEvidence:

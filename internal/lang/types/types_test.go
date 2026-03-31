@@ -27,8 +27,8 @@ func TestKindArity(t *testing.T) {
 	if Arity(kt) != 0 {
 		t.Error("KType arity should be 0")
 	}
-	if Arity(KindOfComputation) != 3 {
-		t.Errorf("Computation kind arity should be 3, got %d", Arity(KindOfComputation))
+	if Arity(KindOfComputation) != 4 {
+		t.Errorf("Computation kind arity should be 4, got %d", Arity(KindOfComputation))
 	}
 }
 
@@ -42,7 +42,7 @@ func TestKindString(t *testing.T) {
 		t.Error("Row name mismatch")
 	}
 	got := PrettyTypeAsKind(KindOfComputation)
-	if got != "Row -> Row -> Type -> Type" {
+	if got != "Type -> Row -> Row -> Type -> Type" {
 		t.Errorf("Computation kind: got %q", got)
 	}
 }

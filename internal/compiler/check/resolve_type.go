@@ -227,7 +227,22 @@ func (r *typeResolver) decomposeQuantifiedConstraint(ty types.Type) *types.Quant
 // tryExpandApp recognizes fully-saturated Computation and Thunk applications
 // and produces the dedicated TyCBPV nodes, and expands type aliases.
 func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span) types.Type {
-	// Computation pre post result: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+	// Try 4-arg: Computation grade pre post result
+	if app3, ok := fun.(*types.TyApp); ok {
+		if app2, ok := app3.Fun.(*types.TyApp); ok {
+			if app1, ok := app2.Fun.(*types.TyApp); ok {
+				if con, ok := app1.Fun.(*types.TyCon); ok {
+					switch con.Name {
+					case types.TyConComputation:
+						return &types.TyCBPV{Tag: types.TagComp, Grade: app1.Arg, Pre: app2.Arg, Post: app3.Arg, Result: arg, Flags: types.MetaFreeFlags(app1.Arg, app2.Arg, app3.Arg, arg), S: s}
+					case types.TyConThunk:
+						return &types.TyCBPV{Tag: types.TagThunk, Grade: app1.Arg, Pre: app2.Arg, Post: app3.Arg, Result: arg, Flags: types.MetaFreeFlags(app1.Arg, app2.Arg, app3.Arg, arg), S: s}
+					}
+				}
+			}
+		}
+	}
+	// Fallback 3-arg: Computation pre post result (legacy, grade omitted)
 	if app2, ok := fun.(*types.TyApp); ok {
 		if app1, ok := app2.Fun.(*types.TyApp); ok {
 			if con, ok := app1.Fun.(*types.TyCon); ok {

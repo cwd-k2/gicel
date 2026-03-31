@@ -4,8 +4,11 @@ import "github.com/cwd-k2/gicel/internal/infra/span"
 
 // Pre-defined type constructor kinds (expressed as Type after Kind→Type unification).
 var (
-	KindOfComputation = &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}
-	KindOfThunk       = &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}
+	// KindOfComputation: g → Row → Row → Type → Type
+	// The grade parameter g has kind Type (any promoted data kind).
+	// GradeAlgebra constraints on g are enforced at the class level.
+	KindOfComputation = &TyArrow{From: TypeOfTypes, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}
+	KindOfThunk       = &TyArrow{From: TypeOfTypes, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfRows, To: &TyArrow{From: TypeOfTypes, To: TypeOfTypes, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}, Flags: FlagMetaFree}
 )
 
 // Universe-level type constants for the Type/Kind unified representation.

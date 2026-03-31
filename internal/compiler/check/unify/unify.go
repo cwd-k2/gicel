@@ -341,9 +341,10 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 }
 
 // normalizeCompApp converts fully-applied TyApp chains to their special type
-// representations. e.g. TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
-// becomes TyCBPV{TagComp, pre, post, result}. This arises when a class type parameter
-// (m: Row -> Row -> Type -> Type) is substituted with Computation.
+// representations. Handles both 4-arg (graded) and 3-arg (legacy) forms:
+//   4-arg: TyApp(TyApp(TyApp(TyApp(TyCon("Computation"), grade), pre), post), result)
+//   3-arg: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+// This arises when a class type parameter is substituted with Computation.
 func normalizeCompApp(t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
 	if !ok {
@@ -357,6 +358,18 @@ func normalizeCompApp(t types.Type) types.Type {
 	if !ok {
 		return t
 	}
+	// Try 4-arg form: Computation grade pre post result
+	if app4, ok := app3.Fun.(*types.TyApp); ok {
+		if con, ok := app4.Fun.(*types.TyCon); ok {
+			switch con.Name {
+			case types.TyConComputation:
+				return &types.TyCBPV{Tag: types.TagComp, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+			case types.TyConThunk:
+				return &types.TyCBPV{Tag: types.TagThunk, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+			}
+		}
+	}
+	// Fallback: 3-arg form (legacy, grade omitted)
 	con, ok := app3.Fun.(*types.TyCon)
 	if !ok {
 		return t
