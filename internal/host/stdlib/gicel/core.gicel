@@ -1,3 +1,9 @@
+form GradeAlgebra := \(g: Kind). {
+  type GradeJoin :: g -> g -> g;
+  type GradeCompose :: g -> g -> g;
+  type GradeDrop :: g
+}
+
 form IxMonad := \(m: Row -> Row -> Type -> Type). {
   ixpure: \a (r: Row). a -> m r r a;
   ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
@@ -11,15 +17,25 @@ form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type). GradeAlgebra g 
 }
 
 type Lift := \(m: Type -> Type) (r1: Row) (r2: Row) a. m a
-type Effect := \r a. Computation r r a
-type Suspended := \r a. Thunk r r a
+type Effect := \r a. Computation Zero r r a
+type Suspended := \r a. Thunk Zero r r a
 
-impl IxMonad Computation := {
+-- Computation is a canonical GIMonad instance: grade-parametric over any
+-- grade algebra g. The single instance covers all grade kinds (Mult, Level, etc.)
+-- because g is universally quantified.
+impl GradeAlgebra g => GIMonad g Computation := {
+  gipure := pure;
+  gibind := bind
+}
+
+-- IxMonad instance for partially-applied Computation (Computation g).
+-- Needed for Lift-based do-dispatch in Prelude list operations.
+impl IxMonad (Computation g) := {
   ixpure := pure;
   ixbind := bind
 }
 
-seq :: \a b (r1: Row) (r2: Row) (r3: Row). Computation r1 r2 a -> Computation r2 r3 b -> Computation r1 r3 b
+seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row). Computation e1 r1 r2 a -> Computation e2 r2 r3 b -> Computation e2 r1 r3 b
 seq := \m1 m2. bind m1 (\_. m2)
 
 -- SMC Phase 2: Parallel Composition

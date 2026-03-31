@@ -58,10 +58,11 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, ir.Core) {
 	compTy, compCore := ch.infer(compExpr)
 
+	g := ch.freshMeta(types.TypeOfTypes)
 	r1 := ch.freshMeta(types.TypeOfRows)
 	r2 := ch.freshMeta(types.TypeOfRows)
 	a := ch.freshMeta(types.TypeOfTypes)
-	if err := ch.unifier.Unify(compTy, types.MkComp(r1, r2, a)); err != nil {
+	if err := ch.unifier.Unify(compTy, types.MkCompGraded(r1, r2, a, g)); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, compExpr.Span(), "bind: first argument must be a computation, got "+types.Pretty(compTy))
 		return ch.errorPair(s)
 	}

@@ -369,17 +369,7 @@ func normalizeCompApp(t types.Type) types.Type {
 			}
 		}
 	}
-	// Fallback: 3-arg form (legacy, grade omitted)
-	con, ok := app3.Fun.(*types.TyCon)
-	if !ok {
-		return t
-	}
-	switch con.Name {
-	case types.TyConComputation:
-		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
-	case types.TyConThunk:
-		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, S: t.Span()}
-	}
+	// No 3-arg fallback: Computation is now 4-arg (grade + pre + post + result).
 	return t
 }
 

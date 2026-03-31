@@ -242,19 +242,10 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			}
 		}
 	}
-	// Fallback 3-arg: Computation pre post result (legacy, grade omitted)
-	if app2, ok := fun.(*types.TyApp); ok {
-		if app1, ok := app2.Fun.(*types.TyApp); ok {
-			if con, ok := app1.Fun.(*types.TyCon); ok {
-				switch con.Name {
-				case types.TyConComputation:
-					return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
-				case types.TyConThunk:
-					return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
-				}
-			}
-		}
-	}
+	// Note: 3-arg Computation (legacy form without grade) is no longer
+	// intercepted here. The kind system handles the arity mismatch.
+	// Users must write Computation with a grade parameter (or it will
+	// be inferred via the do-block elaboration path).
 	// General alias/family expansion: collect the TyApp spine and check if the
 	// head is an alias or type family with matching parameter count.
 	result := &types.TyApp{Fun: fun, Arg: arg, S: s}
