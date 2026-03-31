@@ -22,13 +22,12 @@ func (ch *Checker) checkPure(e *syntax.ExprApp, expected types.Type) ir.Core {
 	}
 
 	// Class dispatch: extract monad head, resolve GIMonad, use mkGIPure.
+	// extractMonadHead guarantees expected is TyApp-spine (UnwindApp found args).
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
-		if app, ok := expected.(*types.TyApp); ok {
-			head, _ := types.AppSpineHead(monadHead)
-			valCore := ch.check(e.Arg, app.Arg)
-			return ch.mkGIPure(head, valCore, e.S)
-		}
+		head, _ := types.AppSpineHead(monadHead)
+		valCore := ch.check(e.Arg, expected.(*types.TyApp).Arg)
+		return ch.mkGIPure(head, valCore, e.S)
 	}
 
 	// Fallback: infer + subsCheck (metavar, error, etc.)

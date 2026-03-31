@@ -476,7 +476,16 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		}
 		return &types.TyCBPV{Tag: t.Tag, Pre: rPre, Post: rPost, Result: rResult, Grade: rGrade, Flags: types.MetaFreeFlags(rPre, rPost, rResult, rGrade), S: t.S}
 
+	case *types.TyEvidence:
+		rBody := ch.satAssocWalk(t.Body, fa)
+		if rBody == t.Body {
+			return ty
+		}
+		return &types.TyEvidence{Constraints: t.Constraints, Body: rBody, Flags: t.Flags, S: t.S}
+
 	default:
+		// True leaves: TyMeta, TySkolem, TyVar, TyError, TyEvidenceRow.
+		// These contain no substructure where associated type families can appear.
 		return ty
 	}
 }

@@ -37,7 +37,7 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	// Class dispatch: extract monad head and elaborate with GIMonad dictionary.
 	monadHead := ch.extractMonadHead(expected)
 	if monadHead != nil {
-		if ch.hasDirectGIMonadInstance(monadHead, e.S) {
+		if _, _, ok := ch.resolveGIMonadDict(monadHead, e.S); ok {
 			head, _ := types.AppSpineHead(monadHead)
 			d := &doElaborator{ch: ch, mode: doModeGraded, monadHead: head, expected: expected}
 			_, result := d.elaborate(e.Stmts, e.S)
@@ -117,55 +117,41 @@ const (
 	giMethodBind = 1 // gibind
 )
 
-// hasDirectGIMonadInstance checks whether the GIMonad class has a direct
-// resolvable instance for the bare type constructor head of monadHead.
-// Also tries Lift-wrapped resolution for Type→Type monads (e.g. Maybe, List).
-func (ch *Checker) hasDirectGIMonadInstance(monadHead types.Type, s span.Span) bool {
-	if _, ok := ch.reg.LookupClass("GIMonad"); !ok {
-		return false
+// resolveGIMonadDict resolves a GIMonad dictionary for monadHead,
+// trying direct resolution first, then Lift-wrapped fallback for Type→Type monads.
+// Returns (dict, classInfo, true) on success, (nil, nil, false) on failure.
+func (ch *Checker) resolveGIMonadDict(monadHead types.Type, s span.Span) (ir.Core, *ClassInfo, bool) {
+	classInfo, ok := ch.reg.LookupClass("GIMonad")
+	if !ok {
+		return nil, nil, false
 	}
 	head, _ := types.AppSpineHead(monadHead)
+	// Try direct GIMonad instance.
 	gradeMeta := ch.freshMeta(types.TypeOfTypes)
-	if _, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta, head}, s); ok {
-		return true
+	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta, head}, s); ok {
+		return dict, classInfo, true
 	}
 	// Lift fallback: GIMonad g (Lift head).
 	// Safe for Type→Type monads; do-block elaboration for Lift-wrapped types
 	// produces correct results because these monads have no row parameters.
 	liftedHead := &types.TyApp{Fun: types.Con("Lift"), Arg: head}
 	gradeMeta2 := ch.freshMeta(types.TypeOfTypes)
-	_, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta2, liftedHead}, s)
-	return ok
+	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta2, liftedHead}, s); ok {
+		return dict, classInfo, true
+	}
+	return nil, nil, false
 }
 
 // extractGIMethod resolves a GIMonad dictionary for monadHead and extracts
 // the method at methodIdx.
-// Tries direct resolution first, then Lift-wrapped fallback for Type→Type monads.
 func (ch *Checker) extractGIMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
-	classInfo, _ := ch.reg.LookupClass("GIMonad")
-	if classInfo == nil {
-		ch.addCodedError(diagnostic.ErrNoInstance, s, "GIMonad class not available")
+	dict, classInfo, ok := ch.resolveGIMonadDict(monadHead, s)
+	if !ok {
+		ch.addCodedError(diagnostic.ErrNoInstance, s, "no GIMonad instance for "+types.Pretty(monadHead))
 		return &ir.Error{S: s}
 	}
-
-	// Try direct GIMonad instance.
-	gradeMeta := ch.freshMeta(types.TypeOfTypes)
-	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta, monadHead}, s); ok {
-		fieldIdx := len(classInfo.Supers) + methodIdx
-		return ch.solver.ExtractDictField(classInfo, dict, fieldIdx, "gim", s)
-	}
-
-	// Lift fallback: GIMonad g (Lift monadHead).
-	// Safe for Type→Type monads (Maybe, List, etc.).
-	liftedMonad := &types.TyApp{Fun: types.Con("Lift"), Arg: monadHead}
-	gradeMeta2 := ch.freshMeta(types.TypeOfTypes)
-	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta2, liftedMonad}, s); ok {
-		fieldIdx := len(classInfo.Supers) + methodIdx
-		return ch.solver.ExtractDictField(classInfo, dict, fieldIdx, "gim", s)
-	}
-
-	ch.addCodedError(diagnostic.ErrNoInstance, s, "no GIMonad instance for "+types.Pretty(monadHead))
-	return &ir.Error{S: s}
+	fieldIdx := len(classInfo.Supers) + methodIdx
+	return ch.solver.ExtractDictField(classInfo, dict, fieldIdx, "gim", s)
 }
 
 // mkGIPure generates Core for graded monadic pure using the GIMonad dictionary.

@@ -140,13 +140,54 @@ func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, d
 // bottom-up pass (O(n)). For each Lam, FV = free vars of body ∖ {param}.
 // For each Thunk, FV = free vars of comp.
 func AnnotateFreeVars(c Core) {
-	annotateFV(c, 0)
+	traverseFV(c, 0, annotateObs{})
 }
 
 // AnnotateFreeVarsProgram annotates all bindings in a Program.
 func AnnotateFreeVarsProgram(p *Program) {
 	for _, b := range p.Bindings {
 		AnnotateFreeVars(b.Expr)
+	}
+}
+
+// fvObserver receives computed free variables at annotation points during
+// bottom-up FV traversal. The traversal calls the observer at each Lam,
+// Thunk, and Merge node with the computed FV result.
+type fvObserver interface {
+	OnLam(lam *Lam, bodyFV fvResult)
+	OnThunk(th *Thunk, compFV fvResult)
+	OnMerge(m *Merge, leftFV, rightFV fvResult)
+}
+
+// annotateObs sets FV fields on Lam, Thunk, and Merge nodes.
+type annotateObs struct{}
+
+func (annotateObs) OnLam(lam *Lam, bodyFV fvResult) {
+	if bodyFV.overflow {
+		lam.FV = nil
+	} else {
+		lam.FV = setToSlice(bodyFV.vars)
+	}
+}
+
+func (annotateObs) OnThunk(th *Thunk, compFV fvResult) {
+	if compFV.overflow {
+		th.FV = nil
+	} else {
+		th.FV = setToSlice(compFV.vars)
+	}
+}
+
+func (annotateObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
+	if leftFV.overflow {
+		m.LeftFV = nil
+	} else {
+		m.LeftFV = setToSlice(leftFV.vars)
+	}
+	if rightFV.overflow {
+		m.RightFV = nil
+	} else {
+		m.RightFV = setToSlice(rightFV.vars)
 	}
 }
 
@@ -165,9 +206,9 @@ func (r fvResult) delete(name string) {
 	delete(r.vars, name)
 }
 
-// annotateFVLeftSpine iteratively descends the left spine of App nodes
-// for the annotateFV pass, merging free variable sets from right children.
-func annotateFVLeftSpine(app *App, depth int) fvResult {
+// traverseFVLeftSpine iteratively descends the left spine of App nodes,
+// merging free variable sets from right children.
+func traverseFVLeftSpine(app *App, depth int, obs fvObserver) fvResult {
 	var rights []Core
 
 	cur := Core(app)
@@ -189,15 +230,15 @@ func annotateFVLeftSpine(app *App, depth int) fvResult {
 		break
 	}
 
-	result := annotateFV(cur, depth+1)
+	result := traverseFV(cur, depth+1, obs)
 	for i := len(rights) - 1; i >= 0; i-- {
-		result = mergeFV(result, annotateFV(rights[i], depth+1))
+		result = mergeFV(result, traverseFV(rights[i], depth+1, obs))
 	}
 	return result
 }
 
-// annotateFV computes free variables bottom-up, annotating Lam and Thunk nodes.
-// Returns the set of free variables in the expression.
+// traverseFV computes free variables bottom-up, notifying the observer at
+// each annotation point (Lam, Thunk, Merge).
 // Unlike FreeVars/freeVarsRec, this does NOT propagate Lam params into bound —
 // outer Lam params are free from an inner closure's perspective (they are captured).
 // Only Fix names, Case alt bindings, and Bind vars are propagated as bound,
@@ -206,7 +247,7 @@ func annotateFVLeftSpine(app *App, depth int) fvResult {
 // When the depth limit is reached, returns fvOverflow so that ancestor
 // Lam/Thunk nodes detect the truncation and disable environment trimming
 // rather than silently losing deep free variables.
-func annotateFV(c Core, depth int) fvResult {
+func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 	if depth > maxTraversalDepth {
 		return fvOverflow
 	}
@@ -218,31 +259,32 @@ func annotateFV(c Core, depth int) fvResult {
 		}
 		return fvResult{vars: map[string]struct{}{n.Key: {}}}
 	case *Lam:
-		bodyFV := annotateFV(n.Body, depth+1)
-		if bodyFV.overflow {
-			n.FV = nil // disable env trimming — deep subtree FV unknown
-			return fvOverflow
-		}
+		bodyFV := traverseFV(n.Body, depth+1, obs)
 		// Remove the param — it comes from application, not from captured env.
 		bodyFV.delete(n.Param)
-		n.FV = setToSlice(bodyFV.vars)
+		if obs != nil {
+			obs.OnLam(n, bodyFV)
+		}
+		if bodyFV.overflow {
+			return fvOverflow
+		}
 		return bodyFV
 	case *App:
-		return annotateFVLeftSpine(n, depth)
+		return traverseFVLeftSpine(n, depth, obs)
 	case *TyApp:
-		return annotateFV(n.Expr, depth+1)
+		return traverseFV(n.Expr, depth+1, obs)
 	case *TyLam:
-		return annotateFV(n.Body, depth+1)
+		return traverseFV(n.Body, depth+1, obs)
 	case *Con:
 		var result fvResult
 		for _, arg := range n.Args {
-			result = mergeFV(result, annotateFV(arg, depth+1))
+			result = mergeFV(result, traverseFV(arg, depth+1, obs))
 		}
 		return result
 	case *Case:
-		result := annotateFV(n.Scrutinee, depth+1)
+		result := traverseFV(n.Scrutinee, depth+1, obs)
 		for _, alt := range n.Alts {
-			altFV := annotateFV(alt.Body, depth+1)
+			altFV := traverseFV(alt.Body, depth+1, obs)
 			// Remove pattern-bound vars — they are local to each alt.
 			for _, name := range alt.Pattern.Bindings() {
 				altFV.delete(name)
@@ -252,45 +294,39 @@ func annotateFV(c Core, depth int) fvResult {
 		return result
 	case *Fix:
 		// Fix name is visible in Body — remove it from the result.
-		result := annotateFV(n.Body, depth+1)
+		result := traverseFV(n.Body, depth+1, obs)
 		result.delete(n.Name)
 		return result
 	case *Pure:
-		return annotateFV(n.Expr, depth+1)
+		return traverseFV(n.Expr, depth+1, obs)
 	case *Bind:
-		compFV := annotateFV(n.Comp, depth+1)
-		bodyFV := annotateFV(n.Body, depth+1)
+		compFV := traverseFV(n.Comp, depth+1, obs)
+		bodyFV := traverseFV(n.Body, depth+1, obs)
 		// Bind var is local to the body.
 		bodyFV.delete(n.Var)
 		return mergeFV(compFV, bodyFV)
 	case *Thunk:
-		compFV := annotateFV(n.Comp, depth+1)
+		compFV := traverseFV(n.Comp, depth+1, obs)
+		if obs != nil {
+			obs.OnThunk(n, compFV)
+		}
 		if compFV.overflow {
-			n.FV = nil // disable env trimming — deep subtree FV unknown
 			return fvOverflow
 		}
-		n.FV = setToSlice(compFV.vars)
 		return compFV
 	case *Force:
-		return annotateFV(n.Expr, depth+1)
+		return traverseFV(n.Expr, depth+1, obs)
 	case *Merge:
-		leftFV := annotateFV(n.Left, depth+1)
-		if leftFV.overflow {
-			n.LeftFV = nil
-		} else {
-			n.LeftFV = setToSlice(leftFV.vars)
-		}
-		rightFV := annotateFV(n.Right, depth+1)
-		if rightFV.overflow {
-			n.RightFV = nil
-		} else {
-			n.RightFV = setToSlice(rightFV.vars)
+		leftFV := traverseFV(n.Left, depth+1, obs)
+		rightFV := traverseFV(n.Right, depth+1, obs)
+		if obs != nil {
+			obs.OnMerge(n, leftFV, rightFV)
 		}
 		return mergeFV(leftFV, rightFV)
 	case *PrimOp:
 		var result fvResult
 		for _, arg := range n.Args {
-			result = mergeFV(result, annotateFV(arg, depth+1))
+			result = mergeFV(result, traverseFV(arg, depth+1, obs))
 		}
 		return result
 	case *Lit:
@@ -300,19 +336,19 @@ func annotateFV(c Core, depth int) fvResult {
 	case *RecordLit:
 		var result fvResult
 		for _, f := range n.Fields {
-			result = mergeFV(result, annotateFV(f.Value, depth+1))
+			result = mergeFV(result, traverseFV(f.Value, depth+1, obs))
 		}
 		return result
 	case *RecordProj:
-		return annotateFV(n.Record, depth+1)
+		return traverseFV(n.Record, depth+1, obs)
 	case *RecordUpdate:
-		result := annotateFV(n.Record, depth+1)
+		result := traverseFV(n.Record, depth+1, obs)
 		for _, f := range n.Updates {
-			result = mergeFV(result, annotateFV(f.Value, depth+1))
+			result = mergeFV(result, traverseFV(f.Value, depth+1, obs))
 		}
 		return result
 	default:
-		panic(fmt.Sprintf("annotateFV: unhandled Core node %T", c))
+		panic(fmt.Sprintf("traverseFV: unhandled Core node %T", c))
 	}
 }
 

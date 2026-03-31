@@ -130,7 +130,7 @@ func (d *doElaborator) elaborateBind(varName string, comp syntax.Expr, rest []sy
 	case doModeInfer:
 		return d.inferBind(varName, comp, rest, stmtS, doS)
 	case doModeChecked:
-		return d.checkedBind(varName, comp, rest, stmtS, doS, "do bind")
+		return d.checkedBind(varName, comp, rest, stmtS, doS)
 	case doModeGraded:
 		return d.gradedBind(varName, comp, rest, stmtS, doS)
 	}
@@ -143,7 +143,7 @@ func (d *doElaborator) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, s
 	case doModeInfer:
 		return d.inferExprStmt(expr, rest, stmtS, doS)
 	case doModeChecked:
-		return d.checkedBind("_", expr, rest, stmtS, doS, "do statement")
+		return d.checkedDiscard(expr, rest, stmtS, doS)
 	case doModeGraded:
 		return d.gradedExprStmt(expr, rest, stmtS, doS)
 	}
@@ -268,51 +268,58 @@ func stmtsToDoExpr(stmts []syntax.Stmt, s span.Span) syntax.Expr {
 
 // --- Checked mode ---
 
-func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span, errLabel string) (types.Type, ir.Core) {
+func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
-	isBind := varName != "_"
-
 	compTy, compCore := ch.infer(comp)
 	compTy = ch.unifier.Zonk(compTy)
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
-		// Emit equality constraint: inferred pre vs expected pre.
 		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, solve.WithLazyContext(0, func() string {
-			return errLabel + ": pre-state mismatch: expected " + types.Pretty(d.comp.Pre) + ", got " + types.Pretty(inferredComp.Pre)
+			return "do bind: pre-state mismatch: expected " + types.Pretty(d.comp.Pre) + ", got " + types.Pretty(inferredComp.Pre)
 		}))
-
-		if isBind {
-			ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
-		}
-
-		// Rest: Computation mid post result — mid from inferred post, post/result from expected.
+		ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := d.elaborate(rest, doS)
 		d.comp = savedComp
-
-		if isBind {
-			ch.ctx.Pop()
-		}
-		return d.comp, &ir.Bind{Comp: compCore, Var: varName, Discard: !isBind, Body: restCore, S: stmtS}
+		ch.ctx.Pop()
+		return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
 	}
 
 	// Fallback: infer didn't give TyCBPV, extract result and continue with infer mode.
-	if isBind {
-		resultTy := ch.extractCompResult(compTy, stmtS)
-		ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
-	}
+	resultTy := ch.extractCompResult(compTy, stmtS)
+	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
 	fallback := &doElaborator{ch: ch, mode: doModeInfer}
 	restTy, restCore := fallback.elaborate(rest, doS)
-	if isBind {
-		ch.ctx.Pop()
-	}
-	// Advisory unification: pre/post threading is unavailable in infer-fallback.
-	// Failure here is expected when the do-block mixes monadic and pure branches;
-	// the downstream subsumption check will report the actual type mismatch.
+	ch.ctx.Pop()
 	ch.emitEq(restTy, d.comp, stmtS, nil)
-	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Discard: !isBind, Body: restCore, S: stmtS}
+	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
+}
+
+// checkedDiscard handles expression statements (comp; rest) in checked mode.
+func (d *doElaborator) checkedDiscard(comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	ch := d.ch
+	compTy, compCore := ch.infer(comp)
+	compTy = ch.unifier.Zonk(compTy)
+
+	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
+		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, solve.WithLazyContext(0, func() string {
+			return "do statement: pre-state mismatch: expected " + types.Pretty(d.comp.Pre) + ", got " + types.Pretty(inferredComp.Pre)
+		}))
+		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
+		savedComp := d.comp
+		d.comp = restComp
+		_, restCore := d.elaborate(rest, doS)
+		d.comp = savedComp
+		return d.comp, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
+	}
+
+	// Fallback: infer didn't give TyCBPV, continue with infer mode.
+	fallback := &doElaborator{ch: ch, mode: doModeInfer}
+	restTy, restCore := fallback.elaborate(rest, doS)
+	ch.emitEq(restTy, d.comp, stmtS, nil)
+	return d.comp, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
 }
 
 // --- Entry points ---

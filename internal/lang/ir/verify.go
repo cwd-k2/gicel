@@ -2,7 +2,6 @@ package ir
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -120,223 +119,74 @@ func VerifyAnnotations(prog *Program) []VerifyError {
 }
 
 func verifyAnnotationsCore(c Core, errs []VerifyError) []VerifyError {
+	// V5b: Var.Key must be populated after AnnotateFreeVars.
 	Walk(c, func(node Core) bool {
-		switch n := node.(type) {
-		case *Var:
-			// V5b: Var.Key must be populated after AnnotateFreeVars.
-			if n.Key == "" {
-				errs = append(errs, VerifyError{
-					Node:    n,
-					Message: fmt.Sprintf("Var{%q}.Key is empty after annotation", n.Name),
-				})
-			}
-		case *Lam:
-			// V5a: Lam.FV coherence.
-			errs = verifyFVCoherence(n, n.FV, "Lam", n.Param, errs)
-		case *Thunk:
-			// V5a: Thunk.FV coherence.
-			errs = verifyFVCoherenceThunk(n, errs)
-		case *Merge:
-			// V5a: Merge.LeftFV/RightFV coherence.
-			errs = verifyFVCoherenceMerge(n, errs)
+		if v, ok := node.(*Var); ok && v.Key == "" {
+			errs = append(errs, VerifyError{
+				Node:    v,
+				Message: fmt.Sprintf("Var{%q}.Key is empty after annotation", v.Name),
+			})
 		}
 		return true
 	})
+	// V5a: FV coherence — single bottom-up pass via traverseFV (O(N)).
+	obs := &verifyObs{}
+	traverseFV(c, 0, obs)
+	errs = append(errs, obs.errs...)
 	return errs
 }
 
-// verifyFVCoherence checks that a Lam node's FV annotation matches a
-// recomputed free variable set. Skips if FV is nil (depth overflow).
-func verifyFVCoherence(node Core, annotatedFV []string, kind, param string, errs []VerifyError) []VerifyError {
-	if annotatedFV == nil {
-		return errs // overflow — skip
+// verifyObs checks FV annotations at each annotation point by comparing
+// the stored annotation with the recomputed free variable set.
+type verifyObs struct {
+	errs []VerifyError
+}
+
+func (v *verifyObs) OnLam(lam *Lam, bodyFV fvResult) {
+	if lam.FV == nil || bodyFV.overflow {
+		return
 	}
-	lam := node.(*Lam)
-	computed := computeFV(lam.Body, 0)
-	if computed.overflow {
-		return errs
-	}
-	computed.delete(param)
-	expected := sortedKeys(computed.vars)
-	if !sliceEqual(annotatedFV, expected) {
-		errs = append(errs, VerifyError{
-			Node:    node,
-			Message: fmt.Sprintf("%s.FV mismatch: annotated %v, computed %v", kind, annotatedFV, expected),
+	expected := setToSlice(bodyFV.vars)
+	if !sliceEqual(lam.FV, expected) {
+		v.errs = append(v.errs, VerifyError{
+			Node:    lam,
+			Message: fmt.Sprintf("Lam.FV mismatch: annotated %v, computed %v", lam.FV, expected),
 		})
 	}
-	return errs
 }
 
-func verifyFVCoherenceThunk(th *Thunk, errs []VerifyError) []VerifyError {
-	if th.FV == nil {
-		return errs
+func (v *verifyObs) OnThunk(th *Thunk, compFV fvResult) {
+	if th.FV == nil || compFV.overflow {
+		return
 	}
-	computed := computeFV(th.Comp, 0)
-	if computed.overflow {
-		return errs
-	}
-	expected := sortedKeys(computed.vars)
+	expected := setToSlice(compFV.vars)
 	if !sliceEqual(th.FV, expected) {
-		errs = append(errs, VerifyError{
+		v.errs = append(v.errs, VerifyError{
 			Node:    th,
 			Message: fmt.Sprintf("Thunk.FV mismatch: annotated %v, computed %v", th.FV, expected),
 		})
 	}
-	return errs
 }
 
-func verifyFVCoherenceMerge(m *Merge, errs []VerifyError) []VerifyError {
-	if m.LeftFV != nil {
-		computed := computeFV(m.Left, 0)
-		if !computed.overflow {
-			expected := sortedKeys(computed.vars)
-			if !sliceEqual(m.LeftFV, expected) {
-				errs = append(errs, VerifyError{
-					Node:    m,
-					Message: fmt.Sprintf("Merge.LeftFV mismatch: annotated %v, computed %v", m.LeftFV, expected),
-				})
-			}
+func (v *verifyObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
+	if m.LeftFV != nil && !leftFV.overflow {
+		expected := setToSlice(leftFV.vars)
+		if !sliceEqual(m.LeftFV, expected) {
+			v.errs = append(v.errs, VerifyError{
+				Node:    m,
+				Message: fmt.Sprintf("Merge.LeftFV mismatch: annotated %v, computed %v", m.LeftFV, expected),
+			})
 		}
 	}
-	if m.RightFV != nil {
-		computed := computeFV(m.Right, 0)
-		if !computed.overflow {
-			expected := sortedKeys(computed.vars)
-			if !sliceEqual(m.RightFV, expected) {
-				errs = append(errs, VerifyError{
-					Node:    m,
-					Message: fmt.Sprintf("Merge.RightFV mismatch: annotated %v, computed %v", m.RightFV, expected),
-				})
-			}
+	if m.RightFV != nil && !rightFV.overflow {
+		expected := setToSlice(rightFV.vars)
+		if !sliceEqual(m.RightFV, expected) {
+			v.errs = append(v.errs, VerifyError{
+				Node:    m,
+				Message: fmt.Sprintf("Merge.RightFV mismatch: annotated %v, computed %v", m.RightFV, expected),
+			})
 		}
 	}
-	return errs
-}
-
-// computeFV mirrors annotateFV's logic in read-only mode: computes free variables
-// without mutating any IR node. Used by V5a to independently verify FV annotations.
-func computeFV(c Core, depth int) fvResult {
-	if depth > maxTraversalDepth {
-		return fvOverflow
-	}
-	switch n := c.(type) {
-	case *Var:
-		key := n.Key
-		if key == "" {
-			key = varKey(n)
-		}
-		return fvResult{vars: map[string]struct{}{key: {}}}
-	case *Lam:
-		bodyFV := computeFV(n.Body, depth+1)
-		if bodyFV.overflow {
-			return fvOverflow
-		}
-		bodyFV.delete(n.Param)
-		return bodyFV
-	case *App:
-		return computeFVLeftSpine(n, depth)
-	case *TyApp:
-		return computeFV(n.Expr, depth+1)
-	case *TyLam:
-		return computeFV(n.Body, depth+1)
-	case *Con:
-		var result fvResult
-		for _, arg := range n.Args {
-			result = mergeFV(result, computeFV(arg, depth+1))
-		}
-		return result
-	case *Case:
-		result := computeFV(n.Scrutinee, depth+1)
-		for _, alt := range n.Alts {
-			altFV := computeFV(alt.Body, depth+1)
-			for _, name := range alt.Pattern.Bindings() {
-				altFV.delete(name)
-			}
-			result = mergeFV(result, altFV)
-		}
-		return result
-	case *Fix:
-		result := computeFV(n.Body, depth+1)
-		result.delete(n.Name)
-		return result
-	case *Pure:
-		return computeFV(n.Expr, depth+1)
-	case *Bind:
-		compFV := computeFV(n.Comp, depth+1)
-		bodyFV := computeFV(n.Body, depth+1)
-		bodyFV.delete(n.Var)
-		return mergeFV(compFV, bodyFV)
-	case *Thunk:
-		return computeFV(n.Comp, depth+1)
-	case *Force:
-		return computeFV(n.Expr, depth+1)
-	case *Merge:
-		return mergeFV(computeFV(n.Left, depth+1), computeFV(n.Right, depth+1))
-	case *PrimOp:
-		var result fvResult
-		for _, arg := range n.Args {
-			result = mergeFV(result, computeFV(arg, depth+1))
-		}
-		return result
-	case *Lit:
-		return fvResult{}
-	case *Error:
-		return fvResult{}
-	case *RecordLit:
-		var result fvResult
-		for _, f := range n.Fields {
-			result = mergeFV(result, computeFV(f.Value, depth+1))
-		}
-		return result
-	case *RecordProj:
-		return computeFV(n.Record, depth+1)
-	case *RecordUpdate:
-		result := computeFV(n.Record, depth+1)
-		for _, f := range n.Updates {
-			result = mergeFV(result, computeFV(f.Value, depth+1))
-		}
-		return result
-	default:
-		panic(fmt.Sprintf("computeFV: unhandled Core node %T", c))
-	}
-}
-
-func computeFVLeftSpine(app *App, depth int) fvResult {
-	var rights []Core
-	cur := Core(app)
-	for {
-		switch n := cur.(type) {
-		case *App:
-			rights = append(rights, n.Arg)
-			cur = n.Fun
-			continue
-		case *TyApp:
-			cur = n.Expr
-			continue
-		case *TyLam:
-			cur = n.Body
-			continue
-		default:
-		}
-		break
-	}
-	result := computeFV(cur, depth+1)
-	for i := len(rights) - 1; i >= 0; i-- {
-		result = mergeFV(result, computeFV(rights[i], depth+1))
-	}
-	return result
-}
-
-func sortedKeys(s map[string]struct{}) []string {
-	if len(s) == 0 {
-		return []string{}
-	}
-	result := make([]string, 0, len(s))
-	for k := range s {
-		result = append(result, k)
-	}
-	sort.Strings(result)
-	return result
 }
 
 func sliceEqual(a, b []string) bool {

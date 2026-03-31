@@ -128,7 +128,7 @@ func (p *declPipeline) run() *ir.Program {
 	return p.prog
 }
 
-// registerTypes handles phases 1–3.5: form decls, type aliases, type families,
+// registerTypes handles form decls, type aliases, type families,
 // cyclic alias detection, and alias expander installation.
 func (p *declPipeline) registerTypes() {
 	for _, d := range p.decls {
@@ -154,9 +154,9 @@ func (p *declPipeline) registerTypes() {
 	}
 }
 
-// registerClassLikeForms handles phases 4–5.6: class-like form declarations,
+// registerClassLikeForms handles class-like form declarations,
 // impl headers, type family reducer installation, and strict type name activation.
-// Returns instance headers and method bodies for checkInstances (Phase 6).
+// Returns instance headers and method bodies for checkInstances.
 func (p *declPipeline) registerClassLikeForms() classLikeResult {
 	// Process class-like form declarations (forms with all-lowercase fields).
 	for _, d := range p.decls {
@@ -193,9 +193,10 @@ func (p *declPipeline) registerClassLikeForms() classLikeResult {
 	return clr
 }
 
-// collectAnnotations resolves type annotations (phase 6).
+// collectAnnotations resolves type annotations.
 // Free type variables are implicitly universally quantified.
-// Returns the annotation map consumed by Phases 4, 5, and 7.
+// Returns the annotation map consumed by phaseCheckAssumptions,
+// phasePreregisterBindings, and phaseCheckValues.
 func (p *declPipeline) collectAnnotations() map[string]types.Type {
 	annotations := make(map[string]types.Type)
 	for _, d := range p.decls {
@@ -207,7 +208,7 @@ func (p *declPipeline) collectAnnotations() map[string]types.Type {
 	return annotations
 }
 
-// checkAssumptions processes assumption declarations (phase 7).
+// checkAssumptions processes assumption declarations.
 // These must be checked before instance bodies that may reference them.
 func (p *declPipeline) checkAssumptions(annotations map[string]types.Type) {
 	for _, d := range p.decls {
@@ -219,7 +220,7 @@ func (p *declPipeline) checkAssumptions(annotations map[string]types.Type) {
 	}
 }
 
-// preregisterBindings pre-registers annotated non-assumption bindings (phase 7.5).
+// preregisterBindings pre-registers annotated non-assumption bindings.
 // Only the type is registered; bodies are checked in checkValues.
 // This allows instance methods to reference these bindings, matching
 // the open-scope semantics of Wadler & Blott type classes.
@@ -236,14 +237,14 @@ func (p *declPipeline) preregisterBindings(annotations map[string]types.Type) {
 	}
 }
 
-// checkInstances type-checks instance bodies and generates dict bindings (phase 8).
+// checkInstances type-checks instance bodies and generates dict bindings.
 func (p *declPipeline) checkInstances(clr classLikeResult) {
 	for _, inst := range clr.instances {
 		p.ch.processInstanceBody(inst, clr.methodBodies[inst], p.prog)
 	}
 }
 
-// checkValues processes remaining (non-assumption) value definitions (phase 9).
+// checkValues processes remaining (non-assumption) value definitions.
 func (p *declPipeline) checkValues(annotations map[string]types.Type) {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
@@ -321,7 +322,7 @@ func extractTFPatterns(pat syntax.TypeExpr, numParams int) []syntax.TypeExpr {
 		}
 	}
 
-	// Legacy format: unwrap application chain.
+	// General form: unwrap application chain (non-tuple patterns).
 	var result []syntax.TypeExpr
 	t := pat
 	for {

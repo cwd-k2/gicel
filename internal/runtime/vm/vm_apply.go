@@ -10,6 +10,28 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// execBarrier pushes a barrier frame, calls setup (which pushes the actual
+// execution frame), runs execute(), and restores VM state. The setup function
+// receives the barrier frame pointer and must call callThunk or callClosure.
+func (vm *VM) execBarrier(capEnv eval.CapEnv, setup func(barrier *Frame) error) (eval.EvalResult, error) {
+	savedLocals := len(vm.locals)
+	savedFP := vm.fp
+	vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
+	vm.fp = len(vm.frames) - 1
+	barrierFrame := &vm.frames[vm.fp]
+	if err := setup(barrierFrame); err != nil {
+		vm.locals = vm.locals[:savedLocals]
+		vm.fp = savedFP
+		vm.frames = vm.frames[:savedFP+1]
+		return eval.EvalResult{}, err
+	}
+	result, err := vm.execute()
+	vm.locals = vm.locals[:savedLocals]
+	vm.fp = savedFP
+	vm.frames = vm.frames[:savedFP+1]
+	return result, err
+}
+
 // apply dispatches a function application. If tail is true, the current frame
 // is reused (TCO). Otherwise a new frame is pushed.
 func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) error {
@@ -185,22 +207,9 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 			return nil, capEnv, err
 		}
 		proto := thv.Proto.(*Proto)
-		// Execute via barrier frame. Save state for robust cleanup.
-		savedLocals := len(vm.locals)
-		savedFP := vm.fp
-		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
-		vm.fp = len(vm.frames) - 1
-		barrierFrame := &vm.frames[vm.fp]
-		if err := vm.callThunk(proto, thv.Captured, barrierFrame); err != nil {
-			vm.locals = vm.locals[:savedLocals]
-			vm.fp = savedFP
-			vm.frames = vm.frames[:savedFP+1]
-			return nil, capEnv, err
-		}
-		result, err := vm.execute()
-		vm.locals = vm.locals[:savedLocals]
-		vm.fp = savedFP
-		vm.frames = vm.frames[:savedFP+1]
+		result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+			return vm.callThunk(proto, thv.Captured, b)
+		})
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -244,21 +253,9 @@ func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv, frame *Frame) (e
 	if err := vm.budget.Step(); err != nil {
 		return nil, capEnv, err
 	}
-	savedLocals := len(vm.locals)
-	savedFP := vm.fp
-	vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
-	vm.fp = len(vm.frames) - 1
-	barrierFrame := &vm.frames[vm.fp]
-	if err := vm.callThunk(proto, thv.Captured, barrierFrame); err != nil {
-		vm.locals = vm.locals[:savedLocals]
-		vm.fp = savedFP
-		vm.frames = vm.frames[:savedFP+1]
-		return nil, capEnv, err
-	}
-	result, err := vm.execute()
-	vm.locals = vm.locals[:savedLocals]
-	vm.fp = savedFP
-	vm.frames = vm.frames[:savedFP+1]
+	result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+		return vm.callThunk(proto, thv.Captured, b)
+	})
 	if err != nil {
 		return nil, capEnv, err
 	}
@@ -309,21 +306,9 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	switch f := fn.(type) {
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
-		savedLocals := len(vm.locals)
-		savedFP := vm.fp
-		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
-		vm.fp = len(vm.frames) - 1
-		barrierFrame := &vm.frames[vm.fp]
-		if err := vm.callClosure(proto, f.Captured, arg, barrierFrame); err != nil {
-			vm.locals = vm.locals[:savedLocals]
-			vm.fp = savedFP
-			vm.frames = vm.frames[:savedFP+1]
-			return nil, capEnv, err
-		}
-		result, err := vm.execute()
-		vm.locals = vm.locals[:savedLocals]
-		vm.fp = savedFP
-		vm.frames = vm.frames[:savedFP+1]
+		result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+			return vm.callClosure(proto, f.Captured, arg, b)
+		})
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -359,21 +344,9 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		// Force thunk (ignore argument) — enables Go primitives to
 		// transparently handle lazy co-data fields.
 		proto := f.Proto.(*Proto)
-		savedLocals := len(vm.locals)
-		savedFP := vm.fp
-		vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
-		vm.fp = len(vm.frames) - 1
-		barrierFrame := &vm.frames[vm.fp]
-		if err := vm.callThunk(proto, f.Captured, barrierFrame); err != nil {
-			vm.locals = vm.locals[:savedLocals]
-			vm.fp = savedFP
-			vm.frames = vm.frames[:savedFP+1]
-			return nil, capEnv, err
-		}
-		result, err := vm.execute()
-		vm.locals = vm.locals[:savedLocals]
-		vm.fp = savedFP
-		vm.frames = vm.frames[:savedFP+1]
+		result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+			return vm.callThunk(proto, f.Captured, b)
+		})
 		if err != nil {
 			return nil, capEnv, err
 		}
