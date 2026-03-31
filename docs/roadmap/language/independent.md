@@ -37,7 +37,7 @@ form List   := \a. { Cons: a -> List a -> List a; Nil: List a; }   -- data（正
 lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }  -- co-data（遅延）
 ```
 
-設計確定、未着手。実装: Parser → Checker → Runtime → Stdlib → Prepend/+>。
+**実装済み。** Parser → Checker → Runtime → Stdlib 完了。`+>` (Prepend) 演算子も追加済み (v0.24+)。
 
 ## Design Fork Points
 
@@ -91,8 +91,8 @@ Session types は check-only で正しく動作する。Runtime 実行には hos
 
 ## Far Future (assessed, not planned)
 
-| Extension                                             | Category     | Prerequisite                                                 |
-| ----------------------------------------------------- | ------------ | ------------------------------------------------------------ |
-| Tensor product kind (`QType`)                         | Type system  | Full SMC + quantum use case                                  |
-| Optimizer Phase 2-3 (selective inline + case-of-case) | Optimization | Benchmark-driven demand                                      |
-| Impredicativity (full)                                | Type system  | Partial: Maybe/tuples work, List does not. Boundary unclear. |
+| Extension                                                 | Category         | Status                                                        |
+| --------------------------------------------------------- | ---------------- | ------------------------------------------------------------- |
+| Tensor product kind (`QType`)                             | Type system      | Not planned. Full SMC + quantum use case needed               |
+| ~~Optimizer Phase 2-3 (selective inline + case-of-case)~~ | ~~Optimization~~ | **Done.** caseOfKnownLit, Bind-of-Case, List roundtrip fusion |
+| Impredicativity (full)                                    | Type system      | Partial: Maybe/tuples work, List does not. Boundary unclear   |

@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.24.0 — 2026-03-31
+
+### Optimizer Phase 2-3
+
+- **`caseOfKnownLit`**: Case elimination when scrutinee is a known literal. Symmetric with `caseOfKnownCtor` for constructor scrutinees.
+- **`bindOfCase`**: Push monadic bind into case branches (commuting conversion). Exposes bind-pure elimination inside each branch.
+- **List roundtrip fusion**: `_listFromSlice (_listToSlice x) → x` and reverse. Registered as rewrite rules in Prelude.
+
+### Nested Let-Generalization (Phase 2-3)
+
+- **Block expressions** (`{ x := e; body }`) and **do-block pure binds** (`do { x := e; ... }`) now generalize polymorphic bindings.
+- Watermark-based meta filtering: only metas born during a binding's inference are candidates for generalization.
+- Ambiguity-aware deferral: constraints with metas not appearing in the result type are deferred to the enclosing scope, preventing premature instance resolution.
+
+### Stream `+>` Operator
+
+- Added `infixr 5 +>` (prepend/cons) to `Data.Stream`. Alias for `LCons`.
+
+### PolyKinds Phase D
+
+- **LevelMeta activation**: unified the separate LevelMeta and concrete-L1 paths in `checkTypeAppKind`. Type parameters at any universe level now resolve via `UnifyLevels`.
+- Removed the `TypeOfTypes` skip heuristic. Kind inference is now theoretically justified.
+
+### GIMonad Lift Coercion
+
+- Verified that `GIMonad g (Lift M)` instances (Maybe, List) work transparently via type alias expansion. Added tests.
+
+### Bug Fixes
+
+- **`graph.gicel` Ord early resolution**: Fixed premature constraint resolution in `localLetGen` where `Ord ?k` was resolved to `Ord Bool` before annotation type information propagated.
+- **`BenchmarkCheckDoBlock` failure**: Added type annotation to bench source. GIMonad do-blocks require `checkDo` (check mode), not `inferDo`.
+
+### Tree-sitter & Editor Sync
+
+- **`lazy` keyword** added to tree-sitter grammar, nvim, zed, and vscode highlights.
+- **`@grade` unified in type_application**: removed `@` from `row_field`, parsed uniformly as optional `@` in `type_application`. 76/76 GICEL source files parse without errors.
+
+### SMC Phase 1.5
+
+- Added dag+merge interaction test for parallel composition with state effects.
+
 ## v0.23.1 — 2026-03-30
 
 ### Constructor Syntax Unification
