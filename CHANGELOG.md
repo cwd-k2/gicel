@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.25.0 — 2026-03-31
+
+### Quick Look Impredicativity
+
+- Multi-argument constructors now support impredicative instantiation: `Cons (\x. x) Nil :: List (\a. a -> a)` works.
+- `bidir_ql.go`: `qlUnify` (shallow structural matching permitting meta → polytype), `checkAppQL` (spine-aware checking), `collectSpine` (App tree flattening).
+
+### Universe Polymorphism Phase B-C
+
+- **Phase B**: Explicit level quantification `\(l: Level) (a: Type l). a -> a`. `SubstLevel` for replacing `LevelVar` inside `TyCon.Level`. Parser extended for `Type l` kind application.
+- **Phase C**: `LevelMax` result kind inference for multi-level forms. `ZonkLevelDefault` normalization. Dual level/type substitution at all instantiation sites.
+
+### SMC Phase 4 — Complete
+
+- **Step 1**: `joinGrades` switched from hardcoded `LUB` to `GradeJoin` via `resolveGradeAlgebra`.
+- **Step 2**: `UsageSemiring` class with `Trivial` and `Mult` instances. Value-level `multPlus`/`multMult` functions.
+
+### Result e Monad
+
+- Added `Monad (Result e)` and `GIMonad g (Lift (Result e))` instances. do-notation for Result types.
+
+### List map/foldr Fusion
+
+- `_listMap` and `_listFoldr` escalated to Go PrimOps. Fusion rules R15 (map∘map) and R16 (foldr∘map) registered.
+
+### Checker Decomposition (Step A-B)
+
+- `freshMeta` moved from `*Checker` to `*CheckState` via `solverLevel` callback injection.
+- Removed 6 unused delegation wrappers from `resolve_bridge.go`.
+
+### IR Verifier
+
+- Structural invariant checker: V1 (no Error nodes), V2 (auto-force Bind structure), V3 (no double-thunk).
+- Inserted into `postCheck` pipeline behind `EnableVerifyIR()` debug flag.
+
 ## v0.24.0 — 2026-03-31
 
 ### Optimizer Phase 2-3
