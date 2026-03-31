@@ -65,6 +65,13 @@ func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Sp
 	if _, ok := qs.Exports.PromotedCons[name]; ok {
 		return types.ConAt(name, s)
 	}
+	// Host-registered types (e.g., Map, Set, Slice) are globally visible.
+	// A qualified reference M.T is valid when M is a known module and T
+	// is a host-registered type, since host types are ambient — not owned
+	// by any single module.
+	if _, ok := r.reg.LookupTypeKind(name); ok {
+		return types.ConAt(name, s)
+	}
 	r.addCodedError(diagnostic.ErrImport, s,
 		"module "+qs.ModuleName+" does not export type: "+name)
 	return &types.TyError{S: s}

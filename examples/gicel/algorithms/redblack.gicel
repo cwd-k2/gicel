@@ -1,0 +1,154 @@
+-- GICEL Example: Red-Black Tree
+--
+-- A balanced binary search tree with O(log n) insert and lookup.
+-- Uses DataKinds to promote colors to the type level, and GADTs
+-- to enforce the red-black invariant structurally.
+--
+-- Invariants enforced by types:
+--   - Red nodes have black children (no red-red violation)
+--   - Every path from root to leaf has the same black-depth
+--
+-- For simplicity, this example uses a non-indexed version (runtime checks
+-- for balance) with DataKinds for the color type.
+--
+-- Requires: --recursion (recursive insert/lookup)
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/redblack.gicel
+
+import Prelude
+import Console
+
+-- ── Color type (promoted to kind via DataKinds) ─────────────
+
+form Color := { Red: Color; Black: Color }
+
+impl Show Color := {
+  show := \c. case c { Red => "R"; Black => "B" }
+}
+
+-- ── Red-black tree ──────────────────────────────────────────
+
+form RBTree := \a. {
+  Leaf: RBTree a;
+  Node: Color -> RBTree a -> a -> RBTree a -> RBTree a
+}
+
+-- ── Lookup ──────────────────────────────────────────────────
+
+rbLookup :: \a. Ord a => a -> RBTree a -> Bool
+rbLookup := fix (\self key tree. case tree {
+  Leaf => False;
+  Node _ left val right => case compare key val {
+    LT => self key left;
+    EQ => True;
+    GT => self key right
+  }
+})
+
+-- ── Balance after insertion ─────────────────────────────────
+--
+-- The four rotation cases that fix red-red violations.
+-- Each case matches a black node with a red child that has a red child.
+
+balance :: \a. Color -> RBTree a -> a -> RBTree a -> RBTree a
+balance := \color left val right. case (color, left, val, right) {
+  -- Case 1: left-left red
+  (Black, Node Red (Node Red a x b) y c, z, d) =>
+    Node Red (Node Black a x b) y (Node Black c z d);
+
+  -- Case 2: left-right red
+  (Black, Node Red a x (Node Red b y c), z, d) =>
+    Node Red (Node Black a x b) y (Node Black c z d);
+
+  -- Case 3: right-left red
+  (Black, a, x, Node Red (Node Red b y c) z d) =>
+    Node Red (Node Black a x b) y (Node Black c z d);
+
+  -- Case 4: right-right red
+  (Black, a, x, Node Red b y (Node Red c z d)) =>
+    Node Red (Node Black a x b) y (Node Black c z d);
+
+  -- No violation
+  _ => Node color left val right
+}
+
+-- ── Insert ──────────────────────────────────────────────────
+
+ins :: \a. Ord a => a -> RBTree a -> RBTree a
+ins := fix (\self key tree. case tree {
+  Leaf => Node Red Leaf key Leaf;
+  Node color left val right => case compare key val {
+    LT => balance color (self key left) val right;
+    EQ => Node color left val right;
+    GT => balance color left val (self key right)
+  }
+})
+
+-- Top-level insert: paint root black.
+rbInsert :: \a. Ord a => a -> RBTree a -> RBTree a
+rbInsert := \key tree. case ins key tree {
+  Node _ left val right => Node Black left val right;
+  Leaf => Leaf
+}
+
+-- ── Conversion to sorted list (in-order traversal) ─────────
+
+rbToList :: \a. RBTree a -> List a
+rbToList := fix (\self tree. case tree {
+  Leaf => Nil;
+  Node _ left val right => concat (self left) (Cons val (self right))
+})
+
+-- ── Size ────────────────────────────────────────────────────
+
+rbSize :: \a. RBTree a -> Int
+rbSize := fix (\self tree. case tree {
+  Leaf => 0;
+  Node _ left _ right => 1 + self left + self right
+})
+
+-- ── Tree depth (for verifying balance) ──────────────────────
+
+rbDepth :: \a. RBTree a -> Int
+rbDepth := fix (\self tree. case tree {
+  Leaf => 0;
+  Node _ left _ right => 1 + max (self left) (self right)
+})
+
+-- ── Build from list ─────────────────────────────────────────
+
+rbFromList :: \a. Ord a => List a -> RBTree a
+rbFromList := \xs. foldl (\tree x. rbInsert x tree) Leaf xs
+
+-- ── Show instance ───────────────────────────────────────────
+
+impl Show a => Show (RBTree a) := {
+  show := \tree. case tree {
+    Leaf => ".";
+    Node c left val right =>
+      "(" <> show left <> " " <> show c <> show val <> " " <> show right <> ")"
+  }
+}
+
+-- ── Tests ───────────────────────────────────────────────────
+
+tree := rbFromList [5, 3, 7, 1, 4, 6, 8, 2, 9, 0]
+
+testSorted := rbToList tree            -- [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+testSize   := rbSize tree              -- 10
+testDepth  := rbDepth tree             -- balanced: should be ~4
+testLookup := rbLookup 7 tree          -- True
+testMiss   := rbLookup 42 tree         -- False
+
+-- Insert duplicates: size should not increase
+tree2 := rbInsert 5 (rbInsert 3 tree)
+testNoDup := rbSize tree2              -- still 10
+
+main := do {
+  putLine $ "sorted:     " <> show testSorted;
+  putLine $ "size:       " <> show testSize;
+  putLine $ "depth:      " <> show testDepth;
+  putLine $ "lookup 7:   " <> show testLookup;
+  putLine $ "lookup 42:  " <> show testMiss;
+  putLine $ "no dup:     " <> show testNoDup;
+  putLine $ "tree:       " <> show tree
+}

@@ -1,0 +1,110 @@
+-- GICEL Example: Type-Level Natural Numbers
+--
+-- Peano naturals promoted via DataKinds. Type families compute addition
+-- at the type level. A length-indexed vector (Vec n a) enforces
+-- length invariants statically — concatenation types prove n + m.
+--
+-- Demonstrates: DataKinds promotion, type families, GADTs, type equality.
+--
+-- Run: bin/gicel run examples/gicel/types/type-level-nat.gicel
+
+import Prelude
+import Console
+
+-- ── Peano naturals ──────────────────────────────────────────
+--
+-- Automatically promoted to kinds:
+--   Nat  :: Kind
+--   Z    :: Nat
+--   S    :: Nat -> Nat
+
+form Nat := { Z: Nat; S: Nat -> Nat }
+
+-- ── Type-level addition ─────────────────────────────────────
+
+type Plus :: Nat := \(m: Nat) (n: Nat). case (m, n) {
+  (Z, n)   => n;
+  (S p, n) => S (Plus p n)
+}
+-- Plus (S (S Z)) (S Z) reduces to S (S (S Z)) at compile time.
+
+-- ── Length-indexed vector (GADT) ────────────────────────────
+
+form Vec := \(n: Nat) a. {
+  VNil:  Vec Z a;
+  VCons: \(m: Nat). a -> Vec m a -> Vec (S m) a
+}
+
+-- ── Smart constructors ──────────────────────────────────────
+
+vec0 :: \a. Vec Z a
+vec0 := VNil
+
+vec1 :: \a. a -> Vec (S Z) a
+vec1 := \x. VCons x VNil
+
+vec2 :: \a. a -> a -> Vec (S (S Z)) a
+vec2 := \x y. VCons x (VCons y VNil)
+
+vec3 :: \a. a -> a -> a -> Vec (S (S (S Z))) a
+vec3 := \x y z. VCons x (VCons y (VCons z VNil))
+
+-- ── vhead: statically safe — cannot be called on empty vec ──
+
+vhead :: \(n: Nat) a. Vec (S n) a -> a
+vhead := \v. case v { VCons x _ => x }
+
+-- ── vtail: returns a vector one element shorter ─────────────
+
+vtail :: \(n: Nat) a. Vec (S n) a -> Vec n a
+vtail := \v. case v { VCons _ xs => xs }
+
+-- ── vmap: preserves length ──────────────────────────────────
+
+vmap :: \(n: Nat) a b. (a -> b) -> Vec n a -> Vec n b
+vmap := \f v. case v {
+  VNil       => VNil;
+  VCons x xs => VCons (f x) (vmap f xs)
+}
+
+-- ── vappend: length is Plus m n ─────────────────────────────
+
+vappend :: \(m: Nat) (n: Nat) a. Vec m a -> Vec n a -> Vec (Plus m n) a
+vappend := \xs ys. case xs {
+  VNil       => ys;
+  VCons x rest => VCons x (vappend rest ys)
+}
+
+-- ── vtoList: erase length index ─────────────────────────────
+
+vtoList :: \(n: Nat) a. Vec n a -> List a
+vtoList := \v. case v {
+  VNil       => Nil;
+  VCons x xs => Cons x (vtoList xs)
+}
+
+-- ── Show instance ───────────────────────────────────────────
+
+impl Show a => Show (Vec n a) := {
+  show := \v. "Vec " <> show (vtoList v)
+}
+
+-- ── Tests ───────────────────────────────────────────────────
+
+v1 := vec3 1 2 3            -- Vec (S (S (S Z))) Int
+v2 := vec2 4 5              -- Vec (S (S Z)) Int
+v3 := vappend v1 v2         -- Vec (Plus (S (S (S Z))) (S (S Z))) Int
+                              -- = Vec (S (S (S (S (S Z))))) Int
+
+testHead := vhead v1         -- 1
+testTail := vtail v1         -- Vec [2, 3]
+testMap  := vmap (* 10) v1   -- Vec [10, 20, 30]
+
+main := do {
+  putLine $ "v1:       " <> show v1;
+  putLine $ "v2:       " <> show v2;
+  putLine $ "v1 ++ v2: " <> show v3;
+  putLine $ "head v1:  " <> show testHead;
+  putLine $ "tail v1:  " <> show testTail;
+  putLine $ "map *10:  " <> show testMap
+}

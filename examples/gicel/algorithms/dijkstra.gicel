@@ -1,0 +1,148 @@
+-- GICEL Example: Dijkstra's Shortest Path Algorithm
+--
+-- Computes single-source shortest paths on a weighted directed graph.
+-- Uses mutable Effect.Map for distance tracking, immutable Data.Map for
+-- the adjacency list, and a worklist-based priority queue simulation.
+--
+-- Demonstrates: mutable effects (Effect.Map), qualified imports,
+-- immutable data (Data.Map), recursive stateful algorithms.
+--
+-- Requires: --recursion (worklist loop uses fix)
+-- Run: bin/gicel run --recursion examples/gicel/algorithms/dijkstra.gicel
+
+import Prelude
+import Data.Map as G
+import Effect.Map as MMap
+import Console
+
+-- ── Graph: adjacency list with weights ──────────────────────
+
+-- Adjacency map: node → list of (destination, weight)
+type WGraph := G.Map Int (List (Int, Int))
+
+mkWGraph :: List (Int, Int, Int) -> WGraph
+mkWGraph := \edges. foldl (\g (from, to, w).
+  {
+    nbrs := maybe Nil id (G.lookup from g);
+    G.insert from (Cons (to, w) nbrs) g
+  }
+) G.empty edges
+
+wNeighbors :: Int -> WGraph -> List (Int, Int)
+wNeighbors := \node g. maybe Nil id (G.lookup node g)
+
+-- ── Priority worklist (simple list-based) ───────────────────
+
+extractMin :: List (Int, Int) -> Maybe ((Int, Int), List (Int, Int))
+extractMin := \wl. case wl {
+  Nil => Nothing;
+  Cons first rest => {
+    go := fix (\self best others remaining. case remaining {
+      Nil => Just (best, others);
+      Cons entry more =>
+        if snd entry < snd best
+          then self entry (Cons best others) more
+          else self best (Cons entry others) more
+    });
+    go first Nil rest
+  }
+}
+
+-- ── Dijkstra core (mutable map for distances) ──────────────
+
+-- Relax neighbors: for each (dest, weight), update dist if shorter.
+relaxNeighbors :: \(r: Row). Int -> List (Int, Int) -> MMap Int Int
+  -> Effect { mmap: () | r } (List (Int, Int))
+relaxNeighbors := \sourceDist neighbors dist. {
+  go := fix (\self nbrs acc. case nbrs {
+    Nil => pure acc;
+    Cons (dest, weight) rest => do {
+      newDist := sourceDist + weight;
+      current <- MMap.lookup dest dist;
+      shouldUpdate := case current {
+        Nothing => True;
+        Just cd => newDist < cd
+      };
+      acc2 <- if shouldUpdate
+        then do {
+          MMap.insert dest newDist dist;
+          pure (Cons (dest, newDist) acc)
+        }
+        else pure acc;
+      self rest acc2
+    }
+  });
+  go neighbors Nil
+}
+
+-- Main loop: extract min from worklist, relax neighbors, repeat.
+dijkstraLoop :: \(r: Row). WGraph -> List (Int, Int) -> MMap Int Int
+  -> Effect { mmap: () | r } ()
+dijkstraLoop := fix (\self graph worklist dist. case extractMin worklist {
+  Nothing => pure ();
+  Just ((node, d), rest) => do {
+    current <- MMap.lookup node dist;
+    skip := case current {
+      Nothing => False;
+      Just cd => d > cd
+    };
+    if skip
+      then self graph rest dist
+      else do {
+        nbrs := wNeighbors node graph;
+        newEntries <- relaxNeighbors d nbrs dist;
+        self graph (concat newEntries rest) dist
+      }
+  }
+})
+
+-- Entry point: initialize mutable distance map and run.
+dijkstra :: \(r: Row). WGraph -> Int -> List Int
+  -> Effect { mmap: () | r } (List (Int, Maybe Int))
+dijkstra := \graph source targets. do {
+  dist <- MMap.new;
+  MMap.insert source 0 dist;
+  dijkstraLoop graph [(source, 0)] dist;
+  -- Collect results
+  go := fix (\self nodes acc. case nodes {
+    Nil => pure (reverse acc);
+    Cons n rest => do {
+      d <- MMap.lookup n dist;
+      self rest (Cons (n, d) acc)
+    }
+  });
+  go targets Nil
+}
+
+-- ── Display helpers ─────────────────────────────────────────
+
+showResult :: List (Int, Maybe Int) -> String
+showResult := \results.
+  join ", " (fmap (\(n, d). show n <> ":" <> case d {
+    Just dist => show dist;
+    Nothing   => "inf"
+  }) results)
+
+-- ── Tests ───────────────────────────────────────────────────
+--
+-- Graph:
+--   0 --2--> 1 --3--> 3
+--   |        |        ^
+--   1        1        |
+--   v        v        1
+--   2 ------4------> 4 ----> 3
+--
+-- Shortest from 0:
+--   0:0, 1:2, 2:1, 3:4, 4:3
+
+graph := mkWGraph [
+  (0, 1, 2), (0, 2, 1),
+  (1, 3, 3), (1, 4, 1),
+  (2, 4, 4),
+  (4, 3, 1)
+]
+
+main := do {
+  results <- dijkstra graph 0 [0, 1, 2, 3, 4];
+  putLine $ "Dijkstra from 0: " <> showResult results
+}

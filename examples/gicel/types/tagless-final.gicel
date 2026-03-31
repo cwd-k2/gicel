@@ -1,0 +1,150 @@
+-- GICEL Example: Tagless Final DSL
+--
+-- An extensible expression DSL encoded as type class methods rather than
+-- GADT constructors. Each "interpreter" is an instance — you can add new
+-- interpreters without modifying the DSL definition. Combines higher-kinded
+-- type classes, multi-parameter classes, and instance composition.
+--
+-- Run: bin/gicel run --recursion examples/gicel/types/tagless-final.gicel
+
+import Prelude
+import Console
+
+-- ── DSL interface ───────────────────────────────────────────
+--
+-- The DSL is a type class parameterized by a representation type `repr`.
+-- Each method constructs a term in that representation.
+
+form Symantics := \(repr: Type -> Type). {
+  int:  Int -> repr Int;
+  bool: Bool -> repr Bool;
+  add:  repr Int -> repr Int -> repr Int;
+  mul:  repr Int -> repr Int -> repr Int;
+  leq:  repr Int -> repr Int -> repr Bool;
+  if_:  \a. repr Bool -> repr a -> repr a -> repr a
+}
+
+-- ── Interpreter 1: Evaluator ────────────────────────────────
+--
+-- The evaluator uses an identity wrapper: repr a = Eval a = a.
+
+form Eval := \a. { MkEval: a -> Eval a }
+
+runEval :: \a. Eval a -> a
+runEval := \e. case e { MkEval x => x }
+
+impl Symantics Eval := {
+  int  := \n. MkEval n;
+  bool := \b. MkEval b;
+  add  := \x y. MkEval (runEval x + runEval y);
+  mul  := \x y. MkEval (runEval x * runEval y);
+  leq  := \x y. MkEval (runEval x <= runEval y);
+  if_  := \c t f. MkEval (case runEval c { True => runEval t; False => runEval f })
+}
+
+-- ── Interpreter 2: Pretty-printer ──────────────────────────
+--
+-- The pretty-printer accumulates a string representation.
+
+form PP := \a. { MkPP: String -> PP a }
+
+runPP :: \a. PP a -> String
+runPP := \p. case p { MkPP s => s }
+
+impl Symantics PP := {
+  int  := \n. MkPP (show n);
+  bool := \b. MkPP (show b);
+  add  := \x y. MkPP ("(" <> runPP x <> " + " <> runPP y <> ")");
+  mul  := \x y. MkPP ("(" <> runPP x <> " * " <> runPP y <> ")");
+  leq  := \x y. MkPP ("(" <> runPP x <> " <= " <> runPP y <> ")");
+  if_  := \c t f. MkPP ("if " <> runPP c <> " then " <> runPP t <> " else " <> runPP f)
+}
+
+-- ── Interpreter 3: Constant folder ─────────────────────────
+--
+-- Optimizer that partially evaluates constant subexpressions,
+-- falling back to the pretty-printed form when values are unknown.
+
+form CF := \a. { MkCF: Maybe a -> String -> CF a }
+
+runCF :: \a. CF a -> (Maybe a, String)
+runCF := \c. case c { MkCF v s => (v, s) }
+
+cfVal :: \a. CF a -> Maybe a
+cfVal := \c. case c { MkCF v _ => v }
+
+cfStr :: \a. CF a -> String
+cfStr := \c. case c { MkCF _ s => s }
+
+impl Symantics CF := {
+  int  := \n. MkCF (Just n) (show n);
+  bool := \b. MkCF (Just b) (show b);
+  add  := \x y. case (cfVal x, cfVal y) {
+    (Just a, Just b) => { r := a + b; MkCF (Just r) (show r) };
+    _                => MkCF Nothing ("(" <> cfStr x <> " + " <> cfStr y <> ")")
+  };
+  mul  := \x y. case (cfVal x, cfVal y) {
+    (Just a, Just b) => { r := a * b; MkCF (Just r) (show r) };
+    _                => MkCF Nothing ("(" <> cfStr x <> " * " <> cfStr y <> ")")
+  };
+  leq  := \x y. case (cfVal x, cfVal y) {
+    (Just a, Just b) => { r := a <= b; MkCF (Just r) (show r) };
+    _                => MkCF Nothing ("(" <> cfStr x <> " <= " <> cfStr y <> ")")
+  };
+  if_  := \c t f. case cfVal c {
+    Just True  => t;
+    Just False => f;
+    Nothing    => MkCF Nothing ("if " <> cfStr c <> " then " <> cfStr t <> " else " <> cfStr f)
+  }
+}
+
+-- ── Extension: add lambda and application ───────────────────
+--
+-- Extending the DSL without modifying Symantics — just add a new class.
+
+form SymLam := \(repr: Type -> Type). Symantics repr => {
+  lam: \a b. (repr a -> repr b) -> repr (a -> b);
+  app: \a b. repr (a -> b) -> repr a -> repr b
+}
+
+impl SymLam Eval := {
+  lam := \f. MkEval (\x. runEval (f (MkEval x)));
+  app := \f x. MkEval (runEval f (runEval x))
+}
+
+-- ── Polymorphic term: one definition, multiple interpretations ─
+
+-- "if 3 <= 5 then (2 + 3) * 4 else 0"
+term1 :: \(repr: Type -> Type). Symantics repr => repr Int
+term1 := if_ (leq (int 3) (int 5)) (mul (add (int 2) (int 3)) (int 4)) (int 0)
+
+-- "(2 + 3) * (4 + 5)" — constant folding reduces to 45
+term2 :: \(repr: Type -> Type). Symantics repr => repr Int
+term2 := mul (add (int 2) (int 3)) (add (int 4) (int 5))
+
+-- "if True then 1 else 2" — constant folding eliminates the branch
+term3 :: \(repr: Type -> Type). Symantics repr => repr Int
+term3 := if_ (bool True) (int 1) (int 2)
+
+-- Lambda example: (\x. x + x) applied to 21
+term4 :: \(repr: Type -> Type). SymLam repr => repr Int
+term4 := app (lam (\x. add x x)) (int 21)
+
+main := do {
+  putLine "── Evaluator ──";
+  putLine $ "term1: " <> show (runEval (term1 :: Eval Int));
+  putLine $ "term2: " <> show (runEval (term2 :: Eval Int));
+  putLine $ "term3: " <> show (runEval (term3 :: Eval Int));
+  putLine $ "term4: " <> show (runEval (term4 :: Eval Int));
+
+  putLine "";
+  putLine "── Pretty-printer ──";
+  putLine $ "term1: " <> runPP (term1 :: PP Int);
+  putLine $ "term2: " <> runPP (term2 :: PP Int);
+  putLine $ "term3: " <> runPP (term3 :: PP Int);
+
+  putLine "";
+  putLine "── Constant folder ──";
+  putLine $ "term2: " <> cfStr (term2 :: CF Int);
+  putLine $ "term3: " <> cfStr (term3 :: CF Int)
+}
