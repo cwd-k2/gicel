@@ -210,7 +210,7 @@ func doBlockSource(n int) string {
 	b.WriteString("  gibind := \\ma f. MkComp (\\s. case ma { MkComp run => case run s { (a, s2) => case f a { MkComp run2 => run2 s2 } } })\n}\n")
 	b.WriteString("myGet :: MyComp Triv {} {} Bool\nmyGet := MkComp (\\s. (s, s))\n")
 	b.WriteString("myPut :: Bool -> MyComp Triv {} {} Unit\nmyPut := \\v. MkComp (\\s. (MkUnit, v))\n")
-	b.WriteString("compute := do {\n  myPut True;\n")
+	b.WriteString("compute :: MyComp Triv {} {} Bool\ncompute := do {\n  myPut True;\n")
 	for i := 0; i < n; i++ {
 		fmt.Fprintf(&b, "  x%d <- myGet; myPut x%d;\n", i, i)
 	}
