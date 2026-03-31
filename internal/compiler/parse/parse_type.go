@@ -133,7 +133,18 @@ func (p *Parser) parseKindAtom() syn.TypeExpr {
 		// All uppercase names (Type, Row, Constraint, Kind, user-defined) → TyExprCon.
 		tok := p.peek()
 		p.advance()
-		return &syn.TyExprCon{Name: tok.Text, S: tok.S}
+		head := &syn.TyExprCon{Name: tok.Text, S: tok.S}
+		// Kind application: "Type l" where l is a level/kind variable.
+		if p.peek().Kind == syn.TokLower {
+			argTok := p.peek()
+			p.advance()
+			arg := &syn.TyExprVar{Name: argTok.Text, S: argTok.S}
+			return &syn.TyExprApp{
+				Fun: head, Arg: arg,
+				S: span.Span{Start: tok.S.Start, End: argTok.S.End},
+			}
+		}
+		return head
 	case p.peek().Kind == syn.TokLower:
 		// Kind variable reference (e.g., k in "\ (k: Kind). k -> Type")
 		tok := p.peek()
