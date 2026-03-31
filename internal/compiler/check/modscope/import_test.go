@@ -1008,7 +1008,7 @@ func TestModuleOwnedTypeNames_OwnedVsReExported(t *testing.T) {
 	imp := NewImporter(rec.importEnv())
 	modC := withAlias(withClass(withFamily(emptyModule(), "FamC"), "ClsC"), "AliC")
 	modA := withOwned(
-		withAlias(withClass(withFamily(emptyModule(), "FamC", ), "ClsC", ), "AliC"),
+		withAlias(withClass(withFamily(emptyModule(), "FamC"), "ClsC"), "AliC"),
 		[]string{"OwnType"}, nil,
 	)
 	withFamily(modA, "FamA")

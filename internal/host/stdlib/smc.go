@@ -8,7 +8,8 @@ import (
 
 // MergeImpl implements the merge primitive for parallel composition.
 // merge : Computation pre₁ post₁ a → Computation pre₂ post₂ b
-//       → Computation (Merge pre₁ pre₂) (Merge post₁ post₂) (a, b)
+//
+//	→ Computation (Merge pre₁ pre₂) (Merge post₁ post₂) (a, b)
 //
 // Direct application (merge comp1 comp2) is intercepted at compile time
 // as a special form and compiled to ir.Merge → OpMerge, which provides

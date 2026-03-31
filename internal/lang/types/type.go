@@ -333,11 +333,11 @@ func (t *TyError) Span() span.Span    { return t.S }
 
 // --- Children ---
 
-func (t *TyVar) Children() []Type      { return nil }
-func (t *TyCon) Children() []Type      { return nil }
-func (t *TyApp) Children() []Type      { return []Type{t.Fun, t.Arg} }
-func (t *TyArrow) Children() []Type    { return []Type{t.From, t.To} }
-func (t *TyForall) Children() []Type   { return []Type{t.Kind, t.Body} }
+func (t *TyVar) Children() []Type    { return nil }
+func (t *TyCon) Children() []Type    { return nil }
+func (t *TyApp) Children() []Type    { return []Type{t.Fun, t.Arg} }
+func (t *TyArrow) Children() []Type  { return []Type{t.From, t.To} }
+func (t *TyForall) Children() []Type { return []Type{t.Kind, t.Body} }
 func (t *TyCBPV) Children() []Type {
 	if t.Grade != nil {
 		return []Type{t.Pre, t.Post, t.Result, t.Grade}

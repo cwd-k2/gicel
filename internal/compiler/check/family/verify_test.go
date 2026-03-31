@@ -158,8 +158,8 @@ func TestVerifyInjectivity_NestedPatterns(t *testing.T) {
 	// NOT injective: F (Maybe Int) = Int, F (List Int) = Int → same RHS, different LHS.
 	h := newTestHarness(nil)
 	info := &env.TypeFamilyInfo{
-		Name:   "F",
-		Params: []env.TFParam{{Name: "a", Kind: types.TypeOfTypes}},
+		Name:       "F",
+		Params:     []env.TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
 		ResultName: "result",
 		Equations: []env.TFEquation{

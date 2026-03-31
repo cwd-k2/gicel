@@ -159,4 +159,3 @@ func (ch *Checker) checkAppQL(head syntax.Expr, args []spineArg, expected types.
 	// Step 5: Final subsumption check.
 	return ch.subsCheck(retTy, expected, core, s), true
 }
-

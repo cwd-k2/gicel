@@ -138,8 +138,8 @@ type CheckState struct {
 	config          *CheckConfig
 	freshID         int
 	depth           int
-	strictTypeNames bool     // enabled after declaration processing
-	cancelled       bool     // set when context is cancelled
+	strictTypeNames bool       // enabled after declaration processing
+	cancelled       bool       // set when context is cancelled
 	solverLevel     func() int // injected solver level getter for freshMeta
 }
 

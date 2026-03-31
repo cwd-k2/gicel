@@ -18,9 +18,9 @@ import (
 
 // testEnvConfig holds optional overrides for testEnv.
 type testEnvConfig struct {
-	families  map[string]*env.TypeFamilyInfo
-	tfLimit   int
-	stuckFn   func(string, []types.Type, types.Type, span.Span) *types.TyMeta
+	families map[string]*env.TypeFamilyInfo
+	tfLimit  int
+	stuckFn  func(string, []types.Type, types.Type, span.Span) *types.TyMeta
 }
 
 type testHarness struct {
@@ -75,9 +75,9 @@ func newTestHarness(cfg *testEnvConfig) *testHarness {
 
 // Type constructors for concise test setup.
 
-func con(name string) *types.TyCon           { return types.Con(name) }
-func tyvar(name string) *types.TyVar         { return &types.TyVar{Name: name} }
-func app(f, a types.Type) *types.TyApp       { return &types.TyApp{Fun: f, Arg: a} }
+func con(name string) *types.TyCon     { return types.Con(name) }
+func tyvar(name string) *types.TyVar   { return &types.TyVar{Name: name} }
+func app(f, a types.Type) *types.TyApp { return &types.TyApp{Fun: f, Arg: a} }
 
 func meta(id int) *types.TyMeta {
 	return &types.TyMeta{ID: id, Kind: types.TypeOfTypes}

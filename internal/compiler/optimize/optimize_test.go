@@ -109,9 +109,9 @@ func con(name string, args ...ir.Core) ir.Core { return &ir.Con{Name: name, Args
 func pcon(name string, args ...ir.Pattern) ir.Pattern {
 	return &ir.PCon{Con: name, Args: args}
 }
-func pvar(name string) ir.Pattern              { return &ir.PVar{Name: name} }
-func pwild() ir.Pattern                        { return &ir.PWild{} }
-func plit(val any) ir.Pattern                   { return &ir.PLit{Value: val} }
+func pvar(name string) ir.Pattern             { return &ir.PVar{Name: name} }
+func pwild() ir.Pattern                       { return &ir.PWild{} }
+func plit(val any) ir.Pattern                 { return &ir.PLit{Value: val} }
 func alt(pat ir.Pattern, body ir.Core) ir.Alt { return ir.Alt{Pattern: pat, Body: body} }
 func cas(scrut ir.Core, alts ...ir.Alt) ir.Core {
 	return &ir.Case{Scrutinee: scrut, Alts: alts}

@@ -130,8 +130,8 @@ type Unifier struct {
 	trail         []trailEntry
 	snapshotDepth int // number of active Snapshot scopes (for trail-free path compression)
 
-	AliasExpander  AliasExpander  // optional; set by Checker after alias processing
-	FamilyReducer  FamilyReducer  // optional; set by Checker after type family processing
+	AliasExpander   AliasExpander   // optional; set by Checker after alias processing
+	FamilyReducer   FamilyReducer   // optional; set by Checker after type family processing
 	TryReduceFamily TryReduceFamily // optional; set by Checker — single-node reduction for zonking
 
 	// OnSolve is called when a metavariable is solved.
@@ -342,8 +342,10 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 
 // normalizeCompApp converts fully-applied TyApp chains to their special type
 // representations. Handles both 4-arg (graded) and 3-arg (legacy) forms:
-//   4-arg: TyApp(TyApp(TyApp(TyApp(TyCon("Computation"), grade), pre), post), result)
-//   3-arg: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+//
+//	4-arg: TyApp(TyApp(TyApp(TyApp(TyCon("Computation"), grade), pre), post), result)
+//	3-arg: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+//
 // This arises when a class type parameter is substituted with Computation.
 func normalizeCompApp(t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
