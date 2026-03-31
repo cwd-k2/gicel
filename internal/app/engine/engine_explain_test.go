@@ -140,6 +140,7 @@ func TestExplainStepJSON(t *testing.T) {
 
 func TestExplainFunctionBoundaries(t *testing.T) {
 	eng := NewEngine()
+	eng.DisableInlining() // explain traces require function boundaries
 	_ = eng.Use(stdlib.Prelude)
 	_ = eng.Use(stdlib.State)
 
@@ -273,5 +274,45 @@ main := id T
 	}
 	if len(events) == 0 {
 		t.Error("expected at least one check trace event")
+	}
+}
+
+// ── Explain: merge + IO interaction (#E) ──
+
+func TestExplainMergeWithIO(t *testing.T) {
+	// Regression: capValEqual panicked on uncomparable CapEnv values
+	// ([]string from IO output buffer) when explain trace computed CapEnv diffs.
+	eng := NewEngine()
+	eng.DisableInlining()
+	_ = eng.Use(stdlib.Prelude)
+	_ = eng.Use(stdlib.IO)
+	_ = eng.Use(stdlib.State)
+
+	var steps []eval.ExplainStep
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.IO
+import Effect.State
+
+main := do {
+  _ <- put 1;
+  _ <- print "hello";
+  r <- merge (do { get }) (do { pure (2 :: Int) });
+  pure r
+}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := map[string]any{"state": int64(0)}
+	_, err = rt.RunWith(context.Background(), &RunOptions{
+		Explain: func(s eval.ExplainStep) { steps = append(steps, s) },
+		Caps:    caps,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) == 0 {
+		t.Error("expected trace steps")
 	}
 }

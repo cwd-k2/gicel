@@ -351,7 +351,9 @@ func capEnvDiffStructured(old, new CapEnv) map[string][2]string {
 	return diffs
 }
 
-// capValEqual compares two capability values structurally.
+// capValEqual compares two capability values.
+// Uses == for comparable types; returns false for uncomparable types
+// (e.g. []string stored by IO capabilities) where == would panic.
 func capValEqual(a, b any) bool {
 	if a == nil && b == nil {
 		return true
@@ -359,7 +361,7 @@ func capValEqual(a, b any) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	// Reference equality for runtime values.
+	defer func() { recover() }()
 	return a == b
 }
 
