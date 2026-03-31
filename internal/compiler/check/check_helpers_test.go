@@ -185,6 +185,7 @@ func newTestChecker() *Checker {
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
 	ch.unifier.Budget = ch.budget
 	ch.solver = solve.New(ch)
+	ch.solverLevel = ch.solver.Level
 	return ch
 }
 

@@ -133,34 +133,6 @@ func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	return ch.typeResolver().hasDeterministicKind(ty)
 }
 
-func (ch *Checker) checkTypeAppKind(fun, arg types.Type, s span.Span) {
-	ch.typeResolver().checkTypeAppKind(fun, arg, s)
-}
-
-func (ch *Checker) aliasParamKind(aliasName string, i int) types.Type {
-	return ch.typeResolver().aliasParamKind(aliasName, i)
-}
-
 func (ch *Checker) promotedFieldKind(fieldType types.Type) types.Type {
 	return ch.typeResolver().promotedFieldKind(fieldType)
-}
-
-func (ch *Checker) resolveUnqualifiedTypeCon(name string, s span.Span) types.Type {
-	return ch.typeResolver().resolveUnqualifiedTypeCon(name, s)
-}
-
-func (ch *Checker) resolveQualifiedTypeCon(qualifier, name string, s span.Span) types.Type {
-	return ch.typeResolver().resolveQualifiedTypeCon(qualifier, name, s)
-}
-
-func (ch *Checker) isKnownTypeName(name string) bool {
-	return ch.typeResolver().isKnownTypeName(name)
-}
-
-func (ch *Checker) tryExpandApp(fun, arg types.Type, s span.Span) types.Type {
-	return ch.typeResolver().tryExpandApp(fun, arg, s)
-}
-
-func (ch *Checker) decomposeQuantifiedConstraint(ty types.Type) *types.QuantifiedConstraint {
-	return ch.typeResolver().decomposeQuantifiedConstraint(ty)
 }

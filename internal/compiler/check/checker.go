@@ -138,8 +138,9 @@ type CheckState struct {
 	config          *CheckConfig
 	freshID         int
 	depth           int
-	strictTypeNames bool // enabled after declaration processing
-	cancelled       bool // set when context is cancelled
+	strictTypeNames bool     // enabled after declaration processing
+	cancelled       bool     // set when context is cancelled
+	solverLevel     func() int // injected solver level getter for freshMeta
 }
 
 // Checker holds mutable state during type checking.
@@ -269,6 +270,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 		},
 	}
 	ch.solver = solve.New(ch)
+	ch.solverLevel = ch.solver.Level
 	ch.wireUnifier()
 	ch.initContext()
 	ch.importModules(prog)
@@ -382,9 +384,9 @@ func (s *CheckState) freshDictName(className string) string {
 	return prefixDict + "_" + className + "_" + strconv.Itoa(s.fresh())
 }
 
-func (ch *Checker) freshMeta(k types.Type) *types.TyMeta {
-	id := ch.fresh()
-	return &types.TyMeta{ID: id, Kind: k, Level: ch.solver.Level()}
+func (s *CheckState) freshMeta(k types.Type) *types.TyMeta {
+	id := s.fresh()
+	return &types.TyMeta{ID: id, Kind: k, Level: s.solverLevel()}
 }
 
 func (s *CheckState) freshSkolem(name string, k types.Type) *types.TySkolem {
