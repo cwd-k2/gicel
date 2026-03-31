@@ -1,22 +1,41 @@
+-- Grade algebra: the foundation of graded indexed monads.
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
   type GradeCompose :: g -> g -> g;
   type GradeDrop :: g
 }
 
-form IxMonad := \(m: Row -> Row -> Type -> Type). {
-  ixpure: \a (r: Row). a -> m r r a;
-  ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
-              m r1 r2 a -> (a -> m r2 r3 b) -> m r1 r3 b
+-- Trivial grade algebra: a single-element grade that carries no information.
+-- Used for ungraded indexed monads (IxMonad = GIMonad Trivial).
+form Trivial := { Triv: Trivial }
+
+type TrivialJoin :: Trivial -> Trivial -> Trivial :=
+  \(a: Trivial) (b: Trivial). Triv
+type TrivialCompose :: Trivial -> Trivial -> Trivial :=
+  \(a: Trivial) (b: Trivial). Triv
+
+impl GradeAlgebra Trivial := {
+  type GradeJoin := TrivialJoin;
+  type GradeCompose := TrivialCompose;
+  type GradeDrop := Triv
 }
 
+-- GIMonad: the canonical indexed monad class, parameterized by grade algebra.
 form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type). GradeAlgebra g => {
   gipure: \a (r: Row). a -> m GradeDrop r r a;
   gibind: \a b (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
               m e1 r1 r2 a -> (a -> m e2 r2 r3 b) -> m (GradeCompose e1 e2) r1 r3 b
 }
 
-type Lift := \(m: Type -> Type) (r1: Row) (r2: Row) a. m a
+-- IxMonad: ungraded indexed monad. Equivalent to GIMonad Trivial conceptually.
+-- Kept as a class (not alias) for direct impl support. Grade is always Triv.
+form IxMonad := \(m: Trivial -> Row -> Row -> Type -> Type). {
+  ixpure: \a (r: Row). a -> m Triv r r a;
+  ixbind: \a b (r1: Row) (r2: Row) (r3: Row).
+              m Triv r1 r2 a -> (a -> m Triv r2 r3 b) -> m Triv r1 r3 b
+}
+
+type Lift := \(m: Type -> Type) (g: Kind) (r1: Row) (r2: Row) a. m a
 type Effect := \r a. Computation Zero r r a
 type Suspended := \r a. Thunk Zero r r a
 
@@ -26,13 +45,6 @@ type Suspended := \r a. Thunk Zero r r a
 impl GradeAlgebra g => GIMonad g Computation := {
   gipure := pure;
   gibind := bind
-}
-
--- IxMonad instance for partially-applied Computation (Computation g).
--- Needed for Lift-based do-dispatch in Prelude list operations.
-impl IxMonad (Computation g) := {
-  ixpure := pure;
-  ixbind := bind
 }
 
 seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row). Computation @e1 r1 r2 a -> Computation @e2 r2 r3 b -> Computation @e2 r1 r3 b
