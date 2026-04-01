@@ -14,7 +14,7 @@ Provides failure/error effects via the `fail` capability. Load with `eng.Use(gic
 
 `fail`/`failWith` abort the computation. Use `try` to catch failures and convert to `Result`.
 
-| `try`        | `\e a r. Suspended { fail: e \| r } a -> Effect r (Result e a)` | Catch fail → Result |
+| `try` | `\e a r. Suspended { fail: e \| r } a -> Effect r (Result e a)` | Catch fail → Result |
 
 **Example:**
 

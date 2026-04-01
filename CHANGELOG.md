@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.25.0 — 2026-03-31
+## v0.25.0 — 2026-04-01
 
 ### Quick Look Impredicativity
 
@@ -30,10 +30,37 @@
 - `freshMeta` moved from `*Checker` to `*CheckState` via `solverLevel` callback injection.
 - Removed 6 unused delegation wrappers from `resolve_bridge.go`.
 
-### IR Verifier
+### Declaration Pipeline (Step C)
 
-- Structural invariant checker: V1 (no Error nodes), V2 (auto-force Bind structure), V3 (no double-thunk).
-- Inserted into `postCheck` pipeline behind `EnableVerifyIR()` debug flag.
+- `declPipeline` rewritten as explicit named phases with pre/post assertions.
+- IR verifier integrated as pipeline stage rather than ad-hoc post-check.
+
+### IR Verifier (V1–V6)
+
+- V1 (no Error nodes), V2 (auto-force Bind structure), V3 (no double-thunk).
+- V4 (declPipeline phase assertions), V5 (bound variable scope chain), V5a (free-variable coherence).
+- V6 (label erasure assertion — no residual labels after erasure pass).
+
+### Performance
+
+- **Scope-stack emitter**: replaced map-based scope tracking with stack-based emitter, reducing allocations in bytecode compilation.
+- **TransformMut**: in-place IR transformation pass, avoiding deep copies during optimization and label erasure.
+- **Scratchpad reuse**: shared scratch buffers across emitter passes for instruction sequences.
+- **Emitter pre-allocation**: pre-sized instruction buffers based on IR node count.
+- **Indexed instance resolution**: faster evidence lookup via index rather than linear scan.
+
+### Structural Cleanup
+
+- Unified free-variable traversal into single `FreeVars` implementation.
+- Barrier-frame extraction: separated barrier logic from main evaluator loop.
+- Removed `SubstKindInType` wrapper (subsumed by general substitution).
+- File splits for oversized modules (`check`, `eval`).
+
+### Bug Fixes
+
+- **SuperClosure race**: fixed concurrent access to shared closure environment in parallel evaluation.
+- **Qualified type resolution**: fixed resolution failure for qualified names in nested module contexts.
+- **Field test fixes**: `try` expression error propagation, `jsonEncode` for nested structures, multi-line expression parsing edge cases.
 
 ## v0.24.0 — 2026-03-31
 
