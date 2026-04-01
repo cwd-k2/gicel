@@ -151,6 +151,9 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 	frame.proto = proto
 	frame.ip = 0
 	frame.source = proto.Source
+	if proto.Source != nil && vm.obs != nil {
+		vm.obs.SetSource(proto.Source)
+	}
 	return nil
 }
 
@@ -181,6 +184,9 @@ func (vm *VM) callThunk(proto *Proto, captured []eval.Value, frame *Frame) error
 	vm.ensureLocals(bp + proto.NumLocals)
 	copy(vm.locals[bp:], captured)
 	vm.pushFrame(proto, bp, frame.capEnv, proto.Source)
+	if proto.Source != nil && vm.obs != nil {
+		vm.obs.SetSource(proto.Source)
+	}
 	return nil
 }
 
@@ -195,6 +201,9 @@ func (vm *VM) tailCallThunk(proto *Proto, captured []eval.Value, frame *Frame) e
 	frame.proto = proto
 	frame.ip = 0
 	frame.source = proto.Source
+	if proto.Source != nil && vm.obs != nil {
+		vm.obs.SetSource(proto.Source)
+	}
 	return nil
 }
 

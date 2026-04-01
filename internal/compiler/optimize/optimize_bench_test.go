@@ -44,6 +44,7 @@ func buildBetaChain(n int) ir.Core {
 
 // BenchmarkOptimizeNoopSmall measures baseline cost on a small tree with no
 // optimization opportunities. This reveals the fixed tax of the pass architecture.
+// Safe to share across iterations: no redexes fire, so TransformMut leaves the tree intact.
 func BenchmarkOptimizeNoopSmall(b *testing.B) {
 	tree := buildDeepTree(50)
 	b.ResetTimer()
@@ -53,6 +54,7 @@ func BenchmarkOptimizeNoopSmall(b *testing.B) {
 }
 
 // BenchmarkOptimizeNoopLarge measures baseline cost on a larger tree.
+// Safe to share across iterations: no redexes fire, so TransformMut leaves the tree intact.
 func BenchmarkOptimizeNoopLarge(b *testing.B) {
 	tree := buildDeepTree(500)
 	b.ResetTimer()
@@ -62,15 +64,16 @@ func BenchmarkOptimizeNoopLarge(b *testing.B) {
 }
 
 // BenchmarkOptimizeBetaHeavy measures cost when many beta reductions fire.
+// Tree is rebuilt each iteration because optimize uses TransformMut (in-place).
 func BenchmarkOptimizeBetaHeavy(b *testing.B) {
-	tree := buildBetaChain(20)
-	b.ResetTimer()
 	for b.Loop() {
+		tree := buildBetaChain(20)
 		optimize(tree, nil)
 	}
 }
 
 // BenchmarkOptimizeRewriteRules measures cost with registered rewrite rules.
+// Safe to share across iterations: noop rules return c unchanged, no mutation occurs.
 func BenchmarkOptimizeRewriteRules(b *testing.B) {
 	tree := buildDeepTree(200)
 	// Dummy rule that never fires — measures rule dispatch overhead.

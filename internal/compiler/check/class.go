@@ -338,8 +338,12 @@ func (ch *Checker) validateSuperclassGraph() bool {
 
 		path = path[:len(path)-1]
 		colors[name] = black
-		// Compute transitive superclass closure.
-		if info, ok := classes[name]; ok {
+		// Compute transitive superclass closure (only for classes that
+		// don't already have one — imported classes carry their closure
+		// from the originating module's compilation and must not be
+		// mutated, as the ClassInfo may be shared across goroutines via
+		// the module cache).
+		if info, ok := classes[name]; ok && info.SuperClosure == nil {
 			closure := make(map[string]bool, len(info.Supers))
 			for _, sup := range info.Supers {
 				closure[sup.ClassName] = true
