@@ -20,7 +20,7 @@ func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 	const maxPasses = 4
 	for range maxPasses {
 		rw := &rewriter{rules: rules}
-		c = ir.Transform(c, rw.apply)
+		c = ir.TransformMut(c, rw.apply)
 		if !rw.changed {
 			break
 		}

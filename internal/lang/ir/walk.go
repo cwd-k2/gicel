@@ -418,3 +418,145 @@ func transformLeftSpineOrRec(c Core, f func(Core) Core, _ int) Core {
 	}
 	return transformRec(c, f, 0)
 }
+
+// TransformMut applies f to every Core node bottom-up, mutating parent
+// fields in place when a child changes. This avoids allocating new parent
+// nodes for the rebuild cascade. New allocation occurs only when f itself
+// returns a structurally different node.
+//
+// Contract: the input tree must be a tree (not a DAG) and exclusively
+// owned by the caller. The tree is mutated in place.
+//
+// Used by the optimizer. Clone and SubstitutePlaceholders use the
+// rebuild-semantics Transform instead.
+func TransformMut(c Core, f func(Core) Core) Core {
+	return transformMutRec(c, f, 0)
+}
+
+func transformMutRec(c Core, f func(Core) Core, depth int) Core {
+	if depth > maxTraversalDepth {
+		if _, ok := c.(*App); ok {
+			return transformMutLeftSpine(c, f)
+		}
+		return c
+	}
+	switch n := c.(type) {
+	case *Var:
+		return f(n)
+	case *Lam:
+		n.Body = transformMutRec(n.Body, f, depth+1)
+		return f(n)
+	case *App:
+		return transformMutLeftSpine(c, f)
+	case *TyApp:
+		n.Expr = transformMutRec(n.Expr, f, depth+1)
+		return f(n)
+	case *TyLam:
+		n.Body = transformMutRec(n.Body, f, depth+1)
+		return f(n)
+	case *Con:
+		for i, a := range n.Args {
+			n.Args[i] = transformMutRec(a, f, depth+1)
+		}
+		return f(n)
+	case *Case:
+		n.Scrutinee = transformMutRec(n.Scrutinee, f, depth+1)
+		for i := range n.Alts {
+			n.Alts[i].Body = transformMutRec(n.Alts[i].Body, f, depth+1)
+		}
+		return f(n)
+	case *Fix:
+		n.Body = transformMutRec(n.Body, f, depth+1)
+		return f(n)
+	case *Pure:
+		n.Expr = transformMutRec(n.Expr, f, depth+1)
+		return f(n)
+	case *Bind:
+		n.Comp = transformMutRec(n.Comp, f, depth+1)
+		n.Body = transformMutRec(n.Body, f, depth+1)
+		return f(n)
+	case *Thunk:
+		n.Comp = transformMutRec(n.Comp, f, depth+1)
+		return f(n)
+	case *Force:
+		n.Expr = transformMutRec(n.Expr, f, depth+1)
+		return f(n)
+	case *Merge:
+		n.Left = transformMutRec(n.Left, f, depth+1)
+		n.Right = transformMutRec(n.Right, f, depth+1)
+		return f(n)
+	case *PrimOp:
+		for i, a := range n.Args {
+			n.Args[i] = transformMutRec(a, f, depth+1)
+		}
+		return f(n)
+	case *Lit:
+		return f(n)
+	case *Error:
+		return f(n)
+	case *RecordLit:
+		for i := range n.Fields {
+			n.Fields[i].Value = transformMutRec(n.Fields[i].Value, f, depth+1)
+		}
+		return f(n)
+	case *RecordProj:
+		n.Record = transformMutRec(n.Record, f, depth+1)
+		return f(n)
+	case *RecordUpdate:
+		n.Record = transformMutRec(n.Record, f, depth+1)
+		for i := range n.Updates {
+			n.Updates[i].Value = transformMutRec(n.Updates[i].Value, f, depth+1)
+		}
+		return f(n)
+	default:
+		panic(fmt.Sprintf("TransformMut: unhandled Core node %T", c))
+	}
+}
+
+// transformMutLeftSpine processes left-spine App chains with in-place mutation.
+func transformMutLeftSpine(c Core, f func(Core) Core) Core {
+	type spineNode struct {
+		app *App
+		arg Core
+	}
+	var spine []spineNode
+
+	// Phase 1: unwind the spine, mutating right children in place.
+	cur := c
+	for {
+		switch n := cur.(type) {
+		case *App:
+			n.Arg = transformMutRec(n.Arg, f, 0)
+			spine = append(spine, spineNode{app: n, arg: n.Arg})
+			cur = n.Fun
+			continue
+		case *TyApp:
+			n.Expr = transformMutLeftSpineOrRec(n.Expr, f)
+			cur = f(n)
+			goto rebuild
+		case *TyLam:
+			n.Body = transformMutLeftSpineOrRec(n.Body, f)
+			cur = f(n)
+			goto rebuild
+		default:
+			cur = transformMutRec(n, f, 0)
+			goto rebuild
+		}
+	}
+
+rebuild:
+	// Phase 2: rebuild the spine with in-place mutation.
+	for i := len(spine) - 1; i >= 0; i-- {
+		sn := spine[i]
+		sn.app.Fun = cur
+		cur = f(sn.app)
+	}
+	return cur
+}
+
+func transformMutLeftSpineOrRec(c Core, f func(Core) Core) Core {
+	if _, ok := c.(*App); ok {
+		return transformMutLeftSpine(c, f)
+	}
+	return transformMutRec(c, f, 0)
+}
