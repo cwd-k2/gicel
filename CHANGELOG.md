@@ -5,8 +5,9 @@
 ### State Effect Handlers
 
 - Added `runState`, `evalState`, `execState` effect handlers to `Effect.State`. These introduce the state capability with an initial value, run a suspended computation, and eliminate the capability from the row — following the same handler pattern as `try` in `Effect.Fail`.
-- Named capability variants: `runStateAt`, `evalStateAt`, `execStateAt`.
+- Named capability handler variants (`*StateAt`) are pending a label erasure / VM interaction fix.
 - No more manual `Caps` setup required for state: `evalState 0 (thunk do { modify (+ 1); get })` works without providing initial capabilities from the host.
+- **Internal**: TyApp.TyArg is now zonked in-place during `validateLabelArgs`, ensuring label erasure sees resolved TyVar instead of TyMeta.
 
 ## v0.25.0 — 2026-04-01
 

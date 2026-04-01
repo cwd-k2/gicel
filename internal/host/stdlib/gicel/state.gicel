@@ -40,21 +40,7 @@ execState := \s comp. do {
   pure s'
 }
 
--- Named capability handler variants.
-_runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
-_runStateAt := assumption
-
-runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
-runStateAt := \s comp. _runStateAt s (thunk (bind (force comp) pure))
-
-evalStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r a
-evalStateAt := \s comp. do {
-  (_, a) <- runStateAt s comp;
-  pure a
-}
-
-execStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r s
-execStateAt := \s comp. do {
-  (s', _) <- runStateAt s comp;
-  pure s'
-}
+-- Named capability handler variants: pending.
+-- Label erasure TyLam→Lam conversion causes the VM to thunk-wrap arguments,
+-- preventing correct initVal propagation. Requires primArity + VM interaction fix.
+-- Tracked separately; use runState (anonymous) in the meantime.

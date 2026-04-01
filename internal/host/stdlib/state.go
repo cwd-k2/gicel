@@ -18,7 +18,6 @@ var State Pack = func(e Registrar) error {
 	e.RegisterPrim("putAt", putAtImpl)
 	e.RegisterPrim("modifyAt", modifyAtImpl)
 	e.RegisterPrim("_runState", runStateImpl)
-	e.RegisterPrim("_runStateAt", runStateAtImpl)
 	return e.RegisterModule("Effect.State", stateSource)
 }
 
@@ -83,21 +82,7 @@ func runStateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 	return doRunState(capState, args[0], args[1], ce, apply)
 }
 
-// runStateAtImpl handles a named state effect.
-// args: [label, initialState, suspendedComputation]
-func runStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	label, ok := args[0].(*eval.HostVal)
-	if !ok {
-		return nil, ce, &eval.RuntimeError{Message: "runStateAt: label argument is not a string"}
-	}
-	name, ok := label.Inner.(string)
-	if !ok {
-		return nil, ce, &eval.RuntimeError{Message: "runStateAt: label argument is not a string"}
-	}
-	return doRunState(name, args[1], args[2], ce, apply)
-}
-
-// doRunState is the shared handler logic for runState/runStateAt.
+// doRunState is the shared handler logic for runState.
 // It introduces a state capability, forces the suspended computation,
 // extracts the final state, and eliminates the capability from the CapEnv.
 // On error, the original CapEnv is returned (rollback).

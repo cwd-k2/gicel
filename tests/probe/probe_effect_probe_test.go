@@ -278,6 +278,59 @@ main := do {
 	pdAssertInt(t, v, 40) // 15 + 25
 }
 
+func TestProbeE_RunState_FailRollback(t *testing.T) {
+	// When fail occurs inside runState, the state is rolled back (original CapEnv).
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.Fail
+import Effect.State
+main := do {
+  result <- try (thunk (evalState 0 (thunk do {
+    modify (+ 99);
+    failWith "boom"
+  })));
+  case result {
+    Err e => pure e;
+    Ok _  => pure "unexpected"
+  }
+}
+`, nil, gicel.Prelude, gicel.EffectFail, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	hv, ok := v.(*gicel.HostVal)
+	if !ok {
+		t.Fatalf("expected HostVal, got %T: %v", v, v)
+	}
+	if hv.Inner != "boom" {
+		t.Fatalf("expected 'boom', got %v", hv.Inner)
+	}
+}
+
+func TestProbeE_RunState_FailPreservesOuterState(t *testing.T) {
+	// Outer state (via Caps) is preserved when inner evalState fails.
+	caps := map[string]any{
+		"state": &gicel.HostVal{Inner: int64(42)},
+	}
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.Fail
+import Effect.State
+main := do {
+  result <- try (thunk (evalState 0 (thunk do {
+    modify (+ 1);
+    failWith "fail"
+  })));
+  outer <- get;
+  pure outer
+}
+`, caps, gicel.Prelude, gicel.EffectFail, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	pdAssertInt(t, v, 42)
+}
+
 func TestProbeD_Effect_FromMaybeNothing(t *testing.T) {
 	caps := map[string]any{
 		"fail": gicel.NewRecordFromMap(map[string]gicel.Value{}),

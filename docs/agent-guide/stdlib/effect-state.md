@@ -17,14 +17,12 @@ Provides get/put state capabilities via the `state` capability in CapEnv. Load w
 
 Handlers introduce the state capability with an initial value, run a suspended computation, and eliminate the capability from the row. Same pattern as `try` in Effect.Fail.
 
-| Name          | Type                                                                   | Description                           |
-| ------------- | ---------------------------------------------------------------------- | ------------------------------------- |
-| `runState`    | `\s a r. s -> Suspended { state: s \| r } a -> Effect r (s, a)`        | Run, return (finalState, result) pair |
-| `evalState`   | `\s a r. s -> Suspended { state: s \| r } a -> Effect r a`             | Run, return result only               |
-| `execState`   | `\s a r. s -> Suspended { state: s \| r } a -> Effect r s`             | Run, return final state only          |
-| `runStateAt`  | `\(l: Label) s a r. s -> Suspended { l: s \| r } a -> Effect r (s, a)` | Named variant of `runState`           |
-| `evalStateAt` | `\(l: Label) s a r. s -> Suspended { l: s \| r } a -> Effect r a`      | Named variant of `evalState`          |
-| `execStateAt` | `\(l: Label) s a r. s -> Suspended { l: s \| r } a -> Effect r s`      | Named variant of `execState`          |
+| Name        | Type                                                            | Description                            |
+| ----------- | --------------------------------------------------------------- | -------------------------------------- |
+| `runState`  | `\s a r. s -> Suspended { state: s \| r } a -> Effect r (s, a)` | Run, return (finalState, result) pair  |
+| `evalState` | `\s a r. s -> Suspended { state: s \| r } a -> Effect r a`      | Run, return result only                |
+| `execState` | `\s a r. s -> Suspended { state: s \| r } a -> Effect r s`      | Run, return final state only           |
+| `*StateAt`  | —                                                               | Pending (label erasure VM interaction) |
 
 **Notes:**
 

@@ -62,9 +62,11 @@ func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLam
 		ch.walkValidateLabel(n.Body, bindingType, d)
 
 	case *ir.TyApp:
+		// Zonk TyArg in place so label erasure can see resolved TyVar
+		// instead of unsolved TyMeta. Safe: IR is freshly produced and not shared.
+		n.TyArg = ch.unifier.Zonk(n.TyArg)
 		if labelLamDepth == 0 {
-			zonked := ch.unifier.Zonk(n.TyArg)
-			if meta, ok := zonked.(*types.TyMeta); ok {
+			if meta, ok := n.TyArg.(*types.TyMeta); ok {
 				if types.Equal(meta.Kind, types.TypeOfLabels) && typeContainsMeta(bindingType, meta.ID) {
 					ch.addCodedError(diagnostic.ErrMissingLabel, n.S,
 						"named capability requires explicit @#label argument")
