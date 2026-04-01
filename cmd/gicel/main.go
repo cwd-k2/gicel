@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -353,6 +354,41 @@ func (e *exprFlag) Set(val string) error {
 	return nil
 }
 
+// byteSizeFlag parses byte sizes with optional suffixes: KiB, MiB, GiB, KB, MB, GB.
+// Plain integers are treated as raw bytes.
+type byteSizeFlag struct {
+	value int64
+}
+
+func (b *byteSizeFlag) String() string { return strconv.FormatInt(b.value, 10) }
+func (b *byteSizeFlag) Set(val string) error {
+	suffixes := []struct {
+		suffix string
+		mult   int64
+	}{
+		{"GiB", 1 << 30}, {"MiB", 1 << 20}, {"KiB", 1 << 10},
+		{"GB", 1_000_000_000}, {"MB", 1_000_000}, {"KB", 1_000},
+	}
+	for _, s := range suffixes {
+		trimmed := strings.TrimSpace(val)
+		if strings.HasSuffix(trimmed, s.suffix) {
+			numStr := strings.TrimSpace(strings.TrimSuffix(trimmed, s.suffix))
+			n, err := strconv.ParseInt(numStr, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid number before %s: %q", s.suffix, numStr)
+			}
+			b.value = n * s.mult
+			return nil
+		}
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+	if err != nil {
+		return fmt.Errorf("expected byte count or size with suffix (e.g. 100MiB): %q", val)
+	}
+	b.value = n
+	return nil
+}
+
 // moduleFlags is a repeatable flag for --module Name=path pairs.
 type moduleFlags []string
 
@@ -500,7 +536,8 @@ func cmdRun(args []string) int {
 	maxSteps := fs.Int("max-steps", 100000, "step limit")
 	maxDepth := fs.Int("max-depth", 10000, "depth limit")
 	maxNesting := fs.Int("max-nesting", 512, "structural nesting depth limit")
-	maxAlloc := fs.Int64("max-alloc", 100*1024*1024, "allocation byte limit (default: 100 MiB)")
+	maxAlloc := &byteSizeFlag{value: 100 * 1024 * 1024}
+	fs.Var(maxAlloc, "max-alloc", "allocation byte limit (default: 100 MiB)")
 	jsonOut := fs.Bool("json", false, "output as JSON")
 	explain := fs.Bool("explain", false, "show semantic evaluation trace")
 	verbose := fs.Bool("verbose", false, "show source context in explain trace")
@@ -544,7 +581,7 @@ func cmdRun(args []string) int {
 	if *maxNesting <= 0 {
 		return preflightError("--max-nesting must be a positive integer", *jsonOut)
 	}
-	if *maxAlloc <= 0 {
+	if maxAlloc.value <= 0 {
 		return preflightError("--max-alloc must be a positive integer", *jsonOut)
 	}
 	if *timeout <= 0 {
@@ -567,7 +604,7 @@ func cmdRun(args []string) int {
 	eng.SetStepLimit(*maxSteps)
 	eng.SetDepthLimit(*maxDepth)
 	eng.SetNestingLimit(*maxNesting)
-	eng.SetAllocLimit(*maxAlloc)
+	eng.SetAllocLimit(maxAlloc.value)
 	eng.SetEntryPoint(*entry)
 	if *explain {
 		eng.DisableInlining()

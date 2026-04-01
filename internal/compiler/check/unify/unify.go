@@ -2,6 +2,7 @@ package unify
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -32,6 +33,7 @@ type UnifyError struct {
 	SLevel int        // solver level (untouchable)
 	Name   string     // skolem name, class name, or other identifier
 	Label  string     // row label (dup label, grade mismatch)
+	Labels []string   // field/entry labels (row mismatch detail)
 	CountA int        // left count (grade count, arg count, entry count)
 	CountB int        // right count
 }
@@ -66,7 +68,11 @@ func (e *UnifyError) Error() string {
 		if e.CountA > 0 && e.CountB > 0 {
 			return "row mismatch: extra entries (left=" + strconv.Itoa(e.CountA) + ", right=" + strconv.Itoa(e.CountB) + ")"
 		}
-		return "record has extra field(s): " + strconv.Itoa(e.CountA+e.CountB)
+		detail := strconv.Itoa(e.CountA + e.CountB)
+		if len(e.Labels) > 0 {
+			detail = strings.Join(e.Labels, ", ")
+		}
+		return "record has unmatched field(s): " + detail
 	case UnifySkolemRigid:
 		if e.TypeA != nil {
 			return "cannot unify " + types.Pretty(e.TypeA) + " with rigid type variable #" + e.Name

@@ -171,16 +171,19 @@ func (u *Unifier) resolveEvidenceTails(aTail, bTail types.Type, onlyA, onlyB typ
 	switch {
 	case aTail == nil && bTail == nil:
 		if onlyA.EntryCount() > 0 || onlyB.EntryCount() > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, CountA: onlyA.EntryCount(), CountB: onlyB.EntryCount()}
+			return &UnifyError{Kind: UnifyRowMismatch, CountA: onlyA.EntryCount(), CountB: onlyB.EntryCount(),
+				Labels: capFieldLabels(onlyA, onlyB)}
 		}
 	case aTail != nil && bTail == nil:
 		if onlyA.EntryCount() > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, CountA: onlyA.EntryCount()}
+			return &UnifyError{Kind: UnifyRowMismatch, CountA: onlyA.EntryCount(),
+				Labels: capFieldLabels(onlyA, nil)}
 		}
 		return u.solveEvidenceTail(aTail, onlyB, nil)
 	case aTail == nil && bTail != nil:
 		if onlyB.EntryCount() > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, CountB: onlyB.EntryCount()}
+			return &UnifyError{Kind: UnifyRowMismatch, CountB: onlyB.EntryCount(),
+				Labels: capFieldLabels(nil, onlyB)}
 		}
 		return u.solveEvidenceTail(bTail, onlyA, nil)
 	default:
@@ -197,6 +200,22 @@ func (u *Unifier) resolveEvidenceTails(aTail, bTail types.Type, onlyA, onlyB typ
 		return u.solveEvidenceTail(bTail, onlyA, rFresh)
 	}
 	return nil
+}
+
+// capFieldLabels extracts label names from capability entries for error messages.
+func capFieldLabels(a, b types.EvidenceEntries) []string {
+	var labels []string
+	if ca, ok := a.(*types.CapabilityEntries); ok {
+		for _, f := range ca.Fields {
+			labels = append(labels, f.Label)
+		}
+	}
+	if cb, ok := b.(*types.CapabilityEntries); ok {
+		for _, f := range cb.Fields {
+			labels = append(labels, f.Label)
+		}
+	}
+	return labels
 }
 
 // solveEvidenceTail solves a row tail variable against a set of entries
