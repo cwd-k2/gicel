@@ -44,7 +44,7 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 | ------------------- | -------------- | ------------------------------------------------ |
 | `gicel.Prelude`     | `Prelude`      | Num, Str, List — arithmetic, strings, lists      |
 | `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                                   |
-| `gicel.EffectState` | `Effect.State` | Get/put state                                    |
+| `gicel.EffectState` | `Effect.State` | Get/put state + runState/evalState/execState     |
 | `gicel.EffectIO`    | `Effect.IO`    | Print/debug output                               |
 | `gicel.DataStream`  | `Data.Stream`  | Lazy lists                                       |
 | `gicel.DataSlice`   | `Data.Slice`   | O(1) contiguous arrays                           |

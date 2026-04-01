@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.23.1** — [Changelog](CHANGELOG.md)
+**v0.25.1** — [Changelog](CHANGELOG.md)
 
 > **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions.
 
@@ -15,7 +15,10 @@ explicitly granted capabilities, and returns results — all in pure Go.
 import Prelude
 import Effect.State
 
-main := do { _ <- put 42; get }
+main := evalState 0 (thunk do {
+  modify (+ 42);
+  get
+})
 ```
 
 The source imports `Effect.State` — but the host decides whether that module exists:

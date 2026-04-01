@@ -18,3 +18,43 @@ putAt := assumption
 
 modifyAt :: \(l: Label) s r. (s -> s) -> Effect { l: s | r } ()
 modifyAt := assumption
+
+-- State effect handlers: introduce capability, run computation, eliminate capability.
+-- Follows the same handler pattern as try (Effect.Fail).
+
+_runState :: \s a r. s -> Suspended { state: s | r } a -> Effect r (s, a)
+_runState := assumption
+
+runState :: \s a r. s -> Suspended { state: s | r } a -> Effect r (s, a)
+runState := \s comp. _runState s (thunk (bind (force comp) pure))
+
+evalState :: \s a r. s -> Suspended { state: s | r } a -> Effect r a
+evalState := \s comp. do {
+  (_, a) <- runState s comp;
+  pure a
+}
+
+execState :: \s a r. s -> Suspended { state: s | r } a -> Effect r s
+execState := \s comp. do {
+  (s', _) <- runState s comp;
+  pure s'
+}
+
+-- Named capability handler variants.
+_runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
+_runStateAt := assumption
+
+runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
+runStateAt := \s comp. _runStateAt s (thunk (bind (force comp) pure))
+
+evalStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r a
+evalStateAt := \s comp. do {
+  (_, a) <- runStateAt s comp;
+  pure a
+}
+
+execStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r s
+execStateAt := \s comp. do {
+  (s', _) <- runStateAt s comp;
+  pure s'
+}

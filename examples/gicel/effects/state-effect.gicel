@@ -1,9 +1,7 @@
 -- GICEL Example: State Effect
 --
--- Effect.State provides get, put, and modify for stateful computations.
--- The state is threaded through the capability environment.
--- Always `put` an initial value before `get` — the CLI starts with
--- no state capability.
+-- Effect.State provides get, put, modify for stateful computations,
+-- and runState/evalState/execState handlers to introduce state capability.
 --
 -- Run: bin/gicel run examples/gicel/effects/state-effect.gicel
 
@@ -11,59 +9,60 @@ import Prelude
 import Effect.State
 import Console
 
--- Basic: put an initial value, read it back
-basic :: \(r: Row). Suspended { state: Int | r } Int
-basic := thunk do {
-  put 42;
-  get
-}
+-- runState introduces state capability with an initial value.
+-- No need to put before get — the handler provides the initial state.
+
+-- Each helper is Suspended (thunk-wrapped) because top-level bindings
+-- cannot have bare Computation type.
+
+-- Basic: read initial value directly
+basic :: \(r: Row). Suspended r Int
+basic := thunk (evalState 42 (thunk get))
 
 -- Modify: increment state three times
-counter :: \(r: Row). Suspended { state: Int | r } Int
-counter := thunk do {
-  put 0;
+counter :: \(r: Row). Suspended r Int
+counter := thunk (evalState 0 (thunk do {
   modify (+ 1);
   modify (+ 1);
   modify (+ 1);
   get
-}
+}))
 
 -- Accumulate: read-modify-write cycle (start 5, square it)
-accumulate :: \(r: Row). Suspended { state: Int | r } Int
-accumulate := thunk do {
-  put 5;
+accumulate :: \(r: Row). Suspended r Int
+accumulate := thunk (evalState 5 (thunk do {
   n <- get;
   put (n * n);
   get
-}
-
--- Read and compute (start 12, square it)
-readAndCompute :: \(r: Row). Suspended { state: Int | r } Int
-readAndCompute := thunk do {
-  put 12;
-  x <- get;
-  put (x * x);
-  get
-}
+}))
 
 -- Multi-step pipeline (start 2, *5 = 10, *10 = 100)
-pipeline :: \(r: Row). Suspended { state: Int | r } Int
-pipeline := thunk do {
-  put 2;
+pipeline :: \(r: Row). Suspended r Int
+pipeline := thunk (evalState 2 (thunk do {
   modify (* 5);
   modify (* 10);
   get
-}
+}))
+
+-- runState returns (finalState, result) — useful when you need both
+processOrder :: \(r: Row). Suspended r (Int, Int)
+processOrder := thunk (runState 50 (thunk do {
+  modify (* 3);
+  modify (+ 12);
+  x <- get;
+  pure (x - 10)
+}))
 
 main := do {
   b <- force basic;
   c <- force counter;
   a <- force accumulate;
-  r <- force readAndCompute;
   p <- force pipeline;
-  putLine $ "basic (put 42):   " <> show b;
-  putLine $ "counter (3x inc): " <> show c;
-  putLine $ "accumulate (5^2): " <> show a;
-  putLine $ "read+compute:     " <> show r;
-  putLine $ "pipeline (*5*10): " <> show p
+  (finalState, result) <- force processOrder;
+  putLine $ "basic (init 42):       " <> show b;
+  putLine $ "counter (3x inc):      " <> show c;
+  putLine $ "accumulate (5^2):      " <> show a;
+  putLine $ "pipeline (*5*10):      " <> show p;
+  putLine $ "order state:           " <> show finalState;
+  putLine $ "order result:          " <> show result
 }

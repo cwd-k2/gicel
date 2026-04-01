@@ -1676,22 +1676,22 @@ snd :: \a b. (a, b) -> b
 
 Each Go-side pack bundles type registration, module source, and primitive implementations. The pack is loaded with `eng.Use(pack)` and imported in source by its module name.
 
-| Go Pack       | Module         | Provides                                                           |
-| ------------- | -------------- | ------------------------------------------------------------------ |
-| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs |
-| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`, `failWithAt`         |
-| `EffectState` | `Effect.State` | `get`/`put`/`modify` + `*At` named cap variants                    |
-| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                  |
-| `EffectArray` | `Effect.Array` | Mutable arrays: `new`, `read`, `write` + `*At` named cap variants  |
-| `EffectRef`   | `Effect.Ref`   | Mutable refs: `new`, `read`, `write`, `modify` + `*At` named caps  |
-| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL) + `*At` named cap variants               |
-| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL) + `*At` named cap variants               |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`          |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`      |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`          |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`          |
-| `DataJSON`    | `Data.JSON`    | JSON serialization: `ToJSON`/`FromJSON` type classes               |
-| `Console`     | `Console`      | CLI-only stdio: `putLine`, `getLine`                               |
+| Go Pack       | Module         | Provides                                                                           |
+| ------------- | -------------- | ---------------------------------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs                 |
+| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`, `failWithAt`                         |
+| `EffectState` | `Effect.State` | `get`/`put`/`modify`/`runState`/`evalState`/`execState` + `*At` named cap variants |
+| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                                  |
+| `EffectArray` | `Effect.Array` | Mutable arrays: `new`, `read`, `write` + `*At` named cap variants                  |
+| `EffectRef`   | `Effect.Ref`   | Mutable refs: `new`, `read`, `write`, `modify` + `*At` named caps                  |
+| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL) + `*At` named cap variants                               |
+| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL) + `*At` named cap variants                               |
+| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`                          |
+| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`                      |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`                          |
+| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`                          |
+| `DataJSON`    | `Data.JSON`    | JSON serialization: `ToJSON`/`FromJSON` type classes                               |
+| `Console`     | `Console`      | CLI-only stdio: `putLine`, `getLine`                                               |
 
 Types (`Int`, `Double`, `Byte`, `String`, `Rune`, `Slice`, `Array`, `Ref`, `Map`, `Set`, `MMap`, `MSet`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
 

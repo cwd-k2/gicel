@@ -73,12 +73,13 @@ pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 0) myList
 import Prelude
 import Effect.State
 
--- Top-level computations must be suspended with thunk
-counter :: Suspended { state: Int } Int
-counter := thunk do { put 0; modify (+ 1); modify (+ 1); modify (+ 1); get }
-
--- Force a thunk inside do to execute it
-main := do { r <- force counter; pure r }
+-- evalState introduces state capability with an initial value
+main := evalState 0 (thunk do {
+  modify (+ 1);
+  modify (+ 1);
+  modify (+ 1);
+  get              -- 3
+})
 ```
 
 ### Error Handling

@@ -183,6 +183,101 @@ main := do {
 	pdAssertInt(t, v, 33) // (1 + 10) * 3 = 33
 }
 
+// ===================================================================
+// Probe E: State effect handlers — runState/evalState/execState
+// ===================================================================
+
+func TestProbeE_RunState_Basic(t *testing.T) {
+	// runState introduces state, runs computation, returns (finalState, result).
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.State
+main := runState 0 (thunk do {
+  modify (+ 10);
+  get
+})
+`, nil, gicel.Prelude, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// (10, 10) — final state and result are both 10
+	rec, ok := v.(*gicel.RecordVal)
+	if !ok {
+		t.Fatalf("expected RecordVal, got %T", v)
+	}
+	s, _ := rec.Get("_1")
+	a, _ := rec.Get("_2")
+	pdAssertInt(t, s, 10)
+	pdAssertInt(t, a, 10)
+}
+
+func TestProbeE_EvalState_Basic(t *testing.T) {
+	// evalState returns only the result, discarding final state.
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.State
+main := evalState 0 (thunk do {
+  put 42;
+  get
+})
+`, nil, gicel.Prelude, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	pdAssertInt(t, v, 42)
+}
+
+func TestProbeE_ExecState_Basic(t *testing.T) {
+	// execState returns only the final state, discarding result.
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.State
+main := execState 0 (thunk do {
+  modify (+ 1);
+  modify (+ 2);
+  pure "ignored"
+})
+`, nil, gicel.Prelude, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	pdAssertInt(t, v, 3)
+}
+
+func TestProbeE_RunState_NoCapsNeeded(t *testing.T) {
+	// runState does NOT require initial caps — it introduces the capability.
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.State
+main := evalState 100 (thunk do {
+  x <- get;
+  put (x * 2);
+  get
+})
+`, nil, gicel.Prelude, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	pdAssertInt(t, v, 200)
+}
+
+func TestProbeE_RunState_CapEnvIsolation(t *testing.T) {
+	// State capability is eliminated after runState — outer CapEnv unchanged.
+	v, err := pdRunWithCaps(t, `
+import Prelude
+import Effect.State
+main := do {
+  a <- evalState 10 (thunk do { modify (+ 5); get });
+  b <- evalState 20 (thunk do { modify (+ 5); get });
+  pure (a + b)
+}
+`, nil, gicel.Prelude, gicel.EffectState)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	pdAssertInt(t, v, 40) // 15 + 25
+}
+
 func TestProbeD_Effect_FromMaybeNothing(t *testing.T) {
 	caps := map[string]any{
 		"fail": gicel.NewRecordFromMap(map[string]gicel.Value{}),

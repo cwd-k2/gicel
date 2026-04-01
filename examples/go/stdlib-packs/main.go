@@ -97,7 +97,7 @@ main := do { failWith (); pure True }
 	}
 }
 
-// runState demonstrates the State pack: get, put, modify.
+// runState demonstrates the State pack: evalState introduces state capability.
 func runState(ctx context.Context) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
@@ -106,20 +106,18 @@ func runState(ctx context.Context) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.State
-main := do {
+main := evalState 32 (thunk do {
   s <- get;
   put (s + 10);
   get
-}
+})
 `)
 	if err != nil {
 		log.Fatal("State compile error: ", err)
 	}
 
-	// State pack reads/writes the "state" key in CapEnv.
-	// The value must be a gicel.Value (not a raw Go value).
-	caps := map[string]any{"state": gicel.ToValue(int64(32))}
-	result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps})
+	// evalState introduces the state capability — no Caps needed.
+	result, err := rt.RunWith(ctx, nil)
 	if err != nil {
 		log.Fatal("State runtime error: ", err)
 	}

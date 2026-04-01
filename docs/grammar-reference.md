@@ -998,19 +998,19 @@ FromList ──→ ToList
 
 Stdlib packs are loaded via `Engine.Use(pack)` on the host side and imported in source. `NewEngine()` returns a bare engine with only Core. Full reference: [agent-guide/stdlib.md](agent-guide/stdlib.md).
 
-| Pack          | Module         | Provides                                                   |
-| ------------- | -------------- | ---------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations   |
-| `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)        |
-| `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify` + `*At` named caps)   |
-| `EffectIO`    | `Effect.IO`    | IO effect (`print`, `debug`)                               |
-| `EffectArray` | `Effect.Array` | Mutable arrays (`new`, `read`, `write` + `*At` named caps) |
-| `EffectRef`   | `Effect.Ref`   | Mutable refs (`new`, `read`, `write` + `*At` named caps)   |
-| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL, `*At` named caps)                |
-| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL, `*At` named caps)                |
-| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`)                                  |
-| `DataSlice`   | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index           |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`              |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`    |
-| `DataJSON`    | `Data.JSON`    | JSON serialization (`ToJSON`, `FromJSON`)                  |
-| `Console`     | `Console`      | CLI-only stdio (`putLine`, `getLine`)                      |
+| Pack          | Module         | Provides                                                                                     |
+| ------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations                                     |
+| `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)                                          |
+| `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify`, `runState`/`evalState`/`execState` + `*At` named caps) |
+| `EffectIO`    | `Effect.IO`    | IO effect (`print`, `debug`)                                                                 |
+| `EffectArray` | `Effect.Array` | Mutable arrays (`new`, `read`, `write` + `*At` named caps)                                   |
+| `EffectRef`   | `Effect.Ref`   | Mutable refs (`new`, `read`, `write` + `*At` named caps)                                     |
+| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL, `*At` named caps)                                                  |
+| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL, `*At` named caps)                                                  |
+| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`)                                                                    |
+| `DataSlice`   | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index                                             |
+| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`                                                |
+| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`                                      |
+| `DataJSON`    | `Data.JSON`    | JSON serialization (`ToJSON`, `FromJSON`)                                                    |
+| `Console`     | `Console`      | CLI-only stdio (`putLine`, `getLine`)                                                        |
