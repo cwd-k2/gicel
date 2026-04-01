@@ -25,15 +25,15 @@ import Console
 
 unwrap1 :: Maybe -| List -| Maybe -| Int -> Int
 unwrap1 := \x.
-  case x
-    { Nothing => 0
-    ; Just xs =>
-      case head xs
-        { Nothing => 0
-        ; Just (Just n) => n
-        ; Just Nothing => 0
-        }
-    }
+  case x {
+    Nothing => 0;
+    Just xs =>
+      case head xs {
+        Nothing => 0;
+        Just (Just n) => n;
+        Just Nothing => 0
+      }
+  }
 
 -- -| is especially useful with multi-parameter type constructors:
 -- Map String -| List -| Int  =  Map String (List Int)
@@ -84,8 +84,8 @@ id := \x. x
 -- Putting it together
 -- ============================================================================
 
-main := do
-  { putLine (show (unwrap1 (Just (Cons (Just 42) Nil))))
-  ; putLine (show (fst myPair))
-  ; putLine (show (incr 99))
-  }
+main := do {
+  putLine (show (unwrap1 (Just (Cons (Just 42) Nil))));
+  putLine (show (fst myPair));
+  putLine (show (incr 99))
+}
