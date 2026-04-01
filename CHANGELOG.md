@@ -5,7 +5,7 @@
 ### Universe-Polymorphic Function Arrow
 
 - `->` is now universe-polymorphic: for `A : Type l₁` and `B : Type l₂`, `A -> B` has kind `Type (max l₁ l₂)`. Previously the arrow was hardcoded to `Type` at level 1.
-- Shared level helpers (`extractTypeLevel`, `maxLevel`, `typeAtMaxLevel`) extracted from `formResultKind`, unifying the level computation path for both `form` declarations and `->`.
+- Shared level helpers (`extractTypeLevel`, `joinLevel`, `typeAtMaxLevel`) extracted from `formResultKind`, unifying the level computation path for both `form` declarations and `->`.
 - Type aliases like `type Arrow := \a b. a -> b` now naturally generalize to `∀l₁ l₂. Type l₁ → Type l₂ → Type (max l₁ l₂)` via existing level inference.
 
 ### Type-Level Application Operator (`-|`)
@@ -13,6 +13,20 @@
 - `-|` is now documented in grammar reference, language spec, and agent guide. The operator was implemented in v0.25.1 (lexer + parser) but lacked documentation.
 - Right-associative: `Map String -| List -| Maybe -| Int` = `Map String (List (Maybe Int))`.
 - Precedence: juxtaposition > `-|` > `->`.
+
+### Effect.IO Rename: `print`/`debug` → `log`/`dbg`
+
+- `print` and `debug` renamed to `log` and `dbg`. The previous names universally connote stdout output, causing confusion — `Effect.IO` buffers to `CapEnv`, not stdout.
+
+### Monadic Combinator Fix: `sequence_`/`sequence`/`replicateM`
+
+- These functions now accept `List (Suspended r a)` / `Suspended r a` (= `Thunk`) instead of `List (Effect r a)`. Previously, storing computations in a list caused effects to fire during list construction rather than during traversal.
+- Usage: `sequence_ [thunk (modify (+ 1)), thunk (modify (+ 2))]`.
+
+### CLI & Error Message Improvements
+
+- `--max-alloc` now accepts size suffixes: `100MiB`, `1GiB`, `512KiB` (in addition to raw byte counts).
+- Record row mismatch error now reports the specific unmatched field names (e.g., `unmatched field(s): age`).
 
 ## v0.25.1 — 2026-04-01
 
