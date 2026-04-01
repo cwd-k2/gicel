@@ -45,27 +45,42 @@ var jsonSource = mustReadSource("json")
 
 // --- jsonEncode: runtime-introspective JSON serializer ---
 
-func jsonEncodeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+// maxJSONDepth bounds recursive JSON encoding to prevent Go stack overflow.
+const maxJSONDepth = 512
+
+func jsonEncodeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	var buf strings.Builder
-	writeJSONValue(&buf, args[0])
-	return &eval.HostVal{Inner: buf.String()}, ce, nil
+	if err := writeJSONValue(ctx, &buf, args[0], 0); err != nil {
+		return nil, ce, err
+	}
+	result := buf.String()
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
 }
 
-func writeJSONValue(buf *strings.Builder, v eval.Value) {
+func writeJSONValue(ctx context.Context, buf *strings.Builder, v eval.Value, depth int) error {
+	if depth > maxJSONDepth {
+		return errors.New("json encode: depth limit exceeded")
+	}
+	if err := budget.CheckContext(ctx); err != nil {
+		return err
+	}
 	switch val := v.(type) {
 	case *eval.HostVal:
 		writeJSONHost(buf, val.Inner)
 	case *eval.ConVal:
-		writeJSONCon(buf, val)
+		return writeJSONCon(ctx, buf, val, depth)
 	case *eval.RecordVal:
 		if eval.IsTuple(val) {
-			writeJSONTuple(buf, val)
-		} else {
-			writeJSONRecord(buf, val)
+			return writeJSONTuple(ctx, buf, val, depth)
 		}
+		return writeJSONRecord(ctx, buf, val, depth)
 	default:
 		buf.WriteString("null")
 	}
+	return nil
 }
 
 func writeJSONHost(buf *strings.Builder, v any) {
@@ -99,7 +114,7 @@ func writeJSONHost(buf *strings.Builder, v any) {
 	}
 }
 
-func writeJSONCon(buf *strings.Builder, val *eval.ConVal) {
+func writeJSONCon(ctx context.Context, buf *strings.Builder, val *eval.ConVal, depth int) error {
 	// List
 	if elems, ok := eval.CollectList(val); ok {
 		buf.WriteByte('[')
@@ -107,10 +122,12 @@ func writeJSONCon(buf *strings.Builder, val *eval.ConVal) {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
-			writeJSONValue(buf, e)
+			if err := writeJSONValue(ctx, buf, e, depth+1); err != nil {
+				return err
+			}
 		}
 		buf.WriteByte(']')
-		return
+		return nil
 	}
 	// Bool
 	if b, ok := eval.IsBool(val); ok {
@@ -119,34 +136,37 @@ func writeJSONCon(buf *strings.Builder, val *eval.ConVal) {
 		} else {
 			buf.WriteString("false")
 		}
-		return
+		return nil
 	}
 	// Maybe
 	if val.Con == "Nothing" && len(val.Args) == 0 {
 		buf.WriteString("null")
-		return
+		return nil
 	}
 	if val.Con == "Just" && len(val.Args) == 1 {
-		writeJSONValue(buf, val.Args[0])
-		return
+		return writeJSONValue(ctx, buf, val.Args[0], depth+1)
 	}
 	// Result
 	if val.Con == "Ok" && len(val.Args) == 1 {
 		buf.WriteString(`{"ok":`)
-		writeJSONValue(buf, val.Args[0])
+		if err := writeJSONValue(ctx, buf, val.Args[0], depth+1); err != nil {
+			return err
+		}
 		buf.WriteByte('}')
-		return
+		return nil
 	}
 	if val.Con == "Err" && len(val.Args) == 1 {
 		buf.WriteString(`{"err":`)
-		writeJSONValue(buf, val.Args[0])
+		if err := writeJSONValue(ctx, buf, val.Args[0], depth+1); err != nil {
+			return err
+		}
 		buf.WriteByte('}')
-		return
+		return nil
 	}
 	// Unit
 	if val.Con == "()" && len(val.Args) == 0 {
 		buf.WriteString("null")
-		return
+		return nil
 	}
 	// Generic ADT
 	buf.WriteString(`{"tag":`)
@@ -158,18 +178,21 @@ func writeJSONCon(buf *strings.Builder, val *eval.ConVal) {
 			if i > 0 {
 				buf.WriteByte(',')
 			}
-			writeJSONValue(buf, a)
+			if err := writeJSONValue(ctx, buf, a, depth+1); err != nil {
+				return err
+			}
 		}
 		buf.WriteByte(']')
 	}
 	buf.WriteByte('}')
+	return nil
 }
 
-func writeJSONTuple(buf *strings.Builder, r *eval.RecordVal) {
+func writeJSONTuple(ctx context.Context, buf *strings.Builder, r *eval.RecordVal, depth int) error {
 	n := r.Len()
 	if n == 0 {
 		buf.WriteString("null")
-		return
+		return nil
 	}
 	buf.WriteByte('[')
 	for i := range n {
@@ -177,12 +200,15 @@ func writeJSONTuple(buf *strings.Builder, r *eval.RecordVal) {
 			buf.WriteByte(',')
 		}
 		v, _ := r.Get(ir.TupleLabel(i + 1))
-		writeJSONValue(buf, v)
+		if err := writeJSONValue(ctx, buf, v, depth+1); err != nil {
+			return err
+		}
 	}
 	buf.WriteByte(']')
+	return nil
 }
 
-func writeJSONRecord(buf *strings.Builder, r *eval.RecordVal) {
+func writeJSONRecord(ctx context.Context, buf *strings.Builder, r *eval.RecordVal, depth int) error {
 	fields := r.RawFields()
 	buf.WriteByte('{')
 	for i, f := range fields {
@@ -192,9 +218,12 @@ func writeJSONRecord(buf *strings.Builder, r *eval.RecordVal) {
 		b, _ := json.Marshal(f.Label)
 		buf.Write(b)
 		buf.WriteByte(':')
-		writeJSONValue(buf, f.Value)
+		if err := writeJSONValue(ctx, buf, f.Value, depth+1); err != nil {
+			return err
+		}
 	}
 	buf.WriteByte('}')
+	return nil
 }
 
 // --- helpers ---

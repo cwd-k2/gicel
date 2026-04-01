@@ -3,6 +3,7 @@ package stdlib
 
 import (
 	"context"
+	"math"
 
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -25,6 +26,17 @@ const (
 	costAVLNode   = 64 // avlNode struct (key, value, left, right, height)
 	costPerByte   = 1  // string/[]rune allocation per byte
 )
+
+// checkedMulCost multiplies n by costPerUnit, returning the result.
+// If the multiplication would overflow int64, returns math.MaxInt64
+// so that subsequent budget.ChargeAlloc will trigger the allocation
+// limit rather than wrapping to a negative value.
+func checkedMulCost(n int64, costPerUnit int64) int64 {
+	if costPerUnit > 0 && n > math.MaxInt64/costPerUnit {
+		return math.MaxInt64
+	}
+	return n * costPerUnit
+}
 
 // freeIn checks if name appears free in a Core expression.
 // Used by fusion rules to guard against variable capture.

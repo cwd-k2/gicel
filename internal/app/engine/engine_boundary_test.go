@@ -146,7 +146,7 @@ func TestMissingBinding(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing binding")
 	}
-	if !strings.Contains(err.Error(), "missing binding") {
+	if !strings.Contains(err.Error(), "missing host binding") {
 		t.Fatalf("expected missing binding error, got: %v", err)
 	}
 }

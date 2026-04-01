@@ -29,7 +29,7 @@ func Subst(t Type, varName string, replacement Type) Type {
 
 func substDepth(t Type, varName string, replacement Type, depth int) Type {
 	if depth > maxTraversalDepth {
-		return t
+		depthExceeded()
 	}
 	switch ty := t.(type) {
 	case *TyVar:
@@ -47,7 +47,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
-		return &TyApp{Fun: newFun, Arg: newArg, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
+		return &TyApp{Fun: newFun, Arg: newArg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
 
 	case *TyArrow:
 		newFrom := substDepth(ty.From, varName, replacement, depth+1)
@@ -211,7 +211,7 @@ func SubstLevel(t Type, levelVarName string, replacement LevelExpr) Type {
 
 func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 	if depth > maxTraversalDepth {
-		return t
+		depthExceeded()
 	}
 	switch ty := t.(type) {
 	case *TyCon:
@@ -219,7 +219,7 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 		if newLevel == ty.Level {
 			return ty
 		}
-		return &TyCon{Name: ty.Name, Level: newLevel, S: ty.S}
+		return &TyCon{Name: ty.Name, Level: newLevel, IsLabel: ty.IsLabel, S: ty.S}
 	case *TyApp:
 		newFun := substLevel(ty.Fun, name, repl, depth+1)
 		newArg := substLevel(ty.Arg, name, repl, depth+1)
@@ -355,7 +355,7 @@ func substManyFVUnion(subs map[string]Type) map[string]bool {
 
 func substManyOpt(t Type, subs map[string]Type, fvUnion *map[string]bool, depth int) Type {
 	if depth > maxTraversalDepth {
-		return t
+		depthExceeded()
 	}
 	switch ty := t.(type) {
 	case *TyVar:
@@ -371,7 +371,7 @@ func substManyOpt(t Type, subs map[string]Type, fvUnion *map[string]bool, depth 
 		if newFun == ty.Fun && newArg == ty.Arg {
 			return ty
 		}
-		return &TyApp{Fun: newFun, Arg: newArg, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
+		return &TyApp{Fun: newFun, Arg: newArg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
 	case *TyArrow:
 		newFrom := substManyOpt(ty.From, subs, fvUnion, depth+1)
 		newTo := substManyOpt(ty.To, subs, fvUnion, depth+1)
@@ -472,7 +472,7 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, fvUnion *map
 		return nil
 	}
 	if depth > maxTraversalDepth {
-		return row
+		depthExceeded()
 	}
 	newEntries, changed := row.Entries.MapChildren(func(child Type) Type {
 		return substManyOpt(child, subs, fvUnion, depth+1)
@@ -494,7 +494,7 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, fvUnion *map
 // handling the Quantified field with proper variable shadowing.
 func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, changed *bool, depth int) ConstraintEntry {
 	if depth > maxTraversalDepth {
-		return e
+		depthExceeded()
 	}
 	args := make([]Type, len(e.Args))
 	for j, a := range e.Args {
@@ -537,7 +537,7 @@ func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, c
 
 func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replacement Type, changed *bool, depth int) *QuantifiedConstraint {
 	if depth > maxTraversalDepth {
-		return qc
+		depthExceeded()
 	}
 	// Capture avoidance: rename bound vars that appear free in replacement
 	// BEFORE substituting, so the rename does not corrupt the replacement.
@@ -573,7 +573,7 @@ func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replace
 
 func renameInConstraintEntry(e ConstraintEntry, oldName, newName string, depth int) ConstraintEntry {
 	if depth > maxTraversalDepth {
-		return e
+		depthExceeded()
 	}
 	replacement := &TyVar{Name: newName}
 	changed := false

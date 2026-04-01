@@ -64,8 +64,8 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 		subst, result := e.MatchTyPatterns(eq.Patterns, args)
 		switch result {
 		case env.MatchSuccess:
-			rhs := types.SubstMany(eq.RHS, subst)
-			if types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {
+			rhs, ok := safeSubstMany(eq.RHS, subst)
+			if !ok || types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {
 				e.AddError(diagnostic.ErrTypeFamilyReduction, s,
 					"type family "+name+": result type too large (possible exponential growth)")
 				return nil, false
@@ -320,6 +320,17 @@ func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKi
 		return e.RegisterStuckFn(name, args, resultKind, s)
 	}
 	return nil
+}
+
+// safeSubstMany applies SubstMany, recovering from depth-exceeded panics.
+// Returns (result, true) on success, or (nil, false) on depth exceeded.
+func safeSubstMany(t types.Type, subs map[string]types.Type) (result types.Type, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			result, ok = nil, false
+		}
+	}()
+	return types.SubstMany(t, subs), true
 }
 
 // familyAppKey produces a structural cache key for a type family application.

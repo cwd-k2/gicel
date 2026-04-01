@@ -112,8 +112,8 @@ func TestProbeC_Edge_HostBindingMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing host binding at runtime")
 	}
-	if !strings.Contains(err.Error(), "missing binding") {
-		t.Fatalf("expected 'missing binding' in error, got: %v", err)
+	if !strings.Contains(err.Error(), "missing host binding") {
+		t.Fatalf("expected 'missing host binding' in error, got: %v", err)
 	}
 }
 

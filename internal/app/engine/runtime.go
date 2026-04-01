@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -202,12 +203,18 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	for k, v := range r.builtinGlobals {
 		arr[r.globalSlots[k]] = v
 	}
+	var missing []string
 	for name := range r.bindings {
 		v, ok := hostBindings[name]
 		if !ok {
-			return nil, fmt.Errorf("missing binding: %s", name)
+			missing = append(missing, name)
+			continue
 		}
 		arr[r.globalSlots[name]] = v
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return nil, fmt.Errorf("missing host binding(s): %s (declared with DeclareBinding but not provided in RunOptions.Bindings)", strings.Join(missing, ", "))
 	}
 	return arr, nil
 }

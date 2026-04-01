@@ -120,11 +120,16 @@ func (tb *tokenBuffer) commit() {
 	tb.marks = tb.marks[:len(tb.marks)-1]
 }
 
+// scanForwardLimit bounds speculative lookahead to prevent unbounded
+// token consumption on adversarially long single-line declarations.
+const scanForwardLimit = 1024
+
 // scanForward scans tokens starting from the current position until
 // pred returns stop=true. Returns the result from the stopping predicate.
-// Does not advance the read position.
+// Does not advance the read position. Stops after scanForwardLimit
+// tokens to bound work on adversarial input.
 func (tb *tokenBuffer) scanForward(pred func(tok syn.Token, offset int) (stop bool, result bool)) bool {
-	for i := 0; ; i++ {
+	for i := 0; i < scanForwardLimit; i++ {
 		tok := tb.at(tb.pos + i)
 		if stop, result := pred(tok, i); stop {
 			return result
@@ -133,6 +138,7 @@ func (tb *tokenBuffer) scanForward(pred func(tok syn.Token, offset int) (stop bo
 			return false
 		}
 	}
+	return false // exceeded lookahead limit — assume not a match
 }
 
 // maybeCompact discards tokens that are no longer reachable.

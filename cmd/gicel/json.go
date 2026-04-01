@@ -141,11 +141,21 @@ func formatCapEnv(ce gicel.CapEnv) map[string]any {
 	m := make(map[string]any, len(labels))
 	for _, l := range labels {
 		v, _ := ce.Get(l)
+		// Omit empty buffer-mode console entries: when Console is in
+		// JSON buffer mode but no output was produced, the capability
+		// is an empty []string — omit it from the output to avoid
+		// exposing transport-internal state.
+		if ss, ok := v.([]string); ok && len(ss) == 0 {
+			continue
+		}
 		if val, ok := v.(gicel.Value); ok {
 			m[l] = formatValue(val)
 		} else {
 			m[l] = formatCapEntry(v)
 		}
+	}
+	if len(m) == 0 {
+		return nil
 	}
 	return m
 }

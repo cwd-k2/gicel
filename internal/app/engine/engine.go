@@ -13,6 +13,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
@@ -167,6 +168,9 @@ func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
 func (e *Engine) DisableInlining() { e.noInline = true }
 
 // RegisterModuleFile reads a .gicel file and registers it as a module.
+// The module name is derived from the file basename (e.g., "Foo.gicel" → "Foo").
+// For dotted module names (e.g., "Effect.State"), use RegisterModule directly
+// with the desired name and source text.
 func (e *Engine) RegisterModuleFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -222,7 +226,14 @@ func ValidateModuleName(name string) error {
 // RegisterModule compiles a module and makes it available for import.
 // Module names must start with an uppercase letter and contain only
 // ASCII letters, digits, and underscores.
-func (e *Engine) RegisterModule(name, source string) error {
+func (e *Engine) RegisterModule(name, source string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			buf := make([]byte, 4096)
+			n := runtime.Stack(buf, false)
+			err = &InternalPanicError{Value: r, Stack: buf[:n]}
+		}
+	}()
 	if err := ValidateModuleName(name); err != nil {
 		return err
 	}

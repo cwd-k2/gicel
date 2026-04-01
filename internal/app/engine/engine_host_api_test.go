@@ -359,8 +359,8 @@ func TestMissingRuntimeBinding(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing runtime binding")
 	}
-	if !strings.Contains(err.Error(), "missing binding") {
-		t.Errorf("expected 'missing binding' in error, got: %s", err.Error())
+	if !strings.Contains(err.Error(), "missing host binding") {
+		t.Errorf("expected 'missing host binding' in error, got: %s", err.Error())
 	}
 }
 

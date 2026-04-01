@@ -20,7 +20,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		if fun == ty.Fun && arg == ty.Arg {
 			return t
 		}
-		return &TyApp{Fun: fun, Arg: arg, Flags: MetaFreeFlags(fun, arg), S: ty.S}
+		return &TyApp{Fun: fun, Arg: arg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(fun, arg), S: ty.S}
 	case *TyArrow:
 		from := f(ty.From)
 		to := f(ty.To)
@@ -107,7 +107,7 @@ func AnyType(t Type, pred func(Type) bool) bool {
 
 func anyTypeDepth(t Type, pred func(Type) bool, depth int) bool {
 	if depth > maxTraversalDepth {
-		return false
+		depthExceeded()
 	}
 	if pred(t) {
 		return true
@@ -134,7 +134,7 @@ func CollectTypes[T any](t Type, f func(Type) (T, bool)) []T {
 
 func collectTypesRec[T any](t Type, f func(Type) (T, bool), result *[]T, depth int) {
 	if depth > maxTraversalDepth {
-		return
+		depthExceeded()
 	}
 	if v, ok := f(t); ok {
 		*result = append(*result, v)

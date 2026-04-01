@@ -77,8 +77,11 @@ func (pc *pipelineCtx) computeModuleCacheKey(source string) moduleCacheKey {
 	writeBoolMap(&b, pc.host.gatedBuiltins)
 	b.WriteByte(0)
 
-	// 5. Already-compiled module names (sorted).
-	// Import resolution depends on which modules are available.
+	// 5. Already-compiled module names and source hashes (sorted).
+	// Import resolution depends on which modules are available AND their
+	// contents. Two Engine instances may register different implementations
+	// of the same module name; including source hashes prevents incorrect
+	// cache sharing across incompatible upstream definitions.
 	modNames := make([]string, 0, len(pc.store.modules))
 	for n := range pc.store.modules {
 		modNames = append(modNames, n)
@@ -86,6 +89,12 @@ func (pc *pipelineCtx) computeModuleCacheKey(source string) moduleCacheKey {
 	sort.Strings(modNames)
 	for _, n := range modNames {
 		b.WriteString(n)
+		b.WriteByte('=')
+		mod := pc.store.modules[n]
+		if mod.source != nil {
+			h := sha256.Sum256([]byte(mod.source.Text))
+			b.Write(h[:])
+		}
 		b.WriteByte(0)
 	}
 	b.WriteByte(0)

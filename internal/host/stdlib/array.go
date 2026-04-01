@@ -60,7 +60,7 @@ func arrayNewImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 	if n < 0 {
 		return nil, ce, fmt.Errorf("array.new: negative size %d", n)
 	}
-	if err := budget.ChargeAlloc(ctx, n*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, checkedMulCost(n, costSlotSize)); err != nil {
 		return nil, ce, err
 	}
 	data := make([]eval.Value, n)
@@ -121,7 +121,7 @@ func arrayResizeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ e
 	if n < 0 {
 		return nil, ce, fmt.Errorf("array.resize: negative size %d", n)
 	}
-	if err := budget.ChargeAlloc(ctx, n*costSlotSize); err != nil {
+	if err := budget.ChargeAlloc(ctx, checkedMulCost(n, costSlotSize)); err != nil {
 		return nil, ce, err
 	}
 	data := make([]eval.Value, n)

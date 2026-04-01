@@ -129,8 +129,12 @@ func (b *Budget) Unnest() {
 }
 
 // Alloc records a heap allocation. Returns an error if the cumulative
-// allocation exceeds the limit.
+// allocation exceeds the limit. Negative values are rejected to prevent
+// overflow-based budget bypass.
 func (b *Budget) Alloc(bytes int64) error {
+	if bytes < 0 {
+		return &AllocLimitError{Used: b.alloc, Limit: b.maxAlloc}
+	}
 	b.alloc += bytes
 	if b.maxAlloc > 0 && b.alloc > b.maxAlloc {
 		return &AllocLimitError{Used: b.alloc, Limit: b.maxAlloc}

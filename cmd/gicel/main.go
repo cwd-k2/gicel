@@ -252,16 +252,28 @@ func cmdExample(args []string) int {
 	return 0
 }
 
-// exampleDesc extracts the title from "-- GICEL Example: <title>".
+// exampleDesc extracts the title from "-- GICEL Example: <title>" and
+// appends any required flags from "-- Flags: <flags>" lines.
 func exampleDesc(source string) string {
-	const prefix = "-- GICEL Example: "
-	if i := strings.Index(source, "\n"); i >= 0 {
-		source = source[:i]
+	const titlePrefix = "-- GICEL Example: "
+	const flagsPrefix = "-- Flags: "
+	var title, flags string
+	for line := range strings.SplitSeq(source, "\n") {
+		if t, ok := strings.CutPrefix(line, titlePrefix); ok && title == "" {
+			title = t
+		}
+		if f, ok := strings.CutPrefix(line, flagsPrefix); ok && flags == "" {
+			flags = strings.TrimSpace(f)
+		}
+		// Stop scanning after the header comment block.
+		if !strings.HasPrefix(line, "--") && strings.TrimSpace(line) != "" {
+			break
+		}
 	}
-	if title, ok := strings.CutPrefix(source, prefix); ok {
-		return title
+	if flags != "" && title != "" {
+		return title + " [" + flags + "]"
 	}
-	return ""
+	return title
 }
 
 // packMap maps pack names to their Pack functions.
@@ -320,15 +332,23 @@ func setupEngine(packs string) (*gicel.Engine, error) {
 		}
 	}
 
+	seen := make(map[string]bool)
 	for name := range strings.SplitSeq(strings.ToLower(packs), ",") {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			continue
 		}
+		if seen[name] {
+			continue // deduplicate
+		}
+		seen[name] = true
 		if name == "all" {
 			for _, n := range allPackOrder {
-				if err := packMap[n](eng); err != nil {
-					return nil, err
+				if !seen[n] {
+					seen[n] = true
+					if err := packMap[n](eng); err != nil {
+						return nil, err
+					}
 				}
 			}
 			return eng, nil

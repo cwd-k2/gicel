@@ -95,6 +95,9 @@ func NewVM(cfg VMConfig) *VM {
 // Run executes a Proto and returns the result. Can be called multiple times
 // on the same VM (e.g., for evaluating module bindings sequentially).
 func (vm *VM) Run(proto *Proto, capEnv eval.CapEnv) (eval.EvalResult, error) {
+	// Save depth/observer state so we can restore on error.
+	savedDepth := vm.budget.Depth()
+
 	// Reset execution state for this run (globals/prims/budget are preserved).
 	vm.sp = 0
 	vm.stack = vm.stack[:0]
@@ -102,7 +105,21 @@ func (vm *VM) Run(proto *Proto, capEnv eval.CapEnv) (eval.EvalResult, error) {
 	vm.frames = vm.frames[:0]
 	vm.fp = 0
 	vm.pushFrame(proto, 0, capEnv, proto.Source)
-	return vm.execute()
+	result, err := vm.execute()
+	if err != nil {
+		// Restore budget depth to the pre-Run state so subsequent Runs
+		// on the same VM do not accumulate unbalanced Enter() calls.
+		for vm.budget.Depth() > savedDepth {
+			vm.budget.Leave()
+		}
+		// Clear execution state to prevent stale references.
+		vm.sp = 0
+		vm.stack = vm.stack[:0]
+		vm.locals = vm.locals[:0]
+		vm.frames = vm.frames[:0]
+		vm.fp = 0
+	}
+	return result, err
 }
 
 // Stats returns the accumulated evaluation statistics.

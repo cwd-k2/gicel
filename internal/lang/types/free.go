@@ -9,7 +9,7 @@ func FreeVars(t Type) map[string]struct{} {
 
 func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth int) {
 	if depth > maxTraversalDepth {
-		return
+		depthExceeded()
 	}
 	switch ty := t.(type) {
 	case *TyVar:
@@ -85,7 +85,7 @@ func OccursIn(name string, t Type) bool {
 
 func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 	if depth > maxTraversalDepth {
-		return false
+		depthExceeded()
 	}
 	switch ty := t.(type) {
 	case *TyVar:
@@ -169,7 +169,7 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 
 func occursInConstraintEntry(name string, e ConstraintEntry, bound map[string]bool, depth int) bool {
 	if depth > maxTraversalDepth {
-		return false
+		depthExceeded()
 	}
 	for _, a := range e.Args {
 		if occursIn(name, a, bound, depth+1) {
@@ -219,7 +219,7 @@ func occursInConstraintEntry(name string, e ConstraintEntry, bound map[string]bo
 // respecting bound variables in quantified constraints.
 func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[string]struct{}, depth int) {
 	if depth > maxTraversalDepth {
-		return
+		depthExceeded()
 	}
 	for _, a := range e.Args {
 		freeVarsRec(a, bound, fv, depth+1)
@@ -265,7 +265,7 @@ func ContainsSkolemOrFamily(t Type) bool {
 
 func containsSkolemOrFamily(t Type, depth int) bool {
 	if depth > maxTraversalDepth {
-		return false
+		depthExceeded()
 	}
 	switch ty := t.(type) {
 	case *TySkolem:

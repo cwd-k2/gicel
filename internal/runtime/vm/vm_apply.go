@@ -16,6 +16,7 @@ import (
 func (vm *VM) execBarrier(capEnv eval.CapEnv, setup func(barrier *Frame) error) (eval.EvalResult, error) {
 	savedLocals := len(vm.locals)
 	savedFP := vm.fp
+	savedDepth := vm.budget.Depth()
 	vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
 	vm.fp = len(vm.frames) - 1
 	barrierFrame := &vm.frames[vm.fp]
@@ -23,12 +24,22 @@ func (vm *VM) execBarrier(capEnv eval.CapEnv, setup func(barrier *Frame) error) 
 		vm.locals = vm.locals[:savedLocals]
 		vm.fp = savedFP
 		vm.frames = vm.frames[:savedFP+1]
+		// Restore depth in case setup called Enter() before failing.
+		for vm.budget.Depth() > savedDepth {
+			vm.budget.Leave()
+		}
 		return eval.EvalResult{}, err
 	}
 	result, err := vm.execute()
 	vm.locals = vm.locals[:savedLocals]
 	vm.fp = savedFP
 	vm.frames = vm.frames[:savedFP+1]
+	if err != nil {
+		// Restore depth: execute() may have left unbalanced Enter() calls.
+		for vm.budget.Depth() > savedDepth {
+			vm.budget.Leave()
+		}
+	}
 	return result, err
 }
 
