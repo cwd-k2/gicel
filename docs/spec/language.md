@@ -1572,7 +1572,7 @@ eng.RegisterPrim("dbOpen", func(ctx context.Context, capEnv gicel.CapEnv, args [
 eng.Use(gicel.Prelude)      // Num/Str/List (import Prelude)
 eng.Use(gicel.EffectFail)   // fail capability (import Effect.Fail)
 eng.Use(gicel.EffectState)  // get/put capabilities (import Effect.State)
-eng.Use(gicel.EffectIO)     // print/debug via CapEnv buffer (import Effect.IO)
+eng.Use(gicel.EffectIO)     // log/dbg via CapEnv buffer (import Effect.IO)
 ```
 
 A stdlib pack is `func(Registrar) error` — it bundles `RegisterType` + `RegisterModule` + `RegisterPrim`. A pack is not a module; it is a Go-side configuration action.
@@ -1686,7 +1686,7 @@ Each Go-side pack bundles type registration, module source, and primitive implem
 | `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs                 |
 | `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`, `failWithAt`                         |
 | `EffectState` | `Effect.State` | `get`/`put`/`modify`/`runState`/`evalState`/`execState` + `*At` named cap variants |
-| `EffectIO`    | `Effect.IO`    | `print`/`debug` via CapEnv buffer                                                  |
+| `EffectIO`    | `Effect.IO`    | `log`/`dbg` via CapEnv buffer                                                      |
 | `EffectArray` | `Effect.Array` | Mutable arrays: `new`, `read`, `write` + `*At` named cap variants                  |
 | `EffectRef`   | `Effect.Ref`   | Mutable refs: `new`, `read`, `write`, `modify` + `*At` named caps                  |
 | `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL) + `*At` named cap variants                               |

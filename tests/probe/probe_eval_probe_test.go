@@ -829,11 +829,11 @@ main := fail
 // 11. IO Effect Edge Cases
 // ---------------------------------------------------------------------------
 
-func TestProbeE_Eval_IOPrintEmpty(t *testing.T) {
+func TestProbeE_Eval_IOLogEmpty(t *testing.T) {
 	result, err := peRunWithCaps(t, `
 import Prelude
 import Effect.IO
-main := print ""
+main := log ""
 `, map[string]any{"io": []string{}},
 		gicel.Prelude, gicel.EffectIO)
 	if err != nil {
@@ -842,12 +842,12 @@ main := print ""
 	_ = result
 }
 
-func TestProbeE_Eval_IOPrintWithoutCapability(t *testing.T) {
+func TestProbeE_Eval_IOLogWithoutCapability(t *testing.T) {
 	// IO creates buffer on first write, so missing "io" cap should still work.
 	result, err := peRunWithCaps(t, `
 import Prelude
 import Effect.IO
-main := print "hello"
+main := log "hello"
 `, map[string]any{},
 		gicel.Prelude, gicel.EffectIO)
 	if err != nil {

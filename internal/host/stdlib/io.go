@@ -9,17 +9,17 @@ import (
 // capIO is the canonical capability key for the IO effect.
 const capIO = "io"
 
-// IO provides print/debug capabilities using a CapEnv buffer.
+// IO provides log/dbg capabilities using a CapEnv buffer.
 // Output is accumulated in the capIO capability as []string.
 var IO Pack = func(e Registrar) error {
-	e.RegisterPrim("_ioPrint", printImpl)
-	e.RegisterPrim("_ioDebug", debugImpl)
+	e.RegisterPrim("_ioLog", logImpl)
+	e.RegisterPrim("_ioDbg", dbgImpl)
 	return e.RegisterModule("Effect.IO", ioSource)
 }
 
 var ioSource = mustReadSource("io")
 
-func printImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func logImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
@@ -28,7 +28,7 @@ func printImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 	return unitVal, newCe, nil
 }
 
-func debugImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func dbgImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s := eval.PrettyValue(args[0])
 	newCe := appendIO(ce, s)
 	return unitVal, newCe, nil

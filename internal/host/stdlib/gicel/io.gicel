@@ -1,13 +1,13 @@
 import Prelude
 
-_ioPrint :: String -> Effect { io: () | r } ()
-_ioPrint := assumption
+_ioLog :: String -> Effect { io: () | r } ()
+_ioLog := assumption
 
-_ioDebug :: \a. a -> Effect { io: () | r } ()
-_ioDebug := assumption
+_ioDbg :: \a. a -> Effect { io: () | r } ()
+_ioDbg := assumption
 
-print :: String -> Effect { io: () | r } ()
-print := _ioPrint
+log :: String -> Effect { io: () | r } ()
+log := _ioLog
 
-debug :: \a. a -> Effect { io: () | r } ()
-debug := _ioDebug
+dbg :: \a. a -> Effect { io: () | r } ()
+dbg := _ioDbg

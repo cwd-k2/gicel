@@ -202,7 +202,7 @@ For simple iteration, Prelude's `foldr`/`foldl` avoid recursion entirely.
 
 ### CapEnv must be provided by host
 
-Programs using `get`/`put`, `print`, etc. require the host to supply the corresponding capability (`"state"`, `"io"`). Missing capabilities cause runtime errors, not compile errors.
+Programs using `get`/`put`, `log`, etc. require the host to supply the corresponding capability (`"state"`, `"io"`). Missing capabilities cause runtime errors, not compile errors.
 
 ### `Effect {} a` is pure
 

@@ -416,7 +416,7 @@ main := fromRunes (toRunes "abc")
 // Effect.IO
 // ===========================================================================
 
-func TestIOPrint(t *testing.T) {
+func TestIOLog(t *testing.T) {
 	eng := NewEngine()
 	if err := stdlib.Prelude(eng); err != nil {
 		t.Fatal(err)
@@ -427,7 +427,7 @@ func TestIOPrint(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
-main := do { print "hello" }
+main := do { log "hello" }
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -616,7 +616,7 @@ main := nubBy eq (Cons 1 (Cons 2 (Cons 1 (Cons 3 Nil))))
 	}
 }
 
-func TestIODebug(t *testing.T) {
+func TestIODbg(t *testing.T) {
 	eng := NewEngine()
 	if err := stdlib.Prelude(eng); err != nil {
 		t.Fatal(err)
@@ -627,7 +627,7 @@ func TestIODebug(t *testing.T) {
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
-main := do { debug 42 }
+main := do { dbg 42 }
 `)
 	if err != nil {
 		t.Fatal(err)

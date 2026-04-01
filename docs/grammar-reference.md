@@ -1024,7 +1024,7 @@ Stdlib packs are loaded via `Engine.Use(pack)` on the host side and imported in 
 | `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations                                     |
 | `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)                                          |
 | `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify`, `runState`/`evalState`/`execState` + `*At` named caps) |
-| `EffectIO`    | `Effect.IO`    | IO effect (`print`, `debug`)                                                                 |
+| `EffectIO`    | `Effect.IO`    | IO effect (`log`, `dbg`)                                                                     |
 | `EffectArray` | `Effect.Array` | Mutable arrays (`new`, `read`, `write` + `*At` named caps)                                   |
 | `EffectRef`   | `Effect.Ref`   | Mutable refs (`new`, `read`, `write` + `*At` named caps)                                     |
 | `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL, `*At` named caps)                                                  |

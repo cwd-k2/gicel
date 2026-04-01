@@ -12,7 +12,7 @@ Packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, E
 
 - **Prelude**: コア機能は十分。型クラスインスタンスの拡充（Tuple Eq/Ord runtime support 等）はユーザ需要に応じて
 - **Data.Map / Data.Set**: 基本 CRUD + fold + 集合演算 (union/intersection/difference) は整備済み。更なる ergonomic expansion は需要次第
-- **Effect.IO**: print/debug は capEnv.io バッファへの純粋操作。stdout/stderr 直接出力は意図的に提供しない（副作用は host 側の責務）
+- **Effect.IO**: log/dbg は capEnv.io バッファへの純粋操作。stdout/stderr 直接出力は意図的に提供しない（副作用は host 側の責務）
 
 ### 拡充候補
 

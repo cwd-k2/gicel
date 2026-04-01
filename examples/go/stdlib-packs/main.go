@@ -125,7 +125,7 @@ main := evalState 32 (thunk do {
 	fmt.Println("State: get after put =", gicel.MustHost[int64](result.Value))
 }
 
-// runIO demonstrates the IO pack: print accumulates into the CapEnv buffer.
+// runIO demonstrates the IO pack: log accumulates into the CapEnv buffer.
 func runIO(ctx context.Context) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
@@ -135,8 +135,8 @@ func runIO(ctx context.Context) {
 import Prelude
 import Effect.IO
 main := do {
-  print "line 1";
-  print "line 2"
+  log "line 1";
+  log "line 2"
 }
 `)
 	if err != nil {

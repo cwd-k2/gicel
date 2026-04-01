@@ -903,14 +903,14 @@ main := readInt ""
 	pdAssertCon(t, v, "Nothing")
 }
 
-func TestProbeD_IO_PrintCollects(t *testing.T) {
+func TestProbeD_IO_LogCollects(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	eng.Use(gicel.EffectIO)
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 import Effect.IO
-main := do { print "hello"; print "world"; pure () }
+main := do { log "hello"; log "world"; pure () }
 `)
 	if err != nil {
 		t.Fatal(err)

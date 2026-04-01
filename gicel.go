@@ -240,7 +240,7 @@ var EffectFail Pack = stdlib.Fail
 // EffectState provides get/put state capabilities.
 var EffectState Pack = stdlib.State
 
-// EffectIO provides print/debug capabilities using CapEnv buffer.
+// EffectIO provides log/dbg capabilities using CapEnv buffer.
 var EffectIO Pack = stdlib.IO
 
 // DataStream provides lazy list operations.

@@ -1,6 +1,6 @@
 -- GICEL Example: IO Effect
 --
--- The IO pack provides print and debug capabilities
+-- The IO pack provides log and dbg capabilities
 -- that write to the CapEnv io buffer.
 -- Run: bin/gicel run examples/gicel/effects/io.gicel
 
@@ -11,9 +11,9 @@ import Console
 -- Effect.IO writes to the capEnv io buffer (for Go embedding).
 -- Console.putLine writes to stdout (for CLI output).
 main := do {
-  print "hello, ";
-  print $ "world" <> "!";
-  debug "done";
+  log "hello, ";
+  log $ "world" <> "!";
+  dbg "done";
   putLine "IO effect: wrote to capEnv.io buffer";
   putLine "(visible via --json)"
 }

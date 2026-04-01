@@ -296,7 +296,7 @@ import Effect.State
 
 main := do {
   _ <- put 1;
-  _ <- print "hello";
+  _ <- log "hello";
   r <- merge (do { get }) (do { pure (2 :: Int) });
   pure r
 }

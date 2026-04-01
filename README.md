@@ -196,7 +196,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 | `Prelude`     | `Prelude`      | Num, Str, List, 15 type classes              |
 | `EffectFail`  | `Effect.Fail`  | `fail`, `failWith`, `fromMaybe`              |
 | `EffectState` | `Effect.State` | `get`, `put`, `modify`                       |
-| `EffectIO`    | `Effect.IO`    | `print`, `debug` (CapEnv buffer, not stdout) |
+| `EffectIO`    | `Effect.IO`    | `log`, `dbg` (CapEnv buffer, not stdout)     |
 | `EffectArray` | `Effect.Array` | Mutable fixed-size arrays                    |
 | `EffectMap`   | `Effect.Map`   | Mutable ordered maps (AVL)                   |
 | `EffectSet`   | `Effect.Set`   | Mutable ordered sets (AVL)                   |
