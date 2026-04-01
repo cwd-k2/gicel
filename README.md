@@ -15,8 +15,12 @@ explicitly granted capabilities, and returns results — all in pure Go.
 import Prelude
 import Effect.State
 
-main := evalState 0 (thunk do {
-  modify (+ 42);
+consume :: Int -> Effect { state: Int | r } ()
+consume := \n. modify (\budget. budget - n)
+
+main := evalState 1000 (thunk do {
+  consume 200;
+  consume 150;
   get
 })
 ```
@@ -32,7 +36,7 @@ error[E0230]: unknown module: Effect.State
    | ^^^^^^^^^^^^^^^^^^^
 
 $ gicel run --packs prelude,state program.gicel   # host grants State too
-42
+650
 ```
 
 Same source. The difference is what the host allowed.
