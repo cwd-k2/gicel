@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.25.2 — 2026-04-01
+
+### Universe-Polymorphic Function Arrow
+
+- `->` is now universe-polymorphic: for `A : Type l₁` and `B : Type l₂`, `A -> B` has kind `Type (max l₁ l₂)`. Previously the arrow was hardcoded to `Type` at level 1.
+- Shared level helpers (`extractTypeLevel`, `maxLevel`, `typeAtMaxLevel`) extracted from `formResultKind`, unifying the level computation path for both `form` declarations and `->`.
+- Type aliases like `type Arrow := \a b. a -> b` now naturally generalize to `∀l₁ l₂. Type l₁ → Type l₂ → Type (max l₁ l₂)` via existing level inference.
+
+### Type-Level Application Operator (`-|`)
+
+- `-|` is now documented in grammar reference, language spec, and agent guide. The operator was implemented in v0.25.1 (lexer + parser) but lacked documentation.
+- Right-associative: `Map String -| List -| Maybe -| Int` = `Map String (List (Maybe Int))`.
+- Precedence: juxtaposition > `-|` > `->`.
+
 ## v0.25.1 — 2026-04-01
 
 ### State Effect Handlers

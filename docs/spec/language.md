@@ -332,7 +332,8 @@ Op     ::= operator characters              -- +, -, *, /, ==, >>=, .
 | ----- | ----------------------------------------------------------------------------------- |
 | `::`  | Type annotation                                                                     |
 | `:=`  | Definition binding                                                                  |
-| `->`  | Function type arrow                                                                 |
+| `->`  | Function type arrow (universe-polymorphic)                                          |
+| `-\|` | Type-level application (right-associative, desugars to `TyApp`)                     |
 | `=>`  | Constraint arrow / case alternative / evidence injection                            |
 | `~`   | Type equality constraint                                                            |
 | `\`   | Lambda                                                                              |
@@ -367,8 +368,11 @@ The language uses 9 relational symbols, each corresponding to a distinct judgmen
 Type      ::= '\' TyBinder+ '.' Type
             | Constraint '=>' Type
             | Type '->' Type
-            | TypeApp
+            | TypeDashPipe
             | '(' Type ',' Type (',' Type)* ')'     -- tuple type
+
+TypeDashPipe ::= TypeApp '-|' TypeDashPipe         -- right-associative type application
+               | TypeApp
 
 TypeApp   ::= TypeApp TypeAtom
             | TypeAtom
@@ -399,8 +403,9 @@ Precedence of type operators (loosest to tightest):
 1. `\ ... .`
 2. `~` (type equality constraint, non-associative)
 3. `=>` (constraint qualification, right-associative)
-4. `->` (function arrow, right-associative)
-5. Type application by juxtaposition (left-associative)
+4. `->` (function arrow, right-associative, universe-polymorphic: `Type l₁ -> Type l₂ : Type (max l₁ l₂)`)
+5. `-|` (type-level application, right-associative, desugars to `TyApp`)
+6. Type application by juxtaposition (left-associative)
 
 ## 3.6 Expression Syntax
 

@@ -70,7 +70,8 @@ Both `fix` and `rec` require the `--recursion` flag. Use `fix` for pure recursiv
 | `;`   | Declaration / statement separator                                               |
 | `\|`  | Constructor alternative / row tail                                              |
 | `@`   | Explicit type application                                                       |
-| `->`  | Function type arrow                                                             |
+| `->`  | Function type arrow (universe-polymorphic)                                      |
+| `-\|` | Type-level application (right-associative, desugars to `TyApp`)                 |
 | `<-`  | Monadic bind in do-block                                                        |
 | `=>`  | Constraint qualifier / case alternative / grade annotation / evidence injection |
 | `::`  | Type annotation                                                                 |

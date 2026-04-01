@@ -195,25 +195,16 @@ func formResultKind(paramKinds []types.Type) types.Type {
 	if len(paramKinds) == 0 {
 		return types.TypeOfTypes
 	}
-	var levels []types.LevelExpr
-	for _, pk := range paramKinds {
-		tc, ok := pk.(*types.TyCon)
-		if !ok || tc.Name != "Type" {
+	level, ok := extractTypeLevel(paramKinds[0])
+	if !ok {
+		return types.TypeOfTypes
+	}
+	for _, pk := range paramKinds[1:] {
+		l, ok := extractTypeLevel(pk)
+		if !ok {
 			return types.TypeOfTypes
 		}
-		level := tc.Level
-		if level == nil {
-			level = types.L0
-		}
-		levels = append(levels, level)
+		level = maxLevel(level, l)
 	}
-	// Fold levels with LevelMax.
-	result := levels[0]
-	for _, l := range levels[1:] {
-		if types.LevelEqual(result, l) {
-			continue // max(l, l) = l
-		}
-		result = &types.LevelMax{A: result, B: l}
-	}
-	return &types.TyCon{Name: "Type", Level: result}
+	return &types.TyCon{Name: "Type", Level: level}
 }

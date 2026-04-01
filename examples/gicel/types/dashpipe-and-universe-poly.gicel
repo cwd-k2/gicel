@@ -1,0 +1,91 @@
+-- GICEL Example: Type-Level Application Operator (-|) and Universe-Polymorphic Arrow
+--
+-- Demonstrates:
+--   1. -| as right-associative type application (syntactic sugar for TyApp)
+--   2. -> is universe-polymorphic: A -> B has kind Type(max(l_A, l_B))
+--   3. Type aliases using -> that naturally generalize over universe levels
+--
+-- Run: bin/gicel run examples/gicel/types/dashpipe-and-universe-poly.gicel
+
+import Prelude
+import Console
+
+-- ============================================================================
+-- -| operator: right-associative type application
+-- ============================================================================
+
+-- Without -|:
+--   unwrap1 :: Maybe (List (Maybe Int)) -> Int
+-- With -|:
+--   unwrap1 :: Maybe -| List -| Maybe -| Int -> Int
+--
+-- -| binds tighter than -> but looser than juxtaposition (space-application).
+-- So: Maybe -| List -| Maybe -| Int -> Int
+--   = (Maybe (List (Maybe Int))) -> Int
+
+unwrap1 :: Maybe -| List -| Maybe -| Int -> Int
+unwrap1 := \x.
+  case x
+    { Nothing => 0
+    ; Just xs =>
+      case head xs
+        { Nothing => 0
+        ; Just (Just n) => n
+        ; Just Nothing => 0
+        }
+    }
+
+-- -| is especially useful with multi-parameter type constructors:
+-- Map String -| List -| Int  =  Map String (List Int)
+
+form Pair := \a b. { MkPair: a -> b -> Pair a b }
+
+fst :: \a b. Pair a b -> a
+fst := \p. case p { MkPair x _ => x }
+
+snd :: \a b. Pair a b -> b
+snd := \p. case p { MkPair _ y => y }
+
+-- Without -|: Pair (List Int) (Maybe String)
+-- With -|:   Pair -| List -| Int -| Maybe -| String
+--
+-- Note: -| is right-associative, so this reads as:
+--   Pair (List (Int (Maybe String)))  -- WRONG, Int is not a type constructor!
+--
+-- To apply Pair to two complex arguments, use parens or juxtaposition:
+myPair :: Pair (List Int) (Maybe String)
+myPair := MkPair (Cons 1 (Cons 2 Nil)) (Just "hello")
+
+-- ============================================================================
+-- Universe-polymorphic arrow
+-- ============================================================================
+
+-- The function arrow -> has kind:
+--   (->) :: Type l₁ -> Type l₂ -> Type (max l₁ l₂)
+--
+-- This means type aliases that wrap -> naturally generalize:
+
+type Arrow := \a b. a -> b
+
+-- Arrow has kind: ∀l₁ l₂. Type l₁ → Type l₂ → Type (max l₁ l₂)
+-- At the value level (l₁ = l₂ = 0), it's just the function type:
+
+incr :: Arrow Int Int
+incr := \x. x + 1
+
+-- Level-polymorphic identity function:
+-- The kind of (a -> a) is Type(max(l, l)) = Type l,
+-- so the arrow preserves the level of its arguments.
+
+id :: \(l: Level) (a: Type l). a -> a
+id := \x. x
+
+-- ============================================================================
+-- Putting it together
+-- ============================================================================
+
+main := do
+  { putLine (show (unwrap1 (Just (Cons (Just 42) Nil))))
+  ; putLine (show (fst myPair))
+  ; putLine (show (incr 99))
+  }

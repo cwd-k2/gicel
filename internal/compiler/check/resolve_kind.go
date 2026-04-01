@@ -199,6 +199,41 @@ func (r *typeResolver) aliasParamKind(aliasName string, i int) types.Type {
 	return info.ParamKinds[i]
 }
 
+// extractTypeLevel returns the universe level from a Type-kinded TyCon.
+// Returns (level, true) when k is TyCon "Type"; (nil, false) otherwise.
+func extractTypeLevel(k types.Type) (types.LevelExpr, bool) {
+	tc, ok := k.(*types.TyCon)
+	if !ok || tc.Name != "Type" {
+		return nil, false
+	}
+	if tc.Level == nil {
+		return types.L0, true
+	}
+	return tc.Level, true
+}
+
+// maxLevel computes LevelMax(a, b), eliding the node when both sides are equal.
+func maxLevel(a, b types.LevelExpr) types.LevelExpr {
+	if types.LevelEqual(a, b) {
+		return a
+	}
+	return &types.LevelMax{A: a, B: b}
+}
+
+// typeAtMaxLevel returns Type(max(l_a, l_b)) when both kinds are Type-kinded.
+// Falls back to TypeOfTypes when either kind is nil or non-Type-kinded.
+func typeAtMaxLevel(kindA, kindB types.Type) types.Type {
+	if kindA == nil || kindB == nil {
+		return types.TypeOfTypes
+	}
+	la, okA := extractTypeLevel(kindA)
+	lb, okB := extractTypeLevel(kindB)
+	if okA && okB {
+		return &types.TyCon{Name: "Type", Level: maxLevel(la, lb)}
+	}
+	return types.TypeOfTypes
+}
+
 // kindOfType returns the kind of a resolved type, or nil if unknown.
 func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 	switch t := ty.(type) {
@@ -238,6 +273,10 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 			return types.TypeOfLabels
 		}
 		return types.TypeOfTypes
+	case *types.TyArrow:
+		// Universe-polymorphic function arrow:
+		// (A : Type l₁) -> (B : Type l₂) has kind Type(max(l₁, l₂)).
+		return typeAtMaxLevel(r.kindOfType(t.From), r.kindOfType(t.To))
 	case *types.TyApp:
 		funKind := r.kindOfType(t.Fun)
 		if ka, ok := funKind.(*types.TyArrow); ok {

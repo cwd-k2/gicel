@@ -48,6 +48,7 @@
 | `_`   | Wildcard pattern                                                                |
 | `~`   | Type equality constraint                                                        |
 | `@`   | Explicit type application                                                       |
+| `-\|` | Type-level application (right-associative)                                      |
 | `\|`  | Constructor / row tail separator                                                |
 | `;`   | Declaration / statement separator                                               |
 
@@ -616,7 +617,26 @@ List Int        -- = TyApp(List, Int)
 Map k v         -- = TyApp(TyApp(Map, k), v)
 ```
 
+### Type-Level Application Operator (`-|`)
+
+Right-associative type application — desugars to nested `TyApp`. Binds tighter than `->` but looser than juxtaposition.
+
+```
+F -| A                              -- = F A
+Map String -| List -| Maybe -| Int  -- = Map String (List (Maybe Int))
+F A -| G B                          -- = (F A) (G B)   (juxtaposition binds tighter)
+```
+
+Combined with `->`:
+
+```
+String -> Map String -| List -| Int -- = String -> (Map String (List Int))
+Map String -| List -| Int -> String -- = (Map String (List Int)) -> String
+```
+
 ### Function Type
+
+The function arrow `->` is universe-polymorphic: for `A : Type l₁` and `B : Type l₂`, the type `A -> B` has kind `Type (max l₁ l₂)`.
 
 ```
 a -> b          -- right-associative
@@ -866,7 +886,8 @@ case m { Just (Just (Just True)) => "deep"; _ => "other" }
 | 1     | `~`         | none          |
 | 2     | `=>`        | right         |
 | 3     | `->`        | right         |
-| 4     | Application | left          |
+| 4     | `-\|`       | right         |
+| 5     | Application | left          |
 | —     | Atoms       | —             |
 
 ---
