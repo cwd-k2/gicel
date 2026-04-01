@@ -651,6 +651,118 @@ main := do { dbg 42 }
 }
 
 // ===========================================================================
+// Monadic combinators — sequence_, sequence, replicateM with Suspended (Thunk)
+// ===========================================================================
+
+func TestSequence_StatefulThunks(t *testing.T) {
+	// sequence_ [thunk (modify (+10)), thunk (modify (+20)), thunk (modify (+30))]
+	// should execute all three: 0+10+20+30 = 60
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+main := evalState 0 (thunk do {
+  sequence_ [thunk (modify (+ 10)), thunk (modify (+ 20)), thunk (modify (+ 30))];
+  get
+})
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hv := MustHost[int64](result.Value)
+	if hv != 60 {
+		t.Errorf("sequence_ should accumulate all effects: expected 60, got %d", hv)
+	}
+}
+
+func TestSequenceStatefulThunks(t *testing.T) {
+	// sequence [thunk (do { modify (+1); get }), thunk (do { modify (+10); get })]
+	// should collect [1, 11]
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+main := evalState 0 (thunk do {
+  sequence [thunk (do { modify (+ 1); get }), thunk (do { modify (+ 10); get })]
+})
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Expect [1, 11]: Cons 1 (Cons 11 Nil)
+	con := result.Value.(*eval.ConVal)
+	if con.Con != "Cons" {
+		t.Fatalf("expected Cons, got %s", con.Con)
+	}
+	first := con.Args[0].(*eval.HostVal).Inner.(int64)
+	con2 := con.Args[1].(*eval.ConVal)
+	second := con2.Args[0].(*eval.HostVal).Inner.(int64)
+	if first != 1 || second != 11 {
+		t.Errorf("expected [1, 11], got [%d, %d]", first, second)
+	}
+}
+
+func TestReplicateMStatefulThunk(t *testing.T) {
+	// replicateM 4 (thunk do { s <- get; modify (+1); pure s })
+	// should produce [0, 1, 2, 3]
+	eng := NewEngine()
+	if err := eng.Use(stdlib.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.Use(stdlib.State); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+import Effect.State
+main := evalState 0 (thunk do {
+  replicateM 4 (thunk do { s <- get; modify (+ 1); pure s })
+})
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Expect [0, 1, 2, 3]
+	expected := []int64{0, 1, 2, 3}
+	list := result.Value
+	for i, want := range expected {
+		con, ok := list.(*eval.ConVal)
+		if !ok || con.Con != "Cons" {
+			t.Fatalf("expected Cons at index %d, got %v", i, list)
+		}
+		got := con.Args[0].(*eval.HostVal).Inner.(int64)
+		if got != want {
+			t.Errorf("index %d: expected %d, got %d", i, want, got)
+		}
+		list = con.Args[1]
+	}
+}
+
+// ===========================================================================
 // Data.Map integration
 // ===========================================================================
 

@@ -1356,11 +1356,24 @@ forM := flip mapM
 forM_ :: \a b (r: Row). List a -> (a -> Effect r b) -> Effect r ()
 forM_ := flip mapM_
 
-sequence :: \a (r: Row). List (Effect r a) -> Effect r (List a)
-sequence := mapM id
+sequence :: \a (r: Row). List (Suspended r a) -> Effect r (List a)
+sequence := \xs. case xs {
+  Nil => pure Nil;
+  Cons t rest => do {
+    y  <- force t;
+    ys <- sequence rest;
+    pure (Cons y ys)
+  }
+}
 
-sequence_ :: \a (r: Row). List (Effect r a) -> Effect r ()
-sequence_ := mapM_ id
+sequence_ :: \a (r: Row). List (Suspended r a) -> Effect r ()
+sequence_ := \xs. case xs {
+  Nil => pure ();
+  Cons t rest => do {
+    _ <- force t;
+    sequence_ rest
+  }
+}
 
 foldM :: \a b (r: Row). (b -> a -> Effect r b) -> b -> List a -> Effect r b
 foldM := \f acc xs. case xs {
@@ -1383,11 +1396,11 @@ filterM := \p xs. case xs {
   }
 }
 
-replicateM :: \a (r: Row). Int -> Effect r a -> Effect r (List a)
+replicateM :: \a (r: Row). Int -> Suspended r a -> Effect r (List a)
 replicateM := \n action. case n <= 0 {
   True => pure Nil;
   False => do {
-    x  <- action;
+    x  <- force action;
     xs <- replicateM (n - 1) action;
     pure (Cons x xs)
   }
