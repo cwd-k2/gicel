@@ -3,6 +3,7 @@
 -- Insert, lookup, inorder traversal, min/max, depth.
 -- Demonstrates recursive data + pattern matching + fix.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/bst.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

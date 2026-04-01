@@ -2,6 +2,7 @@
 --
 -- Three approaches: naive recursive, iterative via foldl, memoized list.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/fibonacci.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.25.3 — 2026-04-01
+
+### Security & Sandbox Hardening
+
+- **Module cache fingerprint now includes source hashes.** Previously the cache key only included module names, allowing different `Engine` instances with different implementations of the same module name to share incorrect cached results.
+- **`Data.JSON` generic encoder now respects budget and timeout.** `jsonEncode` threads `context.Context` through recursive descent, charges allocation via `budget.ChargeAlloc`, polls `budget.CheckContext` for cancellation, and enforces a depth limit of 512. Previously, hostile values could bypass `MaxAlloc` and timeout guarantees.
+- **Allocation overflow in array stdlib fixed.** `n * costSlotSize` now uses checked multiplication that saturates to `math.MaxInt64` on overflow instead of wrapping to a negative value. `Budget.Alloc` additionally rejects negative byte counts.
+- **VM error paths now restore budget depth correctly.** `VM.Run` and `execBarrier` unwind `budget.Enter()` calls on failure, preventing depth accumulation across sequential runs on the same VM.
+- **Type traversal depth exceeded is now an explicit failure.** All type-structure traversals (`Subst`, `OccursIn`, `FreeVars`, `MapType`, `AnyType`, `CollectTypes`) panic on depth exceeded instead of silently returning partial or incorrect results. `RegisterModule` now recovers these panics as `InternalPanicError`. The type family reducer recovers depth panics gracefully via `safeSubstMany`.
+
+### Correctness
+
+- **Type substitution preserves semantic metadata.** `Subst` and `SubstMany` now preserve `IsGrade` on `TyApp` reconstruction. `SubstLevel` preserves `IsLabel` on `TyCon` reconstruction. `MapType` preserves `IsGrade`. Previously, routine substitution could silently change the meaning of types.
+- **Parser lookahead bounded.** `scanForward` (used by `looksLikePipeADT`) is now capped at 1024 tokens, preventing unbounded work on adversarially long single-line declarations.
+
+### CLI & UX
+
+- **Duplicate packs are now deduplicated.** `--packs prelude,prelude` no longer errors with "module already registered".
+- **`--json` no longer leaks empty `capEnv`.** Buffer-mode console entries (`console: []`) are omitted from JSON output when no console output was produced.
+- **Example listing shows required flags.** Examples with `-- Flags: <flags>` header comments now display the flags in the `gicel example` listing (e.g., `[--recursion]`).
+- **Missing host binding error lists all missing names.** The error message now reports all missing bindings at once with guidance text, instead of stopping at the first.
+
+### Docs
+
+- **README keyword count fixed.** 14 → 15 (added `lazy`).
+- **`RegisterModuleFile` docs clarified.** Documents that the method derives module names from the file basename and recommends `RegisterModule` for dotted module names.
+
 ## v0.25.2 — 2026-04-01
 
 ### Universe-Polymorphic Function Arrow

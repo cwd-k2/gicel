@@ -8,6 +8,7 @@
 --      foldr (Foldable), fromList/toList, show (Show)
 --
 -- Run: bin/gicel run --recursion examples/gicel/effects/streams.gicel
+-- Flags: --recursion
 
 import Prelude
 import Data.Stream
