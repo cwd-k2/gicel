@@ -417,41 +417,12 @@ main := fromRunes (toRunes "abc")
 // ===========================================================================
 
 func TestIOLog(t *testing.T) {
-	eng := NewEngine()
-	if err := stdlib.Prelude(eng); err != nil {
-		t.Fatal(err)
-	}
-	if err := stdlib.IO(eng); err != nil {
-		t.Fatal(err)
-	}
-	rt, err := eng.NewRuntime(context.Background(), `
+	result := runWithPacksResult(t, `
 import Prelude
 import Effect.IO
 main := do { log "hello" }
-`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := rt.RunWith(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rv, ok := result.Value.(*eval.RecordVal)
-	if !ok || rv.Len() != 0 {
-		t.Fatalf("expected (), got %T: %v", result.Value, result.Value)
-	}
-	// Check that io buffer captured the output.
-	buf, ok := result.CapEnv.Get("io")
-	if !ok {
-		t.Fatal("expected io capability in result")
-	}
-	msgs, ok := buf.([]string)
-	if !ok {
-		t.Fatalf("expected []string io buffer, got %T", buf)
-	}
-	if len(msgs) != 1 || msgs[0] != "hello" {
-		t.Fatalf("expected [\"hello\"], got %v", msgs)
-	}
+`, stdlib.Prelude, stdlib.IO)
+	assertIOMessages(t, result, []string{"hello"})
 }
 
 // ===========================================================================
@@ -617,36 +588,22 @@ main := nubBy eq (Cons 1 (Cons 2 (Cons 1 (Cons 3 Nil))))
 }
 
 func TestIODbg(t *testing.T) {
-	eng := NewEngine()
-	if err := stdlib.Prelude(eng); err != nil {
-		t.Fatal(err)
-	}
-	if err := stdlib.IO(eng); err != nil {
-		t.Fatal(err)
-	}
-	rt, err := eng.NewRuntime(context.Background(), `
+	result := runWithPacksResult(t, `
 import Prelude
 import Effect.IO
 main := do { dbg 42 }
-`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := rt.RunWith(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rv2, ok2 := result.Value.(*eval.RecordVal)
-	if !ok2 || rv2.Len() != 0 {
-		t.Fatalf("expected (), got %T: %v", result.Value, result.Value)
-	}
+`, stdlib.Prelude, stdlib.IO)
+	// dbg renders the value's runtime representation (e.g., "42").
 	buf, ok := result.CapEnv.Get("io")
 	if !ok {
 		t.Fatal("expected io capability")
 	}
 	msgs := buf.([]string)
 	if len(msgs) != 1 {
-		t.Fatalf("expected 1 message, got %d", len(msgs))
+		t.Fatalf("expected 1 message, got %d: %v", len(msgs), msgs)
+	}
+	if msgs[0] != "42" {
+		t.Errorf("expected dbg output \"42\", got %q", msgs[0])
 	}
 }
 

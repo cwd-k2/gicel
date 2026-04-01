@@ -113,6 +113,48 @@ func assertConName(t *testing.T, v eval.Value, name string) {
 	}
 }
 
+// runWithPacksResult compiles source with given packs and returns the full *RunResult.
+// Use when you need to inspect CapEnv (e.g., IO buffer).
+func runWithPacksResult(t *testing.T, source string, packs ...registry.Pack) *RunResult {
+	t.Helper()
+	eng := NewEngine()
+	for _, p := range packs {
+		if err := p(eng); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+// assertIOMessages checks that the IO buffer in CapEnv contains the expected messages.
+func assertIOMessages(t *testing.T, result *RunResult, expected []string) {
+	t.Helper()
+	buf, ok := result.CapEnv.Get("io")
+	if !ok {
+		t.Fatal("expected io capability in result")
+	}
+	msgs, ok := buf.([]string)
+	if !ok {
+		t.Fatalf("expected []string io buffer, got %T", buf)
+	}
+	if len(msgs) != len(expected) {
+		t.Fatalf("expected %d io messages, got %d: %v", len(expected), len(msgs), msgs)
+	}
+	for i, want := range expected {
+		if msgs[i] != want {
+			t.Errorf("io message %d: expected %q, got %q", i, want, msgs[i])
+		}
+	}
+}
+
 // assertList checks that a Value is a List with the given int64 elements.
 func assertList(t *testing.T, v eval.Value, expected []int64) {
 	t.Helper()

@@ -204,7 +204,7 @@ func formResultKind(paramKinds []types.Type) types.Type {
 		if !ok {
 			return types.TypeOfTypes
 		}
-		level = maxLevel(level, l)
+		level = joinLevel(level, l)
 	}
 	return &types.TyCon{Name: "Type", Level: level}
 }

@@ -60,18 +60,18 @@ func TestExtractTypeLevelNonTyCon(t *testing.T) {
 }
 
 // =============================================================================
-// maxLevel
+// joinLevel
 // =============================================================================
 
 func TestMaxLevelEqual(t *testing.T) {
-	result := maxLevel(types.L0, types.L0)
+	result := joinLevel(types.L0, types.L0)
 	if !types.LevelEqual(result, types.L0) {
 		t.Errorf("expected L0, got %s", result.LevelString())
 	}
 }
 
 func TestMaxLevelDifferent(t *testing.T) {
-	result := maxLevel(types.L0, types.L1)
+	result := joinLevel(types.L0, types.L1)
 	lm, ok := result.(*types.LevelMax)
 	if !ok {
 		t.Fatalf("expected LevelMax, got %T", result)
@@ -83,7 +83,7 @@ func TestMaxLevelDifferent(t *testing.T) {
 
 func TestMaxLevelVarEqual(t *testing.T) {
 	v := &types.LevelVar{Name: "l"}
-	result := maxLevel(v, v)
+	result := joinLevel(v, v)
 	// max(l, l) = l
 	lv, ok := result.(*types.LevelVar)
 	if !ok {

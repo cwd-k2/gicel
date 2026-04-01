@@ -212,8 +212,8 @@ func extractTypeLevel(k types.Type) (types.LevelExpr, bool) {
 	return tc.Level, true
 }
 
-// maxLevel computes LevelMax(a, b), eliding the node when both sides are equal.
-func maxLevel(a, b types.LevelExpr) types.LevelExpr {
+// joinLevel computes LevelMax(a, b), eliding the node when both sides are equal.
+func joinLevel(a, b types.LevelExpr) types.LevelExpr {
 	if types.LevelEqual(a, b) {
 		return a
 	}
@@ -229,7 +229,7 @@ func typeAtMaxLevel(kindA, kindB types.Type) types.Type {
 	la, okA := extractTypeLevel(kindA)
 	lb, okB := extractTypeLevel(kindB)
 	if okA && okB {
-		return &types.TyCon{Name: "Type", Level: maxLevel(la, lb)}
+		return &types.TyCon{Name: "Type", Level: joinLevel(la, lb)}
 	}
 	return types.TypeOfTypes
 }

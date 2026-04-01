@@ -239,7 +239,7 @@ func TestUnifyEvidenceRowConMultiEntry(t *testing.T) {
 
 func TestUnifyEvidenceRowCapOpenClosedExtraOnOpenSide(t *testing.T) {
 	// Open { x: Int, y: Bool | tail } vs closed { x: Int }
-	// Open side has extra y — error.
+	// Open side has extra y — error with label name.
 	u := NewUnifier()
 	m := &types.TyMeta{ID: 800, Kind: types.TypeOfRows}
 	r1 := types.OpenRow([]types.RowField{
@@ -247,8 +247,51 @@ func TestUnifyEvidenceRowCapOpenClosedExtraOnOpenSide(t *testing.T) {
 		{Label: "y", Type: types.Con("Bool")},
 	}, m)
 	r2 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
-	if err := u.Unify(r1, r2); err == nil {
+	err := u.Unify(r1, r2)
+	if err == nil {
 		t.Fatal("open row with extra labels should not unify with closed row")
+	}
+	ue, ok := err.(*UnifyError)
+	if !ok {
+		t.Fatalf("expected *UnifyError, got %T", err)
+	}
+	if len(ue.Labels) != 1 || ue.Labels[0] != "y" {
+		t.Errorf("expected Labels=[y], got %v", ue.Labels)
+	}
+}
+
+func TestUnifyEvidenceRowCapClosedMismatchLabels(t *testing.T) {
+	// Closed { x: Int } vs closed { y: Bool } — both sides unmatched.
+	u := NewUnifier()
+	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "y", Type: types.Con("Bool")})
+	err := u.Unify(r1, r2)
+	if err == nil {
+		t.Fatal("different labels should not unify")
+	}
+	ue, ok := err.(*UnifyError)
+	if !ok {
+		t.Fatalf("expected *UnifyError, got %T", err)
+	}
+	if len(ue.Labels) != 2 {
+		t.Errorf("expected 2 labels, got %v", ue.Labels)
+	}
+}
+
+func TestCapFieldLabelsNil(t *testing.T) {
+	labels := capFieldLabels(nil, nil)
+	if len(labels) != 0 {
+		t.Errorf("expected empty, got %v", labels)
+	}
+}
+
+func TestCapFieldLabelsOneSide(t *testing.T) {
+	a := &types.CapabilityEntries{Fields: []types.RowField{
+		{Label: "x"}, {Label: "y"},
+	}}
+	labels := capFieldLabels(a, nil)
+	if len(labels) != 2 || labels[0] != "x" || labels[1] != "y" {
+		t.Errorf("expected [x, y], got %v", labels)
 	}
 }
 

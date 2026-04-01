@@ -377,6 +377,9 @@ func (b *byteSizeFlag) Set(val string) error {
 			if err != nil {
 				return fmt.Errorf("invalid number before %s: %q", s.suffix, numStr)
 			}
+			if n < 0 {
+				return fmt.Errorf("byte size must be non-negative: %q", val)
+			}
 			b.value = n * s.mult
 			return nil
 		}
@@ -384,6 +387,9 @@ func (b *byteSizeFlag) Set(val string) error {
 	n, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
 	if err != nil {
 		return fmt.Errorf("expected byte count or size with suffix (e.g. 100MiB): %q", val)
+	}
+	if n < 0 {
+		return fmt.Errorf("byte size must be non-negative: %q", val)
 	}
 	b.value = n
 	return nil
