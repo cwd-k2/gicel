@@ -3,21 +3,21 @@ package types
 import "testing"
 
 // =============================================================================
-// SubstKindInType — basic cases
-// After Kind→Type unification, SubstKindInType delegates to Subst.
-// These tests verify that substitution still works correctly for
-// kind-level variables (TyVar) inside kind-annotated type structures.
+// Subst — kind-level variable substitution
+// After Kind→Type unification, kind substitution uses Subst directly.
+// These tests verify that substitution works correctly for kind-level
+// variables (TyVar) inside kind-annotated type structures.
 // =============================================================================
 
-func TestSubstKindInTypeForall(t *testing.T) {
+func TestSubstKindForallArrow(t *testing.T) {
 	// forall (f: k -> Type). f Int
-	// SubstKindInType(_, "k", TypeOfRows) should change f's kind to Row -> Type
+	// Subst(_, "k", TypeOfRows) should change f's kind to Row -> Type
 	body := &TyForall{
 		Var:  "f",
 		Kind: &TyArrow{From: &TyVar{Name: "k"}, To: TypeOfTypes},
 		Body: &TyApp{Fun: &TyVar{Name: "f"}, Arg: Con("Int")},
 	}
-	result := SubstKindInType(body, "k", TypeOfRows)
+	result := Subst(body, "k", TypeOfRows)
 	f, ok := result.(*TyForall)
 	if !ok {
 		t.Fatalf("expected TyForall, got %T", result)
@@ -34,9 +34,9 @@ func TestSubstKindInTypeForall(t *testing.T) {
 	}
 }
 
-func TestSubstKindInTypeNested(t *testing.T) {
+func TestSubstKindNested(t *testing.T) {
 	// forall (k: Kind). forall (f: k -> Type). f a -> f a
-	// After SubstKindInType(inner, "k", TypeOfRows):
+	// After Subst(inner, "k", TypeOfRows):
 	// forall (f: Row -> Type). f a -> f a
 	inner := &TyForall{
 		Var:  "f",
@@ -46,7 +46,7 @@ func TestSubstKindInTypeNested(t *testing.T) {
 			To:   &TyApp{Fun: &TyVar{Name: "f"}, Arg: &TyVar{Name: "a"}},
 		},
 	}
-	result := SubstKindInType(inner, "k", TypeOfRows)
+	result := Subst(inner, "k", TypeOfRows)
 	f := result.(*TyForall)
 	arrow := f.Kind.(*TyArrow)
 	if !Equal(arrow.From, TypeOfRows) {
@@ -54,31 +54,23 @@ func TestSubstKindInTypeNested(t *testing.T) {
 	}
 }
 
-func TestSubstKindInTypeMeta(t *testing.T) {
-	// TyMeta with kind k -> Type; substitute k := Row
-	// After unification, kind vars are TyVar in the Kind field.
-	// SubstKindInType now delegates to Subst, which substitutes
-	// throughout the entire type including kind fields.
+func TestSubstKindMetaOpaque(t *testing.T) {
+	// TyMeta is a leaf in Subst — kind field is not traversed.
 	meta := &TyMeta{ID: 1, Kind: &TyArrow{From: &TyVar{Name: "k"}, To: TypeOfTypes}}
-	result := SubstKindInType(meta, "k", TypeOfRows)
-	// SubstKindInType is now Subst. TyMeta is a leaf in Subst (no variable
-	// substitution happens inside it), so the result should be unchanged.
-	// The old behavior substituted into Kind, but Subst treats TyMeta as opaque.
+	result := Subst(meta, "k", TypeOfRows)
 	m, ok := result.(*TyMeta)
 	if !ok {
 		t.Fatalf("expected TyMeta, got %T", result)
 	}
-	// After unification, Subst does not traverse into TyMeta.Kind,
-	// so the kind should remain unchanged.
 	if m.ID != 1 {
 		t.Errorf("expected same meta ID")
 	}
 }
 
-func TestSubstKindInTypeSkolem(t *testing.T) {
-	// Similarly, Subst treats TySkolem as a leaf.
+func TestSubstKindSkolemOpaque(t *testing.T) {
+	// Subst treats TySkolem as a leaf.
 	skolem := &TySkolem{ID: 1, Name: "f", Kind: &TyVar{Name: "k"}}
-	result := SubstKindInType(skolem, "k", TypeOfTypes)
+	result := Subst(skolem, "k", TypeOfTypes)
 	s, ok := result.(*TySkolem)
 	if !ok {
 		t.Fatalf("expected TySkolem, got %T", result)
@@ -88,28 +80,26 @@ func TestSubstKindInTypeSkolem(t *testing.T) {
 	}
 }
 
-func TestSubstKindInTypeNoChange(t *testing.T) {
+func TestSubstKindNoChange(t *testing.T) {
 	// No TyVar "k" in this type — should return same pointer
 	ty := &TyArrow{From: Con("Int"), To: Con("Bool")}
-	result := SubstKindInType(ty, "k", TypeOfRows)
+	result := Subst(ty, "k", TypeOfRows)
 	if result != ty {
 		t.Error("expected same pointer when no substitution occurs")
 	}
 }
 
-func TestSubstKindInTypeComp(t *testing.T) {
-	// Comp type — after unification, Subst traverses TyCBPV children
-	// but TyMeta is a leaf, so kinds inside metas won't be substituted.
+func TestSubstKindComp(t *testing.T) {
 	ty := MkComp(Con("Unit"), Con("Unit"), Con("Int"))
-	result := SubstKindInType(ty, "k", TypeOfRows)
+	result := Subst(ty, "k", TypeOfRows)
 	if result != ty {
 		t.Error("expected same pointer when no substitution in Comp")
 	}
 }
 
-func TestSubstKindInTypeThunk(t *testing.T) {
+func TestSubstKindThunk(t *testing.T) {
 	ty := MkThunk(Con("Unit"), Con("Unit"), Con("Int"))
-	result := SubstKindInType(ty, "k", TypeOfTypes)
+	result := Subst(ty, "k", TypeOfTypes)
 	if result != ty {
 		t.Error("expected same pointer when no substitution in Thunk")
 	}

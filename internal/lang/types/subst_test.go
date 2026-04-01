@@ -240,28 +240,26 @@ func TestSubstManyShadowing(t *testing.T) {
 	}
 }
 
-// --- SubstKindInType (now delegates to Subst) ---
+// --- Subst with kind-level variables ---
 
-func TestSubstKindInTypeForallKind(t *testing.T) {
+func TestSubstKindForall(t *testing.T) {
 	ty := &TyForall{
 		Var:  "a",
 		Kind: &TyVar{Name: "k"},
 		Body: &TyVar{Name: "a"},
 	}
-	result := SubstKindInType(ty, "k", TypeOfTypes)
+	result := Subst(ty, "k", TypeOfTypes)
 	forall := result.(*TyForall)
 	if !Equal(forall.Kind, TypeOfTypes) {
 		t.Errorf("kind should be TypeOfTypes, got %v", Pretty(forall.Kind))
 	}
 }
 
-func TestSubstKindInTypeMetaKind(t *testing.T) {
-	// After Kind->Type unification, Subst treats TyMeta as a leaf.
-	// So substitution into TyMeta.Kind does NOT happen via Subst.
+func TestSubstKindMetaLeaf(t *testing.T) {
+	// Subst treats TyMeta as a leaf — kind field is not traversed.
 	ty := &TyMeta{ID: 1, Kind: &TyVar{Name: "k"}}
-	result := SubstKindInType(ty, "k", TypeOfTypes)
+	result := Subst(ty, "k", TypeOfTypes)
 	meta := result.(*TyMeta)
-	// TyMeta is opaque to Subst, so Kind remains unchanged.
 	if _, ok := meta.Kind.(*TyVar); !ok {
 		t.Errorf("TyMeta.Kind should remain TyVar after Subst, got %T", meta.Kind)
 	}

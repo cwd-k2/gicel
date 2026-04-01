@@ -90,8 +90,8 @@ func TestStressKindMetaChain(t *testing.T) {
 	}
 }
 
-// TestStressSubstKindInTypeLarge — SubstKindInType with many nested foralls
-func TestStressSubstKindInTypeLarge(t *testing.T) {
+// TestStressSubstKindLarge — Subst with many nested kind-polymorphic foralls
+func TestStressSubstKindLarge(t *testing.T) {
 	// Build \ (f0: k -> Type). \ (f1: k -> Type). ... \ (f19: k -> Type). Int
 	var ty types.Type = types.Con("Int")
 	for i := 19; i >= 0; i-- {
@@ -102,7 +102,7 @@ func TestStressSubstKindInTypeLarge(t *testing.T) {
 			Body: ty,
 		}
 	}
-	result := types.SubstKindInType(ty, "k", types.TypeOfRows)
+	result := types.Subst(ty, "k", types.TypeOfRows)
 	// Verify all foralls have kind Row -> Type
 	current := result
 	for i := 0; i < 20; i++ {

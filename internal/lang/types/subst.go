@@ -202,13 +202,6 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 	}
 }
 
-// SubstKindInType substitutes a kind variable throughout a type.
-// After Kind→Type unification, kind substitution is just type substitution.
-// This wrapper is kept for backward compatibility during the migration.
-func SubstKindInType(t Type, varName string, replacement Type) Type {
-	return Subst(t, varName, replacement)
-}
-
 // SubstLevel replaces a level variable inside TyCon.Level fields throughout a type.
 // This is separate from Subst because level variables live in LevelExpr positions
 // inside TyCon (and TyCBPV grade), not in Type positions.

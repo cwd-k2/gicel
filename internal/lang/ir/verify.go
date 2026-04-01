@@ -3,6 +3,8 @@ package ir
 import (
 	"fmt"
 	"strings"
+
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // VerifyError represents a structural invariant violation in Core IR.
@@ -24,6 +26,7 @@ func (e *VerifyError) Error() string {
 //   - V2: Auto-force generated Bind has structure: Bind{Generated:true, Comp: Force{Var{$lz...}}}.
 //   - V4a: No double-Force: Force{Expr: Force{...}}.
 //   - V4b: No double-Thunk: Thunk{Comp: Thunk{...}} (generalizes former V3).
+//   - V6: No label-kinded TyApp after label erasure.
 func VerifyProgram(prog *Program) []VerifyError {
 	var errs []VerifyError
 	for _, b := range prog.Bindings {
@@ -47,6 +50,8 @@ func verifyCore(c Core, errs []VerifyError) []VerifyError {
 			errs = verifyForce(n, errs)
 		case *Thunk:
 			errs = verifyThunk(n, errs)
+		case *TyApp:
+			errs = verifyTyApp(n, errs)
 		}
 		return true
 	})
@@ -77,6 +82,17 @@ func verifyBind(b *Bind, errs []VerifyError) []VerifyError {
 		errs = append(errs, VerifyError{
 			Node:    b,
 			Message: fmt.Sprintf("generated Bind{Force{Var{%q}}} — expected $lz prefix", v.Name),
+		})
+	}
+	return errs
+}
+
+// verifyTyApp checks V6: no label-kinded TyApp after label erasure.
+func verifyTyApp(ta *TyApp, errs []VerifyError) []VerifyError {
+	if con, ok := ta.TyArg.(*types.TyCon); ok && con.IsLabel {
+		errs = append(errs, VerifyError{
+			Node:    ta,
+			Message: fmt.Sprintf("label TyApp survived label erasure: @%s", con.Name),
 		})
 	}
 	return errs
