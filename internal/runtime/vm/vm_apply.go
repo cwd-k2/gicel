@@ -135,8 +135,6 @@ func (vm *VM) callClosure(proto *Proto, captured []eval.Value, arg eval.Value, f
 // tailCallClosure reuses the current frame for a tail call.
 func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Value, frame *Frame) error {
 	bp := frame.bp
-	// Clear all old locals (may be more than new proto needs) to avoid
-	// holding stale references that prevent GC.
 	oldNumLocals := frame.proto.NumLocals
 	newNumLocals := proto.NumLocals
 	clearN := oldNumLocals
@@ -144,9 +142,23 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 		clearN = newNumLocals
 	}
 	vm.ensureLocals(bp + clearN)
-	for i := range clearN {
-		vm.locals[bp+i] = nil
+
+	// Determine how many leading slots will be overwritten by captures + param.
+	numCaptures := len(captured)
+	writtenUpTo := numCaptures
+	if proto.ParamName != "" {
+		paramSlot := numCaptures
+		if proto.FixSelfSlot >= 0 {
+			paramSlot = proto.FixSelfSlot + 1
+		}
+		writtenUpTo = paramSlot + 1
 	}
+	// Clear only slots not overwritten by captures/param, to avoid
+	// holding stale references that prevent GC.
+	if writtenUpTo < clearN {
+		clear(vm.locals[bp+writtenUpTo : bp+clearN])
+	}
+
 	// Shrink locals to the new frame's requirement.
 	vm.locals = vm.locals[:bp+newNumLocals]
 	// Copy captures.
@@ -204,9 +216,12 @@ func (vm *VM) callThunk(proto *Proto, captured []eval.Value, frame *Frame) error
 // tailCallThunk reuses the current frame for a tail thunk force.
 func (vm *VM) tailCallThunk(proto *Proto, captured []eval.Value, frame *Frame) error {
 	bp := frame.bp
-	vm.ensureLocals(bp + proto.NumLocals)
-	for i := 0; i < proto.NumLocals; i++ {
-		vm.locals[bp+i] = nil
+	n := proto.NumLocals
+	vm.ensureLocals(bp + n)
+	// Clear only slots not overwritten by captures.
+	numCaptures := len(captured)
+	if numCaptures < n {
+		clear(vm.locals[bp+numCaptures : bp+n])
 	}
 	copy(vm.locals[bp:], captured)
 	frame.proto = proto
@@ -284,11 +299,35 @@ func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv, frame *Frame) (e
 
 // applyPrim handles application to a PrimVal.
 func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
-	args := make([]eval.Value, len(pv.Args)+1)
+	newLen := len(pv.Args) + 1
+
+	// Fast path: saturated non-effectful with small arity.
+	// Uses the VM's scratch buffer to avoid a heap allocation for the
+	// transient argument slice. Safe because non-effectful primitives
+	// return before any re-entrant VM execution can alias the buffer.
+	if newLen >= pv.Arity && !pv.Effectful && newLen <= len(vm.primScratch) {
+		impl, ok := vm.prims.Lookup(pv.Name)
+		if !ok {
+			return vm.runtimeError("missing primitive: "+pv.Name, frame)
+		}
+		args := vm.primScratch[:newLen]
+		copy(args, pv.Args)
+		args[len(pv.Args)] = arg
+		val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
+		clear(vm.primScratch[:newLen])
+		if err != nil {
+			return err
+		}
+		frame.capEnv = newCap
+		vm.push(val)
+		return nil
+	}
+
+	args := make([]eval.Value, newLen)
 	copy(args, pv.Args)
 	args[len(pv.Args)] = arg
 
-	if len(args) < pv.Arity {
+	if newLen < pv.Arity {
 		// Partially applied.
 		vm.push(&eval.PrimVal{
 			Name: pv.Name, Arity: pv.Arity,
@@ -304,7 +343,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 		})
 		return nil
 	}
-	// Saturated non-effectful — call immediately.
+	// Saturated non-effectful, arity > scratch size.
 	impl, ok := vm.prims.Lookup(pv.Name)
 	if !ok {
 		return vm.runtimeError("missing primitive: "+pv.Name, frame)

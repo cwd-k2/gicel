@@ -441,10 +441,21 @@ func (s *Solver) processCtFunEq(ct *CtFunEq) {
 }
 
 // zonkAll applies Zonk to each type in the slice.
+// Returns the original slice if no type changed (pointer equality).
 func (s *Solver) zonkAll(tys []types.Type) []types.Type {
-	result := make([]types.Type, len(tys))
+	var result []types.Type // nil until first change (lazy alloc)
 	for i, t := range tys {
-		result[i] = s.env.Zonk(t)
+		z := s.env.Zonk(t)
+		if result == nil && z != t {
+			result = make([]types.Type, len(tys))
+			copy(result[:i], tys[:i])
+		}
+		if result != nil {
+			result[i] = z
+		}
+	}
+	if result == nil {
+		return tys
 	}
 	return result
 }

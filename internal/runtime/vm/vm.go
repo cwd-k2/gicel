@@ -59,6 +59,12 @@ type VM struct {
 
 	// Cached applier for primitive callbacks.
 	cachedApplier eval.Applier
+
+	// Scratch buffer for assembling primitive arguments in the saturated
+	// non-effectful fast path. Avoids a heap allocation per call.
+	// Invariant: only used in applyPrim (main dispatch), never in
+	// applyForPrim (re-entrant from primitives), so no aliasing hazard.
+	primScratch [8]eval.Value
 }
 
 // VMConfig holds configuration for creating a VM.
@@ -179,16 +185,26 @@ func (vm *VM) getLocal(frame *Frame, slot int) eval.Value {
 
 func (vm *VM) setLocal(frame *Frame, slot int, v eval.Value) {
 	idx := frame.bp + slot
-	for idx >= len(vm.locals) {
-		vm.locals = append(vm.locals, nil)
+	if idx >= len(vm.locals) {
+		vm.ensureLocals(idx + 1)
 	}
 	vm.locals[idx] = v
 }
 
 // ensureLocals grows the locals array to at least the given size.
+// New slots are zero-initialized (nil).
 func (vm *VM) ensureLocals(n int) {
-	for len(vm.locals) < n {
-		vm.locals = append(vm.locals, nil)
+	cur := len(vm.locals)
+	if cur >= n {
+		return
+	}
+	if n <= cap(vm.locals) {
+		vm.locals = vm.locals[:n]
+		clear(vm.locals[cur:n])
+	} else {
+		grown := make([]eval.Value, n, max(n, cap(vm.locals)*2))
+		copy(grown, vm.locals)
+		vm.locals = grown
 	}
 }
 
@@ -337,9 +353,11 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				// (at loop top) and this `continue`. The pointer aliases
 				// vm.frames[vm.fp]; a push would invalidate it.
 				bp := frame.bp
-				vm.ensureLocals(bp + proto.NumLocals)
-				for i := range proto.NumLocals {
-					vm.locals[bp+i] = nil
+				n := proto.NumLocals
+				vm.ensureLocals(bp + n)
+				numCap := len(thv.Captured)
+				if numCap < n {
+					clear(vm.locals[bp+numCap : bp+n])
 				}
 				copy(vm.locals[bp:], thv.Captured)
 				frame.proto = proto

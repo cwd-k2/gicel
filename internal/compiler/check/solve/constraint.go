@@ -1,10 +1,17 @@
 package solve
 
 import (
+	"sync"
+
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
+
+// metaSetPool reuses map[int]bool instances for collectMetaIDs.
+var metaSetPool = sync.Pool{
+	New: func() any { return make(map[int]bool, 8) },
+}
 
 // CtFlavor distinguishes given equalities (from GADT refinement) from
 // wanted equalities (from type checking obligations). Given equalities
@@ -130,7 +137,7 @@ func (c *CtImplication) ctSpan() span.Span { return c.S }
 // collectMetaIDs collects all TyMeta IDs from a slice of types.
 // Used by the inert set to build the meta-to-constraint index.
 func collectMetaIDs(tys []types.Type) []int {
-	seen := make(map[int]bool)
+	seen := metaSetPool.Get().(map[int]bool)
 	var ids []int
 	for _, t := range tys {
 		types.AnyType(t, func(ty types.Type) bool {
@@ -141,6 +148,8 @@ func collectMetaIDs(tys []types.Type) []int {
 			return false
 		})
 	}
+	clear(seen)
+	metaSetPool.Put(seen)
 	return ids
 }
 
