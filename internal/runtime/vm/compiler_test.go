@@ -56,8 +56,8 @@ func TestCompileLam(t *testing.T) {
 		t.Fatalf("expected 1 nested proto, got %d", len(proto.Protos))
 	}
 	child := proto.Protos[0]
-	if child.ParamName != "x" {
-		t.Errorf("expected param name 'x', got %q", child.ParamName)
+	if len(child.Params) != 1 || child.Params[0] != "x" {
+		t.Errorf("expected params [\"x\"], got %v", child.Params)
 	}
 }
 

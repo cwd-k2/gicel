@@ -14,10 +14,10 @@ type Proto struct {
 	Strings   []string     // string pool (constructor names, labels, keys)
 	Protos    []*Proto     // nested prototypes (closures/thunks defined inside)
 
-	NumLocals int    // total local variable slots required
-	Captures  []int  // de Bruijn indices in enclosing scope to capture
-	IsThunk   bool   // true for thunk bodies, false for closure bodies
-	ParamName string // parameter name (closures only; "" for thunks)
+	NumLocals int      // total local variable slots required
+	Captures  []int    // de Bruijn indices in enclosing scope to capture
+	IsThunk   bool     // true for thunk bodies, false for closure bodies
+	Params    []string // parameter names (nil for thunks, 1+ for closures)
 
 	// FixSelfSlot is the local slot where the self-reference is stored
 	// for Fix-derived prototypes. -1 if this is not a fix prototype.

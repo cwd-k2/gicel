@@ -13,6 +13,8 @@ const (
 	CostRecord      = 32               // RecordVal struct + slice header
 	CostRecordField = 24               // per RecordField (label string + Value interface)
 	CostFix         = CostClosure + 40 // Closure + Env node for fix binding
+	CostPAP         = 32               // PAPVal struct
+	CostPAPArg      = 16               // per arg in PAPVal.Args
 )
 
 // EvalResult is the result of evaluation.

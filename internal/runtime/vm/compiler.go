@@ -41,7 +41,7 @@ type frame struct {
 	captures    []int
 	bindNames   []BindInfo
 	isThunk     bool
-	paramName   string
+	params      []string
 	fixSelfSlot int
 }
 
@@ -83,7 +83,7 @@ func (c *Compiler) leaveFrame() *Proto {
 		NumLocals:   f.numLocals,
 		Captures:    f.captures,
 		IsThunk:     f.isThunk,
-		ParamName:   f.paramName,
+		Params:      f.params,
 		FixSelfSlot: f.fixSelfSlot,
 		MatchDescs:  f.matchDescs,
 		RecordDescs: f.recordDescs,
@@ -599,7 +599,9 @@ func (c *Compiler) compileChildProto(paramName string, body ir.Core, isThunk boo
 	c.enterFrame()
 	f := c.top()
 	f.isThunk = isThunk
-	f.paramName = paramName
+	if paramName != "" {
+		f.params = []string{paramName}
+	}
 	f.captures = captureSlots
 	for _, name := range capturedNames {
 		c.allocLocal(name)
@@ -618,7 +620,9 @@ func (c *Compiler) compileFixProto(selfName, paramName string, body ir.Core, isT
 	c.enterFrame()
 	f := c.top()
 	f.isThunk = isThunk
-	f.paramName = paramName
+	if paramName != "" {
+		f.params = []string{paramName}
+	}
 	f.captures = captureSlots
 	for _, name := range capturedNames {
 		c.allocLocal(name)

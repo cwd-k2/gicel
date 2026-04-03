@@ -118,7 +118,7 @@ func (vm *VM) callClosure(proto *Proto, captured []eval.Value, arg eval.Value, f
 	// Copy captures into slots 0..numCaptures-1.
 	copy(vm.locals[bp:], captured)
 	// Store parameter after captures (and after self-ref slot if fix).
-	if proto.ParamName != "" {
+	if len(proto.Params) > 0 {
 		paramSlot := len(proto.Captures)
 		if proto.FixSelfSlot >= 0 {
 			paramSlot = proto.FixSelfSlot + 1
@@ -146,7 +146,7 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 	// Determine how many leading slots will be overwritten by captures + param.
 	numCaptures := len(captured)
 	writtenUpTo := numCaptures
-	if proto.ParamName != "" {
+	if len(proto.Params) > 0 {
 		paramSlot := numCaptures
 		if proto.FixSelfSlot >= 0 {
 			paramSlot = proto.FixSelfSlot + 1
@@ -164,7 +164,7 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 	// Copy captures.
 	copy(vm.locals[bp:], captured)
 	// Store parameter.
-	if proto.ParamName != "" {
+	if len(proto.Params) > 0 {
 		paramSlot := len(proto.Captures)
 		if proto.FixSelfSlot >= 0 {
 			paramSlot = proto.FixSelfSlot + 1

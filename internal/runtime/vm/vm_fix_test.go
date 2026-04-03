@@ -29,8 +29,8 @@ func TestVMFixSimple(t *testing.T) {
 	t.Log("Top-level bytecode:")
 	dumpProto(t, proto, "  ")
 	for i, p := range proto.Protos {
-		t.Logf("Proto[%d]: NumLocals=%d, Captures=%v, ParamName=%q, FixSelfSlot=%d, IsThunk=%v",
-			i, p.NumLocals, p.Captures, p.ParamName, p.FixSelfSlot, p.IsThunk)
+		t.Logf("Proto[%d]: NumLocals=%d, Captures=%v, Params=%v, FixSelfSlot=%d, IsThunk=%v",
+			i, p.NumLocals, p.Captures, p.Params, p.FixSelfSlot, p.IsThunk)
 		dumpProto(t, p, "    ")
 	}
 

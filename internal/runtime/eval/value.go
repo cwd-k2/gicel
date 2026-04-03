@@ -179,6 +179,16 @@ type VMThunkVal struct {
 	AutoForce bool         // true for rec self-referential thunks
 }
 
+// PAPVal is a partial application: a multi-parameter closure that has received
+// fewer arguments than its arity. Created when applying a single argument to a
+// closure whose Proto has len(Params) > 1, or by adding an argument to an
+// existing PAPVal that is not yet saturated.
+type PAPVal struct {
+	Fun   *VMClosure // original closure (carries Proto with full arity)
+	Args  []Value    // arguments applied so far
+	Arity int        // total arity (cached from Proto)
+}
+
 // IndirectVal is a forward-reference cell for mutually-recursive top-level bindings.
 // It holds a pointer to the actual value, which is populated after the binding is evaluated.
 type IndirectVal struct {
@@ -193,6 +203,7 @@ func (*PrimVal) valueNode()     {}
 func (*RecordVal) valueNode()   {}
 func (*VMClosure) valueNode()   {}
 func (*VMThunkVal) valueNode()  {}
+func (*PAPVal) valueNode()      {}
 func (*IndirectVal) valueNode() {}
 
 func (v *HostVal) String() string {
@@ -338,6 +349,10 @@ func (v *RecordVal) String() string {
 
 func (v *VMClosure) String() string {
 	return "VMClosure(" + v.Name + ", ...)"
+}
+
+func (v *PAPVal) String() string {
+	return fmt.Sprintf("PAPVal(%s, %d/%d)", v.Fun.Name, len(v.Args), v.Arity)
 }
 
 func (v *VMThunkVal) String() string {
