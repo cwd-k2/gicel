@@ -18,9 +18,10 @@ import (
 // Child frames (for nested lambdas/thunks) are compiled depth-first and
 // fully finalized before the parent frame resumes.
 type Compiler struct {
-	globalSlots map[string]int
-	source      *span.Source
-	frames      []frame
+	globalSlots   map[string]int
+	globalArities map[string]int // global name → known arity (-1 or absent: unknown)
+	source        *span.Source
+	frames        []frame
 }
 
 // frame accumulates bytecode and metadata for a single Proto.
@@ -112,6 +113,15 @@ func (c *Compiler) CompileBinding(b ir.Binding) *Proto {
 	c.compileExpr(b.Expr, false)
 	c.emit(OpReturn)
 	return c.leaveFrame()
+}
+
+// RecordArity registers the known arity of a global binding.
+// Called after CompileBinding so that subsequent references emit OpApplyN.
+func (c *Compiler) RecordArity(name string, arity int) {
+	if c.globalArities == nil {
+		c.globalArities = make(map[string]int)
+	}
+	c.globalArities[name] = arity
 }
 
 // --- bytecode emission ---
@@ -301,6 +311,23 @@ func (c *Compiler) localArity(name string) int {
 	return -1
 }
 
+// varArity returns the known arity of a variable (local or global).
+func (c *Compiler) varArity(v *ir.Var) int {
+	if v.Index >= 0 {
+		return c.localArity(v.Name)
+	}
+	if c.globalArities != nil {
+		key := v.Key
+		if key == "" {
+			key = ir.VarKey(v)
+		}
+		if a, ok := c.globalArities[key]; ok {
+			return a
+		}
+	}
+	return -1
+}
+
 func (c *Compiler) resolveLocal(name string) (int, bool) {
 	f := c.top()
 	for i := len(f.locals) - 1; i >= 0; i-- {
@@ -428,6 +455,25 @@ func (c *Compiler) compileLam(lam *ir.Lam) {
 	c.emitU16(OpClosure, protoIdx)
 }
 
+// irLamArity returns the arity of a Lam chain, or -1 if expr is not a Lam.
+func irLamArity(expr ir.Core) int {
+	lam, ok := ir.PeelTyLam(expr).(*ir.Lam)
+	if !ok {
+		return -1
+	}
+	n := 1
+	body := lam.Body
+	for {
+		inner, ok := ir.PeelTyLam(body).(*ir.Lam)
+		if !ok {
+			break
+		}
+		n++
+		body = inner.Body
+	}
+	return n
+}
+
 // flattenLamChain collects a chain of nested Lam nodes into a parameter
 // list and the innermost body. Returns the outermost Lam's FV/FVIndices
 // (inner params become local slots in the flattened Proto, not captures).
@@ -471,8 +517,8 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	c.addSpan(app.S)
 	// Collect application spine and check for known-arity call.
 	fn, args := collectAppSpine(app)
-	if v, ok := fn.(*ir.Var); ok && v.Index >= 0 && len(args) > 1 {
-		arity := c.localArity(v.Name)
+	if v, ok := fn.(*ir.Var); ok && len(args) > 1 {
+		arity := c.varArity(v)
 		if arity > 1 && len(args) >= arity && arity <= 255 {
 			// Known arity, enough args. Emit OpApplyN for the first arity args.
 			c.compileExpr(fn, false)
@@ -577,7 +623,8 @@ func (c *Compiler) compileFix(fix *ir.Fix) {
 func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
 	c.addSpan(bind.S)
 	c.compileExpr(bind.Comp, false)
-	slot := c.allocLocal(bind.Var)
+	arity := irLamArity(bind.Comp)
+	slot := c.allocLocalWithArity(bind.Var, arity)
 	c.emitU16(OpBind, uint16(slot))
 	if !bind.Discard && !bind.Generated {
 		c.top().bindNames = append(c.top().bindNames, BindInfo{Slot: slot, Name: bind.Var})
