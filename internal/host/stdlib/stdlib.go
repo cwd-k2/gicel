@@ -71,23 +71,20 @@ func asFloat64(v eval.Value, pack string) (float64, error) {
 	return f, nil
 }
 
-// boolVal constructs a Bool ConVal from a Go bool.
-func boolVal(b bool) *eval.ConVal {
-	if b {
-		return &eval.ConVal{Con: eval.BoolTrue}
-	}
-	return &eval.ConVal{Con: eval.BoolFalse}
+// boolVal returns the interned Bool value for b.
+func boolVal(b bool) eval.Value {
+	return eval.BoolVal(b)
 }
 
-// ordVal constructs an Ordering ConVal from a comparison result (-1, 0, 1).
-func ordVal(cmp int) *eval.ConVal {
+// ordVal returns the interned Ordering value for a comparison result.
+func ordVal(cmp int) eval.Value {
 	switch {
 	case cmp < 0:
-		return &eval.ConVal{Con: "LT"}
+		return eval.LTVal
 	case cmp > 0:
-		return &eval.ConVal{Con: "GT"}
+		return eval.GTVal
 	default:
-		return &eval.ConVal{Con: "EQ"}
+		return eval.EQVal
 	}
 }
 

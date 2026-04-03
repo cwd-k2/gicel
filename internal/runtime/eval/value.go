@@ -225,6 +225,42 @@ const (
 	BoolFalse = "False"
 )
 
+// Interned values — immutable singleton instances.
+// Structurally equal immutable values may share representation.
+var (
+	TrueVal  Value = &ConVal{Con: BoolTrue}
+	FalseVal Value = &ConVal{Con: BoolFalse}
+	LTVal    Value = &ConVal{Con: "LT"}
+	EQVal    Value = &ConVal{Con: "EQ"}
+	GTVal    Value = &ConVal{Con: "GT"}
+)
+
+// BoolVal returns the interned Bool value for b.
+func BoolVal(b bool) Value {
+	if b {
+		return TrueVal
+	}
+	return FalseVal
+}
+
+// smallInts caches HostVal for integers -128..127.
+var smallInts [256]*HostVal
+
+func init() {
+	for i := range smallInts {
+		n := int64(i) - 128
+		smallInts[i] = &HostVal{Inner: n}
+	}
+}
+
+// IntVal returns a HostVal for n, using a cached instance for small values.
+func IntVal(n int64) Value {
+	if n >= -128 && n <= 127 {
+		return smallInts[n+128]
+	}
+	return &HostVal{Inner: n}
+}
+
 // IsBool checks if a ConVal is a Prelude Bool (True or False, nullary).
 func IsBool(v *ConVal) (val bool, ok bool) {
 	if len(v.Args) != 0 {

@@ -77,11 +77,17 @@ func (b *Budget) checkCtx() error {
 
 // Step records one unit of work. Returns an error if the step limit is
 // exceeded or the context has been cancelled.
+//
+// Context cancellation is checked every 64 steps rather than on every call.
+// This preserves sub-millisecond cancellation responsiveness at any realistic
+// step rate while avoiding the per-call cost of a channel poll.
 func (b *Budget) Step() error {
-	if err := b.checkCtx(); err != nil {
-		return err
-	}
 	b.steps++
+	if b.steps&63 == 0 {
+		if err := b.checkCtx(); err != nil {
+			return err
+		}
+	}
 	if b.max > 0 && b.steps > b.max {
 		return &StepLimitError{}
 	}
@@ -253,6 +259,13 @@ type CancelledError struct {
 func (e *CancelledError) Error() string { return "execution cancelled" }
 func (e *CancelledError) Unwrap() error { return e.Cause }
 func (e *CancelledError) limitError()   {}
+
+// WrapCtxErr wraps a raw context error in a user-friendly GICEL error type.
+// Exported for use at execution entry points that check context before the
+// first budget Step.
+func WrapCtxErr(err error) error {
+	return wrapCtxErr(err)
+}
 
 // wrapCtxErr wraps a raw context error in a user-friendly GICEL error type.
 func wrapCtxErr(err error) error {

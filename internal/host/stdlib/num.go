@@ -12,7 +12,7 @@ import (
 func asInt64Num(v eval.Value) (int64, error) { return asInt64(v, "num") }
 
 func intResult(n int64, ce eval.CapEnv) (eval.Value, eval.CapEnv, error) {
-	return &eval.HostVal{Inner: n}, ce, nil
+	return eval.IntVal(n), ce, nil
 }
 
 func addIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

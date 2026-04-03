@@ -27,10 +27,9 @@ func TestCompileLit(t *testing.T) {
 	if len(proto.Code) == 0 {
 		t.Fatal("empty bytecode")
 	}
-	// Should contain: STEP, CONST, RETURN
-	assertOpAt(t, proto, 0, OpStep)
-	assertOp(t, proto, OpConst)
-	assertOp(t, proto, OpReturn)
+	// Lit is a value form — no OpStep (only reductions emit steps).
+	// Should contain: CONST, FORCE_EFFECTFUL, RETURN
+	assertOpAt(t, proto, 0, OpConst)
 }
 
 func TestCompileVar(t *testing.T) {

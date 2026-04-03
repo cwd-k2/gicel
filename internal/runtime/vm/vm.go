@@ -694,11 +694,16 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				return eval.EvalResult{}, vm.runtimeError(
 					"missing primitive: "+name, frame)
 			}
-			args := make([]eval.Value, arity)
-			for i := arity - 1; i >= 0; i-- {
-				args[i] = vm.pop()
+			// Args are contiguous on the stack. Pass a view directly
+			// instead of allocating a fresh slice. Safe because OpPrim
+			// is emitted only for non-effectful saturated primitives,
+			// which do not call the Applier (no re-entrant stack mutation).
+			base := vm.sp - arity
+			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, vm.stack[base:vm.sp])
+			for i := base; i < vm.sp; i++ {
+				vm.stack[i] = nil
 			}
-			val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
+			vm.sp = base
 			if err != nil {
 				return eval.EvalResult{}, err
 			}

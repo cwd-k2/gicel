@@ -325,7 +325,14 @@ func (c *Compiler) compileExpr(expr ir.Core, tail bool) {
 		return
 	}
 
-	c.emitStep(expr)
+	// Emit step only for reductions (CBPV operational semantics).
+	// Var/Lit are value forms; Lam/Thunk/Con/Record/Merge produce values
+	// without reducing. Only App, Force, Bind, Case, PrimOp, and Fix
+	// correspond to computational steps.
+	switch expr.(type) {
+	case *ir.App, *ir.Force, *ir.Bind, *ir.Case, *ir.PrimOp, *ir.Fix:
+		c.emitStep(expr)
+	}
 
 	switch node := expr.(type) {
 	case *ir.Var:

@@ -229,6 +229,13 @@ type runRequest struct {
 
 // execute runs the program using the bytecode VM.
 func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
+	// Catch pre-cancelled contexts before allocating execution state.
+	// With amortized context checking in budget.Step(), programs with
+	// fewer than 64 steps might never poll the channel.
+	if err := ctx.Err(); err != nil {
+		return eval.EvalResult{}, eval.EvalStats{}, budget.WrapCtxErr(err)
+	}
+
 	globalArray, err := r.buildGlobalArray(req.bindings)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err

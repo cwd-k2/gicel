@@ -313,7 +313,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 		args := vm.primScratch[:newLen]
 		copy(args, pv.Args)
 		args[len(pv.Args)] = arg
-		val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
+		val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, args)
 		clear(vm.primScratch[:newLen])
 		if err != nil {
 			return err
@@ -414,6 +414,17 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	default:
 		return nil, capEnv, fmt.Errorf("application of non-function in Applier: %s", fn)
 	}
+}
+
+// callTrustedPrim invokes a stdlib PrimImpl without panic recovery.
+// Used for OpPrim (non-effectful saturated primitives compiled from known
+// stdlib assumptions). These are within the trust boundary and cannot panic.
+func (vm *VM) callTrustedPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+	val, newCap, err := impl(vm.ctx, capEnv, args, vm.cachedApplier)
+	if err != nil {
+		return nil, capEnv, wrapPrimError(err)
+	}
+	return val, newCap, nil
 }
 
 // callPrim safely invokes a PrimImpl, wrapping plain errors with source/span.
