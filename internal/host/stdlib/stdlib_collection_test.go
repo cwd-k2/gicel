@@ -17,7 +17,7 @@ import (
 type intCmpPartialInner struct{ val int64 }
 
 func intCmpApplier() eval.Applier {
-	return func(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	return eval.ApplierFrom(func(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		// Second application: partial(b) → Ordering
 		if hv, ok := fn.(*eval.HostVal); ok {
 			if p, ok := hv.Inner.(*intCmpPartialInner); ok {
@@ -35,7 +35,7 @@ func intCmpApplier() eval.Applier {
 		// First application: cmpFn(a) → partial capturing a
 		a := arg.(*eval.HostVal).Inner.(int64)
 		return &eval.HostVal{Inner: &intCmpPartialInner{val: a}}, capEnv, nil
-	}
+	})
 }
 
 func TestMapInsertLookup(t *testing.T) {
@@ -43,7 +43,7 @@ func TestMapInsertLookup(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"} // dummy, Applier handles comparison directly
 
 	// Create empty map.
-	emptyV, _, err := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, err := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,17 +80,17 @@ func TestMapDeleteSize(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m1), apply)
 
 	// Size = 2.
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv, 2)
 
 	// Delete key 1.
 	m3, _, _ := mapDeleteImpl(ctx, ce, args(cmpFn, intVal(1), m2), apply)
-	sv2, _, _ := mapSizeImpl(ctx, ce, args(m3), nil)
+	sv2, _, _ := mapSizeImpl(ctx, ce, args(m3), eval.Applier{})
 	assertInt(t, sv2, 1)
 
 	// Lookup 1 → Nothing (deleted).
@@ -119,7 +119,7 @@ func TestMapToListFromList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sorted, _, err := mapToListImpl(ctx, ce, args(m), nil)
+	sorted, _, err := mapToListImpl(ctx, ce, args(m), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,11 +139,11 @@ func TestMapToListFromList(t *testing.T) {
 
 func TestMapEmptySize(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, err := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, err := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, err := mapSizeImpl(ctx, ce, args(emptyV), nil)
+	sv, _, err := mapSizeImpl(ctx, ce, args(emptyV), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestMapEmptySize(t *testing.T) {
 func TestMapLookupEmpty(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 
 	v, _, err := mapLookupImpl(ctx, ce, args(cmpFn, intVal(1), emptyV), apply)
 	if err != nil {
@@ -165,7 +165,7 @@ func TestMapLookupEmpty(t *testing.T) {
 func TestMapInsertOverwrite(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 
 	// Insert (1, "a"), then overwrite with (1, "b").
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
@@ -180,40 +180,40 @@ func TestMapInsertOverwrite(t *testing.T) {
 	assertStr(t, v.(*eval.ConVal).Args[0], "b")
 
 	// Size should remain 1 (overwrite, not insert).
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv, 1)
 }
 
 func TestMapDeleteNonexistent(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
 
 	// Delete key 99 (not present): size should remain 1.
 	m2, _, _ := mapDeleteImpl(ctx, ce, args(cmpFn, intVal(99), m1), apply)
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv, 1)
 }
 
 func TestMapDeleteEmpty(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 
 	// Delete from empty map should not error.
 	m2, _, err := mapDeleteImpl(ctx, ce, args(cmpFn, intVal(1), emptyV), apply)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv, 0)
 }
 
 func TestMapMemberImpl(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
 
 	// Member check: key 1 → True.
@@ -234,13 +234,13 @@ func TestMapMemberImpl(t *testing.T) {
 func TestMapFoldlWithKeyImpl(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(10), emptyV), apply)
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(20), m1), apply)
 
 	// foldlWithKey (\acc k v -> acc + v) 0 {1:10, 2:20} = 30
 	foldF := &eval.Closure{Param: "acc", Body: nil}
-	sumApplier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	sumApplier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		switch f := fn.(type) {
 		case *eval.Closure:
 			// First application: capture acc
@@ -257,7 +257,7 @@ func TestMapFoldlWithKeyImpl(t *testing.T) {
 			return intVal(accN + valN), capEnv, nil
 		}
 		return nil, capEnv, fmt.Errorf("unexpected fn type: %T", fn)
-	}
+	})
 
 	v, _, err := mapFoldlWithKeyImpl(ctx, ce, args(foldF, intVal(0), m2), sumApplier)
 	if err != nil {
@@ -274,7 +274,7 @@ type sumState struct {
 func TestMapUnionWithImpl(t *testing.T) {
 	cmpApply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 
 	// m1 = {1: 10, 2: 20}
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(10), emptyV), cmpApply)
@@ -291,7 +291,7 @@ func TestMapUnionWithImpl(t *testing.T) {
 	// Combined applier: handles both int comparison (for AVL lookup/insert)
 	// and addition (for the merge function). Distinguishes by fn type.
 	type addPartial struct{ val int64 }
-	unionApply := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	unionApply := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		// Merge function: Closure → partial, addPartial → sum
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: &addPartial{val: arg.(*eval.HostVal).Inner.(int64)}}, capEnv, nil
@@ -303,15 +303,15 @@ func TestMapUnionWithImpl(t *testing.T) {
 			}
 		}
 		// Comparison: delegate to intCmpApplier
-		return cmpApply(fn, arg, capEnv)
-	}
+		return cmpApply.Apply(fn, arg, capEnv)
+	})
 
 	result, _, err := mapUnionWithImpl(ctx, ce, args(addF, m1, m2), unionApply)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sv, _, _ := mapSizeImpl(ctx, ce, args(result), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(result), eval.Applier{})
 	assertInt(t, sv, 3)
 
 	// Check key 2 has value 25 (combined).
@@ -327,8 +327,8 @@ func TestMapUnionWithImpl(t *testing.T) {
 
 func TestMapToListEmpty(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
-	v, _, err := mapToListImpl(ctx, ce, args(emptyV), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
+	v, _, err := mapToListImpl(ctx, ce, args(emptyV), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestMapFromListEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m), eval.Applier{})
 	assertInt(t, sv, 0)
 }
 
@@ -358,7 +358,7 @@ func TestMapManyInserts(t *testing.T) {
 	// Insert 20 elements to exercise AVL rotations.
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	for i := int64(0); i < 20; i++ {
 		var err error
 		m, _, err = mapInsertImpl(ctx, ce, args(cmpFn, intVal(i), intVal(i*100), m), apply)
@@ -366,7 +366,7 @@ func TestMapManyInserts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m), eval.Applier{})
 	assertInt(t, sv, 20)
 
 	// Verify all keys are found.
@@ -380,7 +380,7 @@ func TestMapManyInserts(t *testing.T) {
 	}
 
 	// toList should return sorted keys.
-	sorted, _, _ := mapToListImpl(ctx, ce, args(m), nil)
+	sorted, _, _ := mapToListImpl(ctx, ce, args(m), eval.Applier{})
 	items, _ := listToSlice(sorted)
 	if len(items) != 20 {
 		t.Fatalf("expected 20 items, got %d", len(items))
@@ -397,13 +397,13 @@ func TestSetInsertMemberSize(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
-	emptyV, _, err := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, err := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Size 0.
-	sv, _, _ := setSizeImpl(ctx, ce, args(emptyV), nil)
+	sv, _, _ := setSizeImpl(ctx, ce, args(emptyV), eval.Applier{})
 	assertInt(t, sv, 0)
 
 	// Insert 1.
@@ -411,7 +411,7 @@ func TestSetInsertMemberSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ = setSizeImpl(ctx, ce, args(s1), nil)
+	sv, _, _ = setSizeImpl(ctx, ce, args(s1), eval.Applier{})
 	assertInt(t, sv, 1)
 
 	// Insert 2.
@@ -419,7 +419,7 @@ func TestSetInsertMemberSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ = setSizeImpl(ctx, ce, args(s2), nil)
+	sv, _, _ = setSizeImpl(ctx, ce, args(s2), eval.Applier{})
 	assertInt(t, sv, 2)
 
 	// Member 1 → True.
@@ -440,7 +440,7 @@ func TestSetInsertMemberSize(t *testing.T) {
 func TestSetDeleteSize(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	s1, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(1), emptyV), apply)
 	s2, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(2), s1), apply)
 
@@ -449,7 +449,7 @@ func TestSetDeleteSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := setSizeImpl(ctx, ce, args(s3), nil)
+	sv, _, _ := setSizeImpl(ctx, ce, args(s3), eval.Applier{})
 	assertInt(t, sv, 1)
 
 	// Member 1 → False (deleted).
@@ -464,24 +464,24 @@ func TestSetDeleteSize(t *testing.T) {
 func TestSetInsertDuplicate(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	s1, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(1), emptyV), apply)
 
 	// Insert duplicate: size should remain 1.
 	s2, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(1), s1), apply)
-	sv, _, _ := setSizeImpl(ctx, ce, args(s2), nil)
+	sv, _, _ := setSizeImpl(ctx, ce, args(s2), eval.Applier{})
 	assertInt(t, sv, 1)
 }
 
 func TestSetToListSorted(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	s1, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(3), emptyV), apply)
 	s2, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(1), s1), apply)
 	s3, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(2), s2), apply)
 
-	v, _, err := setToListImpl(ctx, ce, args(s3), nil)
+	v, _, err := setToListImpl(ctx, ce, args(s3), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -506,7 +506,7 @@ func TestSetFromListImpl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := setSizeImpl(ctx, ce, args(s), nil)
+	sv, _, _ := setSizeImpl(ctx, ce, args(s), eval.Applier{})
 	assertInt(t, sv, 3) // duplicates removed
 }
 
@@ -519,14 +519,14 @@ func TestSetFromListEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := setSizeImpl(ctx, ce, args(s), nil)
+	sv, _, _ := setSizeImpl(ctx, ce, args(s), eval.Applier{})
 	assertInt(t, sv, 0)
 }
 
 func TestSetDeleteNonexistent(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	s1, _, _ := setInsertImpl(ctx, ce, args(cmpFn, intVal(1), emptyV), apply)
 
 	// Delete non-existent key: size unchanged.
@@ -534,14 +534,14 @@ func TestSetDeleteNonexistent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := setSizeImpl(ctx, ce, args(s2), nil)
+	sv, _, _ := setSizeImpl(ctx, ce, args(s2), eval.Applier{})
 	assertInt(t, sv, 1)
 }
 
 func TestSetToListEmpty(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
-	v, _, err := setToListImpl(ctx, ce, args(emptyV), nil)
+	emptyV, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
+	v, _, err := setToListImpl(ctx, ce, args(emptyV), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,7 +558,7 @@ func TestAVLRotationViaSequentialInserts(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
 	// Ascending: 1,2,3,...,15 forces left rotations.
-	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	for i := int64(1); i <= 15; i++ {
 		var err error
 		m, _, err = mapInsertImpl(ctx, ce, args(cmpFn, intVal(i), intVal(i*10), m), apply)
@@ -566,11 +566,11 @@ func TestAVLRotationViaSequentialInserts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m), eval.Applier{})
 	assertInt(t, sv, 15)
 
 	// Verify in-order traversal (sorted).
-	sorted, _, _ := mapToListImpl(ctx, ce, args(m), nil)
+	sorted, _, _ := mapToListImpl(ctx, ce, args(m), eval.Applier{})
 	items, _ := listToSlice(sorted)
 	for i, item := range items {
 		pair := item.(*eval.RecordVal)
@@ -578,7 +578,7 @@ func TestAVLRotationViaSequentialInserts(t *testing.T) {
 	}
 
 	// Descending: 15,14,...,1 forces right rotations.
-	m2, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m2, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	for i := int64(15); i >= 1; i-- {
 		var err error
 		m2, _, err = mapInsertImpl(ctx, ce, args(cmpFn, intVal(i), intVal(i*10), m2), apply)
@@ -586,7 +586,7 @@ func TestAVLRotationViaSequentialInserts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	sv2, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv2, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv2, 15)
 }
 
@@ -596,7 +596,7 @@ func TestAVLDoubleRotation(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
-	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	for _, k := range []int64{3, 1, 2} {
 		var err error
 		m, _, err = mapInsertImpl(ctx, ce, args(cmpFn, intVal(k), intVal(k), m), apply)
@@ -604,7 +604,7 @@ func TestAVLDoubleRotation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	sorted, _, _ := mapToListImpl(ctx, ce, args(m), nil)
+	sorted, _, _ := mapToListImpl(ctx, ce, args(m), eval.Applier{})
 	items, _ := listToSlice(sorted)
 	if len(items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(items))
@@ -620,7 +620,7 @@ func TestAVLDeleteNodeWithTwoChildren(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
-	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	// Insert in order that creates node with two children: 2, 1, 3.
 	for _, k := range []int64{2, 1, 3} {
 		var err error
@@ -635,7 +635,7 @@ func TestAVLDeleteNodeWithTwoChildren(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv, 2)
 
 	// Verify remaining keys.
@@ -666,7 +666,7 @@ func TestAsMapValInnerNotMap(t *testing.T) {
 func TestMapFromListMalformedNotList(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	// Pass a non-ConVal as the list.
-	_, _, err := mapFromListImpl(ctx, ce, args(cmpFn, intVal(42)), nil)
+	_, _, err := mapFromListImpl(ctx, ce, args(cmpFn, intVal(42)), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for non-list input")
 	}
@@ -676,7 +676,7 @@ func TestMapFromListMalformedCons(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	// Malformed Cons with wrong arg count.
 	badList := &eval.ConVal{Con: "Cons", Args: []eval.Value{intVal(1)}} // missing tail
-	_, _, err := mapFromListImpl(ctx, ce, args(cmpFn, badList), nil)
+	_, _, err := mapFromListImpl(ctx, ce, args(cmpFn, badList), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for malformed Cons")
 	}
@@ -708,7 +708,7 @@ func TestMapFromListIncompleteTuple(t *testing.T) {
 func TestSetFromListMalformed(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	// Non-list input.
-	_, _, err := setFromListImpl(ctx, ce, args(cmpFn, intVal(42)), nil)
+	_, _, err := setFromListImpl(ctx, ce, args(cmpFn, intVal(42)), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for non-list input to setFromList")
 	}
@@ -717,7 +717,7 @@ func TestSetFromListMalformed(t *testing.T) {
 func TestSetFromListMalformedCons(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	badList := &eval.ConVal{Con: "Cons", Args: []eval.Value{intVal(1)}}
-	_, _, err := setFromListImpl(ctx, ce, args(cmpFn, badList), nil)
+	_, _, err := setFromListImpl(ctx, ce, args(cmpFn, badList), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for malformed Cons")
 	}
@@ -728,16 +728,16 @@ func TestMapPersistence(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m1), apply)
 
 	// m1 should still have size 1.
-	sv1, _, _ := mapSizeImpl(ctx, ce, args(m1), nil)
+	sv1, _, _ := mapSizeImpl(ctx, ce, args(m1), eval.Applier{})
 	assertInt(t, sv1, 1)
 
 	// m2 should have size 2.
-	sv2, _, _ := mapSizeImpl(ctx, ce, args(m2), nil)
+	sv2, _, _ := mapSizeImpl(ctx, ce, args(m2), eval.Applier{})
 	assertInt(t, sv2, 2)
 
 	// Key 2 should not exist in m1.
@@ -750,7 +750,7 @@ func TestMapDeletePersistence(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), emptyV), apply)
 	m1, _, _ = mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m1), apply)
 	m2, _, _ := mapDeleteImpl(ctx, ce, args(cmpFn, intVal(1), m1), apply)
@@ -766,10 +766,10 @@ func TestMapDeletePersistence(t *testing.T) {
 
 func TestFoldlWithKeyEmpty(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	foldF := &eval.Closure{Param: "acc", Body: nil}
 
-	v, _, err := mapFoldlWithKeyImpl(ctx, ce, args(foldF, intVal(99), emptyV), nil)
+	v, _, err := mapFoldlWithKeyImpl(ctx, ce, args(foldF, intVal(99), emptyV), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -810,12 +810,12 @@ func TestAppendIONoAlias(t *testing.T) {
 func TestMapKeysValues(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(3), strVal("c"), emptyV), apply)
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), m1), apply)
 	m3, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), m2), apply)
 
-	keys, _, err := mapKeysImpl(ctx, ce, args(m3), nil)
+	keys, _, err := mapKeysImpl(ctx, ce, args(m3), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -827,7 +827,7 @@ func TestMapKeysValues(t *testing.T) {
 	assertInt(t, kList[1], 2)
 	assertInt(t, kList[2], 3)
 
-	vals, _, err := mapValuesImpl(ctx, ce, args(m3), nil)
+	vals, _, err := mapValuesImpl(ctx, ce, args(m3), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -843,26 +843,26 @@ func TestMapKeysValues(t *testing.T) {
 func TestMapMapValuesImpl(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(10), emptyV), apply)
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(20), m1), apply)
 
 	// Double each value.
 	doubler := &eval.HostVal{Inner: "doubler"}
-	doubleApply := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	doubleApply := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.HostVal); ok {
 			if hv, ok := arg.(*eval.HostVal); ok {
 				n := hv.Inner.(int64)
 				return intVal(n * 2), capEnv, nil
 			}
 		}
-		return apply(fn, arg, capEnv)
-	}
+		return apply.Apply(fn, arg, capEnv)
+	})
 	result, _, err := mapMapValuesImpl(ctx, ce, args(doubler, m2), doubleApply)
 	if err != nil {
 		t.Fatal(err)
 	}
-	vals, _, _ := mapValuesImpl(ctx, ce, args(result), nil)
+	vals, _, _ := mapValuesImpl(ctx, ce, args(result), eval.Applier{})
 	vList := collectConsList(vals)
 	if len(vList) != 2 {
 		t.Fatalf("mapValues: expected 2, got %d", len(vList))
@@ -874,7 +874,7 @@ func TestMapMapValuesImpl(t *testing.T) {
 func TestMapFilterWithKeyImpl(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(10), emptyV), apply)
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(20), m1), apply)
 	m3, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(3), intVal(30), m2), apply)
@@ -885,7 +885,7 @@ func TestMapFilterWithKeyImpl(t *testing.T) {
 	type filterPartial struct{ key eval.Value }
 	pred := &eval.HostVal{Inner: "pred"}
 	baseApply := intCmpApplier()
-	filterApply := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	filterApply := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		// Handle predicate applications.
 		if fp, ok := fn.(*eval.HostVal); ok {
 			if fp.Inner == "pred" {
@@ -902,8 +902,8 @@ func TestMapFilterWithKeyImpl(t *testing.T) {
 			}
 		}
 		// Fall through to comparison applier for AVL operations.
-		return baseApply(fn, arg, capEnv)
-	}
+		return baseApply.Apply(fn, arg, capEnv)
+	})
 	result, _, err := mapFilterWithKeyImpl(ctx, ce, args(pred, m3), filterApply)
 	if err != nil {
 		t.Fatal(err)
@@ -916,8 +916,8 @@ func TestMapFilterWithKeyImpl(t *testing.T) {
 
 func TestMapKeysEmpty(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), nil)
-	keys, _, err := mapKeysImpl(ctx, ce, args(emptyV), nil)
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
+	keys, _, err := mapKeysImpl(ctx, ce, args(emptyV), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -930,7 +930,7 @@ func buildSet(t *testing.T, vals ...int64) eval.Value {
 	t.Helper()
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	s, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), nil)
+	s, _, _ := setEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	for _, v := range vals {
 		var err error
 		s, _, err = setInsertImpl(ctx, ce, args(cmpFn, intVal(v), s), apply)
@@ -1008,11 +1008,11 @@ func TestSetDifferenceImpl(t *testing.T) {
 func TestMutMapInsertLookupSize(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	mV, _, _ := mmapNewImpl(ctx, ce, args(cmpFn), nil)
+	mV, _, _ := mmapNewImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), mV), apply)
 	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), mV), apply)
 
-	sizeV, _, _ := mmapSizeImpl(ctx, ce, args(mV), nil)
+	sizeV, _, _ := mmapSizeImpl(ctx, ce, args(mV), eval.Applier{})
 	assertInt(t, sizeV, 2)
 
 	lookV, _, _ := mmapLookupImpl(ctx, ce, args(cmpFn, intVal(1), mV), apply)
@@ -1026,12 +1026,12 @@ func TestMutMapInsertLookupSize(t *testing.T) {
 func TestMutMapDeleteSize(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
-	mV, _, _ := mmapNewImpl(ctx, ce, args(cmpFn), nil)
+	mV, _, _ := mmapNewImpl(ctx, ce, args(cmpFn), eval.Applier{})
 	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(1), strVal("a"), mV), apply)
 	mmapInsertImpl(ctx, ce, args(cmpFn, intVal(2), strVal("b"), mV), apply)
 	mmapDeleteImpl(ctx, ce, args(cmpFn, intVal(1), mV), apply)
 
-	sizeV, _, _ := mmapSizeImpl(ctx, ce, args(mV), nil)
+	sizeV, _, _ := mmapSizeImpl(ctx, ce, args(mV), eval.Applier{})
 	assertInt(t, sizeV, 1)
 
 	delV, _, _ := mmapLookupImpl(ctx, ce, args(cmpFn, intVal(1), mV), apply)
@@ -1041,54 +1041,54 @@ func TestMutMapDeleteSize(t *testing.T) {
 // --- Array unit tests (v0.17.0) ---
 
 func TestArrayNewReadWrite(t *testing.T) {
-	arrV, _, err := arrayNewImpl(ctx, ce, args(intVal(3), intVal(0)), nil)
+	arrV, _, err := arrayNewImpl(ctx, ce, args(intVal(3), intVal(0)), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sizeV, _, _ := arraySizeImpl(ctx, ce, args(arrV), nil)
+	sizeV, _, _ := arraySizeImpl(ctx, ce, args(arrV), eval.Applier{})
 	assertInt(t, sizeV, 3)
 
 	// Write 42 at index 1.
-	arrayWriteImpl(ctx, ce, args(intVal(1), intVal(42), arrV), nil)
+	arrayWriteImpl(ctx, ce, args(intVal(1), intVal(42), arrV), eval.Applier{})
 
-	readV, _, _ := arrayReadImpl(ctx, ce, args(intVal(1), arrV), nil)
+	readV, _, _ := arrayReadImpl(ctx, ce, args(intVal(1), arrV), eval.Applier{})
 	assertCon(t, readV, "Just")
 	assertInt(t, readV.(*eval.ConVal).Args[0], 42)
 
 	// Out of bounds → Nothing.
-	oobV, _, _ := arrayReadImpl(ctx, ce, args(intVal(10), arrV), nil)
+	oobV, _, _ := arrayReadImpl(ctx, ce, args(intVal(10), arrV), eval.Applier{})
 	assertCon(t, oobV, "Nothing")
 
 	// Negative index → Nothing.
-	negV, _, _ := arrayReadImpl(ctx, ce, args(intVal(-1), arrV), nil)
+	negV, _, _ := arrayReadImpl(ctx, ce, args(intVal(-1), arrV), eval.Applier{})
 	assertCon(t, negV, "Nothing")
 }
 
 func TestArrayResize(t *testing.T) {
-	arrV, _, _ := arrayNewImpl(ctx, ce, args(intVal(2), intVal(0)), nil)
-	arrayWriteImpl(ctx, ce, args(intVal(0), intVal(10), arrV), nil)
-	arrayWriteImpl(ctx, ce, args(intVal(1), intVal(20), arrV), nil)
+	arrV, _, _ := arrayNewImpl(ctx, ce, args(intVal(2), intVal(0)), eval.Applier{})
+	arrayWriteImpl(ctx, ce, args(intVal(0), intVal(10), arrV), eval.Applier{})
+	arrayWriteImpl(ctx, ce, args(intVal(1), intVal(20), arrV), eval.Applier{})
 
-	resized, _, err := arrayResizeImpl(ctx, ce, args(intVal(4), intVal(99), arrV), nil)
+	resized, _, err := arrayResizeImpl(ctx, ce, args(intVal(4), intVal(99), arrV), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sizeV, _, _ := arraySizeImpl(ctx, ce, args(resized), nil)
+	sizeV, _, _ := arraySizeImpl(ctx, ce, args(resized), eval.Applier{})
 	assertInt(t, sizeV, 4)
 
 	// Preserved values.
-	r0, _, _ := arrayReadImpl(ctx, ce, args(intVal(0), resized), nil)
+	r0, _, _ := arrayReadImpl(ctx, ce, args(intVal(0), resized), eval.Applier{})
 	assertCon(t, r0, "Just")
 	assertInt(t, r0.(*eval.ConVal).Args[0], 10)
 
 	// Fill value.
-	r3, _, _ := arrayReadImpl(ctx, ce, args(intVal(3), resized), nil)
+	r3, _, _ := arrayReadImpl(ctx, ce, args(intVal(3), resized), eval.Applier{})
 	assertCon(t, r3, "Just")
 	assertInt(t, r3.(*eval.ConVal).Args[0], 99)
 }
 
 func TestArrayNegativeSize(t *testing.T) {
-	_, _, err := arrayNewImpl(ctx, ce, args(intVal(-1), intVal(0)), nil)
+	_, _, err := arrayNewImpl(ctx, ce, args(intVal(-1), intVal(0)), eval.Applier{})
 	if err == nil {
 		t.Error("expected error for negative array size")
 	}

@@ -38,7 +38,7 @@ var MergeImpl eval.PrimImpl = func(_ context.Context, ce eval.CapEnv, args []eva
 func forceOrUse(v eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	switch v.(type) {
 	case *eval.VMClosure, *eval.Closure, *eval.PrimVal, *eval.VMThunkVal, *eval.ThunkVal:
-		return apply(v, unitVal, ce)
+		return apply.Apply(v, unitVal, ce)
 	default:
 		return v, ce, nil
 	}

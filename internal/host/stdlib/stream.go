@@ -28,7 +28,7 @@ var streamSource = mustReadSource("stream")
 func forceField(v eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	switch v.(type) {
 	case *eval.VMThunkVal, *eval.ThunkVal, *eval.Closure, *eval.VMClosure:
-		return apply(v, unitVal, ce)
+		return apply.Apply(v, unitVal, ce)
 	default:
 		return v, ce, nil // already a value
 	}

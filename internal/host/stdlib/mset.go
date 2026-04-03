@@ -176,11 +176,7 @@ func msetFoldImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 	}
 	// Wrap f to ignore the unit value: (\acc k _ -> f acc k)
 	wrapper := func(node *avlNode, accum eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
-		partial, newCe, err := apply(f, accum, capEnv)
-		if err != nil {
-			return nil, capEnv, err
-		}
-		return apply(partial, node.key, newCe)
+		return apply.ApplyN(f, []eval.Value{accum, node.key}, capEnv)
 	}
 	return avlFoldl(m.root, wrapper, acc, ce)
 }

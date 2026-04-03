@@ -76,7 +76,7 @@ func refModifyNamedImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 	if err != nil {
 		return nil, ce, err
 	}
-	newVal, newCe, err := apply(args[1], r.value, ce)
+	newVal, newCe, err := apply.Apply(args[1], r.value, ce)
 	if err != nil {
 		return nil, ce, err
 	}

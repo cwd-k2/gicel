@@ -19,7 +19,7 @@ var failSource = mustReadSource("fail")
 // tryImpl forces a suspended computation and catches fail effects.
 // Success → Ok(value) with updated CapEnv. Failure → Err(detail) with original CapEnv (rollback).
 func tryImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	val, newCe, err := apply(args[0], unitVal, ce)
+	val, newCe, err := apply.Apply(args[0], unitVal, ce)
 	if err != nil {
 		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil {
 			return &eval.ConVal{Con: "Err", Args: []eval.Value{re.Detail}}, ce, nil

@@ -643,6 +643,126 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	}
 }
 
+// applyNForPrim is the multi-argument Applier callback exposed to primitives.
+// Eliminates intermediate PAPVal/PrimVal allocations for curried calls by
+// dispatching all arguments in a single operation, mirroring the VM's internal
+// applyN but using barrier-frame approach for host re-entry.
+func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	if len(args) == 0 {
+		return fn, capEnv, nil
+	}
+	if len(args) == 1 {
+		return vm.applyForPrim(fn, args[0], capEnv)
+	}
+
+	switch f := fn.(type) {
+	case *eval.VMClosure:
+		proto := f.Proto.(*Proto)
+		arity := len(proto.Params)
+		switch {
+		case len(args) == arity:
+			result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Captured, args, b)
+			})
+			if err != nil {
+				return nil, capEnv, err
+			}
+			return result.Value, result.CapEnv, nil
+		case len(args) < arity:
+			cpy := make([]eval.Value, len(args))
+			copy(cpy, args)
+			return &eval.PAPVal{Fun: f, Args: cpy, Arity: arity}, capEnv, nil
+		default:
+			result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Captured, args[:arity], b)
+			})
+			if err != nil {
+				return nil, capEnv, err
+			}
+			return vm.applyNForPrim(result.Value, args[arity:], result.CapEnv)
+		}
+
+	case *eval.PAPVal:
+		combined := make([]eval.Value, len(f.Args)+len(args))
+		copy(combined, f.Args)
+		copy(combined[len(f.Args):], args)
+		switch {
+		case len(combined) == f.Arity:
+			proto := f.Fun.Proto.(*Proto)
+			result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Fun.Captured, combined, b)
+			})
+			if err != nil {
+				return nil, capEnv, err
+			}
+			return result.Value, result.CapEnv, nil
+		case len(combined) < f.Arity:
+			return &eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity}, capEnv, nil
+		default:
+			proto := f.Fun.Proto.(*Proto)
+			result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], b)
+			})
+			if err != nil {
+				return nil, capEnv, err
+			}
+			return vm.applyNForPrim(result.Value, combined[f.Arity:], result.CapEnv)
+		}
+
+	case *eval.ConVal:
+		newArgs := make([]eval.Value, len(f.Args)+len(args))
+		copy(newArgs, f.Args)
+		copy(newArgs[len(f.Args):], args)
+		return &eval.ConVal{Con: f.Con, Args: newArgs}, capEnv, nil
+
+	case *eval.PrimVal:
+		combined := make([]eval.Value, len(f.Args)+len(args))
+		copy(combined, f.Args)
+		copy(combined[len(f.Args):], args)
+		if len(combined) < f.Arity {
+			return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: combined, S: f.S}, capEnv, nil
+		}
+		if f.Effectful {
+			if len(combined) == f.Arity {
+				return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: combined, S: f.S}, capEnv, nil
+			}
+			// Over-saturated effectful: defer first, then apply rest.
+			deferred := &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: combined[:f.Arity], S: f.S}
+			return vm.applyNForPrim(deferred, combined[f.Arity:], capEnv)
+		}
+		impl, ok := vm.prims.Lookup(f.Name)
+		if !ok {
+			return nil, capEnv, errors.New("missing primitive: " + f.Name)
+		}
+		if len(combined) == f.Arity {
+			val, newCap, err := vm.callPrim(impl, capEnv, combined)
+			if err != nil {
+				return nil, capEnv, err
+			}
+			return val, newCap, nil
+		}
+		// Over-saturated: invoke with arity args, then apply rest.
+		val, newCap, err := vm.callPrim(impl, capEnv, combined[:f.Arity])
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return vm.applyNForPrim(val, combined[f.Arity:], newCap)
+
+	case *eval.VMThunkVal:
+		proto := f.Proto.(*Proto)
+		result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+			return vm.callThunk(proto, f.Captured, b)
+		})
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return vm.applyNForPrim(result.Value, args, result.CapEnv)
+
+	default:
+		return nil, capEnv, fmt.Errorf("application of non-function in ApplyN: %s", fn)
+	}
+}
+
 // callTrustedPrim invokes a stdlib PrimImpl without panic recovery.
 // Used for OpPrim (non-effectful saturated primitives compiled from known
 // stdlib assumptions). These are within the trust boundary and cannot panic.

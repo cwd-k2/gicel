@@ -301,7 +301,7 @@ func toJSONListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("json", "list node", con.Con)
 		}
-		result, newCe, err := apply(encoder, con.Args[0], ce)
+		result, newCe, err := apply.Apply(encoder, con.Args[0], ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -334,7 +334,7 @@ func toJSONMaybeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if con.Con != "Just" || len(con.Args) != 1 {
 		return nil, ce, errMalformed("json", "Maybe", con.Con)
 	}
-	return apply(encoder, con.Args[0], ce)
+	return apply.Apply(encoder, con.Args[0], ce)
 }
 
 // _toJSONPair :: (a -> String) -> (b -> String) -> (a, b) -> String
@@ -350,11 +350,11 @@ func toJSONPairImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if !ok1 || !ok2 {
 		return nil, ce, errors.New("json: expected tuple with _1 and _2")
 	}
-	sa, newCe, err := apply(encA, a, ce)
+	sa, newCe, err := apply.Apply(encA, a, ce)
 	if err != nil {
 		return nil, ce, err
 	}
-	sb, newCe, err := apply(encB, b, newCe)
+	sb, newCe, err := apply.Apply(encB, b, newCe)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -395,7 +395,7 @@ func toJSONResultImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	default:
 		return nil, ce, errMalformed("json", "Result constructor", r.Con)
 	}
-	sv, newCe, err := apply(encoder, inner, ce)
+	sv, newCe, err := apply.Apply(encoder, inner, ce)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -492,7 +492,7 @@ func fromJSONListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	}
 	items := make([]eval.Value, 0, len(raw))
 	for _, elem := range raw {
-		result, newCe, err := apply(decoder, jsonStrVal(string(elem)), ce)
+		result, newCe, err := apply.Apply(decoder, jsonStrVal(string(elem)), ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -518,7 +518,7 @@ func fromJSONMaybeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, app
 		// JSON null → Just Nothing
 		return jsonJust(&eval.ConVal{Con: "Nothing"}), ce, nil
 	}
-	result, newCe, err := apply(decoder, jsonStrVal(s), ce)
+	result, newCe, err := apply.Apply(decoder, jsonStrVal(s), ce)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -542,7 +542,7 @@ func fromJSONPairImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if err := json.Unmarshal([]byte(s), &raw); err != nil {
 		return jsonNothing, ce, nil
 	}
-	ra, newCe, err := apply(decA, jsonStrVal(string(raw[0])), ce)
+	ra, newCe, err := apply.Apply(decA, jsonStrVal(string(raw[0])), ce)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -550,7 +550,7 @@ func fromJSONPairImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if !ok || conA.Con == "Nothing" {
 		return jsonNothing, newCe, nil
 	}
-	rb, newCe, err := apply(decB, jsonStrVal(string(raw[1])), newCe)
+	rb, newCe, err := apply.Apply(decB, jsonStrVal(string(raw[1])), newCe)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -583,7 +583,7 @@ func fromJSONResultImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 	valStr := jsonStrVal(string(obj.Value))
 	switch obj.Tag {
 	case "Ok":
-		rv, newCe, err := apply(decA, valStr, ce)
+		rv, newCe, err := apply.Apply(decA, valStr, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -593,7 +593,7 @@ func fromJSONResultImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 		}
 		return jsonJust(&eval.ConVal{Con: "Ok", Args: []eval.Value{con.Args[0]}}), newCe, nil
 	case "Err":
-		rv, newCe, err := apply(decE, valStr, ce)
+		rv, newCe, err := apply.Apply(decE, valStr, ce)
 		if err != nil {
 			return nil, ce, err
 		}

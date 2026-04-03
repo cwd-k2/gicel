@@ -18,7 +18,7 @@ func sliceOf(vals ...eval.Value) eval.Value {
 }
 
 func TestSliceEmptyImpl(t *testing.T) {
-	v, _, err := sliceEmptyImpl(ctx, ce, args(), nil)
+	v, _, err := sliceEmptyImpl(ctx, ce, args(), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestSliceEmptyImpl(t *testing.T) {
 }
 
 func TestSliceSingletonImpl(t *testing.T) {
-	v, _, err := sliceSingletonImpl(ctx, ce, args(intVal(42)), nil)
+	v, _, err := sliceSingletonImpl(ctx, ce, args(intVal(42)), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestSliceSingletonImpl(t *testing.T) {
 }
 
 func TestSliceLengthImpl(t *testing.T) {
-	v, _, err := sliceLengthImpl(ctx, ce, args(sliceOf(intVal(1), intVal(2), intVal(3))), nil)
+	v, _, err := sliceLengthImpl(ctx, ce, args(sliceOf(intVal(1), intVal(2), intVal(3))), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestSliceLengthImpl(t *testing.T) {
 }
 
 func TestSliceIndexImpl(t *testing.T) {
-	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(1), sliceOf(intVal(10), intVal(20))), nil)
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(1), sliceOf(intVal(10), intVal(20))), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestSliceIndexImpl(t *testing.T) {
 }
 
 func TestSliceIndexOutOfBounds(t *testing.T) {
-	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(5), sliceOf(intVal(1))), nil)
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(5), sliceOf(intVal(1))), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestSliceIndexOutOfBounds(t *testing.T) {
 }
 
 func TestSliceIndexNegative(t *testing.T) {
-	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(-1), sliceOf(intVal(10))), nil)
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(-1), sliceOf(intVal(10))), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,10 +84,10 @@ func TestSliceIndexNegative(t *testing.T) {
 
 func TestSliceMapImpl(t *testing.T) {
 	fn := &eval.Closure{Param: "x", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
 		return intVal(n * 2), capEnv, nil
-	}
+	})
 	v, _, err := sliceMapImpl(ctx, ce, args(fn, sliceOf(intVal(1), intVal(2))), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -105,10 +105,10 @@ func TestSliceMapImpl(t *testing.T) {
 
 func TestSliceMapImplEmpty(t *testing.T) {
 	fn := &eval.Closure{Param: "x", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		t.Fatal("applier should not be called on empty slice")
 		return nil, capEnv, nil
-	}
+	})
 	v, _, err := sliceMapImpl(ctx, ce, args(fn, sliceOf()), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestSliceFoldrDirection(t *testing.T) {
 	// Right fold: 1 : (2 : (3 : [])) = [1,2,3]
 	// Left fold would give: 3 : (2 : (1 : [])) = [3,2,1]
 	fn := &eval.Closure{Param: "x", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: arg}, capEnv, nil // partial: capture element
 		}
@@ -137,7 +137,7 @@ func TestSliceFoldrDirection(t *testing.T) {
 		result = append(result, elem)
 		result = append(result, acc...)
 		return &eval.HostVal{Inner: result}, capEnv, nil
-	}
+	})
 	emptySlice := &eval.HostVal{Inner: []eval.Value{}}
 	v, _, err := sliceFoldrImpl(ctx, ce, args(fn, emptySlice, sliceOf(intVal(1), intVal(2), intVal(3))), applier)
 	if err != nil {
@@ -155,10 +155,10 @@ func TestSliceFoldrDirection(t *testing.T) {
 
 func TestSliceFoldrImplEmpty(t *testing.T) {
 	fn := &eval.Closure{Param: "x", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		t.Fatal("applier should not be called on empty slice")
 		return nil, capEnv, nil
-	}
+	})
 	v, _, err := sliceFoldrImpl(ctx, ce, args(fn, intVal(42), sliceOf()), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +171,7 @@ func TestSliceFoldlDirection(t *testing.T) {
 	// Left fold: (([] ++ [1]) ++ [2]) ++ [3] = [1,2,3]
 	// Right fold would give: [3,2,1]
 	fn := &eval.Closure{Param: "acc", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: arg}, capEnv, nil // partial: capture acc
 		}
@@ -181,7 +181,7 @@ func TestSliceFoldlDirection(t *testing.T) {
 		copy(result, acc)
 		result[len(acc)] = elem
 		return &eval.HostVal{Inner: result}, capEnv, nil
-	}
+	})
 	emptySlice := &eval.HostVal{Inner: []eval.Value{}}
 	v, _, err := sliceFoldlImpl(ctx, ce, args(fn, emptySlice, sliceOf(intVal(1), intVal(2), intVal(3))), applier)
 	if err != nil {
@@ -199,7 +199,7 @@ func TestSliceFoldlDirection(t *testing.T) {
 
 func TestSliceFromListImpl(t *testing.T) {
 	list := conList(intVal(10), intVal(20), intVal(30))
-	v, _, err := sliceFromListImpl(ctx, ce, args(list), nil)
+	v, _, err := sliceFromListImpl(ctx, ce, args(list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestSliceFromListImpl(t *testing.T) {
 }
 
 func TestSliceToListImpl(t *testing.T) {
-	v, _, err := sliceToListImpl(ctx, ce, args(sliceOf(intVal(1), intVal(2))), nil)
+	v, _, err := sliceToListImpl(ctx, ce, args(sliceOf(intVal(1), intVal(2))), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestSliceToListImpl(t *testing.T) {
 // --- fromRunes ---
 
 func TestFromRunesImplEmpty(t *testing.T) {
-	v, _, err := fromRunesImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}), nil)
+	v, _, err := fromRunesImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestFromRunesImplEmpty(t *testing.T) {
 
 func TestFromRunesImpl(t *testing.T) {
 	list := conList(runeVal('h'), runeVal('i'))
-	v, _, err := fromRunesImpl(ctx, ce, args(list), nil)
+	v, _, err := fromRunesImpl(ctx, ce, args(list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestFromRunesImpl(t *testing.T) {
 
 func TestSliceIndexExactBoundary(t *testing.T) {
 	// Index exactly at len(slice) should return Nothing, not panic.
-	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(2), sliceOf(intVal(10), intVal(20))), nil)
+	v, _, err := sliceIndexImpl(ctx, ce, args(intVal(2), sliceOf(intVal(10), intVal(20))), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}

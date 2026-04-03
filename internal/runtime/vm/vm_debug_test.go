@@ -31,11 +31,11 @@ func TestVMFoldlFst(t *testing.T) {
 				return acc, ce, nil
 			}
 			// acc = f acc x
-			partial, ce2, err := apply(f, acc, ce)
+			partial, ce2, err := apply.Apply(f, acc, ce)
 			if err != nil {
 				return nil, ce, err
 			}
-			acc, ce, err = apply(partial, cv.Args[0], ce2)
+			acc, ce, err = apply.Apply(partial, cv.Args[0], ce2)
 			if err != nil {
 				return nil, ce, err
 			}

@@ -245,11 +245,7 @@ func avlWalkMerge(ctx context.Context, n *avlNode, f eval.Value, result *mapVal,
 	ce = newCe
 	insertVal := n.value
 	if found {
-		partial, newCe2, err := apply(f, existing, ce)
-		if err != nil {
-			return ce, err
-		}
-		insertVal, ce, err = apply(partial, n.value, newCe2)
+		insertVal, ce, err = apply.ApplyN(f, []eval.Value{existing, n.value}, ce)
 		if err != nil {
 			return ce, err
 		}
@@ -386,15 +382,11 @@ func avlIntersectWalk(ctx context.Context, n *avlNode, m2 *mapVal, f eval.Value,
 	}
 	ce = newCe
 	if found {
-		partial, ce2, err2 := apply(f, n.value, ce)
+		merged, ce2, err2 := apply.ApplyN(f, []eval.Value{n.value, v2}, ce)
 		if err2 != nil {
 			return ce, err2
 		}
-		merged, ce3, err3 := apply(partial, v2, ce2)
-		if err3 != nil {
-			return ce, err3
-		}
-		ce = ce3
+		ce = ce2
 		if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 			return ce, err
 		}

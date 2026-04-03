@@ -90,14 +90,10 @@ func avlRebalance(n *avlNode) *avlNode {
 	return n
 }
 
-// compareKeys applies the compare function via Applier.
+// compareKeys applies the compare function via Applier.ApplyN.
 // Returns: -1 (LT), 0 (EQ), 1 (GT).
 func compareKeys(cmp eval.Value, a, b eval.Value, ce eval.CapEnv, apply eval.Applier) (int, eval.CapEnv, error) {
-	partial, newCe, err := apply(cmp, a, ce)
-	if err != nil {
-		return 0, ce, err
-	}
-	result, newCe, err := apply(partial, b, newCe)
+	result, newCe, err := apply.ApplyN(cmp, []eval.Value{a, b}, ce)
 	if err != nil {
 		return 0, ce, err
 	}
@@ -267,7 +263,7 @@ func avlMapValues(n *avlNode, f eval.Value, ce eval.CapEnv, apply eval.Applier) 
 		return nil, ce, err
 	}
 	var newVal eval.Value
-	newVal, ce, err = apply(f, n.value, ce)
+	newVal, ce, err = apply.Apply(f, n.value, ce)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -291,13 +287,8 @@ func avlFilterWithKey(n *avlNode, pred eval.Value, cmp eval.Value, root **avlNod
 		return ce, err
 	}
 	// Apply predicate: pred k v
-	var partial eval.Value
-	partial, ce, err = apply(pred, n.key, ce)
-	if err != nil {
-		return ce, err
-	}
 	var result eval.Value
-	result, ce, err = apply(partial, n.value, ce)
+	result, ce, err = apply.ApplyN(pred, []eval.Value{n.key, n.value}, ce)
 	if err != nil {
 		return ce, err
 	}
@@ -339,16 +330,12 @@ func avlInsertWith(n *avlNode, key, value eval.Value, f, cmp eval.Value, ce eval
 		node.right, inserted, newCe, err = avlInsertWith(n.right, key, value, f, cmp, newCe, apply)
 	default:
 		// Key exists: apply f existing new
-		partial, ce2, err2 := apply(f, n.value, newCe)
+		merged, ce2, err2 := apply.ApplyN(f, []eval.Value{n.value, value}, newCe)
 		if err2 != nil {
 			return n, false, ce, err2
 		}
-		merged, ce3, err3 := apply(partial, value, ce2)
-		if err3 != nil {
-			return n, false, ce, err3
-		}
 		node.value = merged
-		return node, false, ce3, nil
+		return node, false, ce2, nil
 	}
 	if err != nil {
 		return n, false, ce, err
@@ -367,12 +354,8 @@ func avlMapWithKey(n *avlNode, f eval.Value, ce eval.CapEnv, apply eval.Applier)
 	if err != nil {
 		return nil, ce, err
 	}
-	partial, ce, err := apply(f, n.key, ce)
-	if err != nil {
-		return nil, ce, err
-	}
 	var newVal eval.Value
-	newVal, ce, err = apply(partial, n.value, ce)
+	newVal, ce, err = apply.ApplyN(f, []eval.Value{n.key, n.value}, ce)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -393,15 +376,7 @@ func avlFoldrWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.A
 	if err != nil {
 		return nil, ce, err
 	}
-	partial1, ce, err := apply(f, n.key, ce)
-	if err != nil {
-		return nil, ce, err
-	}
-	partial2, ce, err := apply(partial1, n.value, ce)
-	if err != nil {
-		return nil, ce, err
-	}
-	acc, ce, err = apply(partial2, acc, ce)
+	acc, ce, err = apply.ApplyN(f, []eval.Value{n.key, n.value, acc}, ce)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -417,15 +392,7 @@ func avlFoldlWithKey(n *avlNode, f, acc eval.Value, ce eval.CapEnv, apply eval.A
 	if err != nil {
 		return nil, ce, err
 	}
-	partial1, ce, err := apply(f, acc, ce)
-	if err != nil {
-		return nil, ce, err
-	}
-	partial2, ce, err := apply(partial1, n.key, ce)
-	if err != nil {
-		return nil, ce, err
-	}
-	acc, ce, err = apply(partial2, n.value, ce)
+	acc, ce, err = apply.ApplyN(f, []eval.Value{acc, n.key, n.value}, ce)
 	if err != nil {
 		return nil, ce, err
 	}

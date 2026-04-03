@@ -88,7 +88,7 @@ func runStateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 // On error, the original CapEnv is returned (rollback).
 func doRunState(label string, initVal eval.Value, thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	innerCe := ce.Set(label, initVal)
-	val, finalCe, err := apply(thunk, unitVal, innerCe)
+	val, finalCe, err := apply.Apply(thunk, unitVal, innerCe)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -126,7 +126,7 @@ func modifyAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "modifyAt: capability " + name + " is not a Value"}
 	}
-	newVal, newCe, err := apply(args[1], val, ce)
+	newVal, newCe, err := apply.Apply(args[1], val, ce)
 	if err != nil {
 		return nil, ce, err
 	}

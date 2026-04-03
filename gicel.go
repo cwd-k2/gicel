@@ -112,7 +112,7 @@ type CapEnv = eval.CapEnv
 // PrimImpl is the signature for host-provided primitive operations.
 type PrimImpl = eval.PrimImpl
 
-// Applier is a callback that applies a function value to an argument.
+// Applier provides function application callbacks for host primitives.
 type Applier = eval.Applier
 
 // EvalStats holds post-evaluation statistics.

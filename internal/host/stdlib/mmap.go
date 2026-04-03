@@ -261,7 +261,7 @@ func mmapAdjustImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if !found {
 		return unitVal, newCe, nil
 	}
-	newVal, newCe, err := apply(f, v, newCe)
+	newVal, newCe, err := apply.Apply(f, v, newCe)
 	if err != nil {
 		return nil, ce, err
 	}

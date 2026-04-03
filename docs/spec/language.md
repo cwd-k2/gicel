@@ -1563,7 +1563,7 @@ dbOpenTy := gicel.ForallRow("r",
             gicel.ConType("()"))))
 eng.DeclareAssumption("dbOpen", dbOpenTy)
 
-// Primitive implementation — PrimImpl is a function type
+// Primitive implementation — PrimImpl receives an Applier struct
 eng.RegisterPrim("dbOpen", func(ctx context.Context, capEnv gicel.CapEnv, args []gicel.Value, apply gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
     return gicel.ToValue(nil), capEnv.Set("db", "opened"), nil
 })
@@ -1615,10 +1615,13 @@ Single-call compile+execute for AI agents.
 ```go
 type PrimImpl func(ctx context.Context, capEnv CapEnv, args []Value, apply Applier) (Value, CapEnv, error)
 
-type Applier func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error)
+type Applier struct {
+    Apply  func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error)
+    ApplyN func(fn Value, args []Value, capEnv CapEnv) (Value, CapEnv, error)
+}
 ```
 
-The `Applier` callback enables higher-order primitives (e.g., `foldl`). It applies a GICEL function value to an argument within the current capability environment.
+The `Applier` struct enables higher-order primitives (e.g., `foldl`). `Apply` handles single-argument application; `ApplyN` handles multi-argument application, eliminating intermediate partial application values and reducing VM boundary crossings.
 
 ---
 

@@ -22,7 +22,7 @@ func listMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	}
 	mapped := make([]eval.Value, len(items))
 	for i, item := range items {
-		result, newCe, err := apply(f, item, ce)
+		result, newCe, err := apply.Apply(f, item, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -42,12 +42,9 @@ func listFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		return nil, ce, errExpected("listFoldr", "List", args[2])
 	}
 	acc := z
+	var err error
 	for i := len(items) - 1; i >= 0; i-- {
-		partial, newCe, err := apply(f, items[i], ce)
-		if err != nil {
-			return nil, ce, err
-		}
-		acc, ce, err = apply(partial, acc, newCe)
+		acc, ce, err = apply.ApplyN(f, []eval.Value{items[i], acc}, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -60,7 +57,10 @@ func foldlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 	f := args[0]    // (b -> a -> b)
 	acc := args[1]  // b
 	list := args[2] // List a
-	var i int64
+	var (
+		i   int64
+		err error
+	)
 	for {
 		con, ok := list.(*eval.ConVal)
 		if !ok {
@@ -79,11 +79,7 @@ func foldlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 		}
 		i++
 		// acc = f acc x
-		partial, newCe, err := apply(f, acc, ce)
-		if err != nil {
-			return nil, ce, err
-		}
-		acc, ce, err = apply(partial, con.Args[0], newCe)
+		acc, ce, err = apply.ApplyN(f, []eval.Value{acc, con.Args[0]}, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -131,11 +127,7 @@ func mergeLists(left, right []eval.Value, cmp eval.Value, ce eval.CapEnv, apply 
 	result := make([]eval.Value, 0, len(left)+len(right))
 	i, j := 0, 0
 	for i < len(left) && j < len(right) {
-		partial, newCe, err := apply(cmp, left[i], ce)
-		if err != nil {
-			return nil, ce, err
-		}
-		ordering, newCe, err := apply(partial, right[j], newCe)
+		ordering, newCe, err := apply.ApplyN(cmp, []eval.Value{left[i], right[j]}, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -162,7 +154,10 @@ func scanlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 	f := args[0]
 	acc := args[1]
 	list := args[2]
-	var results []eval.Value
+	var (
+		results []eval.Value
+		err     error
+	)
 	results = append(results, acc)
 	for {
 		con, ok := list.(*eval.ConVal)
@@ -175,11 +170,7 @@ func scanlImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("scanl", "list node", con.Con)
 		}
-		partial, newCe, err := apply(f, acc, ce)
-		if err != nil {
-			return nil, ce, err
-		}
-		acc, ce, err = apply(partial, con.Args[0], newCe)
+		acc, ce, err = apply.ApplyN(f, []eval.Value{acc, con.Args[0]}, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -208,7 +199,7 @@ func spanImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("span", "list node", con.Con)
 		}
-		result, newCe, err := apply(pred, con.Args[0], ce)
+		result, newCe, err := apply.Apply(pred, con.Args[0], ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -247,7 +238,7 @@ func dropWhileImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("dropWhile", "list node", con.Con)
 		}
-		result, newCe, err := apply(pred, con.Args[0], ce)
+		result, newCe, err := apply.Apply(pred, con.Args[0], ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -331,7 +322,7 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	seed := args[1]
 	var items []eval.Value
 	for {
-		result, newCe, err := apply(f, seed, ce)
+		result, newCe, err := apply.Apply(f, seed, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -382,7 +373,7 @@ func iterateNImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	for i := int64(0); i < n; i++ {
 		items = append(items, current)
 		if i < n-1 {
-			next, newCe, err := apply(f, current, ce)
+			next, newCe, err := apply.Apply(f, current, ce)
 			if err != nil {
 				return nil, ce, err
 			}
@@ -417,15 +408,11 @@ func groupByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 			current = []eval.Value{elem}
 			currentKey = elem
 		} else {
-			partial, newCe, err := apply(eq, currentKey, ce)
+			result, newCe, err := apply.ApplyN(eq, []eval.Value{currentKey, elem}, ce)
 			if err != nil {
 				return nil, ce, err
 			}
-			result, newCe2, err := apply(partial, elem, newCe)
-			if err != nil {
-				return nil, ce, err
-			}
-			ce = newCe2
+			ce = newCe
 			boolCon, ok := result.(*eval.ConVal)
 			if !ok {
 				return nil, ce, errExpected("groupBy", "Bool", result)

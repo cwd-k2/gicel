@@ -182,11 +182,7 @@ func sliceFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	}
 	acc := z
 	for i := len(s) - 1; i >= 0; i-- {
-		partial, newCe, err := apply(f, s[i], ce)
-		if err != nil {
-			return nil, ce, err
-		}
-		acc, ce, err = apply(partial, acc, newCe)
+		acc, ce, err = apply.ApplyN(f, []eval.Value{s[i], acc}, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -205,7 +201,7 @@ func sliceMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 	}
 	result := make([]eval.Value, len(s))
 	for i, item := range s {
-		mapped, newCe, err := apply(f, item, ce)
+		mapped, newCe, err := apply.Apply(f, item, ce)
 		if err != nil {
 			return nil, ce, err
 		}
@@ -223,11 +219,7 @@ func sliceFoldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply 
 		return nil, ce, err
 	}
 	for _, item := range s {
-		partial, newCe, err := apply(f, acc, ce)
-		if err != nil {
-			return nil, ce, err
-		}
-		acc, ce, err = apply(partial, item, newCe)
+		acc, ce, err = apply.ApplyN(f, []eval.Value{acc, item}, ce)
 		if err != nil {
 			return nil, ce, err
 		}

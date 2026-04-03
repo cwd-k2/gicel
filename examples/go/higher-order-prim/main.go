@@ -41,12 +41,9 @@ func main() {
 		args []gicel.Value,
 		applier gicel.Applier,
 	) (gicel.Value, gicel.CapEnv, error) {
-		fn := args[0]  // the GICEL function (a Closure value)
-		arg := args[1] // the argument value
-
-		// Applier calls back into the evaluator: fn(arg).
+		// Applier.Apply calls back into the evaluator: fn(arg).
 		// It returns the result value and the (possibly updated) CapEnv.
-		result, newCapEnv, err := applier(fn, arg, capEnv)
+		result, newCapEnv, err := applier.Apply(args[0], args[1], capEnv)
 		if err != nil {
 			return nil, capEnv, err
 		}

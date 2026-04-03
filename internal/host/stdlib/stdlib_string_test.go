@@ -17,7 +17,7 @@ func conList(vals ...eval.Value) eval.Value { return buildList(vals) }
 
 func TestFromSliceImpl(t *testing.T) {
 	input := &eval.HostVal{Inner: []any{intVal(1), intVal(2), intVal(3)}}
-	v, _, err := fromSliceImpl(ctx, ce, args(input), nil)
+	v, _, err := fromSliceImpl(ctx, ce, args(input), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestFromSliceImpl(t *testing.T) {
 
 func TestFromSliceImplPassthrough(t *testing.T) {
 	list := conList(intVal(1), intVal(2))
-	v, _, err := fromSliceImpl(ctx, ce, args(list), nil)
+	v, _, err := fromSliceImpl(ctx, ce, args(list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestFromSliceImplPassthrough(t *testing.T) {
 
 func TestToSliceImpl(t *testing.T) {
 	list := conList(intVal(1), intVal(2), intVal(3))
-	v, _, err := toSliceImpl(ctx, ce, args(list), nil)
+	v, _, err := toSliceImpl(ctx, ce, args(list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestToSliceImpl(t *testing.T) {
 }
 
 func TestLengthImplEmpty(t *testing.T) {
-	v, _, err := lengthImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}), nil)
+	v, _, err := lengthImpl(ctx, ce, args(&eval.ConVal{Con: "Nil"}), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestLengthImplEmpty(t *testing.T) {
 
 func TestLengthImpl(t *testing.T) {
 	list := conList(intVal(1), intVal(2), intVal(3))
-	v, _, err := lengthImpl(ctx, ce, args(list), nil)
+	v, _, err := lengthImpl(ctx, ce, args(list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestLengthImpl(t *testing.T) {
 func TestConcatImpl(t *testing.T) {
 	xs := conList(intVal(1), intVal(2))
 	ys := conList(intVal(3))
-	v, _, err := concatImpl(ctx, ce, args(xs, ys), nil)
+	v, _, err := concatImpl(ctx, ce, args(xs, ys), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestConcatImpl(t *testing.T) {
 // --- Str: charAt, split, join ---
 
 func TestCharAtImpl(t *testing.T) {
-	v, _, err := charAtImpl(ctx, ce, args(intVal(1), strVal("abc")), nil)
+	v, _, err := charAtImpl(ctx, ce, args(intVal(1), strVal("abc")), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestCharAtImpl(t *testing.T) {
 }
 
 func TestCharAtImplOutOfBounds(t *testing.T) {
-	v, _, err := charAtImpl(ctx, ce, args(intVal(3), strVal("abc")), nil)
+	v, _, err := charAtImpl(ctx, ce, args(intVal(3), strVal("abc")), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestCharAtImplOutOfBounds(t *testing.T) {
 
 func TestCharAtImplExactBoundary(t *testing.T) {
 	// Index exactly at len(runes) should return Nothing, not panic.
-	v, _, err := charAtImpl(ctx, ce, args(intVal(3), strVal("abc")), nil)
+	v, _, err := charAtImpl(ctx, ce, args(intVal(3), strVal("abc")), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestCharAtImplExactBoundary(t *testing.T) {
 }
 
 func TestSplitImpl(t *testing.T) {
-	v, _, err := splitImpl(ctx, ce, args(strVal(","), strVal("a,b,c")), nil)
+	v, _, err := splitImpl(ctx, ce, args(strVal(","), strVal("a,b,c")), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestSplitImpl(t *testing.T) {
 
 func TestJoinImpl(t *testing.T) {
 	list := conList(strVal("a"), strVal("b"), strVal("c"))
-	v, _, err := joinImpl(ctx, ce, args(strVal("-"), list), nil)
+	v, _, err := joinImpl(ctx, ce, args(strVal("-"), list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,12 +157,12 @@ func TestJoinImpl(t *testing.T) {
 
 // boolApplier creates an Applier that applies a Bool-returning predicate.
 func boolApplier(pred func(eval.Value) bool) eval.Applier {
-	return func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	return eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if pred(arg) {
 			return &eval.ConVal{Con: "True"}, capEnv, nil
 		}
 		return &eval.ConVal{Con: "False"}, capEnv, nil
-	}
+	})
 }
 
 func TestDropWhileImpl(t *testing.T) {
@@ -233,7 +233,7 @@ func TestSpanImpl(t *testing.T) {
 func TestSortByImpl(t *testing.T) {
 	list := conList(intVal(3), intVal(1), intVal(2))
 	cmpFn := &eval.Closure{Param: "a", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			// partial application: capture first arg
 			return &eval.HostVal{Inner: arg}, capEnv, nil
@@ -248,7 +248,7 @@ func TestSortByImpl(t *testing.T) {
 			return &eval.ConVal{Con: "GT"}, capEnv, nil
 		}
 		return &eval.ConVal{Con: "EQ"}, capEnv, nil
-	}
+	})
 	v, _, err := sortByImpl(ctx, ce, args(cmpFn, list), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -268,7 +268,7 @@ func TestSortByImpl(t *testing.T) {
 func TestSortByImplStable(t *testing.T) {
 	// sortBy on single element
 	list := conList(intVal(42))
-	v, _, err := sortByImpl(ctx, ce, args(&eval.Closure{Param: "a"}, list), nil)
+	v, _, err := sortByImpl(ctx, ce, args(&eval.Closure{Param: "a"}, list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,14 +286,14 @@ func TestScanlImpl(t *testing.T) {
 	// scanl (+) 0 [1,2,3] = [0,1,3,6]
 	f := &eval.Closure{Param: "acc", Body: nil}
 	list := conList(intVal(1), intVal(2), intVal(3))
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: arg}, capEnv, nil
 		}
 		a := fn.(*eval.HostVal).Inner.(eval.Value).(*eval.HostVal).Inner.(int64)
 		b := arg.(*eval.HostVal).Inner.(int64)
 		return intVal(a + b), capEnv, nil
-	}
+	})
 	v, _, err := scanlImpl(ctx, ce, args(f, intVal(0), list), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -313,7 +313,7 @@ func TestScanlImpl(t *testing.T) {
 
 func TestScanlImplEmpty(t *testing.T) {
 	f := &eval.Closure{Param: "acc", Body: nil}
-	v, _, err := scanlImpl(ctx, ce, args(f, intVal(42), &eval.ConVal{Con: "Nil"}), nil)
+	v, _, err := scanlImpl(ctx, ce, args(f, intVal(42), &eval.ConVal{Con: "Nil"}), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestScanlImplEmpty(t *testing.T) {
 func TestUnfoldrImpl(t *testing.T) {
 	// unfoldr (\n. if n==0 then Nothing else Just (n, n-1)) 3 = [3,2,1]
 	f := &eval.Closure{Param: "n", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
 		if n == 0 {
 			return &eval.ConVal{Con: "Nothing"}, capEnv, nil
@@ -340,7 +340,7 @@ func TestUnfoldrImpl(t *testing.T) {
 			"_2": intVal(n - 1),
 		})
 		return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, capEnv, nil
-	}
+	})
 	v, _, err := unfoldrImpl(ctx, ce, args(f, intVal(3)), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -360,10 +360,10 @@ func TestUnfoldrImpl(t *testing.T) {
 func TestIterateNImpl(t *testing.T) {
 	// iterateN 4 (*2) 1 = [1,2,4,8]
 	f := &eval.Closure{Param: "x", Body: nil}
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
 		return intVal(n * 2), capEnv, nil
-	}
+	})
 	v, _, err := iterateNImpl(ctx, ce, args(intVal(4), f, intVal(1)), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -382,7 +382,7 @@ func TestIterateNImpl(t *testing.T) {
 }
 
 func TestIterateNImplZero(t *testing.T) {
-	v, _, err := iterateNImpl(ctx, ce, args(intVal(0), &eval.Closure{Param: "x"}, intVal(1)), nil)
+	v, _, err := iterateNImpl(ctx, ce, args(intVal(0), &eval.Closure{Param: "x"}, intVal(1)), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestIterateNImplZero(t *testing.T) {
 
 func TestReverseImplEmpty(t *testing.T) {
 	nilList := &eval.ConVal{Con: "Nil"}
-	v, _, err := reverseImpl(ctx, ce, args(nilList), nil)
+	v, _, err := reverseImpl(ctx, ce, args(nilList), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +402,7 @@ func TestReverseImplEmpty(t *testing.T) {
 
 func TestTakeImplNegative(t *testing.T) {
 	list := conList(intVal(1), intVal(2))
-	v, _, err := takeImpl(ctx, ce, args(intVal(-5), list), nil)
+	v, _, err := takeImpl(ctx, ce, args(intVal(-5), list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +411,7 @@ func TestTakeImplNegative(t *testing.T) {
 
 func TestTakeImplExceedsLength(t *testing.T) {
 	list := conList(intVal(1))
-	v, _, err := takeImpl(ctx, ce, args(intVal(100), list), nil)
+	v, _, err := takeImpl(ctx, ce, args(intVal(100), list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestTakeImplExceedsLength(t *testing.T) {
 
 func TestDropImplNegative(t *testing.T) {
 	list := conList(intVal(1), intVal(2))
-	v, _, err := dropImpl(ctx, ce, args(intVal(-3), list), nil)
+	v, _, err := dropImpl(ctx, ce, args(intVal(-3), list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestDropImplNegative(t *testing.T) {
 
 func TestDropImplExceedsLength(t *testing.T) {
 	list := conList(intVal(1))
-	v, _, err := dropImpl(ctx, ce, args(intVal(100), list), nil)
+	v, _, err := dropImpl(ctx, ce, args(intVal(100), list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,7 +450,7 @@ func TestDropImplExceedsLength(t *testing.T) {
 
 func TestIndexImplNegative(t *testing.T) {
 	list := conList(intVal(10))
-	v, _, err := indexImpl(ctx, ce, args(intVal(-1), list), nil)
+	v, _, err := indexImpl(ctx, ce, args(intVal(-1), list), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -459,7 +459,7 @@ func TestIndexImplNegative(t *testing.T) {
 }
 
 func TestReplicateImplZero(t *testing.T) {
-	v, _, err := replicateImpl(ctx, ce, args(intVal(0), intVal(42)), nil)
+	v, _, err := replicateImpl(ctx, ce, args(intVal(0), intVal(42)), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +467,7 @@ func TestReplicateImplZero(t *testing.T) {
 }
 
 func TestReplicateImplNegative(t *testing.T) {
-	v, _, err := replicateImpl(ctx, ce, args(intVal(-5), intVal(42)), nil)
+	v, _, err := replicateImpl(ctx, ce, args(intVal(-5), intVal(42)), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +477,7 @@ func TestReplicateImplNegative(t *testing.T) {
 func TestZipImplUnequalLengths(t *testing.T) {
 	xs := conList(intVal(1), intVal(2), intVal(3))
 	ys := conList(intVal(10))
-	v, _, err := zipImpl(ctx, ce, args(xs, ys), nil)
+	v, _, err := zipImpl(ctx, ce, args(xs, ys), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ func TestZipImplUnequalLengths(t *testing.T) {
 func TestZipImplBothEmpty(t *testing.T) {
 	xs := &eval.ConVal{Con: "Nil"}
 	ys := &eval.ConVal{Con: "Nil"}
-	v, _, err := zipImpl(ctx, ce, args(xs, ys), nil)
+	v, _, err := zipImpl(ctx, ce, args(xs, ys), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +502,7 @@ func TestZipImplBothEmpty(t *testing.T) {
 
 func TestUnzipImplEmpty(t *testing.T) {
 	nilList := &eval.ConVal{Con: "Nil"}
-	v, _, err := unzipImpl(ctx, ce, args(nilList), nil)
+	v, _, err := unzipImpl(ctx, ce, args(nilList), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,14 +518,14 @@ func TestFoldlImplDirect(t *testing.T) {
 	// foldl (\acc x -> acc + x) 0 [1,2,3] = 6
 	f := &eval.Closure{Param: "acc", Body: nil}
 	list := conList(intVal(1), intVal(2), intVal(3))
-	applier := func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: arg}, capEnv, nil
 		}
 		a := fn.(*eval.HostVal).Inner.(eval.Value).(*eval.HostVal).Inner.(int64)
 		b := arg.(*eval.HostVal).Inner.(int64)
 		return intVal(a + b), capEnv, nil
-	}
+	})
 	v, _, err := foldlImpl(ctx, ce, args(f, intVal(0), list), applier)
 	if err != nil {
 		t.Fatal(err)
@@ -536,7 +536,7 @@ func TestFoldlImplDirect(t *testing.T) {
 func TestFoldlImplEmpty(t *testing.T) {
 	f := &eval.Closure{Param: "acc", Body: nil}
 	nilList := &eval.ConVal{Con: "Nil"}
-	v, _, err := foldlImpl(ctx, ce, args(f, intVal(42), nilList), nil)
+	v, _, err := foldlImpl(ctx, ce, args(f, intVal(42), nilList), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +546,7 @@ func TestFoldlImplEmpty(t *testing.T) {
 func TestDropWhileImplEmpty(t *testing.T) {
 	pred := &eval.Closure{Param: "x", Body: nil}
 	nilList := &eval.ConVal{Con: "Nil"}
-	v, _, err := dropWhileImpl(ctx, ce, args(pred, nilList), nil)
+	v, _, err := dropWhileImpl(ctx, ce, args(pred, nilList), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +556,7 @@ func TestDropWhileImplEmpty(t *testing.T) {
 func TestSpanImplEmpty(t *testing.T) {
 	pred := &eval.Closure{Param: "x", Body: nil}
 	nilList := &eval.ConVal{Con: "Nil"}
-	v, _, err := spanImpl(ctx, ce, args(pred, nilList), nil)
+	v, _, err := spanImpl(ctx, ce, args(pred, nilList), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,7 +587,7 @@ func TestSpanImplNoneDrop(t *testing.T) {
 
 func TestSortByImplEmpty(t *testing.T) {
 	nilList := &eval.ConVal{Con: "Nil"}
-	v, _, err := sortByImpl(ctx, ce, args(&eval.Closure{Param: "a"}, nilList), nil)
+	v, _, err := sortByImpl(ctx, ce, args(&eval.Closure{Param: "a"}, nilList), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,7 +595,7 @@ func TestSortByImplEmpty(t *testing.T) {
 }
 
 func TestIterateNImplNegative(t *testing.T) {
-	v, _, err := iterateNImpl(ctx, ce, args(intVal(-1), &eval.Closure{Param: "x"}, intVal(1)), nil)
+	v, _, err := iterateNImpl(ctx, ce, args(intVal(-1), &eval.Closure{Param: "x"}, intVal(1)), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,7 +605,7 @@ func TestIterateNImplNegative(t *testing.T) {
 func TestConcatImplFirstEmpty(t *testing.T) {
 	xs := &eval.ConVal{Con: "Nil"}
 	ys := conList(intVal(1), intVal(2))
-	v, _, err := concatImpl(ctx, ce, args(xs, ys), nil)
+	v, _, err := concatImpl(ctx, ce, args(xs, ys), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -621,7 +621,7 @@ func TestConcatImplFirstEmpty(t *testing.T) {
 func TestConcatImplSecondEmpty(t *testing.T) {
 	xs := conList(intVal(1))
 	ys := &eval.ConVal{Con: "Nil"}
-	v, _, err := concatImpl(ctx, ce, args(xs, ys), nil)
+	v, _, err := concatImpl(ctx, ce, args(xs, ys), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -636,7 +636,7 @@ func TestConcatImplSecondEmpty(t *testing.T) {
 
 func TestLengthImplMalformed(t *testing.T) {
 	// Non-list value should produce error.
-	_, _, err := lengthImpl(ctx, ce, args(intVal(42)), nil)
+	_, _, err := lengthImpl(ctx, ce, args(intVal(42)), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for non-list value")
 	}
@@ -646,7 +646,7 @@ func TestLengthImplMalformed(t *testing.T) {
 
 func TestFromSliceImplNonHostValNonConVal(t *testing.T) {
 	// A non-HostVal, non-ConVal input should error.
-	_, _, err := fromSliceImpl(ctx, ce, args(eval.NewRecordFromMap(map[string]eval.Value{})), nil)
+	_, _, err := fromSliceImpl(ctx, ce, args(eval.NewRecordFromMap(map[string]eval.Value{})), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for non-HostVal/non-ConVal input")
 	}
@@ -654,7 +654,7 @@ func TestFromSliceImplNonHostValNonConVal(t *testing.T) {
 
 func TestFromSliceImplHostValNonSlice(t *testing.T) {
 	// HostVal wrapping non-[]any should error.
-	_, _, err := fromSliceImpl(ctx, ce, args(&eval.HostVal{Inner: "not-a-slice"}), nil)
+	_, _, err := fromSliceImpl(ctx, ce, args(&eval.HostVal{Inner: "not-a-slice"}), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for HostVal wrapping non-slice")
 	}
@@ -663,7 +663,7 @@ func TestFromSliceImplHostValNonSlice(t *testing.T) {
 func TestToSliceImplPassthrough(t *testing.T) {
 	// HostVal wrapping []any should pass through unchanged.
 	original := &eval.HostVal{Inner: []any{int64(1), int64(2)}}
-	v, _, err := toSliceImpl(ctx, ce, args(original), nil)
+	v, _, err := toSliceImpl(ctx, ce, args(original), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -673,7 +673,7 @@ func TestToSliceImplPassthrough(t *testing.T) {
 }
 
 func TestToSliceImplNonList(t *testing.T) {
-	_, _, err := toSliceImpl(ctx, ce, args(intVal(42)), nil)
+	_, _, err := toSliceImpl(ctx, ce, args(intVal(42)), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for non-list value")
 	}
@@ -705,7 +705,7 @@ func TestBuildListEmpty(t *testing.T) {
 func TestUnzipImplNonTuple(t *testing.T) {
 	// List containing a non-RecordVal element.
 	list := conList(intVal(42))
-	_, _, err := unzipImpl(ctx, ce, args(list), nil)
+	_, _, err := unzipImpl(ctx, ce, args(list), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for non-tuple element in unzip")
 	}
@@ -715,7 +715,7 @@ func TestUnzipImplIncompleteTuple(t *testing.T) {
 	// RecordVal with _1 but not _2.
 	bad := eval.NewRecordFromMap(map[string]eval.Value{"_1": intVal(1)})
 	list := conList(bad)
-	_, _, err := unzipImpl(ctx, ce, args(list), nil)
+	_, _, err := unzipImpl(ctx, ce, args(list), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for tuple without _2")
 	}
@@ -724,7 +724,7 @@ func TestUnzipImplIncompleteTuple(t *testing.T) {
 func TestLengthImplMalformedCons(t *testing.T) {
 	// Cons with wrong name should error.
 	bad := &eval.ConVal{Con: "Other", Args: []eval.Value{intVal(1), intVal(2)}}
-	_, _, err := lengthImpl(ctx, ce, args(bad), nil)
+	_, _, err := lengthImpl(ctx, ce, args(bad), eval.Applier{})
 	if err == nil {
 		t.Fatal("expected error for unknown list constructor")
 	}
