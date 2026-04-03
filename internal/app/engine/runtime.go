@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -69,6 +70,15 @@ type Runtime struct {
 	vmMainProtos   []vmBindingProto      // pre-compiled non-entry main binding protos
 	vmEntryProto   *vm.Proto             // pre-compiled entry expression proto
 	vmBuiltins     map[string]eval.Value // pre-compiled builtin VMClosures
+
+	// Cached global array template. Populated after the first RunWith
+	// that evaluates module bindings successfully. Subsequent RunWith
+	// calls clone the template and skip evalPrecompiledBindings.
+	// Pure module bindings are referentially transparent — their results
+	// depend only on other module bindings and builtins, all fixed at
+	// NewRuntime time.
+	cachedGlobals     []eval.Value
+	cachedGlobalsOnce sync.Once
 }
 
 type vmBindingProto struct {
@@ -308,9 +318,9 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 	}
 }
 
-// executeVM compiles the entry expression to bytecode and runs it on the VM.
-// Module and non-entry bindings are evaluated by the tree-walker (stored in
-// globalArray). The VM uses the same global array for variable lookup.
+// executeVM runs the entry expression on the VM. On the first call, module
+// and main bindings are evaluated and the resulting global array is cached
+// as a template. Subsequent calls clone the template, skipping re-evaluation.
 func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray []eval.Value, capEnv eval.CapEnv, req *runRequest) (eval.EvalResult, eval.EvalStats, error) {
 	machine := vm.NewVM(vm.VMConfig{
 		Globals:     globalArray,
@@ -323,25 +333,47 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 		Source:      r.source,
 	})
 
-	// Install pre-compiled builtins.
-	for name, val := range r.vmBuiltins {
-		if slot, ok := r.globalSlots[name]; ok {
-			globalArray[slot] = val
+	if r.cachedGlobals != nil {
+		// Fast path: clone cached template. Module bindings are pure
+		// and referentially transparent — their results never change.
+		copy(globalArray, r.cachedGlobals)
+		// Re-install host bindings which may differ across RunWith calls.
+		// buildGlobalArray already validated and set them in globalArray,
+		// but copy() overwrote those slots with the cached (first-run) values.
+		for name := range r.bindings {
+			if v, ok := req.bindings[name]; ok {
+				globalArray[r.globalSlots[name]] = v
+			}
 		}
-	}
+	} else {
+		// First execution: evaluate module + main bindings, then cache.
 
-	// Evaluate pre-compiled module bindings.
-	for i, me := range r.moduleEntries {
-		req.obs.SetSource(me.source)
-		if err := r.evalPrecompiledBindings(machine, r.vmModuleProtos[i], me.name, globalArray, req.obs); err != nil {
+		// Install pre-compiled builtins.
+		for name, val := range r.vmBuiltins {
+			if slot, ok := r.globalSlots[name]; ok {
+				globalArray[slot] = val
+			}
+		}
+
+		// Evaluate pre-compiled module bindings.
+		for i, me := range r.moduleEntries {
+			req.obs.SetSource(me.source)
+			if err := r.evalPrecompiledBindings(machine, r.vmModuleProtos[i], me.name, globalArray, req.obs); err != nil {
+				return eval.EvalResult{}, machine.Stats(), err
+			}
+		}
+
+		// Evaluate pre-compiled non-entry main bindings.
+		req.obs.SetSource(r.source)
+		if err := r.evalPrecompiledBindings(machine, r.vmMainProtos, "", globalArray, req.obs); err != nil {
 			return eval.EvalResult{}, machine.Stats(), err
 		}
-	}
 
-	// Evaluate pre-compiled non-entry main bindings.
-	req.obs.SetSource(r.source)
-	if err := r.evalPrecompiledBindings(machine, r.vmMainProtos, "", globalArray, req.obs); err != nil {
-		return eval.EvalResult{}, machine.Stats(), err
+		// Cache the evaluated global array for subsequent RunWith calls.
+		r.cachedGlobalsOnce.Do(func() {
+			r.cachedGlobals = make([]eval.Value, len(globalArray))
+			copy(r.cachedGlobals, globalArray)
+		})
 	}
 
 	// Handle non-default entry point.
