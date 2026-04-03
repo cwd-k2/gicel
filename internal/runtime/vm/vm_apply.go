@@ -531,16 +531,9 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		}
 
 	default:
-		// Non-closure multi-apply: apply args one at a time.
-		vm.push(fn)
-		for i, arg := range args {
-			fn := vm.pop()
-			isTail := tail && i == len(args)-1
-			if err := vm.apply(fn, arg, frame, isTail); err != nil {
-				return err
-			}
-		}
-		return nil
+		// OpApplyN is emitted only for known-arity VMClosure/PAPVal call sites.
+		// Reaching this case indicates a compiler invariant violation.
+		return vm.runtimeError(fmt.Sprintf("applyN: unexpected value type %T", fn), frame)
 	}
 }
 

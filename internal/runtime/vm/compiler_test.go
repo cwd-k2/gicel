@@ -215,6 +215,65 @@ func TestCompilePrimOp(t *testing.T) {
 	assertOp(t, proto, OpPrim)
 }
 
+func TestCompileAppKnownArity(t *testing.T) {
+	// fix \self. \x. \y. self x y
+	// Inside the fix body, self has known arity 2. The call `self x y`
+	// has spine length 2 matching arity → OpTailApplyN 2 should be emitted.
+	selfCall := &ir.App{
+		Fun: &ir.App{Fun: &ir.Var{Name: "self", Index: 0}, Arg: &ir.Var{Name: "x", Index: 0}},
+		Arg: &ir.Var{Name: "y", Index: 0},
+	}
+	lamY := &ir.Lam{Param: "y", Body: selfCall}
+	lamX := &ir.Lam{Param: "x", Body: lamY}
+	fix := &ir.Fix{Name: "self", Body: lamX}
+	c := NewCompiler(nil, nil)
+	annotate(fix)
+	proto := c.CompileExpr(fix)
+
+	// Check the fix body proto (nested) for OpTailApplyN.
+	found := false
+	var checkProto func(p *Proto)
+	checkProto = func(p *Proto) {
+		for i := 0; i < len(p.Code); {
+			op := Opcode(p.Code[i])
+			if op == OpApplyN || op == OpTailApplyN {
+				found = true
+				return
+			}
+			i += InstructionSize(op)
+		}
+		for _, child := range p.Protos {
+			checkProto(child)
+		}
+	}
+	checkProto(proto)
+	if !found {
+		t.Error("expected OpApplyN or OpTailApplyN in fix body bytecode, but not found")
+	}
+}
+
+func TestCompileAppUnknownArity(t *testing.T) {
+	// f 1 2 where f is a global with unknown arity → sequential OpApply, no OpApplyN.
+	globals := map[string]int{"f": 0}
+	fn := &ir.Var{Name: "f", Index: -1, Key: "f"}
+	app1 := &ir.App{Fun: fn, Arg: &ir.Lit{Value: int64(1)}}
+	app2 := &ir.App{Fun: app1, Arg: &ir.Lit{Value: int64(2)}}
+	c := NewCompiler(globals, nil)
+	annotate(app2)
+	proto := c.CompileExpr(app2)
+
+	// Should NOT contain OpApplyN.
+	for i := 0; i < len(proto.Code); {
+		op := Opcode(proto.Code[i])
+		if op == OpApplyN || op == OpTailApplyN {
+			t.Error("unexpected OpApplyN in bytecode for unknown-arity function")
+		}
+		i += InstructionSize(op)
+	}
+	// Should contain regular OpApply.
+	assertOp(t, proto, OpApply)
+}
+
 // --- helpers ---
 
 func assertOpAt(t *testing.T, proto *Proto, offset int, expected Opcode) {

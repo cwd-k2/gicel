@@ -47,8 +47,9 @@ type frame struct {
 
 // localEntry tracks a named local variable.
 type localEntry struct {
-	name string
-	slot int
+	name  string
+	slot  int
+	arity int // -1: unknown, 0+: known arity (len of Params in the closure's Proto)
 }
 
 // NewCompiler creates a Compiler with the given global slot mapping.
@@ -278,11 +279,26 @@ func (c *Compiler) addMergeDesc(md MergeDesc) uint16 {
 // --- local variable management ---
 
 func (c *Compiler) allocLocal(name string) int {
+	return c.allocLocalWithArity(name, -1)
+}
+
+func (c *Compiler) allocLocalWithArity(name string, arity int) int {
 	f := c.top()
 	slot := f.numLocals
 	f.numLocals++
-	f.locals = append(f.locals, localEntry{name: name, slot: slot})
+	f.locals = append(f.locals, localEntry{name: name, slot: slot, arity: arity})
 	return slot
+}
+
+// localArity returns the known arity of a local variable, or -1 if unknown.
+func (c *Compiler) localArity(name string) int {
+	f := c.top()
+	for i := len(f.locals) - 1; i >= 0; i-- {
+		if f.locals[i].name == name {
+			return f.locals[i].arity
+		}
+	}
+	return -1
 }
 
 func (c *Compiler) resolveLocal(name string) (int, bool) {
@@ -453,8 +469,34 @@ func (c *Compiler) compileMultiParamProto(params []string, body ir.Core, fv []st
 
 func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	c.addSpan(app.S)
-	// Sequential 1-arg-at-a-time: inner App is non-tail, outer uses tail.
-	// OpApplyN emission requires compile-time arity knowledge (future work).
+	// Collect application spine and check for known-arity call.
+	fn, args := collectAppSpine(app)
+	if v, ok := fn.(*ir.Var); ok && v.Index >= 0 && len(args) > 1 {
+		arity := c.localArity(v.Name)
+		if arity > 1 && len(args) >= arity && arity <= 255 {
+			// Known arity, enough args. Emit OpApplyN for the first arity args.
+			c.compileExpr(fn, false)
+			for _, arg := range args[:arity] {
+				c.compileExpr(arg, false)
+			}
+			if len(args) == arity && tail {
+				c.emitU8(OpTailApplyN, uint8(arity))
+			} else {
+				c.emitU8(OpApplyN, uint8(arity))
+			}
+			// Over-application: remaining args applied sequentially.
+			for i, arg := range args[arity:] {
+				c.compileExpr(arg, false)
+				if tail && i == len(args)-arity-1 {
+					c.emit(OpTailApply)
+				} else {
+					c.emit(OpApply)
+				}
+			}
+			return
+		}
+	}
+	// Fallback: sequential 1-arg-at-a-time.
 	c.compileExpr(app.Fun, false)
 	c.compileExpr(app.Arg, false)
 	if tail {
@@ -726,7 +768,7 @@ func (c *Compiler) compileFixMultiProto(selfName string, params []string, body i
 	for _, name := range capturedNames {
 		c.allocLocal(name)
 	}
-	selfSlot := c.allocLocal(selfName)
+	selfSlot := c.allocLocalWithArity(selfName, len(params))
 	f.fixSelfSlot = selfSlot
 	for _, param := range params {
 		c.allocLocal(param)

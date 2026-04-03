@@ -265,6 +265,83 @@ func runExprFull(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globalSlo
 	return result.Value
 }
 
+func TestVMRunMultiParamDirect(t *testing.T) {
+	// fix (\self. \x. \y. x) 1 2
+	// With arity tracking: self has known arity 2, spine has 2 args.
+	// Compiler should emit OpTailApplyN 2, entering body directly
+	// without PAPVal allocation.
+	innerBody := &ir.Var{Name: "x", Index: 0}
+	lamY := &ir.Lam{Param: "y", Body: innerBody}
+	lamX := &ir.Lam{Param: "x", Body: lamY}
+	fix := &ir.Fix{Name: "self", Body: lamX}
+	app1 := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(1)}}
+	app2 := &ir.App{Fun: app1, Arg: &ir.Lit{Value: int64(2)}}
+	result := runExpr(t, app2, nil, nil)
+	assertHostVal(t, result, int64(1))
+}
+
+func TestVMRunMultiParamPAP(t *testing.T) {
+	// fix (\self. \x. \y. x) applied to 1 only → PAPVal
+	lamY := &ir.Lam{Param: "y", Body: &ir.Var{Name: "x", Index: 0}}
+	lamX := &ir.Lam{Param: "x", Body: lamY}
+	fix := &ir.Fix{Name: "self", Body: lamX}
+	app := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(42)}}
+	result := runExpr(t, app, nil, nil)
+	if _, ok := result.(*eval.PAPVal); !ok {
+		t.Fatalf("expected PAPVal, got %T: %s", result, result)
+	}
+}
+
+func TestVMRunMultiParamRecursive(t *testing.T) {
+	// fix (\self. \n. \acc. if n == 0 then acc else self (n-1) (acc+n)) 3 0
+	// This is sum(3) = 6, testing that OpTailApplyN works for recursive calls.
+	prims := eval.NewPrimRegistry()
+	prims.Register("_eq", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		a := args[0].(*eval.HostVal).Inner.(int64)
+		b := args[1].(*eval.HostVal).Inner.(int64)
+		return eval.BoolVal(a == b), ce, nil
+	})
+	prims.Register("_sub", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		a := args[0].(*eval.HostVal).Inner.(int64)
+		b := args[1].(*eval.HostVal).Inner.(int64)
+		return eval.IntVal(a - b), ce, nil
+	})
+	prims.Register("_add", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+		a := args[0].(*eval.HostVal).Inner.(int64)
+		b := args[1].(*eval.HostVal).Inner.(int64)
+		return eval.IntVal(a + b), ce, nil
+	})
+
+	// IR: fix \self. \n. \acc. case (_eq n 0) { True => acc; False => self (_sub n 1) (_add acc n) }
+	eqOp := &ir.PrimOp{Name: "_eq", Arity: 2, Args: []ir.Core{
+		&ir.Var{Name: "n", Index: 0}, &ir.Lit{Value: int64(0)},
+	}}
+	subOp := &ir.PrimOp{Name: "_sub", Arity: 2, Args: []ir.Core{
+		&ir.Var{Name: "n", Index: 0}, &ir.Lit{Value: int64(1)},
+	}}
+	addOp := &ir.PrimOp{Name: "_add", Arity: 2, Args: []ir.Core{
+		&ir.Var{Name: "acc", Index: 0}, &ir.Var{Name: "n", Index: 0},
+	}}
+	selfCall := &ir.App{
+		Fun: &ir.App{Fun: &ir.Var{Name: "self", Index: 0}, Arg: subOp},
+		Arg: addOp,
+	}
+	body := &ir.Case{
+		Scrutinee: eqOp,
+		Alts: []ir.Alt{
+			{Pattern: &ir.PCon{Con: "True"}, Body: &ir.Var{Name: "acc", Index: 0}},
+			{Pattern: &ir.PCon{Con: "False"}, Body: selfCall},
+		},
+	}
+	lamAcc := &ir.Lam{Param: "acc", Body: body}
+	lamN := &ir.Lam{Param: "n", Body: lamAcc}
+	fix := &ir.Fix{Name: "self", Body: lamN}
+	app1 := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(3)}}
+	app2 := &ir.App{Fun: app1, Arg: &ir.Lit{Value: int64(0)}}
+	result := runExpr(t, app2, prims, nil)
+	assertHostVal(t, result, int64(6)) // sum(3) = 3+2+1 = 6
+}
+
 func assertHostVal(t *testing.T, v eval.Value, expected any) {
 	t.Helper()
 	hv, ok := v.(*eval.HostVal)
