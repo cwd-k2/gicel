@@ -26,20 +26,25 @@ run_step() {
   fi
 }
 
+# Packages excluding tmp/ (scratch area, not part of the build).
+PKGS=$(go list ./... | grep -v '/tmp/')
+# Packages with non-test source (go build rejects test-only packages).
+BUILD_PKGS=$(go list ./... | grep -v '/tmp/' | grep -v '/tests/')
+
 # ── Build ───────────────────────────────────────────────────
 
 section "Build"
-run_step "go build ./..." go build ./...
+run_step "go build" go build $BUILD_PKGS
 run_step "go build -o bin/gicel" go build -o bin/gicel ./cmd/gicel/
 
 # ── Tests ───────────────────────────────────────────────────
 
 section "Tests"
-run_step "unit tests" go test ./...
-run_step "probe tests" go test -tags probe ./...
-run_step "scale tests" go test -tags scale ./...
+run_step "unit tests" go test $PKGS
+run_step "probe tests" go test -tags probe $PKGS
+run_step "scale tests" go test -tags scale $PKGS
 run_step "stress tests" go test ./tests/stress/
-run_step "bench tests (compile)" go test -bench=. -benchtime=1x ./...
+run_step "bench tests (compile)" go test -bench=. -benchtime=1x $PKGS
 
 # ── Examples ────────────────────────────────────────────────
 
