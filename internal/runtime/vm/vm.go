@@ -688,11 +688,20 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			frame.ip += 2
 			arity := int(frame.proto.Code[frame.ip])
 			frame.ip++
-			name := frame.proto.Strings[nameIdx]
-			impl, ok := vm.prims.Lookup(name)
-			if !ok {
-				return eval.EvalResult{}, vm.runtimeError(
-					"missing primitive: "+name, frame)
+			// Resolve primitive: prefer compile-time resolved impl,
+			// fall back to registry lookup for unresolved entries.
+			var impl eval.PrimImpl
+			if int(nameIdx) < len(frame.proto.ResolvedPrims) {
+				impl = frame.proto.ResolvedPrims[nameIdx]
+			}
+			if impl == nil {
+				name := frame.proto.Strings[nameIdx]
+				var ok bool
+				impl, ok = vm.prims.Lookup(name)
+				if !ok {
+					return eval.EvalResult{}, vm.runtimeError(
+						"missing primitive: "+name, frame)
+				}
 			}
 			// Args are contiguous on the stack. Pass a view directly
 			// instead of allocating a fresh slice. Safe because OpPrim
@@ -714,6 +723,22 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			vm.push(frame.proto.Constants[idx])
+
+		case OpEffectPrim:
+			nameIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			arity := int(frame.proto.Code[frame.ip])
+			frame.ip++
+			name := frame.proto.Strings[nameIdx]
+			args := make([]eval.Value, arity)
+			for i := arity - 1; i >= 0; i-- {
+				args[i] = vm.pop()
+			}
+			vm.push(&eval.PrimVal{
+				Name: name, Arity: arity,
+				Effectful: true, Args: args,
+				S: frame.proto.SpanAt(frame.ip),
+			})
 
 		default:
 			return eval.EvalResult{}, vm.runtimeError(

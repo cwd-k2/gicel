@@ -118,6 +118,10 @@ const (
 	// OpPrimPartial pushes a PrimVal stub from the constant pool.
 	// Operand: u16 constant pool index.
 	OpPrimPartial
+	// OpEffectPrim constructs a saturated effectful PrimVal in one step.
+	// Operand: u16 name (string pool), u8 arity. Pops arity args, pushes
+	// a deferred PrimVal ready for OpBind/OpForceEffectful.
+	OpEffectPrim
 
 	// --- Merge (parallel composition) ---
 

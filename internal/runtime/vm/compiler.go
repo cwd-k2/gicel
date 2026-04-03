@@ -535,9 +535,15 @@ func (c *Compiler) compilePrimOp(prim *ir.PrimOp) {
 		c.compileExpr(arg, false)
 	}
 	if !prim.Effectful && len(prim.Args) == prim.Arity {
+		// Saturated non-effectful: invoke directly.
 		nameIdx := c.addString(prim.Name)
 		c.emitU16U8(OpPrim, nameIdx, uint8(prim.Arity))
+	} else if prim.Effectful && len(prim.Args) == prim.Arity {
+		// Saturated effectful: construct deferred PrimVal in one step.
+		nameIdx := c.addString(prim.Name)
+		c.emitU16U8(OpEffectPrim, nameIdx, uint8(prim.Arity))
 	} else {
+		// Genuinely partial: partial-application path.
 		stub := &eval.PrimVal{
 			Name: prim.Name, Arity: prim.Arity,
 			Effectful: prim.Effectful, S: prim.S,

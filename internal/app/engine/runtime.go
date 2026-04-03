@@ -291,6 +291,21 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 	if r.entryExpr != nil {
 		r.vmEntryProto = compiler.CompileExpr(r.entryExpr)
 	}
+
+	// Resolve primitive implementations at link time.
+	// After this, OpPrim/OpEffectPrim use Proto.ResolvedPrims[nameIdx]
+	// instead of runtime map lookups.
+	for _, mp := range r.vmModuleProtos {
+		for _, bp := range mp {
+			bp.proto.ResolvePrims(r.prims)
+		}
+	}
+	for _, bp := range r.vmMainProtos {
+		bp.proto.ResolvePrims(r.prims)
+	}
+	if r.vmEntryProto != nil {
+		r.vmEntryProto.ResolvePrims(r.prims)
+	}
 }
 
 // executeVM compiles the entry expression to bytecode and runs it on the VM.

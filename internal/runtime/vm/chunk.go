@@ -32,10 +32,32 @@ type Proto struct {
 	// MergeDescs holds merge descriptors (CapEnv label split info).
 	MergeDescs []MergeDesc
 
+	// Resolved primitive implementations. Indexed by Strings pool index.
+	// Populated at link time (precompileVM); nil entries fall back to
+	// registry lookup. Only entries that correspond to primitive names
+	// (referenced by OpPrim/OpEffectPrim) are populated.
+	ResolvedPrims []eval.PrimImpl
+
 	// Debug information.
 	Spans     []SpanEntry  // bytecode offset → source span
 	Source    *span.Source // source text for error attribution
 	BindNames []BindInfo   // maps OpBind slot → variable name (for observer)
+}
+
+// ResolvePrims populates ResolvedPrims by looking up each string in the
+// registry. Called once at link time for each Proto (and its nested Protos).
+func (p *Proto) ResolvePrims(reg *eval.PrimRegistry) {
+	if len(p.Strings) > 0 {
+		p.ResolvedPrims = make([]eval.PrimImpl, len(p.Strings))
+		for i, name := range p.Strings {
+			if impl, ok := reg.Lookup(name); ok {
+				p.ResolvedPrims[i] = impl
+			}
+		}
+	}
+	for _, child := range p.Protos {
+		child.ResolvePrims(reg)
+	}
 }
 
 // BindInfo records the variable name for an OpBind instruction.
