@@ -118,6 +118,14 @@ const (
 	// OpPrimPartial pushes a PrimVal stub from the constant pool.
 	// Operand: u16 constant pool index.
 	OpPrimPartial
+	// OpApplyN pops N args + fn, dispatches multi-arg application.
+	// Operand: u8 arity. For exact-arity calls, enters the body directly
+	// without creating intermediate closures.
+	OpApplyN
+	// OpTailApplyN is the tail-call variant of OpApplyN.
+	// Operand: u8 arity.
+	OpTailApplyN
+
 	// OpEffectPrim constructs a saturated effectful PrimVal in one step.
 	// Operand: u16 name (string pool), u8 arity. Pops arity args, pushes
 	// a deferred PrimVal ready for OpBind/OpForceEffectful.
@@ -172,8 +180,11 @@ func InstructionSize(op Opcode) int {
 		OpBind, OpMerge:
 		return 3 // opcode + u16
 
-	case OpCon, OpPrim:
+	case OpCon, OpPrim, OpEffectPrim:
 		return 4 // opcode + u16 + u8
+
+	case OpApplyN, OpTailApplyN:
+		return 2 // opcode + u8
 
 	case OpMatchCon, OpMatchRecord:
 		return 5 // opcode + u16 + u16
@@ -231,6 +242,9 @@ var opNames = [opcodeCount]string{
 	OpPrim:           "PRIM",
 	OpPrimPartial:    "PRIM_PARTIAL",
 	OpMerge:          "MERGE",
+	OpApplyN:         "APPLY_N",
+	OpTailApplyN:     "TAIL_APPLY_N",
+	OpEffectPrim:     "EFFECT_PRIM",
 	OpRaise:          "RAISE",
 	OpStep:           "STEP",
 }

@@ -174,6 +174,13 @@ func (c *Compiler) emitU16(op Opcode, operand uint16) int {
 	return pos
 }
 
+func (c *Compiler) emitU8(op Opcode, operand uint8) int {
+	f := c.top()
+	pos := len(f.code)
+	f.code = append(f.code, byte(op), operand)
+	return pos
+}
+
 func (c *Compiler) emitU16U8(op Opcode, a uint16, b uint8) int {
 	f := c.top()
 	pos := len(f.code)
@@ -398,13 +405,56 @@ func (c *Compiler) compileLit(lit *ir.Lit) {
 
 func (c *Compiler) compileLam(lam *ir.Lam) {
 	c.addSpan(lam.S)
-	child := c.compileChildProto(lam.Param, lam.Body, false, lam.FV, lam.FVIndices)
+	// Flatten lambda chain: \x. \y. \z. body → single Proto with Params=["x","y","z"].
+	params, body, fv, fvIndices := flattenLamChain(lam)
+	child := c.compileMultiParamProto(params, body, fv, fvIndices)
 	protoIdx := c.addProto(child)
 	c.emitU16(OpClosure, protoIdx)
 }
 
+// flattenLamChain collects a chain of nested Lam nodes into a parameter
+// list and the innermost body. Returns the outermost Lam's FV/FVIndices
+// (inner params become local slots in the flattened Proto, not captures).
+func flattenLamChain(lam *ir.Lam) (params []string, body ir.Core, fv []string, fvIndices []int) {
+	params = []string{lam.Param}
+	fv = lam.FV
+	fvIndices = lam.FVIndices
+	body = lam.Body
+	for {
+		inner := ir.PeelTyLam(body)
+		innerLam, ok := inner.(*ir.Lam)
+		if !ok {
+			break
+		}
+		params = append(params, innerLam.Param)
+		body = innerLam.Body
+	}
+	return
+}
+
+// compileMultiParamProto compiles a closure body with zero or more parameters.
+func (c *Compiler) compileMultiParamProto(params []string, body ir.Core, fv []string, fvIndices []int) *Proto {
+	capturedNames, captureSlots := c.resolveCapturesFiltered(fv, fvIndices)
+	c.enterFrame()
+	f := c.top()
+	f.isThunk = false
+	f.params = params
+	f.captures = captureSlots
+	for _, name := range capturedNames {
+		c.allocLocal(name)
+	}
+	for _, param := range params {
+		c.allocLocal(param)
+	}
+	c.compileExpr(body, true)
+	c.emit(OpReturn)
+	return c.leaveFrame()
+}
+
 func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	c.addSpan(app.S)
+	// Sequential 1-arg-at-a-time: inner App is non-tail, outer uses tail.
+	// OpApplyN emission requires compile-time arity knowledge (future work).
 	c.compileExpr(app.Fun, false)
 	c.compileExpr(app.Arg, false)
 	if tail {
@@ -412,6 +462,33 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	} else {
 		c.emit(OpApply)
 	}
+}
+
+// collectAppSpine flattens left-nested App/TyApp chains into (fun, [arg0, arg1, ...]).
+func collectAppSpine(node *ir.App) (ir.Core, []ir.Core) {
+	var args []ir.Core
+	var cur ir.Core = node
+	for {
+		a, ok := cur.(*ir.App)
+		if !ok {
+			break
+		}
+		args = append(args, a.Arg)
+		cur = a.Fun
+		// Peel type applications (erased at runtime).
+		for {
+			if ta, ok := cur.(*ir.TyApp); ok {
+				cur = ta.Expr
+				continue
+			}
+			break
+		}
+	}
+	// Reverse: collected right-to-left.
+	for i, j := 0, len(args)-1; i < j; i, j = i+1, j-1 {
+		args[i], args[j] = args[j], args[i]
+	}
+	return cur, args
 }
 
 func (c *Compiler) compileCon(con *ir.Con) {
@@ -434,7 +511,8 @@ func (c *Compiler) compileFix(fix *ir.Fix) {
 	body := ir.PeelTyLam(fix.Body)
 	switch b := body.(type) {
 	case *ir.Lam:
-		child := c.compileFixProto(fix.Name, b.Param, b.Body, false, b.FV, b.FVIndices)
+		params, innerBody, _, _ := flattenLamChain(b)
+		child := c.compileFixMultiProto(fix.Name, params, innerBody, b.FV, b.FVIndices)
 		protoIdx := c.addProto(child)
 		c.emitU16(OpFixClosure, protoIdx)
 	case *ir.Thunk:
@@ -631,6 +709,27 @@ func (c *Compiler) compileFixProto(selfName, paramName string, body ir.Core, isT
 	f.fixSelfSlot = selfSlot
 	if paramName != "" {
 		c.allocLocal(paramName)
+	}
+	c.compileExpr(body, true)
+	c.emit(OpReturn)
+	return c.leaveFrame()
+}
+
+// compileFixMultiProto compiles a Fix body with multiple parameters (flattened lambda chain).
+func (c *Compiler) compileFixMultiProto(selfName string, params []string, body ir.Core, fv []string, fvIndices []int) *Proto {
+	capturedNames, captureSlots := c.resolveCapturesFiltered(fv, fvIndices)
+	c.enterFrame()
+	f := c.top()
+	f.isThunk = false
+	f.params = params
+	f.captures = captureSlots
+	for _, name := range capturedNames {
+		c.allocLocal(name)
+	}
+	selfSlot := c.allocLocal(selfName)
+	f.fixSelfSlot = selfSlot
+	for _, param := range params {
+		c.allocLocal(param)
 	}
 	c.compileExpr(body, true)
 	c.emit(OpReturn)

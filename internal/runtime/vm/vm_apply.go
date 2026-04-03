@@ -49,6 +49,15 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 	switch f := fn.(type) {
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
+		arity := len(proto.Params)
+		if arity > 1 {
+			// Multi-param closure: accumulate arg in a PAPVal.
+			if err := vm.budget.Alloc(eval.CostPAP + eval.CostPAPArg); err != nil {
+				return err
+			}
+			vm.push(&eval.PAPVal{Fun: f, Args: []eval.Value{arg}, Arity: arity})
+			return nil
+		}
 		var leaveObs bool
 		if vm.obs != nil && f.Name != "" {
 			if vm.obs.IsInternal(f.Name) {
@@ -61,8 +70,6 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 			}
 		}
 		if tail {
-			// Before reusing the frame for a tail call, fire any pending
-			// LeaveInternal from the current frame to keep suppress balanced.
 			if frame.leaveObs {
 				vm.obs.LeaveInternal()
 			}
@@ -74,6 +81,44 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 			vm.currentFrame().leaveObs = true
 		}
 		return err
+
+	case *eval.PAPVal:
+		newArgs := make([]eval.Value, len(f.Args)+1)
+		copy(newArgs, f.Args)
+		newArgs[len(f.Args)] = arg
+		if len(newArgs) == f.Arity {
+			// Saturated: enter the closure body directly.
+			proto := f.Fun.Proto.(*Proto)
+			var leaveObs bool
+			if vm.obs != nil && f.Fun.Name != "" {
+				if vm.obs.IsInternal(f.Fun.Name) {
+					vm.obs.EnterInternal()
+					leaveObs = true
+				} else if vm.obs.Active() {
+					vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
+						eval.ExplainDetail{Name: f.Fun.Name, LabelKind: "enter", Value: eval.PrettyValue(arg)},
+						frame.proto.SpanAt(frame.ip))
+				}
+			}
+			if tail {
+				if frame.leaveObs {
+					vm.obs.LeaveInternal()
+				}
+				frame.leaveObs = leaveObs
+				return vm.tailCallClosureMulti(proto, f.Fun.Captured, newArgs, frame)
+			}
+			err := vm.callClosureMulti(proto, f.Fun.Captured, newArgs, frame)
+			if err == nil && leaveObs {
+				vm.currentFrame().leaveObs = true
+			}
+			return err
+		}
+		// Still partial.
+		if err := vm.budget.Alloc(eval.CostPAPArg); err != nil {
+			return err
+		}
+		vm.push(&eval.PAPVal{Fun: f.Fun, Args: newArgs, Arity: f.Arity})
+		return nil
 
 	case *eval.Closure:
 		return vm.runtimeError(
@@ -171,6 +216,58 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 		}
 		vm.locals[bp+paramSlot] = arg
 	}
+	frame.proto = proto
+	frame.ip = 0
+	frame.source = proto.Source
+	if proto.Source != nil && vm.obs != nil {
+		vm.obs.SetSource(proto.Source)
+	}
+	return nil
+}
+
+// callClosureMulti pushes a new frame for a multi-param closure call.
+// Local layout: [captures...] [self if fix] [param0 ... paramN-1] [body locals...]
+func (vm *VM) callClosureMulti(proto *Proto, captured []eval.Value, args []eval.Value, frame *Frame) error {
+	if err := vm.budget.Enter(); err != nil {
+		return err
+	}
+	bp := len(vm.locals)
+	vm.ensureLocals(bp + proto.NumLocals)
+	copy(vm.locals[bp:], captured)
+	paramBase := len(proto.Captures)
+	if proto.FixSelfSlot >= 0 {
+		paramBase = proto.FixSelfSlot + 1
+	}
+	copy(vm.locals[bp+paramBase:], args)
+	vm.pushFrame(proto, bp, frame.capEnv, proto.Source)
+	if proto.Source != nil && vm.obs != nil {
+		vm.obs.SetSource(proto.Source)
+	}
+	return nil
+}
+
+// tailCallClosureMulti reuses the current frame for a multi-param tail call.
+func (vm *VM) tailCallClosureMulti(proto *Proto, captured []eval.Value, args []eval.Value, frame *Frame) error {
+	bp := frame.bp
+	oldN := frame.proto.NumLocals
+	newN := proto.NumLocals
+	clearN := max(oldN, newN)
+	vm.ensureLocals(bp + clearN)
+
+	numCaptures := len(captured)
+	paramBase := numCaptures
+	if proto.FixSelfSlot >= 0 {
+		paramBase = proto.FixSelfSlot + 1
+	}
+	writtenUpTo := paramBase + len(args)
+	if writtenUpTo < clearN {
+		clear(vm.locals[bp+writtenUpTo : bp+clearN])
+	}
+
+	vm.locals = vm.locals[:bp+newN]
+	copy(vm.locals[bp:], captured)
+	copy(vm.locals[bp+paramBase:], args)
+
 	frame.proto = proto
 	frame.ip = 0
 	frame.source = proto.Source
@@ -357,6 +454,124 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	return nil
 }
 
+// applyN dispatches a multi-argument application.
+// Used by OpApplyN/OpTailApplyN.
+func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) error {
+	switch f := fn.(type) {
+	case *eval.VMClosure:
+		proto := f.Proto.(*Proto)
+		arity := len(proto.Params)
+		switch {
+		case len(args) == arity:
+			if arity == 1 {
+				return vm.applySingle(f, args[0], frame, tail)
+			}
+			if tail {
+				return vm.tailCallClosureMulti(proto, f.Captured, args, frame)
+			}
+			return vm.callClosureMulti(proto, f.Captured, args, frame)
+		case len(args) < arity:
+			if err := vm.budget.Alloc(eval.CostPAP + int64(eval.CostPAPArg*len(args))); err != nil {
+				return err
+			}
+			vm.push(&eval.PAPVal{Fun: f, Args: args, Arity: arity})
+			return nil
+		default:
+			// Over-application: enter with first arity args, apply rest.
+			if err := vm.callClosureMulti(proto, f.Captured, args[:arity], frame); err != nil {
+				return err
+			}
+			for _, extra := range args[arity:] {
+				result, err := vm.execute()
+				if err != nil {
+					return err
+				}
+				vm.push(result.Value)
+				fn := vm.pop()
+				if err := vm.apply(fn, extra, frame, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+	case *eval.PAPVal:
+		combined := make([]eval.Value, len(f.Args)+len(args))
+		copy(combined, f.Args)
+		copy(combined[len(f.Args):], args)
+		remaining := f.Arity - len(combined)
+		switch {
+		case remaining == 0:
+			proto := f.Fun.Proto.(*Proto)
+			if tail {
+				return vm.tailCallClosureMulti(proto, f.Fun.Captured, combined, frame)
+			}
+			return vm.callClosureMulti(proto, f.Fun.Captured, combined, frame)
+		case remaining > 0:
+			vm.push(&eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity})
+			return nil
+		default:
+			// Over-saturated PAP: enter then apply rest.
+			proto := f.Fun.Proto.(*Proto)
+			if err := vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], frame); err != nil {
+				return err
+			}
+			for _, extra := range combined[f.Arity:] {
+				result, err := vm.execute()
+				if err != nil {
+					return err
+				}
+				vm.push(result.Value)
+				fn := vm.pop()
+				if err := vm.apply(fn, extra, frame, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+	default:
+		// Non-closure multi-apply: apply args one at a time.
+		vm.push(fn)
+		for i, arg := range args {
+			fn := vm.pop()
+			isTail := tail && i == len(args)-1
+			if err := vm.apply(fn, arg, frame, isTail); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// applySingle is the single-arg path extracted from apply for VMClosure.
+func (vm *VM) applySingle(f *eval.VMClosure, arg eval.Value, frame *Frame, tail bool) error {
+	proto := f.Proto.(*Proto)
+	var leaveObs bool
+	if vm.obs != nil && f.Name != "" {
+		if vm.obs.IsInternal(f.Name) {
+			vm.obs.EnterInternal()
+			leaveObs = true
+		} else if vm.obs.Active() {
+			vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
+				eval.ExplainDetail{Name: f.Name, LabelKind: "enter", Value: eval.PrettyValue(arg)},
+				frame.proto.SpanAt(frame.ip))
+		}
+	}
+	if tail {
+		if frame.leaveObs {
+			vm.obs.LeaveInternal()
+		}
+		frame.leaveObs = leaveObs
+		return vm.tailCallClosure(proto, f.Captured, arg, frame)
+	}
+	err := vm.callClosure(proto, f.Captured, arg, frame)
+	if err == nil && leaveObs {
+		vm.currentFrame().leaveObs = true
+	}
+	return err
+}
+
 // applyForPrim is the Applier callback exposed to primitives.
 // Uses barrier-frame approach: pushes a barrier frame + closure frame onto
 // the existing frame stack, then re-enters execute(). When OpReturn hits
@@ -365,6 +580,9 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	switch f := fn.(type) {
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
+		if len(proto.Params) > 1 {
+			return &eval.PAPVal{Fun: f, Args: []eval.Value{arg}, Arity: len(proto.Params)}, capEnv, nil
+		}
 		result, err := vm.execBarrier(capEnv, func(b *Frame) error {
 			return vm.callClosure(proto, f.Captured, arg, b)
 		})
@@ -372,6 +590,22 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 			return nil, capEnv, err
 		}
 		return result.Value, result.CapEnv, nil
+
+	case *eval.PAPVal:
+		newArgs := make([]eval.Value, len(f.Args)+1)
+		copy(newArgs, f.Args)
+		newArgs[len(f.Args)] = arg
+		if len(newArgs) == f.Arity {
+			proto := f.Fun.Proto.(*Proto)
+			result, err := vm.execBarrier(capEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Fun.Captured, newArgs, b)
+			})
+			if err != nil {
+				return nil, capEnv, err
+			}
+			return result.Value, result.CapEnv, nil
+		}
+		return &eval.PAPVal{Fun: f.Fun, Args: newArgs, Arity: f.Arity}, capEnv, nil
 
 	case *eval.ConVal:
 		args := make([]eval.Value, len(f.Args)+1)
