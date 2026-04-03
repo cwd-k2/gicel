@@ -623,8 +623,7 @@ func (c *Compiler) compileFix(fix *ir.Fix) {
 func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
 	c.addSpan(bind.S)
 	c.compileExpr(bind.Comp, false)
-	arity := irLamArity(bind.Comp)
-	slot := c.allocLocalWithArity(bind.Var, arity)
+	slot := c.allocLocal(bind.Var)
 	c.emitU16(OpBind, uint16(slot))
 	if !bind.Discard && !bind.Generated {
 		c.top().bindNames = append(c.top().bindNames, BindInfo{Slot: slot, Name: bind.Var})
