@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.26.1 — 2026-04-04
+
+### Bug Fix
+
+- **`fromList` in block bindings no longer crashes.** `{ m := fromList [(1, "a"), (2, "b")]; size m }` previously caused a runtime non-exhaustive pattern match. The root cause was `localLetGen` over-generalizing bindings whose class constraints have associated type families (`FromList` has `Elem`). Generalizing orphaned the stuck type family equation (`Elem ?l = (Int, String)`), leaving key/value types unresolved. The fix implements a MonoLocalBinds guard: when inference produces constraints for classes with associated type families, `localLetGen` skips `SolveWanteds` entirely and returns a monomorphic type, keeping the type family equations alive in the current solver scope for the outer context to resolve.
+
+### Internal
+
+- **`UnifyError.Name` split into `Name` and `Message`.** `Name` was overloaded with three meanings (skolem names, class names, free-form error messages). `Name` now holds only structural identifiers; a new `Message` field carries human-readable descriptions.
+
 ## v0.25.3 — 2026-04-01
 
 ### Security & Sandbox Hardening
