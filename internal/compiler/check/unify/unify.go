@@ -25,17 +25,18 @@ const (
 // Fields carry structured data; Error() formats lazily so that trial
 // unification paths that discard the error pay no formatting cost.
 type UnifyError struct {
-	Kind   UnifyErrorKind
-	TypeA  types.Type // left-hand type (nil when not applicable)
-	TypeB  types.Type // right-hand type (nil when not applicable)
-	MetaID int        // metavariable ID (occurs check, untouchable)
-	Level  int        // meta level (untouchable)
-	SLevel int        // solver level (untouchable)
-	Name   string     // skolem name, class name, or other identifier
-	Label  string     // row label (dup label, grade mismatch)
-	Labels []string   // field/entry labels (row mismatch detail)
-	CountA int        // left count (grade count, arg count, entry count)
-	CountB int        // right count
+	Kind    UnifyErrorKind
+	TypeA   types.Type // left-hand type (nil when not applicable)
+	TypeB   types.Type // right-hand type (nil when not applicable)
+	MetaID  int        // metavariable ID (occurs check, untouchable)
+	Level   int        // meta level (untouchable)
+	SLevel  int        // solver level (untouchable)
+	Name    string     // structural identifier: skolem name or class name
+	Message string     // human-readable description (row mismatch detail, etc.)
+	Label   string     // row label (dup label, grade mismatch)
+	Labels  []string   // field/entry labels (row mismatch detail)
+	CountA  int        // left count (grade count, arg count, entry count)
+	CountB  int        // right count
 }
 
 func (e *UnifyError) Error() string {
@@ -44,14 +45,11 @@ func (e *UnifyError) Error() string {
 		if e.TypeA != nil && e.TypeB != nil {
 			return "type mismatch: " + types.Pretty(e.TypeA) + " vs " + types.Pretty(e.TypeB)
 		}
-		if e.Name != "" && e.CountA >= 0 && e.CountB >= 0 {
+		if e.Label != "" && e.CountA >= 0 && e.CountB >= 0 {
 			return "grade count mismatch for label " + strconv.Quote(e.Label) + ": " + strconv.Itoa(e.CountA) + " vs " + strconv.Itoa(e.CountB)
 		}
-		if e.Label != "" {
-			return "level mismatch: " + e.Label
-		}
-		if e.Name != "" {
-			return e.Name
+		if e.Message != "" {
+			return e.Message
 		}
 		return "type mismatch"
 	case UnifyOccursCheck:

@@ -10,17 +10,17 @@ func (u *Unifier) unifyEvidenceRows(r1, r2 *types.TyEvidenceRow) error {
 	case *types.CapabilityEntries:
 		b, ok := r2.Entries.(*types.CapabilityEntries)
 		if !ok {
-			return &UnifyError{Kind: UnifyMismatch, Name: "cannot unify capability row with constraint row"}
+			return &UnifyError{Kind: UnifyMismatch, Message: "cannot unify capability row with constraint row"}
 		}
 		return u.unifyEvCapRows(a.Fields, r1.Tail, b.Fields, r2.Tail)
 	case *types.ConstraintEntries:
 		b, ok := r2.Entries.(*types.ConstraintEntries)
 		if !ok {
-			return &UnifyError{Kind: UnifyMismatch, Name: "cannot unify constraint row with capability row"}
+			return &UnifyError{Kind: UnifyMismatch, Message: "cannot unify constraint row with capability row"}
 		}
 		return u.unifyEvConRows(a.Entries, r1.Tail, b.Entries, r2.Tail)
 	default:
-		return &UnifyError{Kind: UnifyMismatch, Name: "unknown evidence fiber"}
+		return &UnifyError{Kind: UnifyMismatch, Message: "unknown evidence fiber"}
 	}
 }
 
@@ -31,11 +31,11 @@ func (u *Unifier) unifyEvCapRows(
 	// Normalize field order.
 	an, err := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
 	if err != nil {
-		return &UnifyError{Kind: UnifyMismatch, Name: err.Error()}
+		return &UnifyError{Kind: UnifyMismatch, Message: err.Error()}
 	}
 	bn, err := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
 	if err != nil {
-		return &UnifyError{Kind: UnifyMismatch, Name: err.Error()}
+		return &UnifyError{Kind: UnifyMismatch, Message: err.Error()}
 	}
 	aFieldsN := an.CapFields()
 	bFieldsN := bn.CapFields()
@@ -64,7 +64,7 @@ func (u *Unifier) unifyEvCapRows(
 		}
 		// Unify grade annotations pairwise — count must match.
 		if len(aField.Grades) != len(bField.Grades) {
-			return &UnifyError{Kind: UnifyMismatch, Name: "grade count mismatch", Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
+			return &UnifyError{Kind: UnifyMismatch, Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
 		}
 		for i := range aField.Grades {
 			if err := u.Unify(aField.Grades[i], bField.Grades[i]); err != nil {
