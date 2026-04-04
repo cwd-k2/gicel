@@ -355,6 +355,24 @@ func (ch *Checker) localLetGen(expr syntax.Expr) (types.Type, ir.Core) {
 	watermark := ch.freshID
 	savedWorklist := ch.solver.SaveWorklist()
 	bindTy, bindCore := ch.infer(expr)
+
+	// MonoLocalBinds: if inference produced class constraints whose class
+	// has associated type families, skip SolveWanteds and generalization
+	// entirely. Type family equations (e.g. Elem ?l = (Int, String)) live
+	// in the inert set and would be destroyed by SolveWanteds' reset.
+	// By leaving them in the current scope, the body's type checking can
+	// solve the blocking meta (via Reactivate), and the outer
+	// SolveWanteds processes the kicked-out equation correctly.
+	newConstraints := ch.solver.SaveWorklist()
+	if constraintsHaveAssocType(newConstraints, ch.reg) {
+		ch.solver.RestoreWorklistAppend(savedWorklist)
+		ch.solver.RestoreWorklistAppend(newConstraints)
+		bindTy = ch.unifier.Zonk(bindTy)
+		return bindTy, bindCore
+	}
+	ch.solver.RestoreWorklistAppend(newConstraints)
+
+	// Normal path: resolve constraints and possibly generalize.
 	bindCore, unresolved := ch.resolveDeferredConstraintsDeferrable(bindCore)
 	bindTy = ch.unifier.Zonk(bindTy)
 	if !ch.hasAmbiguousLocal(bindTy, unresolved, watermark) {
@@ -369,6 +387,21 @@ func (ch *Checker) localLetGen(expr syntax.Expr) (types.Type, ir.Core) {
 	}
 	ch.solver.RestoreWorklistAppend(savedWorklist)
 	return bindTy, bindCore
+}
+
+// constraintsHaveAssocType reports whether any class constraint in the
+// list belongs to a class with associated type families. Used by
+// localLetGen to trigger the MonoLocalBinds path: generalizing such
+// bindings would orphan implicit type family equations.
+func constraintsHaveAssocType(cts []solve.Ct, reg *Registry) bool {
+	for _, ct := range cts {
+		if cc, ok := ct.(*CtClass); ok {
+			if ci, ok := reg.LookupClass(cc.ClassName); ok && len(ci.AssocTypes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // hasAmbiguousLocal checks whether any unresolved constraint has metas
