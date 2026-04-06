@@ -13,6 +13,7 @@
 --
 -- Requires: --recursion (recursive insert/lookup)
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/redblack.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

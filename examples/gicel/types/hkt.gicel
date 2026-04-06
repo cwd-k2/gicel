@@ -4,6 +4,7 @@
 -- variables in \binders, and higher-kinded type class instances.
 -- GICEL supports HKT via explicit kind annotations using (f: Kind).
 -- Run: bin/gicel run --recursion examples/gicel/types/hkt.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

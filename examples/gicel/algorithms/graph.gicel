@@ -3,6 +3,7 @@
 -- DFS, BFS, topological sort on adjacency list representation.
 -- Uses Data.Map for adjacency lists, Data.Set for visited tracking.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/graph.gicel
+-- Flags: --recursion
 
 import Prelude
 import Data.Map as Map

@@ -2,6 +2,7 @@
 --
 -- Three comonads: Env (context), Store (lens foundation), Zipper (local rules).
 -- Run: bin/gicel run --recursion examples/gicel/patterns/comonad.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

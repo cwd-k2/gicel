@@ -5,6 +5,7 @@
 --   2. Free monad — reified computation with do-notation (Monad instance)
 -- Requires: --recursion (for Free monad and range)
 -- Run: bin/gicel run --recursion examples/gicel/effects/nondeterminism.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

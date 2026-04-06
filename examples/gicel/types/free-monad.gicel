@@ -6,6 +6,7 @@
 --   2. Generic Free f — factors out the effect functor via Functor f
 -- Requires: --recursion (mbind and interpreters use fix)
 -- Run: bin/gicel run --recursion examples/gicel/types/free-monad.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

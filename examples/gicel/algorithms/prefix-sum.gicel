@@ -3,6 +3,7 @@
 -- Builds a prefix sum array and answers range-sum queries in O(1).
 -- Demonstrates mutable Array: new, read, write, arrayLength.
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/prefix-sum.gicel
+-- Flags: --recursion
 
 import Prelude
 import Effect.Array

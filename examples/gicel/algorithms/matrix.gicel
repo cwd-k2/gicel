@@ -2,6 +2,7 @@
 --
 -- Addition, multiplication, transpose, determinant using List (List Int).
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/matrix.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

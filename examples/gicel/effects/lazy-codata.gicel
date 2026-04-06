@@ -12,6 +12,7 @@
 --   3. Thunks are memoized — forced at most once, result cached
 --
 -- Run: bin/gicel run --recursion examples/gicel/effects/lazy-codata.gicel
+-- Flags: --recursion
 
 import Prelude
 import Console

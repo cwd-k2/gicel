@@ -4,6 +4,7 @@
 -- The DP sweep uses Effect.Array for O(1) indexed reads and writes.
 --
 -- Run: bin/gicel run --recursion examples/gicel/algorithms/knapsack-array.gicel
+-- Flags: --recursion
 
 import Prelude
 import Effect.Array
