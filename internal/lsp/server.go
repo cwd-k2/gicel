@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/cwd-k2/gicel/internal/app/engine"
+	"github.com/cwd-k2/gicel/internal/app/header"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -245,24 +244,19 @@ func (s *Server) diagnose(uri protocol.DocumentURI) {
 	eng := s.engineSetup()
 	eng.EnableTypeIndex()
 
-	// Apply header directives (--module, --recursion).
-	directives := ParseHeader(doc.Text)
-	if directives.Recursion {
-		eng.EnableRecursion()
-	}
-	docDir := filepath.Dir(protocol.URIToPath(uri))
-	for _, mod := range directives.Modules {
-		modPath := mod.Path
-		if !filepath.IsAbs(modPath) {
-			modPath = filepath.Join(docDir, modPath)
+	// Recursively resolve header directives (--module, --recursion).
+	docPath := protocol.URIToPath(uri)
+	res, err := header.Resolve(doc.Text, docPath)
+	if err != nil {
+		s.logger.Printf("header resolve: %v", err)
+	} else {
+		if res.Recursion {
+			eng.EnableRecursion()
 		}
-		data, err := os.ReadFile(modPath)
-		if err != nil {
-			s.logger.Printf("header module %s: %v", mod.Name, err)
-			continue
-		}
-		if err := eng.RegisterModule(mod.Name, string(data)); err != nil {
-			s.logger.Printf("header module %s: %v", mod.Name, err)
+		for _, mod := range res.Modules {
+			if err := eng.RegisterModule(mod.Name, mod.Source); err != nil {
+				s.logger.Printf("header module %s: %v", mod.Name, err)
+			}
 		}
 	}
 

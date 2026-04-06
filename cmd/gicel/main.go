@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"log"
-	"path/filepath"
 
 	"github.com/cwd-k2/gicel"
 	"github.com/cwd-k2/gicel/internal/app/engine"
@@ -534,7 +533,7 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 
 	// Apply file header directives when source is from a file.
 	if expr == "" && fs.NArg() > 0 && fs.Arg(0) != "-" {
-		if err := applyHeaderDirectives(eng, string(source), fs.Arg(0), budget); err != nil {
+		if err := applyHeaderDirectives(eng, string(source), fs.Arg(0)); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -545,25 +544,19 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	return source, eng, nil
 }
 
-// applyHeaderDirectives parses -- gicel: directives from the source header
-// and applies them to the engine. CLI flags take precedence (modules
-// registered here can be overridden by --module flags registered later).
-func applyHeaderDirectives(eng *gicel.Engine, source, filePath string, budget *sourceBudget) error {
-	directives := header.Parse(source)
-	if directives.Recursion {
+// applyHeaderDirectives recursively resolves -- gicel: directives from the
+// source header and registers discovered modules. CLI flags take precedence
+// (modules registered here can be overridden by --module flags registered later).
+func applyHeaderDirectives(eng *gicel.Engine, source, filePath string) error {
+	res, err := header.Resolve(source, filePath)
+	if err != nil {
+		return err
+	}
+	if res.Recursion {
 		eng.EnableRecursion()
 	}
-	baseDir := filepath.Dir(filePath)
-	for _, mod := range directives.Modules {
-		modPath := mod.Path
-		if !filepath.IsAbs(modPath) {
-			modPath = filepath.Join(baseDir, modPath)
-		}
-		data, err := budget.readFile(modPath)
-		if err != nil {
-			return fmt.Errorf("header module %s: %w", mod.Name, err)
-		}
-		if err := eng.RegisterModule(mod.Name, string(data)); err != nil {
+	for _, mod := range res.Modules {
+		if err := eng.RegisterModule(mod.Name, mod.Source); err != nil {
 			return fmt.Errorf("header module %s: %w", mod.Name, err)
 		}
 	}
