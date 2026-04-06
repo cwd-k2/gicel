@@ -47,7 +47,7 @@ Provides mutable ordered sets backed by AVL trees (internally MMap k ()), gated 
 import Prelude
 import Effect.Set as MSet
 
-main := thunk do {
+main := do {
   s <- MSet.new @Int;
   MSet.insert 3 s;
   MSet.insert 1 s;

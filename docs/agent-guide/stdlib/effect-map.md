@@ -49,7 +49,7 @@ Provides mutable ordered maps backed by AVL trees, gated by the `{ mmap: () }` e
 import Prelude
 import Effect.Map as MMap
 
-main := thunk do {
+main := do {
   m <- MMap.new @Int @String;
   MMap.insert 1 "one" m;
   MMap.insert 2 "two" m;

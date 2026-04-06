@@ -56,6 +56,24 @@ main := do {
 
 Both `fix` and `rec` require the `--recursion` flag. Use `fix` for pure recursive functions. Use `rec` for recursive effectful computations within `do` blocks where the effect row is preserved across iterations.
 
+### Entry Point
+
+The `main` binding (or the name set via `--entry`) is the program's entry point.
+It must be either a **plain value** (`main := 42`) or a **Computation** (`main := do { ... }`).
+
+Do **not** wrap `main` in `thunk` — a `Thunk` is a suspended computation and will print `<thunk>` instead of executing. Use `thunk` only for helper bindings that are `force`d elsewhere.
+
+```
+-- OK: value
+main := 42
+
+-- OK: computation
+main := do { putLine "hello" }
+
+-- WRONG: produces <thunk>, not executed
+-- main := thunk do { putLine "hello" }
+```
+
 ### Punctuation and Delimiters
 
 | Token | Meaning                                                                         |

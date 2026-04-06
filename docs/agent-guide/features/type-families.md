@@ -22,17 +22,17 @@ Classes can declare associated types (kind signature only). Instances provide de
 
 ```
 form Container := \c. {
-  type Elem c :: Type;
-  cfold: \b. (Elem c -> b -> b) -> b -> c -> b
+  type Item c :: Type;
+  cfold: \b. (Item c -> b -> b) -> b -> c -> b
 }
 
 impl Container (List a) := {
-  type Elem := a;
+  type Item := a;
   cfold := foldr
 }
 ```
 
-`Elem (List Int)` reduces to `Int` during type checking.
+`Item (List Int)` reduces to `Int` during type checking.
 
 ### Data Families
 

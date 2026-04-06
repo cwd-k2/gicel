@@ -28,7 +28,7 @@ safeDivide := \a b. thunk
     then failWith "division by zero"
     else pure (a / b)
 
-main := thunk do {
+main := do {
   ok <- try (safeDivide 10 2);   -- Ok 5
   err <- try (safeDivide 10 0);  -- Err "division by zero"
   pure (ok, err)

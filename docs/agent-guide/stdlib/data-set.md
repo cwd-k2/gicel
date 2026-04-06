@@ -39,10 +39,9 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 import Prelude
 import Data.Set as Set
 
-main :=
-  let s1 := Set.fromList [3, 1, 4, 1, 5, 9]
-  let s2 := Set.fromList [5, 9, 2, 6]
-  (toList (Set.intersection s1 s2), Set.size s1)
+s1 := fromList [3, 1, 4, 1, 5, 9] :: Set Int
+s2 := fromList [5, 9, 2, 6] :: Set Int
+main := (toList (Set.intersection s1 s2), Set.size s1)
 -- ([5, 9], 5)
 ```
 
