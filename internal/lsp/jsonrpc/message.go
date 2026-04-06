@@ -21,6 +21,15 @@ type ResponseError struct {
 	Message string `json:"message"`
 }
 
+// DecodeError indicates a JSON decode failure on a received message.
+// The transport can continue reading after this error.
+type DecodeError struct {
+	Cause error
+}
+
+func (e *DecodeError) Error() string { return "decode message: " + e.Cause.Error() }
+func (e *DecodeError) Unwrap() error { return e.Cause }
+
 // Standard JSON-RPC and LSP error codes.
 const (
 	CodeParseError       = -32700

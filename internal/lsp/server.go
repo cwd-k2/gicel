@@ -4,6 +4,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -77,6 +78,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 		msg, err := s.transport.Read()
 		if err != nil {
+			// Recoverable: malformed JSON body — log and continue.
+			var decErr *jsonrpc.DecodeError
+			if errors.As(err, &decErr) {
+				s.logger.Printf("malformed message (skipping): %v", decErr)
+				continue
+			}
+			// Non-recoverable: transport-level error (EOF, I/O).
 			select {
 			case <-s.exitCh:
 				return nil

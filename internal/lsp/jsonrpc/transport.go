@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+// maxContentLength is the maximum allowed Content-Length (10 MiB).
+// Prevents memory exhaustion from malicious or malformed headers.
+const maxContentLength = 10 * 1024 * 1024
+
 // Transport reads and writes JSON-RPC 2.0 messages with
 // Content-Length framing (LSP base protocol).
 type Transport struct {
@@ -50,6 +54,9 @@ func (t *Transport) Read() (*Message, error) {
 	if contentLength < 0 {
 		return nil, fmt.Errorf("missing Content-Length header")
 	}
+	if contentLength > maxContentLength {
+		return nil, fmt.Errorf("Content-Length %d exceeds maximum %d", contentLength, maxContentLength)
+	}
 
 	body := make([]byte, contentLength)
 	if _, err := io.ReadFull(t.reader, body); err != nil {
@@ -58,7 +65,7 @@ func (t *Transport) Read() (*Message, error) {
 
 	var msg Message
 	if err := json.Unmarshal(body, &msg); err != nil {
-		return nil, fmt.Errorf("decode message: %w", err)
+		return nil, &DecodeError{Cause: err}
 	}
 	return &msg, nil
 }
