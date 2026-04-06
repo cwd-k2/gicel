@@ -199,6 +199,13 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if idx != nil {
+		// Record definition-site types from top-level bindings so
+		// hover works on binding names, not just expression bodies.
+		for _, b := range prog.Bindings {
+			if b.Type != nil && b.S != (span.Span{}) {
+				idx.Record(b.S, b.Type)
+			}
+		}
 		idx.Finalize()
 	}
 

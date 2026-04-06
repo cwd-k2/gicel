@@ -296,6 +296,41 @@ func TestServer_DiagnosticsClearOnFix(t *testing.T) {
 	env.close(t)
 }
 
+func TestServer_HoverOnDefinitionSite(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	// "import Prelude\nmain := 42"
+	//  line 1: m=0, a=1, i=2, n=3  → "main" spans [15,19)
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///defsite.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "import Prelude\nmain := 42",
+		},
+	})
+	env.readNotification(t, 5*time.Second)
+
+	// Hover on "main" (line 1, character 0).
+	hoverResult := env.request(t, "textDocument/hover", protocol.HoverParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: "file:///defsite.gicel"},
+		Position:     protocol.Position{Line: 1, Character: 0},
+	})
+	if string(hoverResult) == "null" {
+		t.Fatal("hover on definition site 'main' returned null — expected type")
+	}
+	var hover protocol.Hover
+	json.Unmarshal(hoverResult, &hover)
+	if !contains(hover.Contents.Value, "Int") {
+		t.Fatalf("expected hover to contain 'Int', got %q", hover.Contents.Value)
+	}
+	t.Logf("hover on definition site: %s", hover.Contents.Value)
+
+	env.close(t)
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && searchSubstring(s, substr)
 }
