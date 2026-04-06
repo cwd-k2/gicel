@@ -105,11 +105,7 @@ expect_output "stdin" "42" \
   bash -c 'echo "import Prelude; main := 7 * 6" | '"$GICEL"' run -'
 
 expect_output "multi-module" '(3, "red", 6)' \
-  "$GICEL" run \
-    --module Geometry=examples/cli/multi-module/Geometry.gicel \
-    --module Color=examples/cli/multi-module/Color.gicel \
-    --module MathLib=examples/cli/multi-module/MathLib.gicel \
-    examples/cli/multi-module/main.gicel
+  "$GICEL" run examples/cli/multi-module/main.gicel
 
 expect_ok "explain trace" \
   "$GICEL" run --explain -e 'import Prelude; main := 1 + 2'
