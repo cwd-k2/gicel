@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -234,6 +236,27 @@ func (s *Server) diagnose(uri protocol.DocumentURI) {
 
 	eng := s.engineSetup()
 	eng.EnableTypeIndex()
+
+	// Apply header directives (--module, --recursion).
+	directives := ParseHeader(doc.Text)
+	if directives.Recursion {
+		eng.EnableRecursion()
+	}
+	docDir := filepath.Dir(protocol.URIToPath(uri))
+	for _, mod := range directives.Modules {
+		modPath := mod.Path
+		if !filepath.IsAbs(modPath) {
+			modPath = filepath.Join(docDir, modPath)
+		}
+		data, err := os.ReadFile(modPath)
+		if err != nil {
+			s.logger.Printf("header module %s: %v", mod.Name, err)
+			continue
+		}
+		if err := eng.RegisterModule(mod.Name, string(data)); err != nil {
+			s.logger.Printf("header module %s: %v", mod.Name, err)
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
