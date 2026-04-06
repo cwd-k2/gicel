@@ -239,7 +239,7 @@ func TestMapFoldlWithKeyImpl(t *testing.T) {
 	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(20), m1), apply)
 
 	// foldlWithKey (\acc k v -> acc + v) 0 {1:10, 2:20} = 30
-	foldF := &eval.Closure{Param: "acc", Body: nil}
+	foldF := &eval.Closure{Param: "acc"}
 	sumApplier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		switch f := fn.(type) {
 		case *eval.Closure:
@@ -286,7 +286,7 @@ func TestMapUnionWithImpl(t *testing.T) {
 
 	// unionWith (\a b -> a + b) m1 m2
 	// On collision (key 2): 20 + 5 = 25
-	addF := &eval.Closure{Param: "a", Body: nil}
+	addF := &eval.Closure{Param: "a"}
 
 	// Combined applier: handles both int comparison (for AVL lookup/insert)
 	// and addition (for the merge function). Distinguishes by fn type.
@@ -767,7 +767,7 @@ func TestMapDeletePersistence(t *testing.T) {
 func TestFoldlWithKeyEmpty(t *testing.T) {
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
-	foldF := &eval.Closure{Param: "acc", Body: nil}
+	foldF := &eval.Closure{Param: "acc"}
 
 	v, _, err := mapFoldlWithKeyImpl(ctx, ce, args(foldF, intVal(99), emptyV), eval.Applier{})
 	if err != nil {

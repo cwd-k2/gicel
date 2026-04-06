@@ -83,7 +83,7 @@ func TestSliceIndexNegative(t *testing.T) {
 }
 
 func TestSliceMapImpl(t *testing.T) {
-	fn := &eval.Closure{Param: "x", Body: nil}
+	fn := &eval.Closure{Param: "x"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
 		return intVal(n * 2), capEnv, nil
@@ -104,7 +104,7 @@ func TestSliceMapImpl(t *testing.T) {
 }
 
 func TestSliceMapImplEmpty(t *testing.T) {
-	fn := &eval.Closure{Param: "x", Body: nil}
+	fn := &eval.Closure{Param: "x"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		t.Fatal("applier should not be called on empty slice")
 		return nil, capEnv, nil
@@ -126,7 +126,7 @@ func TestSliceFoldrDirection(t *testing.T) {
 	// foldr (\x acc -> x: acc) [] [1,2,3] with non-commutative op
 	// Right fold: 1 : (2 : (3 : [])) = [1,2,3]
 	// Left fold would give: 3 : (2 : (1 : [])) = [3,2,1]
-	fn := &eval.Closure{Param: "x", Body: nil}
+	fn := &eval.Closure{Param: "x"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: arg}, capEnv, nil // partial: capture element
@@ -154,7 +154,7 @@ func TestSliceFoldrDirection(t *testing.T) {
 }
 
 func TestSliceFoldrImplEmpty(t *testing.T) {
-	fn := &eval.Closure{Param: "x", Body: nil}
+	fn := &eval.Closure{Param: "x"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		t.Fatal("applier should not be called on empty slice")
 		return nil, capEnv, nil
@@ -170,7 +170,7 @@ func TestSliceFoldlDirection(t *testing.T) {
 	// foldl (\acc x -> acc ++ [x]) [] [1,2,3]
 	// Left fold: (([] ++ [1]) ++ [2]) ++ [3] = [1,2,3]
 	// Right fold would give: [3,2,1]
-	fn := &eval.Closure{Param: "acc", Body: nil}
+	fn := &eval.Closure{Param: "acc"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			return &eval.HostVal{Inner: arg}, capEnv, nil // partial: capture acc

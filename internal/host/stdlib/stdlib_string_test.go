@@ -168,7 +168,7 @@ func boolApplier(pred func(eval.Value) bool) eval.Applier {
 func TestDropWhileImpl(t *testing.T) {
 	// dropWhile (>2) [3,4,1,5] = [1,5]
 	list := conList(intVal(3), intVal(4), intVal(1), intVal(5))
-	pred := &eval.Closure{Param: "x", Body: nil}
+	pred := &eval.Closure{Param: "x"}
 	applier := boolApplier(func(v eval.Value) bool {
 		return v.(*eval.HostVal).Inner.(int64) > 2
 	})
@@ -189,7 +189,7 @@ func TestDropWhileImpl(t *testing.T) {
 
 func TestDropWhileImplAll(t *testing.T) {
 	list := conList(intVal(1), intVal(2))
-	pred := &eval.Closure{Param: "x", Body: nil}
+	pred := &eval.Closure{Param: "x"}
 	applier := boolApplier(func(eval.Value) bool { return true })
 	v, _, err := dropWhileImpl(ctx, ce, args(pred, list), applier)
 	if err != nil {
@@ -201,7 +201,7 @@ func TestDropWhileImplAll(t *testing.T) {
 func TestSpanImpl(t *testing.T) {
 	// span (<3) [1,2,4,1] = ([1,2], [4,1])
 	list := conList(intVal(1), intVal(2), intVal(4), intVal(1))
-	pred := &eval.Closure{Param: "x", Body: nil}
+	pred := &eval.Closure{Param: "x"}
 	applier := boolApplier(func(v eval.Value) bool {
 		return v.(*eval.HostVal).Inner.(int64) < 3
 	})
@@ -232,7 +232,7 @@ func TestSpanImpl(t *testing.T) {
 
 func TestSortByImpl(t *testing.T) {
 	list := conList(intVal(3), intVal(1), intVal(2))
-	cmpFn := &eval.Closure{Param: "a", Body: nil}
+	cmpFn := &eval.Closure{Param: "a"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
 			// partial application: capture first arg
@@ -284,7 +284,7 @@ func TestSortByImplStable(t *testing.T) {
 
 func TestScanlImpl(t *testing.T) {
 	// scanl (+) 0 [1,2,3] = [0,1,3,6]
-	f := &eval.Closure{Param: "acc", Body: nil}
+	f := &eval.Closure{Param: "acc"}
 	list := conList(intVal(1), intVal(2), intVal(3))
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
@@ -312,7 +312,7 @@ func TestScanlImpl(t *testing.T) {
 }
 
 func TestScanlImplEmpty(t *testing.T) {
-	f := &eval.Closure{Param: "acc", Body: nil}
+	f := &eval.Closure{Param: "acc"}
 	v, _, err := scanlImpl(ctx, ce, args(f, intVal(42), &eval.ConVal{Con: "Nil"}), eval.Applier{})
 	if err != nil {
 		t.Fatal(err)
@@ -329,7 +329,7 @@ func TestScanlImplEmpty(t *testing.T) {
 
 func TestUnfoldrImpl(t *testing.T) {
 	// unfoldr (\n. if n==0 then Nothing else Just (n, n-1)) 3 = [3,2,1]
-	f := &eval.Closure{Param: "n", Body: nil}
+	f := &eval.Closure{Param: "n"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
 		if n == 0 {
@@ -359,7 +359,7 @@ func TestUnfoldrImpl(t *testing.T) {
 
 func TestIterateNImpl(t *testing.T) {
 	// iterateN 4 (*2) 1 = [1,2,4,8]
-	f := &eval.Closure{Param: "x", Body: nil}
+	f := &eval.Closure{Param: "x"}
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		n := arg.(*eval.HostVal).Inner.(int64)
 		return intVal(n * 2), capEnv, nil
@@ -516,7 +516,7 @@ func TestUnzipImplEmpty(t *testing.T) {
 
 func TestFoldlImplDirect(t *testing.T) {
 	// foldl (\acc x -> acc + x) 0 [1,2,3] = 6
-	f := &eval.Closure{Param: "acc", Body: nil}
+	f := &eval.Closure{Param: "acc"}
 	list := conList(intVal(1), intVal(2), intVal(3))
 	applier := eval.ApplierFrom(func(fn, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 		if _, ok := fn.(*eval.Closure); ok {
@@ -534,7 +534,7 @@ func TestFoldlImplDirect(t *testing.T) {
 }
 
 func TestFoldlImplEmpty(t *testing.T) {
-	f := &eval.Closure{Param: "acc", Body: nil}
+	f := &eval.Closure{Param: "acc"}
 	nilList := &eval.ConVal{Con: "Nil"}
 	v, _, err := foldlImpl(ctx, ce, args(f, intVal(42), nilList), eval.Applier{})
 	if err != nil {
@@ -544,7 +544,7 @@ func TestFoldlImplEmpty(t *testing.T) {
 }
 
 func TestDropWhileImplEmpty(t *testing.T) {
-	pred := &eval.Closure{Param: "x", Body: nil}
+	pred := &eval.Closure{Param: "x"}
 	nilList := &eval.ConVal{Con: "Nil"}
 	v, _, err := dropWhileImpl(ctx, ce, args(pred, nilList), eval.Applier{})
 	if err != nil {
@@ -554,7 +554,7 @@ func TestDropWhileImplEmpty(t *testing.T) {
 }
 
 func TestSpanImplEmpty(t *testing.T) {
-	pred := &eval.Closure{Param: "x", Body: nil}
+	pred := &eval.Closure{Param: "x"}
 	nilList := &eval.ConVal{Con: "Nil"}
 	v, _, err := spanImpl(ctx, ce, args(pred, nilList), eval.Applier{})
 	if err != nil {
@@ -567,7 +567,7 @@ func TestSpanImplEmpty(t *testing.T) {
 
 func TestSpanImplNoneDrop(t *testing.T) {
 	// span (\_. False) [1,2] = ([], [1,2])
-	pred := &eval.Closure{Param: "x", Body: nil}
+	pred := &eval.Closure{Param: "x"}
 	list := conList(intVal(1), intVal(2))
 	applier := boolApplier(func(eval.Value) bool { return false })
 	v, _, err := spanImpl(ctx, ce, args(pred, list), applier)

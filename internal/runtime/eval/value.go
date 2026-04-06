@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
 )
 
 // Value is a runtime value.
@@ -20,27 +19,19 @@ type HostVal struct {
 	Inner any
 }
 
-// Closure is a function value capturing its definition environment.
+// Closure is a test-only function placeholder. Tests use it to inject a
+// Value-implementing stub that can be discriminated via type switch; the
+// Value interface's unexported valueNode() method prevents external test
+// packages from defining such a stub themselves. Production code never
+// creates or consumes Closure — the bytecode VM uses VMClosure.
 type Closure struct {
-	Locals []Value
-	Param  string
-	Body   ir.Core
-	Name   string       // top-level binding name; "" for anonymous lambdas
-	Source *span.Source // source where the closure was created
+	Param string
 }
 
 // ConVal is a fully-applied constructor value.
 type ConVal struct {
 	Con  string
 	Args []Value
-}
-
-// ThunkVal is a suspended computation captured by `thunk`.
-type ThunkVal struct {
-	Locals    []Value
-	Comp      ir.Core
-	Source    *span.Source // source where the thunk was created
-	AutoForce bool         // true for rec self-referential thunks (auto-forced in Bind chains)
 }
 
 // PrimVal is a partially or fully applied primitive operation.
@@ -198,7 +189,6 @@ type IndirectVal struct {
 func (*HostVal) valueNode()     {}
 func (*Closure) valueNode()     {}
 func (*ConVal) valueNode()      {}
-func (*ThunkVal) valueNode()    {}
 func (*PrimVal) valueNode()     {}
 func (*RecordVal) valueNode()   {}
 func (*VMClosure) valueNode()   {}
@@ -325,10 +315,6 @@ func collectListElems(v *ConVal, fmtElem func(Value) string) (string, bool) {
 		parts[i] = fmtElem(e)
 	}
 	return "[" + strings.Join(parts, ", ") + "]", true
-}
-
-func (v *ThunkVal) String() string {
-	return "ThunkVal(...)"
 }
 
 func (v *PrimVal) String() string {

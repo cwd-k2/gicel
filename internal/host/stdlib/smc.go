@@ -37,7 +37,7 @@ var MergeImpl eval.PrimImpl = func(_ context.Context, ce eval.CapEnv, args []eva
 // may arrive pre-evaluated when merge is used indirectly (not as special form).
 func forceOrUse(v eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	switch v.(type) {
-	case *eval.VMClosure, *eval.Closure, *eval.PrimVal, *eval.VMThunkVal, *eval.ThunkVal:
+	case *eval.VMClosure, *eval.PrimVal, *eval.VMThunkVal:
 		return apply.Apply(v, unitVal, ce)
 	default:
 		return v, ce, nil

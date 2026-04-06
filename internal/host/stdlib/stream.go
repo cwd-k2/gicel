@@ -23,11 +23,11 @@ var Stream Pack = func(e Registrar) error {
 var streamSource = mustReadSource("stream")
 
 // forceField forces a lazy co-data field. For VMThunkVal, the VM's apply
-// handler forces the thunk (ignoring the argument). For legacy closures
+// handler forces the thunk (ignoring the argument). For unit-taking closures
 // (() -> T), applies to Unit. For already-evaluated values, returns as-is.
 func forceField(v eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	switch v.(type) {
-	case *eval.VMThunkVal, *eval.ThunkVal, *eval.Closure, *eval.VMClosure:
+	case *eval.VMThunkVal, *eval.VMClosure:
 		return apply.Apply(v, unitVal, ce)
 	default:
 		return v, ce, nil // already a value
