@@ -21,9 +21,11 @@ import (
 	"time"
 
 	"log"
+	"path/filepath"
 
 	"github.com/cwd-k2/gicel"
 	"github.com/cwd-k2/gicel/internal/app/engine"
+	"github.com/cwd-k2/gicel/internal/app/header"
 	"github.com/cwd-k2/gicel/internal/lsp"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 )
@@ -513,6 +515,8 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 }
 
 // prepareEngine loads source and configures the engine with common flags.
+// File header directives (-- gicel: --module, --recursion) are applied
+// when the source comes from a file (not -e or stdin).
 func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, modules []string) ([]byte, *gicel.Engine, error) {
 	budget := &sourceBudget{}
 	source, err := readSource(fs, expr, budget)
@@ -527,10 +531,43 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 		eng.EnableRecursion()
 	}
 	eng.DenyAssumptions() // CLI user code cannot use assumption declarations
+
+	// Apply file header directives when source is from a file.
+	if expr == "" && fs.NArg() > 0 && fs.Arg(0) != "-" {
+		if err := applyHeaderDirectives(eng, string(source), fs.Arg(0), budget); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	if err := registerUserModules(eng, modules, budget); err != nil {
 		return nil, nil, err
 	}
 	return source, eng, nil
+}
+
+// applyHeaderDirectives parses -- gicel: directives from the source header
+// and applies them to the engine. CLI flags take precedence (modules
+// registered here can be overridden by --module flags registered later).
+func applyHeaderDirectives(eng *gicel.Engine, source, filePath string, budget *sourceBudget) error {
+	directives := header.Parse(source)
+	if directives.Recursion {
+		eng.EnableRecursion()
+	}
+	baseDir := filepath.Dir(filePath)
+	for _, mod := range directives.Modules {
+		modPath := mod.Path
+		if !filepath.IsAbs(modPath) {
+			modPath = filepath.Join(baseDir, modPath)
+		}
+		data, err := budget.readFile(modPath)
+		if err != nil {
+			return fmt.Errorf("header module %s: %w", mod.Name, err)
+		}
+		if err := eng.RegisterModule(mod.Name, string(data)); err != nil {
+			return fmt.Errorf("header module %s: %w", mod.Name, err)
+		}
+	}
+	return nil
 }
 
 func handleCompileError(err error, jsonOut bool) int {
