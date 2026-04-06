@@ -4,6 +4,7 @@
 //
 //	gicel run     [flags] <file>   compile and execute
 //	gicel check   [flags] <file>   type-check only
+//	gicel lsp     [flags]          start language server (stdio)
 //	gicel docs    [topic]          list topics or show topic
 //	gicel example [name]           list examples or show source
 package main
@@ -19,7 +20,12 @@ import (
 	"strings"
 	"time"
 
+	"log"
+
 	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/app/engine"
+	"github.com/cwd-k2/gicel/internal/lsp"
+	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 )
 
 // version is the CLI version, set via -ldflags at build time.
@@ -36,6 +42,8 @@ func main() {
 		os.Exit(cmdRun(os.Args[2:]))
 	case "check":
 		os.Exit(cmdCheck(os.Args[2:]))
+	case "lsp":
+		os.Exit(cmdLsp(os.Args[2:]))
 	case "docs":
 		os.Exit(cmdDocs(os.Args[2:]))
 	case "example":
@@ -59,6 +67,7 @@ func printUsage() {
 Commands:
   run      Compile and execute a GICEL program
   check    Type-check a GICEL program
+  lsp      Start language server (stdio transport)
   docs     List topics, or show a topic (docs <topic>)
   example  List examples, or show source (example <name>)
   version  Print version information
@@ -788,4 +797,61 @@ func cmdCheck(args []string) int {
 		fmt.Println("ok")
 	}
 	return 0
+}
+
+func cmdLsp(args []string) int {
+	fs := flag.NewFlagSet("lsp", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.Usage = func() {}
+	packs := fs.String("packs", "all", "comma-separated stdlib packs")
+	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			printLspUsage(os.Stderr)
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "error: %s\n", normalizeFlagError(err.Error()))
+		printLspUsage(os.Stderr)
+		return 1
+	}
+
+	// Pre-validate packs.
+	if _, err := setupEngine(*packs); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		return 1
+	}
+
+	packsCopy := *packs
+	recCopy := *recursion
+	logger := log.New(os.Stderr, "[gicel-lsp] ", log.LstdFlags)
+	transport := jsonrpc.NewTransport(os.Stdin, os.Stdout)
+
+	srv := lsp.NewServer(lsp.ServerConfig{
+		Transport: transport,
+		Logger:    logger,
+		EngineSetup: func() *engine.Engine {
+			eng, _ := setupEngine(packsCopy) // pre-validated
+			if recCopy {
+				eng.EnableRecursion()
+			}
+			eng.DenyAssumptions()
+			return eng
+		},
+	})
+
+	if err := srv.Run(context.Background()); err != nil {
+		logger.Printf("server error: %v", err)
+		return 1
+	}
+	return 0
+}
+
+func printLspUsage(w io.Writer) {
+	fmt.Fprintln(w, `Usage: gicel lsp [flags]
+
+Start the Language Server Protocol server (stdio transport).
+
+Flags:
+  --packs <list>  Stdlib packs (default: all)
+  --recursion     Enable recursive definitions (fix/rec)`)
 }

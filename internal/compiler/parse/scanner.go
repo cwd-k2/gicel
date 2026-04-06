@@ -22,8 +22,19 @@ type Scanner struct {
 // NewScanner creates a streaming token scanner for the given source.
 func NewScanner(source *span.Source) *Scanner {
 	start := 0
-	if len(source.Text) >= 3 && source.Text[0] == 0xEF && source.Text[1] == 0xBB && source.Text[2] == 0xBF {
+	text := source.Text
+	// Skip BOM.
+	if len(text) >= 3 && text[0] == 0xEF && text[1] == 0xBB && text[2] == 0xBF {
 		start = 3
+	}
+	// Skip shebang line (e.g. #!/usr/bin/env gicel run).
+	if start < len(text)-1 && text[start] == '#' && text[start+1] == '!' {
+		for start < len(text) && text[start] != '\n' {
+			start++
+		}
+		if start < len(text) {
+			start++ // skip the newline
+		}
 	}
 	return &Scanner{
 		source: source,
