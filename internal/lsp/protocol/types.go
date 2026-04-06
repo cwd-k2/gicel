@@ -67,6 +67,7 @@ type InitializeResult struct {
 
 // ServerCapabilities declares what the server supports.
 type ServerCapabilities struct {
+	PositionEncoding string                   `json:"positionEncoding,omitempty"`
 	TextDocumentSync *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
 	HoverProvider    bool                     `json:"hoverProvider,omitempty"`
 }

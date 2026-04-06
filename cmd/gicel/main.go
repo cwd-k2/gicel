@@ -552,6 +552,9 @@ func applyHeaderDirectives(eng *gicel.Engine, source, filePath string) error {
 	if err != nil {
 		return err
 	}
+	for _, w := range res.Warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
 	if res.Recursion {
 		eng.EnableRecursion()
 	}

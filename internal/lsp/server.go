@@ -198,6 +198,7 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 	s.initialized = true
 	result := protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
+			PositionEncoding: "utf-8",
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: true,
 				Change:    protocol.SyncFull,
@@ -313,6 +314,9 @@ func (s *Server) diagnose(ctx context.Context, uri protocol.DocumentURI) {
 	if err != nil {
 		s.logger.Printf("header resolve: %v", err)
 	} else {
+		for _, w := range res.Warnings {
+			s.logger.Printf("header warning: %s", w)
+		}
 		if res.Recursion {
 			eng.EnableRecursion()
 		}

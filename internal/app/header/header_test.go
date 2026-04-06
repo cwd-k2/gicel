@@ -79,3 +79,27 @@ func TestParse_CombinedDirectives(t *testing.T) {
 		t.Fatal("expected Recursion=true")
 	}
 }
+
+func TestParse_UnknownDirectiveWarning(t *testing.T) {
+	hd := Parse("-- gicel: --future-flag\nmain := 42\n")
+	if len(hd.Warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %d", len(hd.Warnings))
+	}
+}
+
+func TestParse_DisallowedFlagWarning(t *testing.T) {
+	hd := Parse("-- gicel: --packs prelude\nmain := 42\n")
+	if len(hd.Warnings) != 1 {
+		t.Fatalf("expected 1 warning for --packs, got %d", len(hd.Warnings))
+	}
+}
+
+func TestParse_InvalidModuleSyntaxWarning(t *testing.T) {
+	hd := Parse("-- gicel: --module NoEqualsSign\nmain := 42\n")
+	if len(hd.Warnings) != 1 {
+		t.Fatalf("expected 1 warning for invalid --module, got %d", len(hd.Warnings))
+	}
+	if len(hd.Modules) != 0 {
+		t.Fatalf("expected 0 modules for invalid syntax, got %d", len(hd.Modules))
+	}
+}

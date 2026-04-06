@@ -3,15 +3,26 @@
 // Source files may contain leading `-- gicel: ...` comment lines that
 // declare structural options such as module dependencies and recursion.
 // These are recognized by both the CLI and the LSP server.
+//
+// Only structural options are allowed in headers:
+//   - --module Name=path  (module dependency)
+//   - --recursion         (enable fix/rec)
+//
+// Resource limits (--timeout, --max-steps, etc.), output flags (--json,
+// --explain), and --packs are NOT allowed — they are caller-side concerns.
+// Unknown flags produce warnings for forward compatibility.
 package header
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Directives are parsed from the leading comment block of a GICEL file.
-// Only structural options are recognized: --module and --recursion.
 type Directives struct {
 	Modules   []Module
 	Recursion bool
+	Warnings  []string // unknown or invalid directives
 }
 
 // Module is a single --module Name=path from a file header.
@@ -20,9 +31,18 @@ type Module struct {
 	Path string
 }
 
+// disallowed flags are recognized but not permitted in headers.
+var disallowedFlags = map[string]bool{
+	"--packs": true, "--timeout": true, "--max-steps": true,
+	"--max-depth": true, "--max-nesting": true, "--max-alloc": true,
+	"--json": true, "--explain": true, "--explain-all": true,
+	"--verbose": true, "--no-color": true, "--entry": true,
+}
+
 // Parse scans leading `-- gicel: ...` comment lines for directives.
 // Stops at the first non-comment, non-blank line. Block comments ({- -})
-// are not recognized as headers.
+// are not recognized as headers. Unknown flags produce warnings (not errors)
+// for forward compatibility.
 func Parse(source string) Directives {
 	var hd Directives
 	for _, line := range strings.Split(source, "\n") {
@@ -48,8 +68,8 @@ func Parse(source string) Directives {
 func parseDirective(args string, hd *Directives) {
 	fields := strings.Fields(args)
 	for i := 0; i < len(fields); i++ {
-		switch fields[i] {
-		case "--module":
+		switch {
+		case fields[i] == "--module":
 			if i+1 < len(fields) {
 				i++
 				if eqIdx := strings.IndexByte(fields[i], '='); eqIdx > 0 {
@@ -57,10 +77,21 @@ func parseDirective(args string, hd *Directives) {
 						Name: fields[i][:eqIdx],
 						Path: fields[i][eqIdx+1:],
 					})
+				} else {
+					hd.Warnings = append(hd.Warnings,
+						fmt.Sprintf("invalid --module: expected Name=path, got %q", fields[i]))
 				}
+			} else {
+				hd.Warnings = append(hd.Warnings, "--module requires an argument (Name=path)")
 			}
-		case "--recursion":
+		case fields[i] == "--recursion":
 			hd.Recursion = true
+		case disallowedFlags[fields[i]]:
+			hd.Warnings = append(hd.Warnings,
+				fmt.Sprintf("%s is not allowed in file headers (it is a CLI-only option)", fields[i]))
+		case strings.HasPrefix(fields[i], "--"):
+			hd.Warnings = append(hd.Warnings,
+				fmt.Sprintf("unknown directive: %s", fields[i]))
 		}
 	}
 }

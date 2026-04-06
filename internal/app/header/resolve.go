@@ -23,6 +23,7 @@ type ResolvedModule struct {
 type ResolveResult struct {
 	Modules   []ResolvedModule // topological order (dependencies first)
 	Recursion bool             // true if any file declared --recursion
+	Warnings  []string         // unknown or disallowed directives encountered
 }
 
 // Resolve recursively reads header directives starting from entrySource
@@ -73,6 +74,9 @@ func (r *resolver) resolve(source, filePath string, depth int) error {
 	directives := Parse(source)
 	if directives.Recursion {
 		r.result.Recursion = true
+	}
+	for _, w := range directives.Warnings {
+		r.result.Warnings = append(r.result.Warnings, fmt.Sprintf("%s: %s", filepath.Base(filePath), w))
 	}
 
 	baseDir := filepath.Dir(filePath)
