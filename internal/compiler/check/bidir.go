@@ -61,8 +61,18 @@ func (s *CheckState) addSemanticUnifyError(semanticCode diagnostic.Code, err err
 	s.addCodedError(code, sp, ctx+": "+err.Error())
 }
 
+// recordType calls the TypeRecorder callback if configured.
+// Used via defer with a pointer to the named return value so that
+// the final type is captured regardless of which return path is taken.
+func (ch *Checker) recordType(sp span.Span, ty *types.Type) {
+	if ch.config.TypeRecorder != nil && *ty != nil {
+		ch.config.TypeRecorder(sp, ch.unifier.Zonk(*ty))
+	}
+}
+
 // infer produces a type for an expression and a Core IR node.
-func (ch *Checker) infer(expr syntax.Expr) (types.Type, ir.Core) {
+func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
+	defer ch.recordType(expr.Span(), &ty)
 	ch.depth++
 	defer func() { ch.depth-- }()
 	if err := ch.budget.Nest(); err != nil {

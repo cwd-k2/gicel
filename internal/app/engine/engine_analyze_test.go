@@ -102,8 +102,9 @@ func TestAnalyze_WithTypeIndex(t *testing.T) {
 	if ar.TypeIndex == nil {
 		t.Fatal("expected non-nil TypeIndex when EnableTypeIndex is set")
 	}
-	// Note: TypeIndex entries are populated only after Step 3 (checker
-	// TypeRecorder instrumentation). Until then, Len() may be 0.
+	if ar.TypeIndex.Len() == 0 {
+		t.Fatal("expected TypeIndex to have entries")
+	}
 }
 
 func TestAnalyze_WithoutTypeIndex(t *testing.T) {
