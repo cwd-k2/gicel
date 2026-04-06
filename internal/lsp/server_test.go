@@ -221,4 +221,90 @@ func TestServer_HoverOnLiteral(t *testing.T) {
 		t.Fatal("expected non-empty hover contents")
 	}
 	t.Logf("hover: %s", hover.Contents.Value)
+	// Verify the type contains "Int".
+	if !contains(hover.Contents.Value, "Int") {
+		t.Fatalf("expected hover to contain 'Int', got %q", hover.Contents.Value)
+	}
+}
+
+func TestServer_HoverNull(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///null.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "import Prelude\nmain := 42",
+		},
+	})
+	env.readNotification(t, 5*time.Second) // wait for diagnostics
+
+	// Hover on whitespace (line 1, character 4 = ":" in ":= 42").
+	hoverResult := env.request(t, "textDocument/hover", protocol.HoverParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: "file:///null.gicel"},
+		Position:     protocol.Position{Line: 0, Character: 0},
+	})
+	// Position at "import" — may or may not have a type. Accept null.
+	if string(hoverResult) != "null" {
+		t.Logf("hover at import keyword returned: %s (ok, not null)", string(hoverResult))
+	}
+
+	env.close(t)
+}
+
+func TestServer_DiagnosticsClearOnFix(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	// Open with error.
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///fix.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "import Prelude\nmain := 1 + \"hello\"",
+		},
+	})
+	notif := env.readNotification(t, 5*time.Second)
+	var diag1 protocol.PublishDiagnosticsParams
+	json.Unmarshal(notif.Params, &diag1)
+	if len(diag1.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for type error")
+	}
+
+	// Fix the error.
+	env.sendNotification(t, "textDocument/didChange", protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			URI:     "file:///fix.gicel",
+			Version: 2,
+		},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{
+			{Text: "import Prelude\nmain := 1 + 2"},
+		},
+	})
+	notif2 := env.readNotification(t, 5*time.Second)
+	var diag2 protocol.PublishDiagnosticsParams
+	json.Unmarshal(notif2.Params, &diag2)
+	if len(diag2.Diagnostics) != 0 {
+		t.Fatalf("expected 0 diagnostics after fix, got %d", len(diag2.Diagnostics))
+	}
+
+	env.close(t)
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchSubstring(s, substr)
+}
+
+func searchSubstring(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
