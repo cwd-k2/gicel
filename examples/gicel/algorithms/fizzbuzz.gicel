@@ -2,8 +2,8 @@
 --
 -- Prints 1-30 with the classic Fizz/Buzz substitution.
 -- Demonstrates recursion via fix and Console output.
--- Run: bin/gicel run --recursion examples/gicel/algorithms/fizzbuzz.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/fizzbuzz.gicel
 
 import Prelude
 import Console

@@ -2,8 +2,8 @@
 --
 -- Recursive descent parser + evaluator for arithmetic expressions.
 -- Supports: integer literals, +, -, *, /, parentheses.
--- Run: bin/gicel run --recursion examples/gicel/algorithms/calculator.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/calculator.gicel
 
 import Prelude
 import Console

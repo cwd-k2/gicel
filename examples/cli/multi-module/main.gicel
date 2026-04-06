@@ -1,10 +1,10 @@
 -- Multi-module example: demonstrates all three import forms.
 --
--- Run with:
---   gicel run --module Geometry=Geometry.gicel \
---             --module Color=Color.gicel       \
---             --module MathLib=MathLib.gicel    \
---             main.gicel
+-- gicel: --module Geometry=./Geometry.gicel
+-- gicel: --module Color=./Color.gicel
+-- gicel: --module MathLib=./MathLib.gicel
+--
+-- Run: gicel run examples/cli/multi-module/main.gicel
 
 import Prelude
 

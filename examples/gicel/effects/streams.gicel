@@ -7,8 +7,8 @@
 --      zipWith, zip, iterate, takeWhile, repeat, fmap (Functor),
 --      foldr (Foldable), fromList/toList, show (Show)
 --
--- Run: bin/gicel run --recursion examples/gicel/effects/streams.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/effects/streams.gicel
 
 import Prelude
 import Data.Stream

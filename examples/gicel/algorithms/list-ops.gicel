@@ -2,8 +2,8 @@
 --
 -- Map, filter, fold, reverse, merge sort — implemented without
 -- using Prelude builtins, to demonstrate fix and structural recursion.
--- Run: bin/gicel run --recursion examples/gicel/algorithms/list-ops.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/list-ops.gicel
 
 import Prelude
 import Console

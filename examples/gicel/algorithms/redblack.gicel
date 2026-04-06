@@ -12,8 +12,8 @@
 -- for balance) with DataKinds for the color type.
 --
 -- Requires: --recursion (recursive insert/lookup)
--- Run: bin/gicel run --recursion examples/gicel/algorithms/redblack.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/redblack.gicel
 
 import Prelude
 import Console

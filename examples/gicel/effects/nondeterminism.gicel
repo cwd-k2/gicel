@@ -4,8 +4,8 @@
 --   1. List do — the simplest way (via GIMonad Lift List instance)
 --   2. Free monad — reified computation with do-notation (Monad instance)
 -- Requires: --recursion (for Free monad and range)
--- Run: bin/gicel run --recursion examples/gicel/effects/nondeterminism.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/effects/nondeterminism.gicel
 
 import Prelude
 import Console

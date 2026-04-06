@@ -1,8 +1,8 @@
 -- GICEL Example: Fibonacci
 --
 -- Three approaches: naive recursive, iterative via foldl, memoized list.
--- Run: bin/gicel run --recursion examples/gicel/algorithms/fibonacci.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/fibonacci.gicel
 
 import Prelude
 import Console

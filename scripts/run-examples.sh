@@ -43,19 +43,14 @@ fi
 
 while IFS= read -r f; do
   name="${f#examples/gicel/}"
-  flags=""
-  if grep -qE '\bfix\b|\brec\b' "$f"; then
-    flags="--recursion"
-  fi
+  # Header directives (-- gicel: --recursion) handle flags automatically.
   # stdin from /dev/null: prevents examples with getLine from blocking.
-  # shellcheck disable=SC2086
-  if "$GICEL" run $flags --packs all --timeout 10s "$f" </dev/null >/dev/null 2>&1; then
+  if "$GICEL" run --packs all --timeout 10s "$f" </dev/null >/dev/null 2>&1; then
     pass "$name"
   else
     # Some examples are check-only (no main that produces output).
     # Fall back to check if run fails.
-    # shellcheck disable=SC2086
-    if "$GICEL" check $flags --packs all "$f" >/dev/null 2>&1; then
+    if "$GICEL" check --packs all "$f" >/dev/null 2>&1; then
       pass "$name (check-only)"
     else
       fail "$name"

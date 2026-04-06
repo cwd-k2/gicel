@@ -2,8 +2,8 @@
 --
 -- Classic prime sieve using a mutable boolean array.
 -- Demonstrates nested loops with Array write/read.
--- Run: bin/gicel run --recursion examples/gicel/algorithms/sieve.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/sieve.gicel
 
 import Prelude
 import Effect.Array

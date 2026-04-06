@@ -3,8 +3,8 @@
 -- 0/1 knapsack using a mutable DP table.
 -- The DP sweep uses Effect.Array for O(1) indexed reads and writes.
 --
--- Run: bin/gicel run --recursion examples/gicel/algorithms/knapsack-array.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/knapsack-array.gicel
 
 import Prelude
 import Effect.Array

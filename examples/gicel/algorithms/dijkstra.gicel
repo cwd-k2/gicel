@@ -8,8 +8,8 @@
 -- immutable data (Data.Map), recursive stateful algorithms.
 --
 -- Requires: --recursion (worklist loop uses fix)
--- Flags: --recursion
--- Run: bin/gicel run --recursion examples/gicel/algorithms/dijkstra.gicel
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/dijkstra.gicel
 
 import Prelude
 import Data.Map as G

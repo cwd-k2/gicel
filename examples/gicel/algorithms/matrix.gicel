@@ -1,8 +1,8 @@
 -- GICEL Example: Matrix Operations
 --
 -- Addition, multiplication, transpose, determinant using List (List Int).
--- Run: bin/gicel run --recursion examples/gicel/algorithms/matrix.gicel
--- Flags: --recursion
+-- gicel: --recursion
+-- Run: bin/gicel run examples/gicel/algorithms/matrix.gicel
 
 import Prelude
 import Console
