@@ -873,7 +873,7 @@ func cmdLsp(args []string) int {
 		logger.Printf("server error: %v", err)
 		return 1
 	}
-	return 0
+	return srv.ExitCode()
 }
 
 func printLspUsage(w io.Writer) {

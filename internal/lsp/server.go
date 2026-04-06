@@ -30,8 +30,10 @@ type Server struct {
 	debounceTimers map[protocol.DocumentURI]*time.Timer
 	debounceDelay  time.Duration
 
-	// Lifecycle.
+	// Lifecycle state.
+	initialized       bool
 	shutdownRequested bool
+	exitCode          int          // 0 if shutdown received, 1 otherwise
 	exitCh            chan struct{} // closed on exit notification
 }
 
@@ -60,9 +62,14 @@ func NewServer(cfg ServerConfig) *Server {
 		engineSetup:    cfg.EngineSetup,
 		debounceTimers: make(map[protocol.DocumentURI]*time.Timer),
 		debounceDelay:  time.Duration(delay) * time.Millisecond,
+		exitCode:       1, // default: no shutdown received
 		exitCh:         make(chan struct{}),
 	}
 }
+
+// ExitCode returns the exit code: 0 if shutdown was received, 1 otherwise.
+// Call after Run returns.
+func (s *Server) ExitCode() int { return s.exitCode }
 
 // Run reads messages in a loop until exit or context cancellation.
 func (s *Server) Run(ctx context.Context) error {
@@ -103,9 +110,29 @@ func (s *Server) dispatch(msg *jsonrpc.Message) {
 	}
 }
 
+const codeServerNotInitialized = -32002
+
 func (s *Server) handleRequest(msg *jsonrpc.Message) {
+	// LSP spec: after shutdown, only exit is valid.
+	if s.shutdownRequested {
+		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeInvalidRequest,
+			"server is shutting down"))
+		return
+	}
+	// LSP spec: before initialize, only initialize is valid.
+	if !s.initialized && msg.Method != "initialize" {
+		s.respond(jsonrpc.NewError(msg.ID, codeServerNotInitialized,
+			"server not initialized"))
+		return
+	}
+
 	switch msg.Method {
 	case "initialize":
+		if s.initialized {
+			s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeInvalidRequest,
+				"server already initialized"))
+			return
+		}
 		s.handleInitialize(msg)
 	case "shutdown":
 		s.handleShutdown(msg)
@@ -152,6 +179,7 @@ func (s *Server) notify(method string, params any) {
 // ---- Initialize / Shutdown ----
 
 func (s *Server) handleInitialize(msg *jsonrpc.Message) {
+	s.initialized = true
 	result := protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
@@ -172,6 +200,7 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 
 func (s *Server) handleShutdown(msg *jsonrpc.Message) {
 	s.shutdownRequested = true
+	s.exitCode = 0 // clean shutdown
 	resp, _ := jsonrpc.NewResponse(msg.ID, nil)
 	s.respond(resp)
 }
