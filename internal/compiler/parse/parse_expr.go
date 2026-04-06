@@ -94,8 +94,14 @@ func (p *Parser) isInfixOp() bool {
 func (p *Parser) parseApp() syn.Expr {
 	f := p.parseAtom()
 	if f == nil {
-		p.addErrorCode(diagnostic.ErrMissingBody, "expected expression")
-		return &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
+		tok := p.peek()
+		if tok.Kind == syn.TokOp && tok.Text == "-" {
+			p.addErrorCode(diagnostic.ErrMissingBody,
+				"expected expression (note: negative literals are not supported; use `negate` instead, e.g., `negate 5`)")
+		} else {
+			p.addErrorCode(diagnostic.ErrMissingBody, "expected expression")
+		}
+		return &syn.ExprError{S: span.Span{Start: tok.S.Start, End: tok.S.Start}}
 	}
 	pg := p.newProgressGuard("application chain")
 	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atStmtBoundary() {

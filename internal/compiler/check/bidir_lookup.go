@@ -16,6 +16,8 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 		msg := "unbound variable: " + e.Name
 		if gatedBuiltins[e.Name] {
 			msg += " (requires --recursion flag)"
+		} else if ch.currentBinding != "" && e.Name == ch.currentBinding {
+			msg += " (self-reference requires a type annotation or use of fix with --recursion)"
 		}
 		if hints := ch.suggestVar(e.Name); len(hints) > 0 {
 			ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)

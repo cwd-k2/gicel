@@ -341,6 +341,8 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	if ch.checkCancelled() {
 		return
 	}
+	ch.currentBinding = d.Name
+	defer func() { ch.currentBinding = "" }()
 	annTy, hasAnn := annotations[d.Name]
 
 	// Check if it's an assumption.

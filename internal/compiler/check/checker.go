@@ -162,6 +162,10 @@ type Checker struct {
 
 	// Cached type resolver (lazy, constructed on first use).
 	cachedTypeResolver *typeResolver
+
+	// currentBinding is the name of the binding currently being checked.
+	// Used for diagnostic hints (e.g., self-reference without annotation).
+	currentBinding string
 }
 
 // checkCancelled checks the budget context for cancellation.
