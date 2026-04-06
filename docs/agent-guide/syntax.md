@@ -74,6 +74,28 @@ main := do { putLine "hello" }
 -- main := thunk do { putLine "hello" }
 ```
 
+### Shebang
+
+Source files may start with a `#!` shebang line, which the compiler ignores:
+
+```
+#!/usr/bin/env gicel run
+import Prelude
+main := 42
+```
+
+### Header Directives
+
+Leading `-- gicel:` comments declare module dependencies and compiler options. See [Module System](features.modules) for details.
+
+```
+-- gicel: --module Lib=./lib.gicel
+-- gicel: --recursion
+import Prelude
+import Lib
+main := ...
+```
+
 ### Punctuation and Delimiters
 
 | Token | Meaning                                                                         |

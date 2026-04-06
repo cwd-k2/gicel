@@ -64,6 +64,32 @@ gicel run \
   main.gicel
 ```
 
+### File Header Directives
+
+Source files can declare module dependencies and compiler options in leading comments. This eliminates the need for CLI flags in simple projects:
+
+```
+-- gicel: --module Geometry=./lib/Geometry.gicel
+-- gicel: --module Color=./lib/Color.gicel
+-- gicel: --recursion
+import Prelude
+import Geometry
+import Color
+
+main := ...
+```
+
+**Rules:**
+
+- Only `--module Name=path` and `--recursion` are recognized in headers.
+- Paths are relative to the declaring file.
+- Directives are resolved recursively: if Geometry.gicel declares its own `--module` dependencies, those are discovered automatically.
+- CLI `--module` flags override header directives.
+- All resolved paths must be within the entry file's directory (security constraint).
+- The header region ends at the first non-comment, non-blank line.
+
+Header directives work with both `gicel run` and `gicel check`.
+
 ### Multi-File Projects (Go API)
 
 ```go

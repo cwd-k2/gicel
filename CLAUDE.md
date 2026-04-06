@@ -81,6 +81,33 @@ bin/gicel check [flags] <file>.gicel
 
 Shares `--packs`, `--module`, `--recursion`, `-e`, `--json`, `--timeout`, `--max-nesting` with `run`.
 
+### lsp — language server
+
+```sh
+bin/gicel lsp [flags]
+```
+
+Starts the LSP server over stdio. Supports diagnostics and hover.
+
+| Flag              | Default | Description                  |
+| ----------------- | ------- | ---------------------------- |
+| `--packs <packs>` | `all`   | Stdlib packs                 |
+| `--recursion`     | off     | Enable `fix`/`rec`           |
+
+### File header directives
+
+Source files can declare `--module` and `--recursion` in leading comments:
+
+```gicel
+-- gicel: --module Lib=./lib/Lib.gicel
+-- gicel: --recursion
+import Prelude
+import Lib
+main := ...
+```
+
+Paths resolve relative to the declaring file. Transitive dependencies are discovered recursively. CLI flags override header directives. Recognized by `run`, `check`, and `lsp`.
+
 ### docs / example — reference & examples
 
 ```sh

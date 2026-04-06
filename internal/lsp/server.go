@@ -11,9 +11,9 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // Server is the GICEL LSP server.
@@ -33,7 +33,7 @@ type Server struct {
 	// Lifecycle state.
 	initialized       bool
 	shutdownRequested bool
-	exitCode          int          // 0 if shutdown received, 1 otherwise
+	exitCode          int           // 0 if shutdown received, 1 otherwise
 	exitCh            chan struct{} // closed on exit notification
 }
 

@@ -51,8 +51,8 @@ type TextDocumentContentChangeEvent struct {
 
 // InitializeParams is sent as the first request from client to server.
 type InitializeParams struct {
-	ProcessID    *int              `json:"processId"`
-	RootURI      DocumentURI       `json:"rootUri"`
+	ProcessID    *int               `json:"processId"`
+	RootURI      DocumentURI        `json:"rootUri"`
 	Capabilities ClientCapabilities `json:"capabilities"`
 }
 

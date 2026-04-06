@@ -46,15 +46,15 @@ type CheckConfig struct {
 	GatedBuiltins   map[string]bool
 	Trace           CheckTraceHook
 	ImportedModules map[string]*ModuleExports
-	ModuleDeps      map[string][]string // module → direct dependencies
-	DenyAssumptions bool                // when true, reject `assumption` declarations (sandbox mode)
-	StrictTypeNames bool                // when true, reject unregistered type constructor names
-	CurrentModule   string              // module being compiled ("" = user main source)
-	EntryPoint      string              // non-empty enables bare Computation check; that name is exempt
-	NestingLimit    int                 // structural nesting depth limit (0 = disabled)
-	MaxTFSteps      int                 // type family reduction step limit (0 = default 50000)
-	MaxSolverSteps  int                 // constraint solver step limit (0 = default 100000)
-	MaxResolveDepth int                 // instance resolution depth limit (0 = default 64)
+	ModuleDeps      map[string][]string         // module → direct dependencies
+	DenyAssumptions bool                        // when true, reject `assumption` declarations (sandbox mode)
+	StrictTypeNames bool                        // when true, reject unregistered type constructor names
+	CurrentModule   string                      // module being compiled ("" = user main source)
+	EntryPoint      string                      // non-empty enables bare Computation check; that name is exempt
+	NestingLimit    int                         // structural nesting depth limit (0 = disabled)
+	MaxTFSteps      int                         // type family reduction step limit (0 = default 50000)
+	MaxSolverSteps  int                         // constraint solver step limit (0 = default 100000)
+	MaxResolveDepth int                         // instance resolution depth limit (0 = default 64)
 	TypeRecorder    func(span.Span, types.Type) // when non-nil, called for each inferred expression span→type
 }
 

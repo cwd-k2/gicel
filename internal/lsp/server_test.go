@@ -1,8 +1,8 @@
 package lsp
 
 import (
-	"encoding/json"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"testing"
