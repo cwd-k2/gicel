@@ -28,7 +28,15 @@ func TestTypeIndex_FilterZeroSpan(t *testing.T) {
 	idx := NewTypeIndex()
 	idx.Record(span.Span{}, tycon("Int", sp(0, 0)))
 	if idx.Len() != 0 {
-		t.Fatalf("zero span should be filtered, got %d entries", idx.Len())
+		t.Fatalf("zero-value span should be filtered, got %d entries", idx.Len())
+	}
+}
+
+func TestTypeIndex_FilterZeroWidthSpan(t *testing.T) {
+	idx := NewTypeIndex()
+	idx.Record(sp(5, 5), tycon("Int", sp(0, 0)))
+	if idx.Len() != 0 {
+		t.Fatalf("zero-width span should be filtered, got %d entries", idx.Len())
 	}
 }
 

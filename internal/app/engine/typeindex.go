@@ -10,8 +10,11 @@ import (
 // TypeIndex records the type assigned to each expression span during
 // type checking. Entries are stored in sorted order for efficient
 // positional queries.
+//
+// Lifecycle: Record → Finalize → TypeAt. Record after Finalize panics.
 type TypeIndex struct {
-	entries []typeEntry
+	entries   []typeEntry
+	finalized bool
 }
 
 type typeEntry struct {
@@ -24,10 +27,13 @@ func NewTypeIndex() *TypeIndex {
 	return &TypeIndex{}
 }
 
-// Record adds a span→type mapping. Entries with zero spans or
-// TyError types are silently discarded.
+// Record adds a span→type mapping. Entries with zero-width spans or
+// TyError types are silently discarded. Panics if called after Finalize.
 func (idx *TypeIndex) Record(sp span.Span, ty types.Type) {
-	if sp == (span.Span{}) {
+	if idx.finalized {
+		panic("TypeIndex.Record called after Finalize")
+	}
+	if sp.Start >= sp.End {
 		return
 	}
 	if _, ok := ty.(*types.TyError); ok {
@@ -37,14 +43,14 @@ func (idx *TypeIndex) Record(sp span.Span, ty types.Type) {
 }
 
 // Finalize sorts entries for positional queries. Must be called
-// once after all Record calls and before any TypeAt calls.
+// exactly once after all Record calls and before any TypeAt calls.
 func (idx *TypeIndex) Finalize() {
+	idx.finalized = true
 	sort.Slice(idx.entries, func(i, j int) bool {
 		a, b := idx.entries[i].span, idx.entries[j].span
 		if a.Start != b.Start {
 			return a.Start < b.Start
 		}
-		// Same start: narrower span first (more specific).
 		return (a.End - a.Start) < (b.End - b.Start)
 	})
 }
@@ -55,23 +61,18 @@ func (idx *TypeIndex) Len() int { return len(idx.entries) }
 // TypeAt returns the type of the innermost expression whose span
 // contains the given byte offset. Returns nil if no span matches.
 func (idx *TypeIndex) TypeAt(pos span.Pos) types.Type {
-	// Binary search for the first entry with Start > pos.
 	hi := sort.Search(len(idx.entries), func(i int) bool {
 		return idx.entries[i].span.Start > pos
 	})
-	// Scan backwards for the tightest enclosing span.
 	var best *typeEntry
 	for i := hi - 1; i >= 0; i-- {
 		e := &idx.entries[i]
 		if e.span.End <= pos {
 			continue
 		}
-		// e.span contains pos.
 		if best == nil || (e.span.End-e.span.Start) < (best.span.End-best.span.Start) {
 			best = e
 		}
-		// Once the gap between pos and Start exceeds the best span
-		// width, no tighter match is possible.
 		if best != nil && (pos-e.span.Start) > (best.span.End-best.span.Start) {
 			break
 		}

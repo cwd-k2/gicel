@@ -278,6 +278,11 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	defer ch.budget.Unnest()
 
 	expected = ch.unifier.Zonk(expected)
+	// Record the checked type for IDE hover. The expected type (post-zonk)
+	// is the type this expression is used at.
+	if ch.config.TypeRecorder != nil {
+		defer ch.config.TypeRecorder(expr.Span(), ch.unifier.Zonk(expected))
+	}
 
 	// Reduce type family applications in the expected type so that checking
 	// can decompose the result (e.g., `F (Pi Set Set)` → `Unit -> Unit`).

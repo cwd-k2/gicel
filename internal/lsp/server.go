@@ -19,22 +19,26 @@ import (
 // Server is the GICEL LSP server.
 type Server struct {
 	transport *jsonrpc.Transport
-	docs      *DocumentStore
+	docs      *documentStore
 	logger    *log.Logger
 
 	// Engine factory — called per diagnose to create a fresh Engine.
+	// Must not return nil.
 	engineSetup func() *engine.Engine
 
-	// Debounce state.
+	// Debounce state (guarded by mu).
 	mu             sync.Mutex
 	debounceTimers map[protocol.DocumentURI]*time.Timer
-	debounceDelay  time.Duration
 
-	// Lifecycle state.
+	debounceDelay time.Duration
+	cancel        context.CancelFunc // cancels pending diagnose goroutines
+
+	// Lifecycle state (accessed only from the main goroutine).
 	initialized       bool
 	shutdownRequested bool
-	exitCode          int           // 0 if shutdown received, 1 otherwise
-	exitCh            chan struct{} // closed on exit notification
+	exitCode          int
+	exitOnce          sync.Once
+	exitCh            chan struct{}
 }
 
 // ServerConfig configures the LSP server.
@@ -57,7 +61,7 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 	return &Server{
 		transport:      cfg.Transport,
-		docs:           NewDocumentStore(),
+		docs:           newDocumentStore(),
 		logger:         logger,
 		engineSetup:    cfg.EngineSetup,
 		debounceTimers: make(map[protocol.DocumentURI]*time.Timer),
@@ -72,7 +76,13 @@ func NewServer(cfg ServerConfig) *Server {
 func (s *Server) ExitCode() int { return s.exitCode }
 
 // Run reads messages in a loop until exit or context cancellation.
+// Pending diagnose goroutines are cancelled when Run returns.
 func (s *Server) Run(ctx context.Context) error {
+	diagnoseCtx, diagnoseCancel := context.WithCancel(ctx)
+	s.cancel = diagnoseCancel
+	defer s.drainTimers()
+	defer diagnoseCancel()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -84,13 +94,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 		msg, err := s.transport.Read()
 		if err != nil {
-			// Recoverable: malformed JSON body — log and continue.
 			var decErr *jsonrpc.DecodeError
 			if errors.As(err, &decErr) {
 				s.logger.Printf("malformed message (skipping): %v", decErr)
 				continue
 			}
-			// Non-recoverable: transport-level error (EOF, I/O).
 			select {
 			case <-s.exitCh:
 				return nil
@@ -98,28 +106,26 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			return err
 		}
-		s.dispatch(msg)
+		s.dispatch(diagnoseCtx, msg)
 	}
 }
 
-func (s *Server) dispatch(msg *jsonrpc.Message) {
+func (s *Server) dispatch(ctx context.Context, msg *jsonrpc.Message) {
 	if msg.IsRequest() {
 		s.handleRequest(msg)
 	} else if msg.IsNotification() {
-		s.handleNotification(msg)
+		s.handleNotification(ctx, msg)
 	}
 }
 
 const codeServerNotInitialized = -32002
 
 func (s *Server) handleRequest(msg *jsonrpc.Message) {
-	// LSP spec: after shutdown, only exit is valid.
 	if s.shutdownRequested {
 		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeInvalidRequest,
 			"server is shutting down"))
 		return
 	}
-	// LSP spec: before initialize, only initialize is valid.
 	if !s.initialized && msg.Method != "initialize" {
 		s.respond(jsonrpc.NewError(msg.ID, codeServerNotInitialized,
 			"server not initialized"))
@@ -144,20 +150,20 @@ func (s *Server) handleRequest(msg *jsonrpc.Message) {
 	}
 }
 
-func (s *Server) handleNotification(msg *jsonrpc.Message) {
+func (s *Server) handleNotification(ctx context.Context, msg *jsonrpc.Message) {
 	switch msg.Method {
 	case "initialized":
 		// no-op
 	case "exit":
-		close(s.exitCh)
+		s.exitOnce.Do(func() { close(s.exitCh) })
 	case "textDocument/didOpen":
-		s.handleDidOpen(msg)
+		s.handleDidOpen(ctx, msg)
 	case "textDocument/didChange":
-		s.handleDidChange(msg)
+		s.handleDidChange(ctx, msg)
 	case "textDocument/didClose":
 		s.handleDidClose(msg)
 	case "textDocument/didSave":
-		s.handleDidSave(msg)
+		s.handleDidSave(ctx, msg)
 	}
 }
 
@@ -165,6 +171,16 @@ func (s *Server) respond(msg jsonrpc.Message) {
 	if err := s.transport.Write(msg); err != nil {
 		s.logger.Printf("write error: %v", err)
 	}
+}
+
+func (s *Server) respondResult(id *json.RawMessage, result any) {
+	resp, err := jsonrpc.NewResponse(id, result)
+	if err != nil {
+		s.logger.Printf("encode response: %v", err)
+		s.respond(jsonrpc.NewError(id, jsonrpc.CodeInternalError, "internal error"))
+		return
+	}
+	s.respond(resp)
 }
 
 func (s *Server) notify(method string, params any) {
@@ -194,86 +210,104 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 			Version: "0.1.0",
 		},
 	}
-	resp, _ := jsonrpc.NewResponse(msg.ID, result)
-	s.respond(resp)
+	s.respondResult(msg.ID, result)
 }
 
 func (s *Server) handleShutdown(msg *jsonrpc.Message) {
 	s.shutdownRequested = true
-	s.exitCode = 0 // clean shutdown
-	resp, _ := jsonrpc.NewResponse(msg.ID, nil)
-	s.respond(resp)
+	s.exitCode = 0
+	s.respondResult(msg.ID, nil)
 }
 
 // ---- Document Sync ----
 
-func (s *Server) handleDidOpen(msg *jsonrpc.Message) {
+func (s *Server) handleDidOpen(ctx context.Context, msg *jsonrpc.Message) {
 	var params protocol.DidOpenTextDocumentParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.logger.Printf("didOpen unmarshal: %v", err)
 		return
 	}
-	s.docs.Open(params.TextDocument.URI, params.TextDocument.Text, params.TextDocument.Version)
-	s.scheduleDiagnose(params.TextDocument.URI)
+	s.docs.open(params.TextDocument.URI, params.TextDocument.Text, params.TextDocument.Version)
+	s.scheduleDiagnose(ctx, params.TextDocument.URI)
 }
 
-func (s *Server) handleDidChange(msg *jsonrpc.Message) {
+func (s *Server) handleDidChange(ctx context.Context, msg *jsonrpc.Message) {
 	var params protocol.DidChangeTextDocumentParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.logger.Printf("didChange unmarshal: %v", err)
 		return
 	}
 	if len(params.ContentChanges) > 0 {
-		s.docs.Update(params.TextDocument.URI, params.ContentChanges[0].Text, params.TextDocument.Version)
+		s.docs.update(params.TextDocument.URI, params.ContentChanges[0].Text, params.TextDocument.Version)
 	}
-	s.scheduleDiagnose(params.TextDocument.URI)
+	s.scheduleDiagnose(ctx, params.TextDocument.URI)
 }
 
 func (s *Server) handleDidClose(msg *jsonrpc.Message) {
 	var params protocol.DidCloseTextDocumentParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.logger.Printf("didClose unmarshal: %v", err)
 		return
 	}
-	s.docs.Close(params.TextDocument.URI)
-	// Clear diagnostics for closed document.
+	s.docs.close(params.TextDocument.URI)
 	s.notify("textDocument/publishDiagnostics", protocol.PublishDiagnosticsParams{
 		URI:         params.TextDocument.URI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
-func (s *Server) handleDidSave(msg *jsonrpc.Message) {
+func (s *Server) handleDidSave(ctx context.Context, msg *jsonrpc.Message) {
 	var params protocol.DidSaveTextDocumentParams
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.logger.Printf("didSave unmarshal: %v", err)
 		return
 	}
 	if params.Text != nil {
-		s.docs.Update(params.TextDocument.URI, *params.Text, -1)
+		s.docs.update(params.TextDocument.URI, *params.Text, -1)
 	}
-	s.scheduleDiagnose(params.TextDocument.URI)
+	s.scheduleDiagnose(ctx, params.TextDocument.URI)
 }
 
 // ---- Diagnostics ----
 
-func (s *Server) scheduleDiagnose(uri protocol.DocumentURI) {
+func (s *Server) scheduleDiagnose(ctx context.Context, uri protocol.DocumentURI) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if timer, ok := s.debounceTimers[uri]; ok {
 		timer.Stop()
 	}
 	s.debounceTimers[uri] = time.AfterFunc(s.debounceDelay, func() {
-		s.diagnose(uri)
+		s.diagnose(ctx, uri)
 	})
 }
 
-func (s *Server) diagnose(uri protocol.DocumentURI) {
-	doc, ok := s.docs.Get(uri)
+// drainTimers stops all pending debounce timers.
+func (s *Server) drainTimers() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for uri, timer := range s.debounceTimers {
+		timer.Stop()
+		delete(s.debounceTimers, uri)
+	}
+}
+
+func (s *Server) diagnose(ctx context.Context, uri protocol.DocumentURI) {
+	if ctx.Err() != nil {
+		return // server shutting down
+	}
+
+	doc, ok := s.docs.get(uri)
 	if !ok {
 		return
 	}
 
 	eng := s.engineSetup()
+	if eng == nil {
+		s.logger.Printf("engine factory returned nil")
+		return
+	}
 	eng.EnableTypeIndex()
 
-	// Recursively resolve header directives (--module, --recursion).
 	docPath := protocol.URIToPath(uri)
 	res, err := header.Resolve(doc.Text, docPath)
 	if err != nil {
@@ -289,15 +323,15 @@ func (s *Server) diagnose(uri protocol.DocumentURI) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	analyzeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	ar := eng.Analyze(ctx, doc.Text)
-	s.docs.SetAnalysis(uri, ar)
+	ar := eng.Analyze(analyzeCtx, doc.Text)
+	s.docs.setAnalysis(uri, ar)
 
 	diags := convertDiagnostics(ar)
 	if diags == nil {
-		diags = []protocol.Diagnostic{} // empty array, not null
+		diags = []protocol.Diagnostic{}
 	}
 	s.notify("textDocument/publishDiagnostics", protocol.PublishDiagnosticsParams{
 		URI:         uri,
@@ -314,27 +348,23 @@ func (s *Server) handleHover(msg *jsonrpc.Message) {
 		return
 	}
 
-	doc, ok := s.docs.Get(params.TextDocument.URI)
+	doc, ok := s.docs.get(params.TextDocument.URI)
 	if !ok || doc.Analysis == nil || doc.Analysis.TypeIndex == nil || doc.Analysis.Source == nil {
-		resp, _ := jsonrpc.NewResponse(msg.ID, nil)
-		s.respond(resp)
+		s.respondResult(msg.ID, nil)
 		return
 	}
 
 	offset := posToOffset(doc.Analysis.Source, params.Position)
 	ty := doc.Analysis.TypeIndex.TypeAt(offset)
 	if ty == nil {
-		resp, _ := jsonrpc.NewResponse(msg.ID, nil)
-		s.respond(resp)
+		s.respondResult(msg.ID, nil)
 		return
 	}
 
-	hover := protocol.Hover{
+	s.respondResult(msg.ID, protocol.Hover{
 		Contents: protocol.MarkupContent{
 			Kind:  protocol.Markdown,
 			Value: "```gicel\n" + types.Pretty(ty) + "\n```",
 		},
-	}
-	resp, _ := jsonrpc.NewResponse(msg.ID, hover)
-	s.respond(resp)
+	})
 }

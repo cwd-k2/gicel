@@ -13,17 +13,18 @@ func URIToPath(uri DocumentURI) string {
 		return string(uri)
 	}
 	path := u.Path
-	// Windows: strip leading / from /C:/...
 	if runtime.GOOS == "windows" && len(path) > 2 && path[0] == '/' && path[2] == ':' {
 		path = path[1:]
 	}
 	return path
 }
 
-// PathToURI converts a filesystem path to a file:// URI.
+// PathToURI converts a filesystem path to a file:// URI,
+// properly percent-encoding special characters.
 func PathToURI(path string) DocumentURI {
 	if runtime.GOOS == "windows" {
 		path = "/" + strings.ReplaceAll(path, `\`, "/")
 	}
-	return DocumentURI("file://" + path)
+	u := url.URL{Scheme: "file", Path: path}
+	return DocumentURI(u.String())
 }
