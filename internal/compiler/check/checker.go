@@ -55,6 +55,7 @@ type CheckConfig struct {
 	MaxTFSteps      int                 // type family reduction step limit (0 = default 50000)
 	MaxSolverSteps  int                 // constraint solver step limit (0 = default 100000)
 	MaxResolveDepth int                 // instance resolution depth limit (0 = default 64)
+	TypeRecorder    func(span.Span, types.Type) // when non-nil, called for each inferred expression span→type
 }
 
 // ModuleExports is the type-level information exported by a compiled module.

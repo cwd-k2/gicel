@@ -19,6 +19,8 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -41,6 +43,7 @@ type Engine struct {
 	noInline        bool                 // when true, skip selective inlining (e.g. for explain traces)
 	verifyIR        bool                 // when true, run structural IR verification in post-check
 	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
+	typeRecorder    bool                 // when true, Analyze populates TypeIndex
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -167,6 +170,10 @@ func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
 // Use when explain traces must preserve function boundaries.
 func (e *Engine) DisableInlining() { e.noInline = true }
 
+// EnableTypeIndex causes Analyze to populate the TypeIndex field
+// in the returned AnalysisResult.
+func (e *Engine) EnableTypeIndex() { e.typeRecorder = true }
+
 // RegisterModuleFile reads a .gicel file and registers it as a module.
 // The module name is derived from the file basename (e.g., "Foo.gicel" → "Foo").
 // For dotted module names (e.g., "Effect.State"), use RegisterModule directly
@@ -196,6 +203,7 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		denyAssumptions: e.denyAssumptions,
 		noInline:        e.noInline,
 		verifyIR:        e.verifyIR,
+		typeRecorder:    e.typeRecorder,
 	}
 }
 
@@ -292,6 +300,28 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 func (e *Engine) Parse(source string) error {
 	_, _, err := e.pipeline(e.compileCtx).lexAndParse("<input>", source, e.store.Has("Core"))
 	return err
+}
+
+// AnalysisResult holds the complete output of the analysis pipeline.
+// Unlike CompileResult, it includes partial results even when errors
+// are present: Program may contain ir.Error sentinel nodes, and Errors
+// may be non-nil alongside a valid Program.
+type AnalysisResult struct {
+	Source    *span.Source
+	Program   *ir.Program
+	Exports   *check.ModuleExports // nil if check failed before export construction
+	Errors    *diagnostic.Errors
+	Complete  bool       // true when Errors has no errors
+	TypeIndex *TypeIndex // nil unless EnableTypeIndex was called
+}
+
+// Analyze runs the analysis pipeline (lex → parse → check), returning
+// partial results even when errors are present. The returned Program
+// always has a value (possibly empty on parse errors). This is the
+// primary entry point for LSP and tooling use.
+func (e *Engine) Analyze(ctx context.Context, source string) *AnalysisResult {
+	pc := e.pipeline(ctx)
+	return pc.analyze(source)
 }
 
 // Compile type-checks source code, returning exports and Core IR for

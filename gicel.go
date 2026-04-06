@@ -60,6 +60,13 @@ type Diagnostic = engine.Diagnostic
 // DiagnosticHint is a secondary annotation on a compilation diagnostic.
 type DiagnosticHint = engine.DiagnosticHint
 
+// AnalysisResult holds the complete output of the analysis pipeline,
+// including partial results when errors are present.
+type AnalysisResult = engine.AnalysisResult
+
+// TypeIndex records span→type mappings from type checking.
+type TypeIndex = engine.TypeIndex
+
 // InternalPanicError wraps a recovered panic from RunSandbox.
 type InternalPanicError = engine.InternalPanicError
 

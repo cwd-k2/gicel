@@ -11,6 +11,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // pipelineCtx encapsulates the compile-time environment shared across
@@ -25,6 +26,7 @@ type pipelineCtx struct {
 	denyAssumptions bool
 	noInline        bool
 	verifyIR        bool // when true, run structural IR verification after label erasure
+	typeRecorder    bool // when true, analyze() populates TypeIndex
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -167,29 +169,60 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 	}
 }
 
-// compileMain compiles the main source: lex → parse → type check → optimize → annotate.
-func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, error) {
+// analyze runs lex → parse → check, returning partial results on error.
+// Unlike compileMain, it does NOT run postCheck (optimize, annotate).
+func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
+	result := &AnalysisResult{}
+
 	ast, src, err := pc.lexAndParse("<input>", source, pc.store.Has("Core"))
+	result.Source = src
 	if err != nil {
-		return nil, nil, err
+		if ce, ok := err.(*CompileError); ok {
+			result.Errors = ce.Errors
+		}
+		result.Program = &ir.Program{}
+		return result
 	}
 
 	cfg := pc.makeCheckConfig()
 	cfg.Context = pc.ctx
 	cfg.EntryPoint = pc.entryPoint
 	cfg.DenyAssumptions = pc.denyAssumptions
+
+	var idx *TypeIndex
+	if pc.typeRecorder {
+		idx = NewTypeIndex()
+		cfg.TypeRecorder = func(sp span.Span, ty types.Type) {
+			idx.Record(sp, ty)
+		}
+	}
+
 	prog, checkErrs := check.Check(ast, src, cfg)
-	if checkErrs.HasErrors() {
-		return nil, nil, &CompileError{Errors: checkErrs}
+	if idx != nil {
+		idx.Finalize()
+	}
+
+	result.Program = prog
+	result.Errors = checkErrs
+	result.Complete = !checkErrs.HasErrors()
+	result.TypeIndex = idx
+	return result
+}
+
+// compileMain compiles the main source: lex → parse → type check → optimize → annotate.
+func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, error) {
+	ar := pc.analyze(source)
+	if !ar.Complete {
+		return nil, nil, &CompileError{Errors: ar.Errors}
 	}
 
 	var userBindings map[string]bool
 	if !pc.noInline {
-		userBindings = collectUserBindings(prog)
+		userBindings = collectUserBindings(ar.Program)
 	}
-	pc.postCheck(prog, userBindings)
+	pc.postCheck(ar.Program, userBindings)
 
-	return prog, src, nil
+	return ar.Program, ar.Source, nil
 }
 
 // collectUserBindings returns the set of non-generated binding names
