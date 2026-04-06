@@ -860,7 +860,11 @@ func cmdLsp(args []string) int {
 		Transport: transport,
 		Logger:    logger,
 		EngineSetup: func() *engine.Engine {
-			eng, _ := setupEngine(packsCopy) // pre-validated
+			eng, err := setupEngine(packsCopy)
+			if err != nil {
+				logger.Printf("engine setup: %v", err)
+				return engine.NewEngine() // fallback to bare engine
+			}
 			if recCopy {
 				eng.EnableRecursion()
 			}

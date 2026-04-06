@@ -43,13 +43,18 @@ func spanToRange(src *span.Source, sp span.Span) protocol.Range {
 // posToOffset converts an LSP Position (0-based) to a byte offset in the source.
 func posToOffset(src *span.Source, pos protocol.Position) span.Pos {
 	line := pos.Line
-	if line < 0 || line >= len(src.Lines) {
-		if line < 0 {
-			return 0
-		}
+	if line < 0 {
+		return 0
+	}
+	if line >= len(src.Lines) {
 		return span.Pos(len(src.Text))
 	}
-	offset := int(src.Lines[line]) + pos.Character
+	lineStart := int(src.Lines[line])
+	char := pos.Character
+	if char < 0 {
+		char = 0
+	}
+	offset := lineStart + char
 	if offset > len(src.Text) {
 		offset = len(src.Text)
 	}

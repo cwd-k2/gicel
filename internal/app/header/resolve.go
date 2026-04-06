@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // maxResolveDepth limits recursive header resolution to prevent
@@ -97,7 +98,7 @@ func (r *resolver) resolve(source, filePath string, depth int) error {
 
 		// Containment check: resolved path must be under rootDir.
 		rel, err := filepath.Rel(r.rootDir, evalPath)
-		if err != nil || len(rel) >= 2 && rel[:2] == ".." {
+		if err != nil || strings.HasPrefix(rel, "..") {
 			return fmt.Errorf("header module %s: path %s is outside project root %s",
 				mod.Name, mod.Path, r.rootDir)
 		}

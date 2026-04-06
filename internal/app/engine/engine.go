@@ -309,7 +309,6 @@ func (e *Engine) Parse(source string) error {
 type AnalysisResult struct {
 	Source    *span.Source
 	Program   *ir.Program
-	Exports   *check.ModuleExports // nil if check failed before export construction
 	Errors    *diagnostic.Errors
 	Complete  bool       // true when Errors has no errors
 	TypeIndex *TypeIndex // nil unless EnableTypeIndex was called

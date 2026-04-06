@@ -1,31 +1,19 @@
 package jsonrpc
 
+// Transport tests — Content-Length framing, message roundtrip.
+// Does NOT cover: message types (message.go is tested implicitly).
+
 import (
 	"bytes"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
 
 // formatMessage builds a raw LSP message for testing.
 func formatMessage(body string) string {
-	return "Content-Length: " + intToStr(len(body)) + "\r\n\r\n" + body
-}
-
-func intToStr(n int) string {
-	buf := make([]byte, 0, 8)
-	if n == 0 {
-		return "0"
-	}
-	for n > 0 {
-		buf = append(buf, byte('0'+n%10))
-		n /= 10
-	}
-	// reverse
-	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
-		buf[i], buf[j] = buf[j], buf[i]
-	}
-	return string(buf)
+	return "Content-Length: " + strconv.Itoa(len(body)) + "\r\n\r\n" + body
 }
 
 func TestTransport_ReadRequest(t *testing.T) {
