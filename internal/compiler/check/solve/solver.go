@@ -86,14 +86,6 @@ func (s *Solver) EmitGivenEq(ct *CtEq) {
 	s.worklist.PushFront(ct)
 }
 
-// IsInaccessible reports whether a contradictory given equality was
-// detected (e.g. Int ~ Bool in a GADT branch), making the branch
-// vacuously well-typed.
-func (s *Solver) IsInaccessible() bool { return s.inaccessible }
-
-// SetInaccessible sets or clears the inaccessible flag.
-func (s *Solver) SetInaccessible(v bool) { s.inaccessible = v }
-
 // Level returns the current implication nesting depth for touchability.
 func (s *Solver) Level() int {
 	return s.level
