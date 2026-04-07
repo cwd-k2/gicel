@@ -6,6 +6,16 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// Core registers SMC primitives (merge, dag) that are always available on
+// every Engine. It is applied by NewEngine; user code does not need to Use
+// it explicitly. Kept as a Pack so registration follows the same path as
+// every other stdlib component.
+var Core Pack = func(e Registrar) error {
+	e.RegisterPrim("merge", MergeImpl)
+	e.RegisterPrim("dag", DagImpl)
+	return nil
+}
+
 // MergeImpl implements the merge primitive for parallel composition.
 // merge : Computation pre₁ post₁ a → Computation pre₂ post₂ b
 //
