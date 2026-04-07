@@ -217,7 +217,7 @@ func (vm *VM) ensureLocals(n int) {
 // conditions:
 //
 //  1. A frame's OpReturn pops back to a barrier frame caller (the case that
-//     execBarrier / runCallee rely on); execute returns the popped value.
+//     runCallee relies on); execute returns the popped value.
 //  2. The bottom-most frame (vm.fp == 0) executes OpReturn or runs out of
 //     bytecode; execute returns the value with the top-level capEnv.
 //
