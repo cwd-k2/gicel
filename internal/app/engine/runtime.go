@@ -272,6 +272,25 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 func (r *Runtime) precompileVM(gates map[string]bool) {
 	compiler := vm.NewCompiler(r.globalSlots, r.source)
 
+	// Pre-pass: register prim-alias bindings (assumption declarations whose
+	// IR expression is a bare 0-arg *ir.PrimOp) so that compileApp can emit
+	// direct saturated OpPrim/OpEffectPrim calls instead of loading the
+	// PrimVal stub and walking the OpApply partial-application chain. This
+	// is the natural cross-module locus — precompileVM has every module
+	// and main binding in scope simultaneously.
+	for _, me := range r.moduleEntries {
+		for _, b := range me.sortedBindings {
+			if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
+				compiler.RecordGlobalPrim(ir.QualifiedKey(me.name, b.Name), po.Name, po.Arity, po.Effectful)
+			}
+		}
+	}
+	for _, b := range r.sortedMainBindings {
+		if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
+			compiler.RecordGlobalPrim(b.Name, po.Name, po.Arity, po.Effectful)
+		}
+	}
+
 	// Compile builtins.
 	r.vmBuiltins = vm.CompileBuiltinGlobals(compiler,
 		gates["fix"], gates["rec"])

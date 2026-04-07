@@ -149,6 +149,34 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	c.addSpan(app.S)
 	// Collect application spine and check for known-arity call.
 	fn, args := collectAppSpine(app)
+	if v, ok := fn.(*ir.Var); ok && len(args) > 0 {
+		// Direct prim-alias call: `Var{prim-alias} a b ...` with at least
+		// `arity` arguments bypasses the loaded PrimVal stub and emits
+		// OpPrim/OpEffectPrim directly. This eliminates the (arity-1)
+		// intermediate PrimVal allocations that applyPrim would otherwise
+		// produce walking the partial-application chain.
+		if info, ok := c.varGlobalPrim(v); ok && info.arity > 0 && info.arity <= 255 && len(args) >= info.arity {
+			for _, arg := range args[:info.arity] {
+				c.compileExpr(arg, false)
+			}
+			nameIdx := c.addString(info.name)
+			if info.effectful {
+				c.emitU16U8(OpEffectPrim, nameIdx, uint8(info.arity))
+			} else {
+				c.emitU16U8(OpPrim, nameIdx, uint8(info.arity))
+			}
+			// Over-application: remaining args applied sequentially.
+			for i, extra := range args[info.arity:] {
+				c.compileExpr(extra, false)
+				if tail && i == len(args)-info.arity-1 {
+					c.emit(OpTailApply)
+				} else {
+					c.emit(OpApply)
+				}
+			}
+			return
+		}
+	}
 	if v, ok := fn.(*ir.Var); ok && len(args) > 1 {
 		arity := c.varArity(v)
 		if arity > 1 && len(args) >= arity && arity <= 255 {

@@ -24,9 +24,20 @@ import (
 // fully finalized before the parent frame resumes.
 type Compiler struct {
 	globalSlots   map[string]int
-	globalArities map[string]int // global name → known arity (-1 or absent: unknown)
+	globalArities map[string]int      // global name → known arity (-1 or absent: unknown)
+	globalPrims   map[string]primInfo // global name → prim alias info (saturated direct-call)
 	source        *span.Source
 	frames        []frame
+}
+
+// primInfo holds the metadata needed to emit a direct OpPrim/OpEffectPrim
+// for a call site whose function position is a Var pointing at a bare
+// prim-alias binding (an assumption declaration whose IR expression is a
+// 0-arg *ir.PrimOp). Populated by RecordGlobalPrim before compileApp runs.
+type primInfo struct {
+	name      string
+	arity     int
+	effectful bool
 }
 
 // frame accumulates bytecode and metadata for a single Proto.
@@ -135,13 +146,28 @@ func (c *Compiler) CompileBinding(b ir.Binding) *Proto {
 
 // RecordArity registers the known arity of a global binding.
 // Called after CompileBinding so that subsequent references emit OpApplyN.
-// RecordArity registers the known arity of a global binding.
-// Called after CompileBinding so that subsequent references emit OpApplyN.
 func (c *Compiler) RecordArity(name string, arity int) {
 	if c.globalArities == nil {
 		c.globalArities = make(map[string]int)
 	}
 	c.globalArities[name] = arity
+}
+
+// RecordGlobalPrim registers a prim-alias binding so that saturated call
+// sites `Var{prim} a b ...` can bypass the loaded PrimVal stub and emit
+// OpPrim/OpEffectPrim directly. Called before the main/entry compilation
+// pass in precompileVM, scanning all module entries and main bindings.
+//
+// The invariant: the binding named `key` has IR expression
+// `&ir.PrimOp{Name, Arity, Effectful, Args: nil}`. When compileApp sees a
+// global Var with this key and enough arguments in the application spine,
+// it emits a direct saturated prim call instead of loading the stub and
+// going through applyPrim's partial-application path.
+func (c *Compiler) RecordGlobalPrim(key, name string, arity int, effectful bool) {
+	if c.globalPrims == nil {
+		c.globalPrims = make(map[string]primInfo)
+	}
+	c.globalPrims[key] = primInfo{name: name, arity: arity, effectful: effectful}
 }
 
 // --- bytecode emission ---
@@ -232,7 +258,6 @@ func (c *Compiler) localArity(name string) int {
 }
 
 // varArity returns the known arity of a variable (local or global).
-// varArity returns the known arity of a variable (local or global).
 func (c *Compiler) varArity(v *ir.Var) int {
 	if v.Index >= 0 {
 		return c.localArity(v.Name)
@@ -247,6 +272,21 @@ func (c *Compiler) varArity(v *ir.Var) int {
 		}
 	}
 	return -1
+}
+
+// varGlobalPrim returns the prim-alias metadata associated with a global
+// Var reference, or (zero, false) if the Var is a local or names a
+// non-prim-alias global.
+func (c *Compiler) varGlobalPrim(v *ir.Var) (primInfo, bool) {
+	if v.Index >= 0 || c.globalPrims == nil {
+		return primInfo{}, false
+	}
+	key := v.Key
+	if key == "" {
+		key = ir.VarKey(v)
+	}
+	info, ok := c.globalPrims[key]
+	return info, ok
 }
 func (c *Compiler) resolveLocal(name string) (int, bool) {
 	f := c.top()
