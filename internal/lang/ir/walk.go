@@ -152,7 +152,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 	if depth > maxTraversalDepth {
 		// For left-spine App chains, use iterative descent.
 		if _, ok := c.(*App); ok {
-			return transformLeftSpine(c, f, depth)
+			return transformLeftSpine(c, f)
 		}
 		return c
 	}
@@ -166,7 +166,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		}
 		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: newBody, FV: n.FV, Generated: n.Generated, S: n.S})
 	case *App:
-		return transformLeftSpine(c, f, depth)
+		return transformLeftSpine(c, f)
 	case *TyApp:
 		newExpr := transformRec(n.Expr, f, depth+1)
 		if newExpr == n.Expr {
@@ -329,11 +329,11 @@ func transformFields(fields []Field, f func(Core) Core, depth int) ([]Field, boo
 //
 // Right children branching off the spine are structurally shallow (arguments
 // to each application). Their transform depth resets to 0, matching the
-// convention used by assignGlobalSlotsLeftSpine and assignIndicesLeftSpine.
-// Without this reset, operator chains exceeding maxTraversalDepth cause
-// right-child Var nodes (e.g., dictionary placeholders) to be returned
-// untransformed, because transformRec bails on non-App nodes past the limit.
-func transformLeftSpine(c Core, f func(Core) Core, _ int) Core {
+// convention used by assignIndicesLeftSpine. Without this reset, operator
+// chains exceeding maxTraversalDepth cause right-child Var nodes (e.g.,
+// dictionary placeholders) to be returned untransformed, because transformRec
+// bails on non-App nodes past the limit.
+func transformLeftSpine(c Core, f func(Core) Core) Core {
 	type spineNode struct {
 		app    *App // original App node
 		arg    Core // transformed right child
@@ -352,7 +352,7 @@ func transformLeftSpine(c Core, f func(Core) Core, _ int) Core {
 			cur = n.Fun
 			continue
 		case *TyApp:
-			inner := transformLeftSpineOrRec(n.Expr, f, 0)
+			inner := transformLeftSpineOrRec(n.Expr, f)
 			if inner == n.Expr {
 				cur = f(n)
 			} else {
@@ -361,7 +361,7 @@ func transformLeftSpine(c Core, f func(Core) Core, _ int) Core {
 			headChanged = cur != n
 			goto rebuild
 		case *TyLam:
-			inner := transformLeftSpineOrRec(n.Body, f, 0)
+			inner := transformLeftSpineOrRec(n.Body, f)
 			if inner == n.Body {
 				cur = f(n)
 			} else {
@@ -412,9 +412,9 @@ rebuild:
 
 // transformLeftSpineOrRec continues with left-spine processing if the
 // node is an App, otherwise falls back to regular recursion.
-func transformLeftSpineOrRec(c Core, f func(Core) Core, _ int) Core {
+func transformLeftSpineOrRec(c Core, f func(Core) Core) Core {
 	if _, ok := c.(*App); ok {
-		return transformLeftSpine(c, f, 0)
+		return transformLeftSpine(c, f)
 	}
 	return transformRec(c, f, 0)
 }

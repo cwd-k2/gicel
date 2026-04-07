@@ -191,7 +191,7 @@ func (e *CheckEnv) isUsefulAt(mx patMatrix, q patVec, scrutTys []types.Type, dep
 		newTys := e.subPatternTypes(cp.con, ty, cp.arity, restTys)
 		useful, witness := e.isUsefulAt(smx, sq, newTys, depth+1)
 		if useful {
-			return true, reconstructCon(cp.con, cp.arity, witness, q[1:])
+			return true, reconstructCon(cp.con, cp.arity, witness)
 		}
 		return false, nil
 	}
@@ -273,7 +273,7 @@ func (e *CheckEnv) isUsefulWildcard(mx patMatrix, q patVec, ty types.Type, restT
 			newTys := e.subPatternTypes(sig.name, ty, sig.arity, restTys)
 			useful, witness := e.isUsefulAt(smx, sq, newTys, depth+1)
 			if useful {
-				return true, reconstructCon(sig.name, sig.arity, witness, q[1:])
+				return true, reconstructCon(sig.name, sig.arity, witness)
 			}
 		}
 		return false, nil

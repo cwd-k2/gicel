@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // FreeVars returns term-level free variables in a Core expression.
@@ -375,25 +373,3 @@ func SplitQualifiedKey(key string) (module, name string) {
 	return "", key
 }
 
-// freeTypeVars returns type-level free variables in Core.
-func freeTypeVars(c Core) map[string]struct{} {
-	fv := make(map[string]struct{})
-	Walk(c, func(n Core) bool {
-		switch node := n.(type) {
-		case *Lam:
-			if node.ParamType != nil {
-				for k := range types.FreeVars(node.ParamType) {
-					fv[k] = struct{}{}
-				}
-			}
-		case *TyApp:
-			if node.TyArg != nil {
-				for k := range types.FreeVars(node.TyArg) {
-					fv[k] = struct{}{}
-				}
-			}
-		}
-		return true
-	})
-	return fv
-}

@@ -343,7 +343,7 @@ func TestHeadTyCon(t *testing.T) {
 func TestReconstructConInnerMatch(t *testing.T) {
 	// When inner is a pCon matching the constructor name, args should propagate.
 	inner := pCon{con: "Just", arity: 1, args: []pat{pCon{con: "True", arity: 0}}}
-	result := reconstructCon("Just", 1, inner, nil)
+	result := reconstructCon("Just", 1, inner)
 	rc, ok := result.(pCon)
 	if !ok {
 		t.Fatalf("expected pCon, got %T", result)
@@ -362,7 +362,7 @@ func TestReconstructConInnerMatch(t *testing.T) {
 func TestReconstructConInnerMismatch(t *testing.T) {
 	// When inner doesn't match (different constructor name), args should be wildcards.
 	inner := pCon{con: "Nothing", arity: 0}
-	result := reconstructCon("Just", 1, inner, nil)
+	result := reconstructCon("Just", 1, inner)
 	rc := result.(pCon)
 	if _, ok := rc.args[0].(pWild); !ok {
 		t.Errorf("expected wildcard for mismatched inner, got %v", rc.args[0])
@@ -370,7 +370,7 @@ func TestReconstructConInnerMismatch(t *testing.T) {
 }
 
 func TestReconstructConZeroArity(t *testing.T) {
-	result := reconstructCon("True", 0, pWild{}, nil)
+	result := reconstructCon("True", 0, pWild{})
 	rc := result.(pCon)
 	if rc.con != "True" || rc.arity != 0 || len(rc.args) != 0 {
 		t.Errorf("expected True/0, got %s/%d", rc.con, rc.arity)

@@ -179,8 +179,8 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 
 	// Result type: Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
 	// Tuple = Record { _1: a, _2: b }, matching the runtime OpMerge output.
-	mergedPre := ch.applyMergeFamily(pre1, pre2, s)
-	mergedPost := ch.applyMergeFamily(post1, post2, s)
+	mergedPre := ch.applyMergeFamily(pre1, pre2)
+	mergedPost := ch.applyMergeFamily(post1, post2)
 	result := &types.TyApp{
 		Fun: types.Con(types.TyConRecord),
 		Arg: types.ClosedRow(
@@ -221,7 +221,7 @@ func (ch *Checker) extractRowLabels(ty types.Type) []string {
 }
 
 // applyMergeFamily applies the Merge type family to two row types.
-func (ch *Checker) applyMergeFamily(r1, r2 types.Type, s span.Span) types.Type {
+func (ch *Checker) applyMergeFamily(r1, r2 types.Type) types.Type {
 	r1 = ch.unifier.Zonk(r1)
 	r2 = ch.unifier.Zonk(r2)
 	// Merge type family is applied via TyApp(TyApp(TyCon("Merge"), r1), r2).

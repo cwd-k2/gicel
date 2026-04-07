@@ -189,15 +189,6 @@ func newTestChecker() *Checker {
 	return ch
 }
 
-// zonkAll applies Zonk to each type in the slice. Test-only helper.
-func (ch *Checker) zonkAll(tys []types.Type) []types.Type {
-	result := make([]types.Type, len(tys))
-	for i, t := range tys {
-		result[i] = ch.unifier.Zonk(t)
-	}
-	return result
-}
-
 // typeHasMeta returns true if the type contains an unsolved TyMeta. Test-only helper.
 func typeHasMeta(ty types.Type) bool {
 	return types.AnyType(ty, func(t types.Type) bool {

@@ -235,7 +235,7 @@ func columnHeadCons(mx patMatrix) map[string]int {
 }
 
 // reconstructCon builds a witness pattern from the recursive useful result.
-func reconstructCon(con string, arity int, inner pat, _ patVec) pat {
+func reconstructCon(con string, arity int, inner pat) pat {
 	// Extract sub-patterns from the witness (best-effort).
 	args := make([]pat, arity)
 	for i := range args {

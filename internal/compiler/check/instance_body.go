@@ -60,7 +60,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	// Associated type families in method types use implicit class parameters;
 	// after substitution the TyCon remains bare. We convert them to TyFamilyApp
 	// with the substituted class args so the family reducer can process them.
-	familyArgs := ch.buildAssocFamilyArgs(classInfo, inst, ps)
+	familyArgs := ch.buildAssocFamilyArgs(classInfo, ps)
 
 	// Method implementations.
 	for _, m := range classInfo.Methods {

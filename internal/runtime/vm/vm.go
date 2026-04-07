@@ -487,11 +487,11 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				leftCap = origCapEnv.Filter(desc.LeftLabels)
 				rightCap = origCapEnv.Filter(desc.RightLabels)
 			}
-			val1, leftCE, err := vm.forceMergeChild(leftVal, leftCap, frame)
+			val1, leftCE, err := vm.forceMergeChild(leftVal, leftCap)
 			if err != nil {
 				return eval.EvalResult{}, err
 			}
-			val2, rightCE, err := vm.forceMergeChild(rightVal, rightCap, frame)
+			val2, rightCE, err := vm.forceMergeChild(rightVal, rightCap)
 			if err != nil {
 				return eval.EvalResult{}, err
 			}

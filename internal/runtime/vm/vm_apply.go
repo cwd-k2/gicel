@@ -365,7 +365,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 
 // forceMergeChild executes a thunk (merge child proto) with a specific CapEnv
 // using the barrier-frame approach. Returns the result value and final CapEnv.
-func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv, frame *Frame) (eval.Value, eval.CapEnv, error) {
+func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 	thv, ok := v.(*eval.VMThunkVal)
 	if !ok {
 		// Not a thunk — already a value. Return as-is with the given CapEnv.

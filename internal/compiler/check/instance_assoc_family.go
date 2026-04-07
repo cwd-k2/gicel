@@ -12,7 +12,7 @@ import (
 // buildAssocFamilyArgs builds a mapping from associated type family names
 // to the class-parameter arguments they should be applied to. This covers
 // both the current class's own associated types and those of superclasses.
-func (ch *Checker) buildAssocFamilyArgs(classInfo *ClassInfo, inst *InstanceInfo, ps *types.PreparedSubst) map[string][]types.Type {
+func (ch *Checker) buildAssocFamilyArgs(classInfo *ClassInfo, ps *types.PreparedSubst) map[string][]types.Type {
 	m := make(map[string][]types.Type)
 	// Only superclass associated types need saturation.
 	// The current class's own associated types are already correctly
