@@ -12,7 +12,7 @@ func TestNestUnest(t *testing.T) {
 	b.SetNestingLimit(3)
 
 	// Should succeed up to limit.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := b.Nest(); err != nil {
 			t.Fatalf("Nest() #%d: unexpected error: %v", i+1, err)
 		}
@@ -47,7 +47,7 @@ func TestNestUnest(t *testing.T) {
 func TestNestingLimitZeroDisabled(t *testing.T) {
 	b := New(context.Background(), 0, 0)
 	// maxNesting=0 means disabled.
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		if err := b.Nest(); err != nil {
 			t.Fatalf("Nest() #%d: unexpected error with disabled limit: %v", i+1, err)
 		}
@@ -67,7 +67,7 @@ func TestCheckBudgetCompilerDimensions(t *testing.T) {
 
 	// --- TF step limit ---
 	b.SetTFStepLimit(3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := b.TFStep(); err != nil {
 			t.Fatalf("TFStep() #%d: unexpected error: %v", i+1, err)
 		}
@@ -88,7 +88,7 @@ func TestCheckBudgetCompilerDimensions(t *testing.T) {
 
 	// --- Solver step limit ---
 	b.SetSolverStepLimit(2)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if err := b.SolverStep(); err != nil {
 			t.Fatalf("SolverStep() #%d: unexpected error: %v", i+1, err)
 		}
@@ -109,7 +109,7 @@ func TestCheckBudgetCompilerDimensions(t *testing.T) {
 
 	// --- Resolve depth limit ---
 	b.SetResolveDepthLimit(2)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if err := b.EnterResolve(); err != nil {
 			t.Fatalf("EnterResolve() #%d: unexpected error: %v", i+1, err)
 		}
@@ -134,7 +134,7 @@ func TestCheckBudgetNesting(t *testing.T) {
 	b := NewCheck(context.Background())
 	b.SetNestingLimit(3)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := b.Nest(); err != nil {
 			t.Fatalf("Nest() #%d: unexpected error: %v", i+1, err)
 		}

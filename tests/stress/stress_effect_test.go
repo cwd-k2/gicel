@@ -6,6 +6,7 @@ package stress_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -427,16 +428,16 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 	eng.DeclareBinding("x", gicel.ConType("Int"))
 
 	// Generate: main := do { v0 <- pure x; v1 <- pure v0; ... ; pure vN }
-	source := ""
+	var source strings.Builder
 	const depth = 100
-	source += "main := do {\n"
-	source += "  v0 <- pure x;\n"
+	source.WriteString("main := do {\n")
+	source.WriteString("  v0 <- pure x;\n")
 	for i := 1; i < depth; i++ {
-		source += fmt.Sprintf("  v%d <- pure v%d;\n", i, i-1)
+		source.WriteString(fmt.Sprintf("  v%d <- pure v%d;\n", i, i-1))
 	}
-	source += fmt.Sprintf("  pure v%d\n}\n", depth-1)
+	source.WriteString(fmt.Sprintf("  pure v%d\n}\n", depth-1))
 
-	rt, err := eng.NewRuntime(context.Background(), source)
+	rt, err := eng.NewRuntime(context.Background(), source.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,14 +464,15 @@ func TestStressDeepDoChainMaybe(t *testing.T) {
 	eng.Use(gicel.Prelude)
 
 	const depth = 50
-	source := "import Prelude\nmain :: Maybe Int\nmain := do {\n"
-	source += "  v0 <- Just 1;\n"
+	var source strings.Builder
+	source.WriteString("import Prelude\nmain :: Maybe Int\nmain := do {\n")
+	source.WriteString("  v0 <- Just 1;\n")
 	for i := 1; i < depth; i++ {
-		source += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
+		source.WriteString(fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1))
 	}
-	source += fmt.Sprintf("  pure v%d\n}\n", depth-1)
+	source.WriteString(fmt.Sprintf("  pure v%d\n}\n", depth-1))
 
-	rt, err := eng.NewRuntime(context.Background(), source)
+	rt, err := eng.NewRuntime(context.Background(), source.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,15 +504,16 @@ func TestStressMaybeDoChainScaling(t *testing.T) {
 		t.Run(fmt.Sprintf("depth_%d", depth), func(t *testing.T) {
 			eng := gicel.NewEngine()
 			eng.Use(gicel.Prelude)
-			source := "import Prelude\nmain :: Maybe Bool\nmain := do {\n"
-			source += "  v0 <- Just True;\n"
+			var source strings.Builder
+			source.WriteString("import Prelude\nmain :: Maybe Bool\nmain := do {\n")
+			source.WriteString("  v0 <- Just True;\n")
 			for i := 1; i < depth; i++ {
-				source += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
+				source.WriteString(fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1))
 			}
-			source += fmt.Sprintf("  pure v%d\n}\n", depth-1)
+			source.WriteString(fmt.Sprintf("  pure v%d\n}\n", depth-1))
 
 			start := time.Now()
-			rt, err := eng.NewRuntime(context.Background(), source)
+			rt, err := eng.NewRuntime(context.Background(), source.String())
 			compileTime := time.Since(start)
 			if err != nil {
 				t.Fatal(err)
@@ -625,19 +628,20 @@ func TestStressMaybeNothingShortCircuit(t *testing.T) {
 			eng := gicel.NewEngine()
 			eng.Use(gicel.Prelude)
 			const depth = 25
-			source := "import Prelude\nmain :: Maybe Bool\nmain := do {\n"
-			for i := 0; i < depth; i++ {
+			var source strings.Builder
+			source.WriteString("import Prelude\nmain :: Maybe Bool\nmain := do {\n")
+			for i := range depth {
 				if i == nothingAt {
-					source += fmt.Sprintf("  v%d <- Nothing;\n", i)
+					source.WriteString(fmt.Sprintf("  v%d <- Nothing;\n", i))
 				} else if i == 0 {
-					source += "  v0 <- Just True;\n"
+					source.WriteString("  v0 <- Just True;\n")
 				} else {
-					source += fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1)
+					source.WriteString(fmt.Sprintf("  v%d <- Just v%d;\n", i, i-1))
 				}
 			}
-			source += fmt.Sprintf("  pure v%d\n}\n", depth-1)
+			source.WriteString(fmt.Sprintf("  pure v%d\n}\n", depth-1))
 
-			rt, err := eng.NewRuntime(context.Background(), source)
+			rt, err := eng.NewRuntime(context.Background(), source.String())
 			if err != nil {
 				t.Fatal(err)
 			}

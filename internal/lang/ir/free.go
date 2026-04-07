@@ -367,9 +367,8 @@ func QualifiedKey(module, name string) string {
 // SplitQualifiedKey decomposes a qualified key into (module, name).
 // For unqualified keys, module is "" and name is the key itself.
 func SplitQualifiedKey(key string) (module, name string) {
-	if idx := strings.IndexByte(key, '\x00'); idx >= 0 {
-		return key[:idx], key[idx+1:]
+	if before, after, ok := strings.Cut(key, "\x00"); ok {
+		return before, after
 	}
 	return "", key
 }
-

@@ -30,7 +30,7 @@ func peanoSource(depth int) string {
 
 	// Build S^depth applied to Z
 	nested := "Z"
-	for i := 0; i < depth; i++ {
+	for range depth {
 		nested = fmt.Sprintf("(S %s)", nested)
 	}
 
@@ -79,7 +79,7 @@ func TestStressManyEquations(t *testing.T) {
 	// Type family with 60 equations mapping numbered constructors to results.
 	var b strings.Builder
 	b.WriteString("form Tag := { ")
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		if i > 0 {
 			b.WriteString("; ")
 		}
@@ -88,7 +88,7 @@ func TestStressManyEquations(t *testing.T) {
 	b.WriteString("; }\n")
 	b.WriteString("form Result := { R0: Result; R1: Result; }\n")
 	b.WriteString("type Dispatch :: Result := \\(t: Tag). case t {\n")
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		if i > 0 {
 			b.WriteString(";\n")
 		}

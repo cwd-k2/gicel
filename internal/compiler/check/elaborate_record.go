@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -194,9 +195,7 @@ func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) p
 		fieldTy := ch.matchRecordField(scrutTy, f.Label, f.S)
 		child := ch.checkPattern(f.Pattern, fieldTy)
 		coreFields = append(coreFields, ir.PRecordField{Label: f.Label, Pattern: child.Pattern})
-		for k, v := range child.Bindings {
-			bindings[k] = v
-		}
+		maps.Copy(bindings, child.Bindings)
 	}
 	return patternResult{
 		Pattern:  &ir.PRecord{Fields: coreFields, S: p.S},

@@ -29,7 +29,7 @@ type ExplainStep struct {
 	SourceName string        `json:"source,omitempty"`
 	Line       int           `json:"line,omitempty"`
 	Col        int           `json:"col,omitempty"`
-	Detail     ExplainDetail `json:"detail,omitempty"`
+	Detail     ExplainDetail `json:"detail"`
 }
 
 // ExplainDetail carries kind-specific structured data.

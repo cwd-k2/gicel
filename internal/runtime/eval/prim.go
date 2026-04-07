@@ -1,5 +1,7 @@
 package eval
 
+import "maps"
+
 import "context"
 
 // Applier provides function application callbacks for host primitives.
@@ -58,8 +60,6 @@ func (r *PrimRegistry) Lookup(name string) (PrimImpl, bool) {
 // Clone returns a shallow copy of the registry, decoupled from the original.
 func (r *PrimRegistry) Clone() *PrimRegistry {
 	c := &PrimRegistry{impls: make(map[string]PrimImpl, len(r.impls))}
-	for k, v := range r.impls {
-		c.impls[k] = v
-	}
+	maps.Copy(c.impls, r.impls)
 	return c
 }

@@ -6,9 +6,11 @@ package stress_test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,9 +81,7 @@ func copyCaps(m map[string]any) map[string]any {
 		return nil
 	}
 	c := make(map[string]any, len(m))
-	for k, v := range m {
-		c[k] = v
-	}
+	maps.Copy(c, m)
 	return c
 }
 
@@ -240,33 +240,33 @@ func assertConArg(t *testing.T, v gicel.Value, conName, argName string) {
 
 func TestStressGeneratedLargeProgram(t *testing.T) {
 	// Generate a program with 100 data types, 100 functions, 50 class instances.
-	var source string
-	source += "import Prelude\n"
-	source += "form D0 := { D0C0: D0; D0C1: D0; D0C2: D0 }\n"
+	var source strings.Builder
+	source.WriteString("import Prelude\n")
+	source.WriteString("form D0 := { D0C0: D0; D0C1: D0; D0C2: D0 }\n")
 
 	// Generate 50 additional data types
 	for i := 1; i <= 50; i++ {
-		source += fmt.Sprintf("form D%d := \\a. { D%dA: a -> D%d a; D%dB: D%d a }\n", i, i, i, i, i)
+		source.WriteString(fmt.Sprintf("form D%d := \\a. { D%dA: a -> D%d a; D%dB: D%d a }\n", i, i, i, i, i))
 	}
 
 	// Eq and its instances are already provided by Prelude.
 	// No need to redeclare them.
 
 	// Generate 50 functions that pattern match
-	for i := 0; i < 50; i++ {
-		source += fmt.Sprintf(`
+	for i := range 50 {
+		source.WriteString(fmt.Sprintf(`
 f%d :: \ a. a -> a
 f%d := \x. x
-`, i, i)
+`, i, i))
 	}
 
 	// Generate chain
-	source += "main := f0 (f1 (f2 (f3 (f4 (f5 (f6 (f7 (f8 (f9 True)))))))))\n"
+	source.WriteString("main := f0 (f1 (f2 (f3 (f4 (f5 (f6 (f7 (f8 (f9 True)))))))))\n")
 
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
 	start := time.Now()
-	rt, err := eng.NewRuntime(context.Background(), source)
+	rt, err := eng.NewRuntime(context.Background(), source.String())
 	compileTime := time.Since(start)
 	if err != nil {
 		t.Fatalf("compile failed (%v): %v", compileTime, err)

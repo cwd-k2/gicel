@@ -423,7 +423,7 @@ func TestReduceTyFamily_TypeSizeGuard(t *testing.T) {
 	// RHS that expands beyond maxReductionTypeSize should be rejected.
 	// Build a deeply nested type: Pair(Pair(Pair(...))) exceeding the limit.
 	var huge types.Type = con("X")
-	for i := 0; i < maxReductionTypeSize+1; i++ {
+	for range maxReductionTypeSize + 1 {
 		huge = app(con("P"), huge)
 	}
 	h := newTestHarness(&testEnvConfig{

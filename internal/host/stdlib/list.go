@@ -146,7 +146,7 @@ func takeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	}
 	v := args[1]
 	var prefix []eval.Value
-	for i := int64(0); i < n; i++ {
+	for range n {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
 			return nil, ce, errExpected("take", "List", v)
@@ -175,7 +175,7 @@ func dropImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appli
 		return args[1], ce, nil
 	}
 	v := args[1]
-	for i := int64(0); i < n; i++ {
+	for range n {
 		con, ok := v.(*eval.ConVal)
 		if !ok {
 			return nil, ce, errExpected("drop", "List", v)
@@ -230,7 +230,7 @@ func replicateImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	}
 	elem := args[1]
 	var result eval.Value = &eval.ConVal{Con: "Nil"}
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		if i&1023 == 0 {
 			if err := budget.CheckContext(ctx); err != nil {
 				return nil, ce, err
@@ -291,7 +291,7 @@ func rangeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 		return nil, ce, err
 	}
 	items := make([]eval.Value, n)
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		if i&1023 == 0 {
 			if err := budget.CheckContext(ctx); err != nil {
 				return nil, ce, err
@@ -676,7 +676,7 @@ func iterateNImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply 
 		return nil, ce, err
 	}
 	items := make([]eval.Value, 0, n)
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		items = append(items, current)
 		if i < n-1 {
 			next, newCe, err := apply.Apply(f, current, ce)

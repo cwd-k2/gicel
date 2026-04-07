@@ -25,7 +25,7 @@ main := id True
 func largeSource(n int) string {
 	var b strings.Builder
 	b.WriteString("import Prelude\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "f%d :: \\ a. a -> a\nf%d := \\x. x\n", i, i)
 	}
 	b.WriteString("main := f0 True\n")
@@ -189,7 +189,7 @@ func doBlockSource(binds int) string {
 	var b strings.Builder
 	b.WriteString("import Prelude\nimport Effect.State\n")
 	b.WriteString("compute := thunk do {\n  put 0;\n")
-	for i := 0; i < binds; i++ {
+	for i := range binds {
 		fmt.Fprintf(&b, "  n%d <- get; put (n%d + 1);\n", i, i)
 	}
 	b.WriteString("  get\n}\nmain := compute\n")
@@ -288,7 +288,7 @@ func mapInsertSource(n int) string {
 	var b strings.Builder
 	b.WriteString("import Prelude\nimport Data.Map as Map\n")
 	b.WriteString("main := {\n  m := (Map.empty :: Map Int Int);\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "  m := Map.insert %d %d m;\n", i, i*10)
 	}
 	fmt.Fprintf(&b, "  Map.lookup %d m\n}\n", n/2)
@@ -316,7 +316,7 @@ func mutableMapInsertSource(n int) string {
 	var b strings.Builder
 	b.WriteString("import Prelude\nimport Effect.Map\n")
 	b.WriteString("main := thunk do {\n  m <- new;\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "  insert %d %d m;\n", i, i*10)
 	}
 	fmt.Fprintf(&b, "  lookup %d m\n}\n", n/2)

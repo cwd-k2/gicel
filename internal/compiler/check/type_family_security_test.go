@@ -208,7 +208,7 @@ func TestPerformanceVerifyInjectivityCost(t *testing.T) {
 
 	// Define N data constructors.
 	sb.WriteString("form Tag := { ")
-	for i := 0; i < N; i++ {
+	for i := range N {
 		if i > 0 {
 			sb.WriteString("; ")
 		}
@@ -218,7 +218,7 @@ func TestPerformanceVerifyInjectivityCost(t *testing.T) {
 
 	// Define an injective type family.
 	sb.WriteString("type F :: Tag := \\(a: Tag). case a {\n")
-	for i := 0; i < N; i++ {
+	for i := range N {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
@@ -254,7 +254,7 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 	var sb strings.Builder
 	// Define a data type with many constructors.
 	sb.WriteString("form BigEnum := { ")
-	for i := 0; i < numBranches; i++ {
+	for i := range numBranches {
 		if i > 0 {
 			sb.WriteString("; ")
 		}
@@ -265,7 +265,7 @@ func TestPerformanceIntersectCapRowsManyBranches(t *testing.T) {
 	sb.WriteString("form Unit := { Unit: Unit; }\n")
 	sb.WriteString("f :: BigEnum -> Unit\n")
 	sb.WriteString("f := \\x. case x {\n")
-	for i := 0; i < numBranches; i++ {
+	for i := range numBranches {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}
@@ -342,11 +342,11 @@ func TestSecurityParserDeepNesting(t *testing.T) {
 	const depth = 200
 	sb.WriteString("form Unit := { Unit: Unit; }\n")
 	sb.WriteString("f :: ")
-	for i := 0; i < depth; i++ {
+	for range depth {
 		sb.WriteString("(")
 	}
 	sb.WriteString("Unit")
-	for i := 0; i < depth; i++ {
+	for range depth {
 		sb.WriteString(")")
 	}
 	sb.WriteString(" -> Unit\nf := \\x. x\n")
@@ -367,7 +367,7 @@ func TestSecurityParserLongEquationBlock(t *testing.T) {
 	var sb strings.Builder
 
 	sb.WriteString("form Tag := { ")
-	for i := 0; i < N; i++ {
+	for i := range N {
 		if i > 0 {
 			sb.WriteString("; ")
 		}
@@ -376,7 +376,7 @@ func TestSecurityParserLongEquationBlock(t *testing.T) {
 	sb.WriteString("; }\n")
 
 	sb.WriteString("type F :: Tag := \\(a: Tag). case a {\n")
-	for i := 0; i < N; i++ {
+	for i := range N {
 		if i > 0 {
 			sb.WriteString(";\n")
 		}

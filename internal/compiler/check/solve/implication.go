@@ -1,6 +1,8 @@
 package solve
 
 import (
+	"maps"
+
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -43,9 +45,7 @@ func (s *Solver) processCtImplication(ct *CtImplication, outerResolutions map[st
 	s.RestoreWorklist(ct.Wanteds)
 
 	innerResolutions, innerResiduals := s.SolveWanteds(localShouldDefer())
-	for k, v := range innerResolutions {
-		outerResolutions[k] = v
-	}
+	maps.Copy(outerResolutions, innerResolutions)
 
 	floatable := s.partitionResiduals(innerResiduals, localSkolems, s.Level())
 

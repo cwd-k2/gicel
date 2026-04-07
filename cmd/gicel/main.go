@@ -78,11 +78,11 @@ func normalizeFlagError(msg string) string {
 		return "unknown flag: -" + rest
 	}
 	// "invalid value ... for flag -xyz" → "invalid value ... for flag --xyz"
-	if i := strings.Index(msg, " for flag -"); i >= 0 {
-		after := msg[i+len(" for flag -"):]
+	if before, after, ok := strings.Cut(msg, " for flag -"); ok {
+		after := after
 		after = strings.TrimPrefix(after, "-")
 		if len(after) > 1 {
-			return msg[:i] + " for flag --" + after
+			return before + " for flag --" + after
 		}
 	}
 	return msg

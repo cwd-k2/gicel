@@ -66,8 +66,8 @@ func BenchmarkParseExprDeep(b *testing.B) {
 func BenchmarkLexTokenize(b *testing.B) {
 	source := generateProgram(200)
 	src := span.NewSource("bench", source)
-	b.ResetTimer()
-	for range b.N {
+
+	for b.Loop() {
 		s := NewScanner(src)
 		for s.Next().Kind != 0 {
 		}

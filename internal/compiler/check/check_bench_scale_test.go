@@ -37,7 +37,7 @@ func instanceScaleSource(n int) string {
 	var b strings.Builder
 	b.WriteString("form Bool := { True: Bool; False: Bool; }\n")
 	b.WriteString("form Eq := \\a. { eq: a -> a -> Bool }\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "form T%d := { C%d: T%d; }\n", i, i, i)
 		fmt.Fprintf(&b, "impl Eq T%d := { eq := \\x y. True }\n", i)
 	}
@@ -114,11 +114,11 @@ func BenchmarkSuperclassDepth10(b *testing.B) {
 // typeFamilyLinearSource generates a closed type family with n equations.
 func typeFamilyLinearSource(n int) string {
 	var b strings.Builder
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "form T%d := { C%d: T%d; }\n", i, i, i)
 	}
 	b.WriteString("type F :: Type := \\(a: Type). case a {\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "  T%d => T%d", i, (i+1)%n)
 		if i < n-1 {
 			b.WriteString(";")
@@ -155,7 +155,7 @@ func BenchmarkTypeFamilyReduceLinear50(b *testing.B) {
 func largeDeclSource(n int) string {
 	var b strings.Builder
 	b.WriteString("form Bool := { True: Bool; False: Bool; }\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "f%d :: Bool -> Bool\nf%d := \\x. x\n", i, i)
 	}
 	b.WriteString("main := f0 True\n")
@@ -211,7 +211,7 @@ func doBlockSource(n int) string {
 	b.WriteString("myGet :: MyComp Triv {} {} Bool\nmyGet := MkComp (\\s. (s, s))\n")
 	b.WriteString("myPut :: Bool -> MyComp Triv {} {} Unit\nmyPut := \\v. MkComp (\\s. (MkUnit, v))\n")
 	b.WriteString("compute :: MyComp Triv {} {} Bool\ncompute := do {\n  myPut True;\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "  x%d <- myGet; myPut x%d;\n", i, i)
 	}
 	b.WriteString("  myGet\n}\nmain := compute\n")
@@ -252,7 +252,7 @@ func overlappingInstanceSource(n int) string {
 	var b strings.Builder
 	b.WriteString("form Bool := { True: Bool; False: Bool; }\n")
 	b.WriteString("form Show := \\a. { show: a -> Bool }\n")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fmt.Fprintf(&b, "form T%d := { C%d: T%d; }\n", i, i, i)
 		fmt.Fprintf(&b, "impl Show T%d := { show := \\x. True }\n", i)
 	}

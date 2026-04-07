@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
@@ -102,9 +103,7 @@ func (s *ModuleStore) CollectFixityMap(imports []string) map[string]parse.Fixity
 		if !ok {
 			return
 		}
-		for k, v := range mod.fixity {
-			result[k] = v
-		}
+		maps.Copy(result, mod.fixity)
 		for _, dep := range mod.deps {
 			walk(dep)
 		}

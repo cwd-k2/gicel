@@ -99,7 +99,7 @@ func TestErrorAccumulationCap(t *testing.T) {
 	// Generate a program with many type errors.
 	var lines []string
 	lines = append(lines, "import Prelude")
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		lines = append(lines, fmt.Sprintf("x%d := unknownVar%d", i, i))
 	}
 	lines = append(lines, "main := 0")
@@ -125,7 +125,7 @@ func TestParserKindExprDepthLimit(t *testing.T) {
 	eng.Use(gicel.Prelude)
 	// Build deeply nested kind: ((((((...Type))))))
 	kind := "Type"
-	for i := 0; i < 300; i++ {
+	for range 300 {
 		kind = "(" + kind + ")"
 	}
 	src := fmt.Sprintf("form X (a: %s) := MkX\nmain := MkX", kind)

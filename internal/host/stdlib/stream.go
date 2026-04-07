@@ -41,7 +41,7 @@ func takeSImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eva
 	}
 	stream := args[1]
 	var items []eval.Value
-	for i := int64(0); i < n; i++ {
+	for range n {
 		con, ok := stream.(*eval.ConVal)
 		if !ok {
 			return nil, ce, errExpected("takeS", "Stream", stream)
@@ -74,7 +74,7 @@ func dropSImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.
 		return nil, ce, err
 	}
 	stream := args[1]
-	for i := int64(0); i < n; i++ {
+	for range n {
 		con, ok := stream.(*eval.ConVal)
 		if !ok {
 			return nil, ce, errExpected("dropS", "Stream", stream)

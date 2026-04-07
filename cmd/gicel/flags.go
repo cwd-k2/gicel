@@ -44,8 +44,8 @@ func (b *byteSizeFlag) Set(val string) error {
 	}
 	for _, s := range suffixes {
 		trimmed := strings.TrimSpace(val)
-		if strings.HasSuffix(trimmed, s.suffix) {
-			numStr := strings.TrimSpace(strings.TrimSuffix(trimmed, s.suffix))
+		if before, ok := strings.CutSuffix(trimmed, s.suffix); ok {
+			numStr := strings.TrimSpace(before)
 			n, err := strconv.ParseInt(numStr, 10, 64)
 			if err != nil {
 				return fmt.Errorf("invalid number before %s: %q", s.suffix, numStr)

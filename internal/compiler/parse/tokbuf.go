@@ -129,7 +129,7 @@ const scanForwardLimit = 1024
 // Does not advance the read position. Stops after scanForwardLimit
 // tokens to bound work on adversarial input.
 func (tb *tokenBuffer) scanForward(pred func(tok syn.Token, offset int) (stop bool, result bool)) bool {
-	for i := 0; i < scanForwardLimit; i++ {
+	for i := range scanForwardLimit {
 		tok := tb.at(tb.pos + i)
 		if stop, result := pred(tok, i); stop {
 			return result

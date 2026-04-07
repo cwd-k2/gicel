@@ -40,13 +40,13 @@ func TestStressManyInstancesOneClass(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
 	sb.WriteString("form Eq := \\a. { eq: a -> a -> Bool }\n")
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("T%d", i)
 		sb.WriteString(fmt.Sprintf("form %s := { Mk%s: %s; }\n", name, name, name))
 		sb.WriteString(fmt.Sprintf("impl Eq %s := { eq := \\x y. True }\n", name))
 	}
 	// Use eq on each type.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := fmt.Sprintf("T%d", i)
 		sb.WriteString(fmt.Sprintf("test%d := eq Mk%s Mk%s\n", i, name, name))
 	}
@@ -57,15 +57,15 @@ func TestStressManyClasses(t *testing.T) {
 	// 10 independent classes, each with one instance.
 	var sb strings.Builder
 	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		sb.WriteString(fmt.Sprintf("form C%d := \\a. { m%d: a -> Bool }\n", i, i))
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		sb.WriteString(fmt.Sprintf("impl C%d Bool := { m%d := \\x. True }\n", i, i))
 	}
 	// Function requiring all 10 constraints (curried style).
 	sb.WriteString("f :: \\ a. ")
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		sb.WriteString(fmt.Sprintf("C%d a => ", i))
 	}
 	sb.WriteString("a -> Bool\n")

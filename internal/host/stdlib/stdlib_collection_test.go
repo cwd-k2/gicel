@@ -359,7 +359,7 @@ func TestMapManyInserts(t *testing.T) {
 	apply := intCmpApplier()
 	cmpFn := &eval.HostVal{Inner: "cmp"}
 	m, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
-	for i := int64(0); i < 20; i++ {
+	for i := range int64(20) {
 		var err error
 		m, _, err = mapInsertImpl(ctx, ce, args(cmpFn, intVal(i), intVal(i*100), m), apply)
 		if err != nil {
@@ -370,7 +370,7 @@ func TestMapManyInserts(t *testing.T) {
 	assertInt(t, sv, 20)
 
 	// Verify all keys are found.
-	for i := int64(0); i < 20; i++ {
+	for i := range int64(20) {
 		v, _, err := mapLookupImpl(ctx, ce, args(cmpFn, intVal(i), m), apply)
 		if err != nil {
 			t.Fatal(err)

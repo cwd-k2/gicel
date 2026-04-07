@@ -10,7 +10,7 @@ import (
 // deepConVal builds ConVal("C", [ConVal("C", [... HostVal(1) ...])]) at the given depth.
 func deepConVal(depth int) Value {
 	var v Value = &HostVal{Inner: int64(1)}
-	for i := 0; i < depth; i++ {
+	for range depth {
 		v = &ConVal{Con: "C", Args: []Value{v}}
 	}
 	return v

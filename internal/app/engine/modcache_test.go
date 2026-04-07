@@ -172,9 +172,7 @@ func TestModuleCache_Concurrent(t *testing.T) {
 	errs := make(chan error, N)
 
 	for range N {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			eng := NewEngine()
 			if err := eng.RegisterModule("Lib", source); err != nil {
 				errs <- err
@@ -192,7 +190,7 @@ main := MkX
 			if err != nil {
 				errs <- err
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

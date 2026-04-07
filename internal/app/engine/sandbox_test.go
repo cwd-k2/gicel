@@ -68,15 +68,16 @@ func TestSandboxRunJSON(t *testing.T) {
 
 func TestSandboxDeepNesting(t *testing.T) {
 	// Deeply nested expression — parser depth limit should catch this.
-	src := "main := "
+	var src strings.Builder
+	src.WriteString("main := ")
 	for range 500 {
-		src += "("
+		src.WriteString("(")
 	}
-	src += "True"
+	src.WriteString("True")
 	for range 500 {
-		src += ")"
+		src.WriteString(")")
 	}
-	_, err := RunSandbox(src, nil)
+	_, err := RunSandbox(src.String(), nil)
 	if err == nil {
 		t.Fatal("expected error from deeply nested expression")
 	}

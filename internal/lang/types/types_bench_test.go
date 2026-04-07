@@ -9,7 +9,7 @@ import (
 // buildDeepArrowType builds Int -> (Int -> (... -> Int)) with n arrows.
 func buildDeepArrowType(n int) Type {
 	t := Type(Con("Int"))
-	for i := 0; i < n; i++ {
+	for range n {
 		t = &TyArrow{From: Con("Int"), To: t}
 	}
 	return t
@@ -18,7 +18,7 @@ func buildDeepArrowType(n int) Type {
 // buildDeepAppType builds ((..((F a0) a1) ..) aN) with n applications.
 func buildDeepAppType(n int) Type {
 	t := Type(Con("F"))
-	for i := 0; i < n; i++ {
+	for range n {
 		t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 	}
 	return t
@@ -65,7 +65,7 @@ func BenchmarkFreeVars(b *testing.B) {
 	// Build a type with many free variables: F a0 a1 ... aN
 	buildFreeVarType := func(n int) Type {
 		t := Type(Con("F"))
-		for i := 0; i < n; i++ {
+		for range n {
 			t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 		}
 		return t
@@ -85,7 +85,7 @@ func BenchmarkSubstMany(b *testing.B) {
 	// Build forall a. F a a a ... (body has n occurrences of a)
 	buildBody := func(n int) Type {
 		t := Type(Con("F"))
-		for i := 0; i < n; i++ {
+		for range n {
 			t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 		}
 		return t
@@ -109,7 +109,7 @@ func BenchmarkSubstCapture(b *testing.B) {
 		Kind: TypeOfTypes,
 		Body: &TyApp{Fun: &TyApp{Fun: Con("F"), Arg: &TyVar{Name: "x"}}, Arg: &TyVar{Name: "a"}},
 	}
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Subst(body, "x", &TyVar{Name: "a"})
 	}
 }

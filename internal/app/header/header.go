@@ -45,7 +45,7 @@ var disallowedFlags = map[string]bool{
 // for forward compatibility.
 func Parse(source string) Directives {
 	var hd Directives
-	for _, line := range strings.Split(source, "\n") {
+	for line := range strings.SplitSeq(source, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue

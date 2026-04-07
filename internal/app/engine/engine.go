@@ -216,7 +216,7 @@ func ValidateModuleName(name string) error {
 	if name == "" {
 		return fmt.Errorf("module name must not be empty")
 	}
-	for _, seg := range strings.Split(name, ".") {
+	for seg := range strings.SplitSeq(name, ".") {
 		if seg == "" {
 			return fmt.Errorf("invalid module name %q: empty segment", name)
 		}

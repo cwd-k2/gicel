@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -45,9 +46,7 @@ func newRegistry(config *CheckConfig) *Registry {
 		levelVars:         make(map[string]bool),
 		families:          make(map[string]*TypeFamilyInfo),
 	}
-	for name, kind := range config.RegisteredTypes {
-		r.typeKinds[name] = kind
-	}
+	maps.Copy(r.typeKinds, config.RegisteredTypes)
 	return r
 }
 

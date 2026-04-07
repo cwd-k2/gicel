@@ -11,7 +11,7 @@ import (
 // buildDeepArrow builds a -> (a -> (a -> ... -> a)) with n arrows.
 func buildDeepArrow(n int) types.Type {
 	var t types.Type = types.Con("Int")
-	for i := 0; i < n; i++ {
+	for range n {
 		t = &types.TyArrow{From: types.Con("Int"), To: t}
 	}
 	return t
@@ -20,7 +20,7 @@ func buildDeepArrow(n int) types.Type {
 // buildDeepApp builds (((...(F a) a) a) ... a) with n applications.
 func buildDeepApp(n int) types.Type {
 	t := types.Type(types.Con("F"))
-	for i := 0; i < n; i++ {
+	for range n {
 		t = &types.TyApp{Fun: t, Arg: types.Con("Int")}
 	}
 	return t
@@ -47,7 +47,7 @@ func BenchmarkUnifyMetaSolve(b *testing.B) {
 		b.Run(depthName(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				u := NewUnifier()
-				for j := 0; j < n; j++ {
+				for j := range n {
 					m := &types.TyMeta{ID: j, Kind: types.TypeOfTypes}
 					_ = u.Unify(m, types.Con("Int"))
 				}
@@ -78,7 +78,7 @@ func BenchmarkSnapshotRestore(b *testing.B) {
 			u := NewUnifier()
 			for i := 0; i < b.N; i++ {
 				snap := u.Snapshot()
-				for j := 0; j < n; j++ {
+				for j := range n {
 					m := &types.TyMeta{ID: j + i*n, Kind: types.TypeOfTypes}
 					_ = u.Unify(m, types.Con("Int"))
 				}
@@ -92,7 +92,7 @@ func BenchmarkSnapshotRestore(b *testing.B) {
 func BenchmarkUnifyLevelLit(b *testing.B) {
 	a := &types.TyCon{Name: "Type", Level: types.L1}
 	bTy := &types.TyCon{Name: "Type", Level: types.L1}
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		u := NewUnifier()
 		_ = u.Unify(a, bTy)
 	}

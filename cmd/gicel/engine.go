@@ -165,15 +165,15 @@ func (b *sourceBudget) read(r io.Reader) ([]byte, error) {
 // registerUserModules parses --module Name=path flags and registers each module.
 func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudget) error {
 	for _, spec := range modules {
-		eqIdx := strings.IndexByte(spec, '=')
-		if eqIdx < 0 {
+		before, after, ok := strings.Cut(spec, "=")
+		if !ok {
 			return fmt.Errorf("invalid module spec: %q (expected Name=path)", spec)
 		}
-		name := spec[:eqIdx]
+		name := before
 		if err := gicel.ValidateModuleName(name); err != nil {
 			return err
 		}
-		path := spec[eqIdx+1:]
+		path := after
 		data, err := budget.readFile(path)
 		if err != nil {
 			return fmt.Errorf("reading module %s: %w", name, err)

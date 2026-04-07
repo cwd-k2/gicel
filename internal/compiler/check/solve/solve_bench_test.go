@@ -15,7 +15,7 @@ func BenchmarkWorklistPushPop(b *testing.B) {
 		b.Run(sizeName(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var w Worklist
-				for j := 0; j < n; j++ {
+				for range n {
 					w.Push(&CtClass{
 						ClassName: "Eq",
 						Args:      []types.Type{types.Con("Int")},
@@ -41,7 +41,7 @@ func BenchmarkInertSetInsertKickOut(b *testing.B) {
 			meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 			for i := 0; i < b.N; i++ {
 				is := &InertSet{}
-				for j := 0; j < n; j++ {
+				for j := range n {
 					is.InsertFunEq(&CtFunEq{
 						FamilyName: "F",
 						Args:       []types.Type{meta, types.Con("Int")},
@@ -58,11 +58,11 @@ func BenchmarkInertSetInsertKickOut(b *testing.B) {
 
 // BenchmarkInertSetScopeEnterLeave benchmarks scope enter/leave with constraints.
 func BenchmarkInertSetScopeEnterLeave(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		is := &InertSet{}
 		is.InsertFunEq(&CtFunEq{FamilyName: "F", Args: []types.Type{types.Con("Int")}, ResultMeta: &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}, BlockingOn: []int{1}})
 		is.EnterScope()
-		for j := 0; j < 20; j++ {
+		for j := range 20 {
 			is.InsertFunEq(&CtFunEq{FamilyName: "G", Args: []types.Type{types.Con("Int")}, ResultMeta: &types.TyMeta{ID: 100 + j, Kind: types.TypeOfTypes}, BlockingOn: []int{100 + j}})
 		}
 		is.LeaveScope()
@@ -76,7 +76,7 @@ func BenchmarkKickOutMentioningSkolem(b *testing.B) {
 			skolem := &types.TySkolem{ID: 99, Name: "sk", Kind: types.TypeOfTypes}
 			for i := 0; i < b.N; i++ {
 				is := &InertSet{}
-				for j := 0; j < n; j++ {
+				for j := range n {
 					meta := &types.TyMeta{ID: j, Kind: types.TypeOfTypes}
 					is.InsertEq(&CtEq{
 						Lhs:    meta,

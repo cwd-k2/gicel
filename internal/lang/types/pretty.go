@@ -174,12 +174,13 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 			vars = append(vars, "("+v.Name+": "+PrettyTypeAsKind(v.Kind)+")")
 		}
 	}
-	result := `\` + strings.Join(vars, " ") + ". "
+	var result strings.Builder
+	result.WriteString(`\` + strings.Join(vars, " ") + ". ")
 	for _, c := range qc.Context {
-		result += prettyConstraintEntry(c) + " => "
+		result.WriteString(prettyConstraintEntry(c) + " => ")
 	}
-	result += prettyConstraintEntry(qc.Head)
-	return result
+	result.WriteString(prettyConstraintEntry(qc.Head))
+	return result.String()
 }
 
 // PrettyTypeAsKind renders a type that represents a kind (level >= 1).

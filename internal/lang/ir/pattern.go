@@ -55,7 +55,7 @@ type PRecordField struct {
 
 // PLit — literal pattern (matches a literal value by equality).
 type PLit struct {
-	Value interface{} // int64, float64, string, or rune
+	Value any // int64, float64, string, or rune
 	S     span.Span
 }
 

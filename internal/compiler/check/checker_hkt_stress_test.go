@@ -49,7 +49,7 @@ func TestStressKindUnificationLargeArrow(t *testing.T) {
 	}
 	// Build Type -> Type -> ... -> Type -> Type (all concrete)
 	var k2 types.Type = types.TypeOfTypes
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		k2 = &types.TyArrow{From: types.TypeOfTypes, To: k2}
 	}
 	if err := u.Unify(k1, k2); err != nil {
@@ -68,11 +68,11 @@ func TestStressKindMetaChain(t *testing.T) {
 	u := unify.NewUnifier()
 	const n = 50
 	metas := make([]*types.TyMeta, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		metas[i] = &types.TyMeta{ID: i + 200, Kind: types.SortZero}
 	}
 	// Chain: ?k0 ~ ?k1, ?k1 ~ ?k2, ..., ?k48 ~ ?k49
-	for i := 0; i < n-1; i++ {
+	for i := range n - 1 {
 		if err := u.Unify(metas[i], metas[i+1]); err != nil {
 			t.Fatalf("chain unify %d ~ %d failed: %v", i, i+1, err)
 		}
@@ -105,7 +105,7 @@ func TestStressSubstKindLarge(t *testing.T) {
 	result := types.Subst(ty, "k", types.TypeOfRows)
 	// Verify all foralls have kind Row -> Type
 	current := result
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		f, ok := current.(*types.TyForall)
 		if !ok {
 			t.Fatalf("expected TyForall at depth %d, got %T", i, current)
@@ -125,7 +125,7 @@ func TestStressSubstKindLarge(t *testing.T) {
 func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	var sb strings.Builder
 	// Build 10 data types: D0, D1, ..., D9, each with a type parameter
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		fmt.Fprintf(&sb, "form D%d := \\a. { MkD%d: a -> D%d a; }\n", i, i, i)
 	}
 	// Poly-kinded Functor
@@ -133,14 +133,14 @@ func TestStressPolyKindedClassManyInstances(t *testing.T) {
 	sb.WriteString("  fmap: \\ a b. (a -> b) -> f a -> f b\n")
 	sb.WriteString("}\n\n")
 	// 10 instances
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		fmt.Fprintf(&sb, "impl Functor D%d := {\n", i)
 		fmt.Fprintf(&sb, "  fmap := \\g x. case x { MkD%d v => MkD%d (g v) }\n", i, i)
 		sb.WriteString("}\n\n")
 	}
 	// Use each one
 	sb.WriteString("form Bool := { True: Bool; False: Bool; }\n")
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		fmt.Fprintf(&sb, "test%d := fmap (\\x. True) (MkD%d True)\n", i, i)
 	}
 	checkSource(t, sb.String(), nil)

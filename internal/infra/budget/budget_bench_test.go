@@ -10,23 +10,22 @@ import (
 
 func BenchmarkBudgetStep(b *testing.B) {
 	bg := New(context.Background(), 0, 0) // unlimited
-	for range b.N {
+	for b.Loop() {
 		_ = bg.Step()
 	}
 }
 
 func BenchmarkBudgetStepCancel(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 	bg := New(ctx, 0, 0)
-	for range b.N {
+	for b.Loop() {
 		_ = bg.Step()
 	}
 }
 
 func BenchmarkBudgetEnterLeave(b *testing.B) {
 	bg := New(context.Background(), 0, 0) // unlimited depth
-	for range b.N {
+	for b.Loop() {
 		_ = bg.Enter()
 		bg.Leave()
 	}
@@ -35,7 +34,7 @@ func BenchmarkBudgetEnterLeave(b *testing.B) {
 func BenchmarkBudgetNestUnnest(b *testing.B) {
 	bg := New(context.Background(), 0, 0)
 	bg.SetNestingLimit(0) // unlimited
-	for range b.N {
+	for b.Loop() {
 		_ = bg.Nest()
 		bg.Unnest()
 	}
@@ -44,7 +43,7 @@ func BenchmarkBudgetNestUnnest(b *testing.B) {
 func BenchmarkBudgetAlloc(b *testing.B) {
 	bg := New(context.Background(), 0, 0)
 	bg.SetAllocLimit(0) // unlimited
-	for range b.N {
+	for b.Loop() {
 		_ = bg.Alloc(64)
 	}
 }

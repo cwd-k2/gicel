@@ -178,10 +178,7 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 	bp := frame.bp
 	oldNumLocals := frame.proto.NumLocals
 	newNumLocals := proto.NumLocals
-	clearN := oldNumLocals
-	if newNumLocals > clearN {
-		clearN = newNumLocals
-	}
+	clearN := max(newNumLocals, oldNumLocals)
 	vm.ensureLocals(bp + clearN)
 
 	// Determine how many leading slots will be overwritten by captures + param.

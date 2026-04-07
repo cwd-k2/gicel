@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -54,10 +55,8 @@ func (ch *Checker) validateAliasGraph() bool {
 
 		info, _ := ch.reg.LookupAlias(name)
 		refs := collectAliasRefs(info.Body, ch.reg.AllAliases())
-		for _, ref := range refs {
-			if visit(ref) {
-				return true
-			}
+		if slices.ContainsFunc(refs, visit) {
+			return true
 		}
 
 		path = path[:len(path)-1]

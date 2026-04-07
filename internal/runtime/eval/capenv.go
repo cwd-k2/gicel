@@ -1,5 +1,7 @@
 package eval
 
+import "maps"
+
 import "sort"
 
 // CapEnv is a capability environment: label -> capability state.
@@ -39,9 +41,7 @@ func (c CapEnv) Get(label string) (any, bool) {
 func (c CapEnv) Set(label string, val any) CapEnv {
 	if c.caps == nil || c.shared {
 		newCaps := make(map[string]any, len(c.caps)+1)
-		for k, v := range c.caps {
-			newCaps[k] = v
-		}
+		maps.Copy(newCaps, c.caps)
 		newCaps[label] = val
 		return CapEnv{caps: newCaps, shared: false}
 	}
@@ -108,11 +108,7 @@ func (c CapEnv) MergeWith(other CapEnv) CapEnv {
 	}
 	size := len(c.caps) + len(other.caps)
 	m := make(map[string]any, size)
-	for k, v := range c.caps {
-		m[k] = v
-	}
-	for k, v := range other.caps {
-		m[k] = v
-	}
+	maps.Copy(m, c.caps)
+	maps.Copy(m, other.caps)
 	return CapEnv{caps: m}
 }

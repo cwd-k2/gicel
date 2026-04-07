@@ -225,8 +225,8 @@ func TestStressManyContextualInstances(t *testing.T) {
 	for i := 7; i >= 0; i-- {
 		nested = fmt.Sprintf("(W%d %s)", i, nested)
 	}
-	sb.WriteString(fmt.Sprintf("(MkW0 (MkW1 (MkW2 (MkW3 (MkW4 (MkW5 (MkW6 (MkW7 True)))))))) "))
-	sb.WriteString(fmt.Sprintf("(MkW0 (MkW1 (MkW2 (MkW3 (MkW4 (MkW5 (MkW6 (MkW7 False))))))))\n"))
+	sb.WriteString("(MkW0 (MkW1 (MkW2 (MkW3 (MkW4 (MkW5 (MkW6 (MkW7 True)))))))) ")
+	sb.WriteString("(MkW0 (MkW1 (MkW2 (MkW3 (MkW4 (MkW5 (MkW6 (MkW7 False))))))))\n")
 	checkSource(t, sb.String(), nil)
 }
 

@@ -23,8 +23,7 @@ impl Eq Bool := { eq := \x y. True }
 impl Eq Unit := { eq := \x y. True }
 main := eq True False`
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		src := span.NewSource("bench", source)
 		es := &diagnostic.Errors{Source: src}
 		p := parse.NewParser(context.Background(), src, es)
@@ -125,11 +124,11 @@ func BenchmarkZonkDeepChain(b *testing.B) {
 	u := unify.NewUnifier()
 	// Build a deep TyApp chain with no metavariables.
 	var ty types.Type = types.Con("Base")
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		ty = &types.TyApp{Fun: types.Con("F"), Arg: ty}
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		u.Zonk(ty)
 	}
 }

@@ -33,7 +33,7 @@ func buildBetaChain(n int) ir.Core {
 		}
 	}
 	// Apply arguments.
-	for i := 0; i < n; i++ {
+	for i := range n {
 		body = &ir.App{
 			Fun: body,
 			Arg: &ir.Var{Name: fmt.Sprintf("arg%d", i)},

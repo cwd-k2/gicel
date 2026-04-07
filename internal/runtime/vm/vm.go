@@ -801,11 +801,7 @@ func formatMatchConPattern(desc MatchDesc) string {
 	if len(desc.ArgNames) == 0 {
 		return desc.ConName
 	}
-	parts := make([]string, len(desc.ArgNames))
-	for i, n := range desc.ArgNames {
-		parts[i] = n
-	}
-	return desc.ConName + " " + strings.Join(parts, " ")
+	return desc.ConName + " " + strings.Join(desc.ArgNames, " ")
 }
 
 // lookupBindName returns the variable name for an OpBind slot, or "".

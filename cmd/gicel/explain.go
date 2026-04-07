@@ -205,18 +205,19 @@ func (f *explainFormatter) writeBind(step gicel.ExplainStep) {
 func (f *explainFormatter) writeEffect(step gicel.ExplainStep) {
 	f.hadEvent = true
 	d := step.Detail
-	s := d.Op
+	var s strings.Builder
+	s.WriteString(d.Op)
 	for _, a := range d.Args {
 		if strings.Contains(a, " ") {
-			s += " (" + a + ")"
+			s.WriteString(" (" + a + ")")
 		} else {
-			s += " " + a
+			s.WriteString(" " + a)
 		}
 	}
 	if d.Result != "" && d.Result != "()" {
-		s += " ⇒ " + d.Result
+		s.WriteString(" ⇒ " + d.Result)
 	}
-	content := f.styled(cYellow, s)
+	content := f.styled(cYellow, s.String())
 	if len(d.CapDiff) > 0 {
 		content += "  " + f.styled(cDim, fmtCapDiff(d.CapDiff))
 	}

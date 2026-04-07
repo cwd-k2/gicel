@@ -50,13 +50,7 @@ func posToOffset(src *span.Source, pos protocol.Position) span.Pos {
 		return span.Pos(len(src.Text))
 	}
 	lineStart := int(src.Lines[line])
-	char := pos.Character
-	if char < 0 {
-		char = 0
-	}
-	offset := lineStart + char
-	if offset > len(src.Text) {
-		offset = len(src.Text)
-	}
+	char := max(pos.Character, 0)
+	offset := min(lineStart+char, len(src.Text))
 	return span.Pos(offset)
 }
