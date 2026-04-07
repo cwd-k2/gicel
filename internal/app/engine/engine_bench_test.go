@@ -366,3 +366,61 @@ main := {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 1-Engine multi-compile: realistic embedder pattern (single Engine,
+// multiple programs). The existing CompileSmall/Large variants rebuild
+// Engine per iter and cannot detect Engine-scoped caching wins.
+// ---------------------------------------------------------------------------
+
+// BenchmarkEngineMultiCompileSameSource compiles the same source repeatedly
+// against a shared Engine. Distinct from BenchmarkEngineCompileSmall, which
+// rebuilds the Engine each iteration: amortizing NewEngine + Prelude register
+// reveals the per-compile cost as seen by realistic embedders. Currently the
+// main-program path is not Engine-cached, so this is the **floor** for any
+// future per-Engine main-source cache.
+func BenchmarkEngineMultiCompileSameSource(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	// Prime the module cache so the bench loop measures steady-state
+	// hit cost, not the first-compile miss.
+	if _, err := eng.NewRuntime(context.Background(), smallSource); err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		if _, err := eng.NewRuntime(context.Background(), smallSource); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkEngineMultiCompileVarying compiles distinct sources against a
+// shared Engine. The 32-source rotation guarantees that any future per-source
+// cache (main-program AST, env fingerprint, precompileVM hot loops) cannot
+// hit, exposing the irreducible per-compile work. Pair with SameSource: any
+// gap between the two = caching opportunity exploited.
+func BenchmarkEngineMultiCompileVarying(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	const variants = 32
+	sources := make([]string, variants)
+	for i := range variants {
+		sources[i] = fmt.Sprintf("import Prelude\nf%d := %d\nmain := f%d\n", i, i, i)
+	}
+	// Prime each variant once so the loop measures steady-state cost on
+	// already-seen sources rather than first-compile misses.
+	for _, src := range sources {
+		if _, err := eng.NewRuntime(context.Background(), src); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ResetTimer()
+	i := 0
+	for b.Loop() {
+		if _, err := eng.NewRuntime(context.Background(), sources[i%variants]); err != nil {
+			b.Fatal(err)
+		}
+		i++
+	}
+}

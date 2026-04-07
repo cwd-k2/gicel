@@ -161,3 +161,52 @@ main := sumTo 1000 0
 	}
 }
 
+// BenchmarkExecListFoldrSum exercises applyNForPrim with a 2-arg VMClosure
+// (the user lambda for the fold step). This is the host-callback dispatch
+// path most embedders hit through HoFs (foldr / foldl / map / filter), and
+// is distinct from the Map/Set compareKeys path covered by ExecMapInsert50:
+// compareKeys lands on the PrimVal scratch fast path, while a user closure
+// lands on the VMClosure callClosureMulti path. Both share callPrim's
+// defer/recover overhead, so widening coverage matters for B2.
+func BenchmarkExecListFoldrSum(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	source := `import Prelude
+xs := replicate 100 (1 :: Int)
+main := foldr (\x acc. x + acc) 0 xs
+`
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkExecListMap exercises applyForPrim with a 1-arg VMClosure (the
+// per-element map function). Complements ExecListFoldrSum by isolating the
+// single-arg dispatch path.
+func BenchmarkExecListMap(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	source := `import Prelude
+xs := replicate 100 (1 :: Int)
+main := foldr (\x acc. x + acc) 0 (map (\n. n + 1) xs)
+`
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
