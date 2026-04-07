@@ -49,7 +49,6 @@ func (c *Compiler) compileChildProto(paramName string, body ir.Core, isThunk boo
 }
 
 // compileFixProto compiles a Fix body (self-referential closure or thunk).
-// compileFixProto compiles a Fix body (self-referential closure or thunk).
 func (c *Compiler) compileFixProto(selfName, paramName string, body ir.Core, isThunk bool, fv []string, fvIndices []int) *Proto {
 	capturedNames, captureSlots := c.resolveCapturesFiltered(fv, fvIndices)
 	c.enterFrame()
@@ -73,7 +72,6 @@ func (c *Compiler) compileFixProto(selfName, paramName string, body ir.Core, isT
 }
 
 // compileFixMultiProto compiles a Fix body with multiple parameters (flattened lambda chain).
-// compileFixMultiProto compiles a Fix body with multiple parameters (flattened lambda chain).
 func (c *Compiler) compileFixMultiProto(selfName string, params []string, body ir.Core, fv []string, fvIndices []int) *Proto {
 	capturedNames, captureSlots := c.resolveCapturesFiltered(fv, fvIndices)
 	c.enterFrame()
@@ -84,7 +82,7 @@ func (c *Compiler) compileFixMultiProto(selfName string, params []string, body i
 	for _, name := range capturedNames {
 		c.allocLocal(name)
 	}
-	selfSlot := c.allocLocalWithArity(selfName, len(params))
+	selfSlot := c.allocLocal(selfName)
 	f.fixSelfSlot = selfSlot
 	for _, param := range params {
 		c.allocLocal(param)
@@ -117,7 +115,6 @@ func (c *Compiler) resolveCapturesFiltered(fv []string, fvIndices []int) ([]stri
 	return names, slots
 }
 
-// resolveLocalInFrame searches a specific frame's locals by name.
 // resolveLocalInFrame searches a specific frame's locals by name.
 func resolveLocalInFrame(f *frame, name string) (int, bool) {
 	for i := len(f.locals) - 1; i >= 0; i-- {

@@ -302,9 +302,6 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 		protos := make([]vmBindingProto, len(me.sortedBindings))
 		for j, b := range me.sortedBindings {
 			p := compiler.CompileBinding(b)
-			if len(p.Params) > 1 {
-				compiler.RecordArity(ir.QualifiedKey(me.name, b.Name), len(p.Params))
-			}
 			protos[j] = vmBindingProto{name: b.Name, proto: p, generated: b.Generated}
 		}
 		r.vmModuleProtos[i] = protos
@@ -315,9 +312,6 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 	for _, b := range r.sortedMainBindings {
 		if b.Name != r.entryName {
 			p := compiler.CompileBinding(b)
-			if len(p.Params) > 1 {
-				compiler.RecordArity(b.Name, len(p.Params))
-			}
 			r.vmMainProtos = append(r.vmMainProtos, vmBindingProto{
 				name: b.Name, proto: p, generated: b.Generated,
 			})

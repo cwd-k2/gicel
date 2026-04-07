@@ -127,7 +127,6 @@ func flattenLamChain(lam *ir.Lam) (params []string, body ir.Core, fv []string, f
 }
 
 // compileMultiParamProto compiles a closure body with zero or more parameters.
-// compileMultiParamProto compiles a closure body with zero or more parameters.
 func (c *Compiler) compileMultiParamProto(params []string, body ir.Core, fv []string, fvIndices []int) *Proto {
 	capturedNames, captureSlots := c.resolveCapturesFiltered(fv, fvIndices)
 	c.enterFrame()
@@ -222,7 +221,6 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	}
 }
 
-// collectAppSpine flattens left-nested App/TyApp chains into (fun, [arg0, arg1, ...]).
 // collectAppSpine flattens left-nested App/TyApp chains into (fun, [arg0, arg1, ...]).
 func collectAppSpine(node *ir.App) (ir.Core, []ir.Core) {
 	var args []ir.Core

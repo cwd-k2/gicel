@@ -134,17 +134,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 			vm.push(&eval.PAPVal{Fun: f, Args: []eval.Value{arg}, Arity: arity})
 			return nil
 		}
-		var leaveObs bool
-		if vm.obs != nil && f.Name != "" {
-			if vm.obs.IsInternal(f.Name) {
-				vm.obs.EnterInternal()
-				leaveObs = true
-			} else if vm.obs.Active() {
-				vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
-					eval.ExplainDetail{Name: f.Name, LabelKind: "enter", Value: eval.PrettyValue(arg)},
-					frame.proto.SpanAt(frame.ip))
-			}
-		}
+		leaveObs := vm.emitEnterObs(f.Name, arg, frame)
 		if tail {
 			if frame.leaveObs {
 				vm.obs.LeaveInternal()
@@ -165,17 +155,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 		if len(newArgs) == f.Arity {
 			// Saturated: enter the closure body directly.
 			proto := f.Fun.Proto.(*Proto)
-			var leaveObs bool
-			if vm.obs != nil && f.Fun.Name != "" {
-				if vm.obs.IsInternal(f.Fun.Name) {
-					vm.obs.EnterInternal()
-					leaveObs = true
-				} else if vm.obs.Active() {
-					vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
-						eval.ExplainDetail{Name: f.Fun.Name, LabelKind: "enter", Value: eval.PrettyValue(arg)},
-						frame.proto.SpanAt(frame.ip))
-				}
-			}
+			leaveObs := vm.emitEnterObs(f.Fun.Name, arg, frame)
 			if tail {
 				if frame.leaveObs {
 					vm.obs.LeaveInternal()
@@ -567,7 +547,10 @@ func (vm *VM) dispatchApplyN(n int, frame *Frame, tail bool) error {
 // frame so the matching LeaveInternal fires when the closure returns.
 //
 // Centralized so that apply, applySingle, and the multi-arg paths in
-// applyN share one obs-event protocol.
+// applyN share one obs-event protocol. The host-callback paths
+// (applyForPrim / applyNForPrim) currently inline a different variant
+// because they have no caller frame to anchor the source span on; that
+// asymmetry is documented in the Tier B / C cleanup notes.
 func (vm *VM) emitEnterObs(name string, sampleArg eval.Value, frame *Frame) bool {
 	if vm.obs == nil || name == "" {
 		return false
@@ -863,17 +846,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 // applySingle is the single-arg path extracted from apply for VMClosure.
 func (vm *VM) applySingle(f *eval.VMClosure, arg eval.Value, frame *Frame, tail bool) error {
 	proto := f.Proto.(*Proto)
-	var leaveObs bool
-	if vm.obs != nil && f.Name != "" {
-		if vm.obs.IsInternal(f.Name) {
-			vm.obs.EnterInternal()
-			leaveObs = true
-		} else if vm.obs.Active() {
-			vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
-				eval.ExplainDetail{Name: f.Name, LabelKind: "enter", Value: eval.PrettyValue(arg)},
-				frame.proto.SpanAt(frame.ip))
-		}
-	}
+	leaveObs := vm.emitEnterObs(f.Name, arg, frame)
 	if tail {
 		if frame.leaveObs {
 			vm.obs.LeaveInternal()

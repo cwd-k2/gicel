@@ -23,11 +23,10 @@ import (
 // Child frames (for nested lambdas/thunks) are compiled depth-first and
 // fully finalized before the parent frame resumes.
 type Compiler struct {
-	globalSlots   map[string]int
-	globalArities map[string]int      // global name → known arity (-1 or absent: unknown)
-	globalPrims   map[string]primInfo // global name → prim alias info (saturated direct-call)
-	source        *span.Source
-	frames        []frame
+	globalSlots map[string]int
+	globalPrims map[string]primInfo // prim-alias binding key → resolved metadata
+	source      *span.Source
+	frames      []frame
 }
 
 // primInfo holds the metadata needed to emit a direct OpPrim/OpEffectPrim
@@ -40,10 +39,6 @@ type primInfo struct {
 	effectful bool
 }
 
-// frame accumulates bytecode and metadata for a single Proto.
-// All slice fields are transferred directly to the Proto in leaveFrame —
-// no copy is needed because the frame is popped and its slices are not
-// reused.
 // frame accumulates bytecode and metadata for a single Proto.
 // All slice fields are transferred directly to the Proto in leaveFrame —
 // no copy is needed because the frame is popped and its slices are not
@@ -67,39 +62,31 @@ type frame struct {
 }
 
 // localEntry tracks a named local variable.
-// localEntry tracks a named local variable.
 type localEntry struct {
-	name  string
-	slot  int
-	arity int // -1: unknown, 0+: known arity (len of Params in the closure's Proto)
+	name string
+	slot int
 }
 
-// NewCompiler creates a Compiler with the given global slot mapping.
 // NewCompiler creates a Compiler with the given global slot mapping.
 func NewCompiler(globalSlots map[string]int, source *span.Source) *Compiler {
 	return &Compiler{globalSlots: globalSlots, source: source}
 }
 
 // SetSource updates the source context for error attribution.
-// SetSource updates the source context for error attribution.
 func (c *Compiler) SetSource(s *span.Source) {
 	c.source = s
 }
 
-// top returns a pointer to the current (topmost) compilation frame.
 // top returns a pointer to the current (topmost) compilation frame.
 func (c *Compiler) top() *frame {
 	return &c.frames[len(c.frames)-1]
 }
 
 // enterFrame pushes a new zero-value compilation frame onto the stack.
-// enterFrame pushes a new zero-value compilation frame onto the stack.
 func (c *Compiler) enterFrame() {
 	c.frames = append(c.frames, frame{fixSelfSlot: -1})
 }
 
-// leaveFrame pops the top frame and transfers its state into a Proto.
-// All slice fields are moved directly — no copy.
 // leaveFrame pops the top frame and transfers its state into a Proto.
 // All slice fields are moved directly — no copy.
 func (c *Compiler) leaveFrame() *Proto {
@@ -126,7 +113,6 @@ func (c *Compiler) leaveFrame() *Proto {
 }
 
 // CompileExpr compiles a top-level Core IR expression into a Proto.
-// CompileExpr compiles a top-level Core IR expression into a Proto.
 func (c *Compiler) CompileExpr(expr ir.Core) *Proto {
 	c.enterFrame()
 	c.compileExpr(expr, false)
@@ -136,21 +122,11 @@ func (c *Compiler) CompileExpr(expr ir.Core) *Proto {
 }
 
 // CompileBinding compiles a top-level binding's expression into a Proto.
-// CompileBinding compiles a top-level binding's expression into a Proto.
 func (c *Compiler) CompileBinding(b ir.Binding) *Proto {
 	c.enterFrame()
 	c.compileExpr(b.Expr, false)
 	c.emit(OpReturn)
 	return c.leaveFrame()
-}
-
-// RecordArity registers the known arity of a global binding.
-// Called after CompileBinding so that subsequent references emit OpApplyN.
-func (c *Compiler) RecordArity(name string, arity int) {
-	if c.globalArities == nil {
-		c.globalArities = make(map[string]int)
-	}
-	c.globalArities[name] = arity
 }
 
 // RecordGlobalPrim registers a prim-alias binding so that saturated call
@@ -170,7 +146,6 @@ func (c *Compiler) RecordGlobalPrim(key, name string, arity int, effectful bool)
 	c.globalPrims[key] = primInfo{name: name, arity: arity, effectful: effectful}
 }
 
-// --- bytecode emission ---
 // --- constant / string pool ---
 
 const maxPoolSize = 1<<16 - 1
@@ -232,46 +207,13 @@ func (c *Compiler) addMergeDesc(md MergeDesc) uint16 {
 }
 
 // --- local variable management ---
-// --- local variable management ---
 
 func (c *Compiler) allocLocal(name string) int {
-	return c.allocLocalWithArity(name, -1)
-}
-func (c *Compiler) allocLocalWithArity(name string, arity int) int {
 	f := c.top()
 	slot := f.numLocals
 	f.numLocals++
-	f.locals = append(f.locals, localEntry{name: name, slot: slot, arity: arity})
+	f.locals = append(f.locals, localEntry{name: name, slot: slot})
 	return slot
-}
-
-// localArity returns the known arity of a local variable, or -1 if unknown.
-// localArity returns the known arity of a local variable, or -1 if unknown.
-func (c *Compiler) localArity(name string) int {
-	f := c.top()
-	for i := len(f.locals) - 1; i >= 0; i-- {
-		if f.locals[i].name == name {
-			return f.locals[i].arity
-		}
-	}
-	return -1
-}
-
-// varArity returns the known arity of a variable (local or global).
-func (c *Compiler) varArity(v *ir.Var) int {
-	if v.Index >= 0 {
-		return c.localArity(v.Name)
-	}
-	if c.globalArities != nil {
-		key := v.Key
-		if key == "" {
-			key = ir.VarKey(v)
-		}
-		if a, ok := c.globalArities[key]; ok {
-			return a
-		}
-	}
-	return -1
 }
 
 // varGlobalPrim returns the prim-alias metadata associated with a global
