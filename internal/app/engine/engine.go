@@ -346,11 +346,36 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.
 // The context bounds compilation time (type checking in particular);
 // pass context.Background() when cancellation is not needed.
+//
+// Compiled Runtimes are cached at the process level, keyed by the source
+// text and a fingerprint of the full runtime environment. Repeated calls
+// with identical inputs return the same *Runtime, bypassing parse, check,
+// optimize, and the bytecode compile (precompileVM) entirely. The Runtime
+// is immutable and goroutine-safe so sharing is unconditional. See
+// runtimecache.go for the fingerprint contents and known limitations.
+//
+// The provided context is honored by both the cold compile path AND the
+// cache hit path: if the context is already cancelled or expired, the
+// call returns an error without consulting the cache, since the caller's
+// "do no work past this deadline" intent applies regardless of whether
+// the work is reusable.
 func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	pc := e.pipeline(ctx)
+	key := pc.computeRuntimeCacheKey(source)
+	if cached, ok := runtimeCacheGet(key); ok {
+		return cached, nil
+	}
 	prog, src, err := pc.compileMain(source)
 	if err != nil {
 		return nil, err
 	}
-	return pc.assembleRuntime(prog, src)
+	rt, err := pc.assembleRuntime(prog, src)
+	if err != nil {
+		return nil, err
+	}
+	runtimeCachePut(key, rt)
+	return rt, nil
 }

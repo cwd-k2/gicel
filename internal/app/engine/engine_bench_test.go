@@ -126,6 +126,7 @@ func BenchmarkEngineEndToEndSmall(b *testing.B) {
 func BenchmarkEngineEndToEndSmallCold(b *testing.B) {
 	for b.Loop() {
 		ResetModuleCache()
+		ResetRuntimeCache()
 		eng := NewEngine()
 		stdlib.Prelude(eng)
 		rt, err := eng.NewRuntime(context.Background(), smallSource)

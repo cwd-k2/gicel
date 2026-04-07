@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"maps"
+	"sort"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
@@ -84,6 +85,18 @@ func (s *ModuleStore) Entries() []moduleEntry {
 		})
 	}
 	return entries
+}
+
+// sortedModuleNames returns registered module names in lexicographic
+// order. Used by cache fingerprinting paths that require deterministic
+// traversal of the module set.
+func (s *ModuleStore) sortedModuleNames() []string {
+	names := make([]string, 0, len(s.modules))
+	for n := range s.modules {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // CollectFixityMap returns the merged fixity from the transitive closure

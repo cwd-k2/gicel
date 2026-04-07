@@ -1,8 +1,10 @@
 package eval
 
-import "maps"
-
-import "context"
+import (
+	"context"
+	"maps"
+	"sort"
+)
 
 // Applier provides function application callbacks for host primitives.
 // Apply handles single-argument application (the common case).
@@ -62,4 +64,16 @@ func (r *PrimRegistry) Clone() *PrimRegistry {
 	c := &PrimRegistry{impls: make(map[string]PrimImpl, len(r.impls))}
 	maps.Copy(c.impls, r.impls)
 	return c
+}
+
+// SortedNames returns the registered prim names in lexicographic order.
+// Used by callers (e.g. the engine's runtime cache fingerprint) that need
+// a deterministic traversal of the registry.
+func (r *PrimRegistry) SortedNames() []string {
+	names := make([]string, 0, len(r.impls))
+	for name := range r.impls {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

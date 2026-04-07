@@ -82,11 +82,7 @@ func (pc *pipelineCtx) computeModuleCacheKey(source string) moduleCacheKey {
 	// contents. Two Engine instances may register different implementations
 	// of the same module name; including source hashes prevents incorrect
 	// cache sharing across incompatible upstream definitions.
-	modNames := make([]string, 0, len(pc.store.modules))
-	for n := range pc.store.modules {
-		modNames = append(modNames, n)
-	}
-	sort.Strings(modNames)
+	modNames := pc.store.sortedModuleNames()
 	for _, n := range modNames {
 		b.WriteString(n)
 		b.WriteByte('=')
