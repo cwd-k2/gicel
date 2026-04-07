@@ -62,14 +62,13 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 	case *Case:
 		freeVarsRec(n.Scrutinee, bound, fv, depth+1)
 		for _, alt := range n.Alts {
-			names := alt.Pattern.Bindings()
-			for _, name := range names {
-				bind(bound, name)
-			}
+			// Walk the pattern directly to bind/unbind names without
+			// allocating the slice that Pattern.Bindings would return
+			// (PVar.Bindings is a particularly hot 1-element slice
+			// allocation on Prelude).
+			bindPatternBindings(bound, alt.Pattern)
 			freeVarsRec(alt.Body, bound, fv, depth+1)
-			for _, name := range names {
-				unbind(bound, name)
-			}
+			unbindPatternBindings(bound, alt.Pattern)
 		}
 	case *Fix:
 		bind(bound, n.Name)
@@ -155,7 +154,7 @@ func (annotateObs) OnLam(lam *Lam, bodyFV fvResult) {
 	if bodyFV.overflow {
 		lam.FV = nil
 	} else {
-		lam.FV = setToSlice(bodyFV.vars)
+		lam.FV = fvResultToSlice(bodyFV)
 	}
 }
 
@@ -163,7 +162,7 @@ func (annotateObs) OnThunk(th *Thunk, compFV fvResult) {
 	if compFV.overflow {
 		th.FV = nil
 	} else {
-		th.FV = setToSlice(compFV.vars)
+		th.FV = fvResultToSlice(compFV)
 	}
 }
 
@@ -171,12 +170,80 @@ func (annotateObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
 	if leftFV.overflow {
 		m.LeftFV = nil
 	} else {
-		m.LeftFV = setToSlice(leftFV.vars)
+		m.LeftFV = fvResultToSlice(leftFV)
 	}
 	if rightFV.overflow {
 		m.RightFV = nil
 	} else {
-		m.RightFV = setToSlice(rightFV.vars)
+		m.RightFV = fvResultToSlice(rightFV)
+	}
+}
+
+// fvResultToSlice materializes the inline-or-map fvResult into a sorted
+// slice of variable names. The single-var fast path returns a 1-element
+// slice without going through map iteration.
+func fvResultToSlice(r fvResult) []string {
+	if r.vars == nil {
+		if r.single == "" {
+			return []string{}
+		}
+		return []string{r.single}
+	}
+	return setToSlice(r.vars)
+}
+
+// deletePatternBindings removes every binding-introducing name in p from
+// r. Walks the pattern structure directly without calling Pattern.Bindings,
+// which would allocate a fresh slice per PVar visit. This is the hot path
+// for traverseFV's Case alternative processing on Prelude (~131K allocs of
+// 1-element slices observed before this helper was introduced).
+func deletePatternBindings(r *fvResult, p Pattern) {
+	switch pat := p.(type) {
+	case *PVar:
+		r.delete(pat.Name)
+	case *PCon:
+		for _, arg := range pat.Args {
+			deletePatternBindings(r, arg)
+		}
+	case *PRecord:
+		for _, f := range pat.Fields {
+			deletePatternBindings(r, f.Pattern)
+		}
+	}
+	// PWild and PLit bind no names — nothing to delete.
+}
+
+// bindPatternBindings increments the bound-count for every binding-introducing
+// name in p. Used by freeVarsRec's Case alternative processing to avoid the
+// slice allocation that Pattern.Bindings would incur.
+func bindPatternBindings(bound map[string]int, p Pattern) {
+	switch pat := p.(type) {
+	case *PVar:
+		bind(bound, pat.Name)
+	case *PCon:
+		for _, arg := range pat.Args {
+			bindPatternBindings(bound, arg)
+		}
+	case *PRecord:
+		for _, f := range pat.Fields {
+			bindPatternBindings(bound, f.Pattern)
+		}
+	}
+}
+
+// unbindPatternBindings reverses bindPatternBindings.
+func unbindPatternBindings(bound map[string]int, p Pattern) {
+	switch pat := p.(type) {
+	case *PVar:
+		unbind(bound, pat.Name)
+	case *PCon:
+		for _, arg := range pat.Args {
+			unbindPatternBindings(bound, arg)
+		}
+	case *PRecord:
+		for _, f := range pat.Fields {
+			unbindPatternBindings(bound, f.Pattern)
+		}
 	}
 }
 
@@ -184,15 +251,36 @@ func (annotateObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
 // When overflow is true, the FV computation was truncated by the depth
 // limit; ancestor Lam/Thunk nodes must disable environment trimming
 // rather than silently losing deep free variables.
+//
+// Single-var optimization: when the result holds exactly one variable
+// the name is stored inline in `single` and `vars` stays nil. The map
+// is allocated only on the first promotion to two-or-more vars (in
+// mergeFV). The cold-start profile showed traverseFV's *Var arm
+// allocating a fresh single-element map per Var visit (213K objects,
+// 3.32% of total); the inline path eliminates that without changing
+// observer-visible semantics.
+//
+// Invariants:
+//   - overflow == true                → result is "unknown / truncated"
+//   - vars != nil                     → multi-var; vars holds all entries
+//   - vars == nil && single != ""     → exactly one var named `single`
+//   - vars == nil && single == ""     → empty
 type fvResult struct {
+	single   string
 	vars     map[string]struct{}
 	overflow bool
 }
 
 var fvOverflow = fvResult{overflow: true}
 
-func (r fvResult) delete(name string) {
-	delete(r.vars, name)
+func (r *fvResult) delete(name string) {
+	if r.vars != nil {
+		delete(r.vars, name)
+		return
+	}
+	if r.single == name {
+		r.single = ""
+	}
 }
 
 // traverseFVLeftSpine iteratively descends the left spine of App nodes,
@@ -226,7 +314,9 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 		if n.Key == "" {
 			n.Key = varKey(n)
 		}
-		return fvResult{vars: map[string]struct{}{n.Key: {}}}
+		// Inline single-var path: no map allocation until mergeFV
+		// promotes the result to multi-var.
+		return fvResult{single: n.Key}
 	case *Lam:
 		bodyFV := traverseFV(n.Body, depth+1, obs)
 		// Remove the param — it comes from application, not from captured env.
@@ -255,9 +345,10 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 		for _, alt := range n.Alts {
 			altFV := traverseFV(alt.Body, depth+1, obs)
 			// Remove pattern-bound vars — they are local to each alt.
-			for _, name := range alt.Pattern.Bindings() {
-				altFV.delete(name)
-			}
+			// Walk the pattern inline (instead of calling Bindings(),
+			// which would allocate a fresh slice per PVar) and delete
+			// each name from altFV in place.
+			deletePatternBindings(&altFV, alt.Pattern)
 			result = mergeFV(result, altFV)
 		}
 		return result
@@ -321,16 +412,42 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 	}
 }
 
+// mergeFV combines two free-variable result sets, promoting the inline
+// single-var representation to a map only when the merged set has 2+
+// distinct variables. The arguments are consumed by-value but the
+// returned result may share or mutate the map of one argument when
+// possible to avoid extra copies.
 func mergeFV(a, b fvResult) fvResult {
 	if a.overflow || b.overflow {
 		return fvOverflow
 	}
-	if len(a.vars) == 0 {
+	// Empty + anything → anything.
+	aEmpty := a.vars == nil && a.single == ""
+	bEmpty := b.vars == nil && b.single == ""
+	if aEmpty {
 		return b
 	}
-	if len(b.vars) == 0 {
+	if bEmpty {
 		return a
 	}
+	// Single + single: stay inline if same key, promote otherwise.
+	if a.vars == nil && b.vars == nil {
+		if a.single == b.single {
+			return a
+		}
+		return fvResult{vars: map[string]struct{}{a.single: {}, b.single: {}}}
+	}
+	// Single + multi: add a's single into b's map (mutating b).
+	if a.vars == nil {
+		b.vars[a.single] = struct{}{}
+		return b
+	}
+	// Multi + single: add b's single into a's map (mutating a).
+	if b.vars == nil {
+		a.vars[b.single] = struct{}{}
+		return a
+	}
+	// Multi + multi: copy b's keys into a (mutating a).
 	for k := range b.vars {
 		a.vars[k] = struct{}{}
 	}

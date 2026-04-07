@@ -162,7 +162,7 @@ func (v *verifyObs) OnLam(lam *Lam, bodyFV fvResult) {
 	if lam.FV == nil || bodyFV.overflow {
 		return
 	}
-	expected := setToSlice(bodyFV.vars)
+	expected := fvResultToSlice(bodyFV)
 	if !sliceEqual(lam.FV, expected) {
 		v.errs = append(v.errs, VerifyError{
 			Node:    lam,
@@ -175,7 +175,7 @@ func (v *verifyObs) OnThunk(th *Thunk, compFV fvResult) {
 	if th.FV == nil || compFV.overflow {
 		return
 	}
-	expected := setToSlice(compFV.vars)
+	expected := fvResultToSlice(compFV)
 	if !sliceEqual(th.FV, expected) {
 		v.errs = append(v.errs, VerifyError{
 			Node:    th,
@@ -186,7 +186,7 @@ func (v *verifyObs) OnThunk(th *Thunk, compFV fvResult) {
 
 func (v *verifyObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
 	if m.LeftFV != nil && !leftFV.overflow {
-		expected := setToSlice(leftFV.vars)
+		expected := fvResultToSlice(leftFV)
 		if !sliceEqual(m.LeftFV, expected) {
 			v.errs = append(v.errs, VerifyError{
 				Node:    m,
@@ -195,7 +195,7 @@ func (v *verifyObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
 		}
 	}
 	if m.RightFV != nil && !rightFV.overflow {
-		expected := setToSlice(rightFV.vars)
+		expected := fvResultToSlice(rightFV)
 		if !sliceEqual(m.RightFV, expected) {
 			v.errs = append(v.errs, VerifyError{
 				Node:    m,
