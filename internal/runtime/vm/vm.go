@@ -213,11 +213,26 @@ func (vm *VM) ensureLocals(n int) {
 
 // --- main dispatch loop ---
 
+// execute drives the bytecode dispatch loop until one of two terminating
+// conditions:
+//
+//  1. A frame's OpReturn pops back to a barrier frame caller (the case that
+//     execBarrier / runCallee rely on); execute returns the popped value.
+//  2. The bottom-most frame (vm.fp == 0) executes OpReturn or runs out of
+//     bytecode; execute returns the value with the top-level capEnv.
+//
+// Pre-condition: vm.currentFrame() must be a non-barrier frame with at
+// least one instruction to dispatch (or an empty proto whose return value
+// is already on the operand stack). A barrier frame at the top is treated
+// as a programming error — callers that need to push a barrier should also
+// push a real call frame on top of it before calling execute.
 func (vm *VM) execute() (eval.EvalResult, error) {
 	for {
 		frame := vm.currentFrame()
 		if frame.barrier {
 			// Should not execute a barrier frame; this indicates a bug.
+			// Callers that need value-only setup should use runCallee,
+			// which detects "no frame pushed" before invoking execute.
 			return eval.EvalResult{}, &eval.RuntimeError{Message: "executed barrier frame"}
 		}
 		if frame.ip >= len(frame.proto.Code) {

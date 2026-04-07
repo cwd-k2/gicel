@@ -10,9 +10,24 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
-// execBarrier pushes a barrier frame, calls setup (which pushes the actual
-// execution frame), runs execute(), and restores VM state. The setup function
-// receives the barrier frame pointer and must call callThunk or callClosure.
+// execBarrier drives a single sub-call to completion, isolated from the
+// surrounding execute() loop.
+//
+// Mechanism:
+//  1. Save VM state (fp, locals length, budget depth)
+//  2. Push a barrier frame on top of the current call stack
+//  3. Invoke `setup`, which is expected to push a real call frame on top
+//     of the barrier (via callClosure / callClosureMulti / callThunk)
+//  4. Run vm.execute(); when the inner frame OpReturns and discovers the
+//     barrier as its caller, execute() returns the result
+//  5. Restore the saved state regardless of error
+//
+// Used by host primitives (Applier callbacks) and any code that needs
+// "run this one callee, give me its result" semantics from inside the VM.
+//
+// Pre-condition: `setup` MUST push exactly one new call frame on top of
+// the barrier. For setup callbacks that may push only a value (no frame),
+// use runCallee instead.
 func (vm *VM) execBarrier(capEnv eval.CapEnv, setup func(barrier *Frame) error) (eval.EvalResult, error) {
 	savedLocals := len(vm.locals)
 	savedFP := vm.fp
@@ -36,6 +51,67 @@ func (vm *VM) execBarrier(capEnv eval.CapEnv, setup func(barrier *Frame) error) 
 	vm.frames = vm.frames[:savedFP+1]
 	if err != nil {
 		// Restore depth: execute() may have left unbalanced Enter() calls.
+		for vm.budget.Depth() > savedDepth {
+			vm.budget.Leave()
+		}
+	}
+	return result, err
+}
+
+// runCallee is a generalization of execBarrier that accepts setup callbacks
+// which may either push a new frame OR push a value directly (without a
+// frame). This matches the contract of vm.apply, which dispatches to a
+// frame-pushing path (closure/thunk) or a value-pushing path (saturated
+// prim, partial PAP/PrimVal, ConVal) depending on the function value type.
+//
+// Mechanism mirrors execBarrier with one branch:
+//   - If setup pushed a new frame on top of the barrier, drive it to
+//     completion via vm.execute() (the OpReturn-to-barrier path).
+//   - If setup did not push a frame but pushed a value, pop the value
+//     and return it directly. This avoids attempting to "execute" a
+//     barrier frame, which has no bytecode.
+//
+// Used by applyN over-application: after entering the closure with the
+// first `arity` args, each remaining arg may dispatch through any value
+// type, so we need to handle both frame-push and value-push uniformly.
+func (vm *VM) runCallee(capEnv eval.CapEnv, setup func(barrier *Frame) error) (eval.EvalResult, error) {
+	savedLocals := len(vm.locals)
+	savedFP := vm.fp
+	savedSP := vm.sp
+	savedDepth := vm.budget.Depth()
+	vm.frames = append(vm.frames, Frame{barrier: true, capEnv: capEnv, bp: savedLocals})
+	barrierIdx := len(vm.frames) - 1
+	vm.fp = barrierIdx
+	barrierFrame := &vm.frames[barrierIdx]
+	if err := setup(barrierFrame); err != nil {
+		vm.locals = vm.locals[:savedLocals]
+		vm.fp = savedFP
+		vm.frames = vm.frames[:savedFP+1]
+		for vm.budget.Depth() > savedDepth {
+			vm.budget.Leave()
+		}
+		return eval.EvalResult{}, err
+	}
+	var result eval.EvalResult
+	var err error
+	if vm.fp > barrierIdx {
+		// setup pushed a real frame on top of the barrier.
+		// Drive it to completion; OpReturn pops back to the barrier
+		// and execute() returns the result.
+		result, err = vm.execute()
+	} else if vm.sp > savedSP {
+		// setup pushed a value directly (no frame). Take it.
+		val := vm.pop()
+		// Use the barrier's capEnv as authoritative — value-only setups
+		// (apply on a saturated prim, etc.) update barrierFrame.capEnv.
+		result = eval.EvalResult{Value: val, CapEnv: vm.frames[barrierIdx].capEnv}
+	} else {
+		err = &eval.RuntimeError{Message: "runCallee: setup pushed neither frame nor value"}
+	}
+	vm.locals = vm.locals[:savedLocals]
+	vm.fp = savedFP
+	vm.frames = vm.frames[:savedFP+1]
+	if err != nil {
 		for vm.budget.Depth() > savedDepth {
 			vm.budget.Leave()
 		}
@@ -464,21 +540,33 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			vm.push(&eval.PAPVal{Fun: f, Args: args, Arity: arity})
 			return nil
 		default:
-			// Over-application: enter with first arity args, apply rest.
-			if err := vm.callClosureMulti(proto, f.Captured, args[:arity], frame); err != nil {
+			// Over-application: enter with first arity args via a barrier
+			// so the closure body runs in isolation, then apply remaining
+			// args to its result. Each subsequent apply also goes through
+			// runCallee because it may itself enter a closure.
+			callerCapEnv := frame.capEnv
+			result, err := vm.runCallee(callerCapEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Captured, args[:arity], b)
+			})
+			if err != nil {
 				return err
 			}
+			cur := result.Value
+			capEnv := result.CapEnv
 			for _, extra := range args[arity:] {
-				result, err := vm.execute()
+				next, err := vm.runCallee(capEnv, func(b *Frame) error {
+					return vm.apply(cur, extra, b, false)
+				})
 				if err != nil {
 					return err
 				}
-				vm.push(result.Value)
-				fn := vm.pop()
-				if err := vm.apply(fn, extra, frame, false); err != nil {
-					return err
-				}
+				cur = next.Value
+				capEnv = next.CapEnv
 			}
+			// Re-acquire current frame: runCallee may have reallocated
+			// the frames slice, invalidating the original `frame` ptr.
+			vm.currentFrame().capEnv = capEnv
+			vm.push(cur)
 			return nil
 		}
 
@@ -498,22 +586,30 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			vm.push(&eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity})
 			return nil
 		default:
-			// Over-saturated PAP: enter then apply rest.
+			// Over-saturated PAP: enter with the saturating prefix via a
+			// barrier, then apply remaining args to the result.
 			proto := f.Fun.Proto.(*Proto)
-			if err := vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], frame); err != nil {
+			callerCapEnv := frame.capEnv
+			result, err := vm.runCallee(callerCapEnv, func(b *Frame) error {
+				return vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], b)
+			})
+			if err != nil {
 				return err
 			}
+			cur := result.Value
+			capEnv := result.CapEnv
 			for _, extra := range combined[f.Arity:] {
-				result, err := vm.execute()
+				next, err := vm.runCallee(capEnv, func(b *Frame) error {
+					return vm.apply(cur, extra, b, false)
+				})
 				if err != nil {
 					return err
 				}
-				vm.push(result.Value)
-				fn := vm.pop()
-				if err := vm.apply(fn, extra, frame, false); err != nil {
-					return err
-				}
+				cur = next.Value
+				capEnv = next.CapEnv
 			}
+			vm.currentFrame().capEnv = capEnv
+			vm.push(cur)
 			return nil
 		}
 
