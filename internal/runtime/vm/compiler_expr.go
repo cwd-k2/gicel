@@ -147,14 +147,16 @@ func (c *Compiler) compileMultiParamProto(params []string, body ir.Core, fv []st
 }
 func (c *Compiler) compileApp(app *ir.App, tail bool) {
 	c.addSpan(app.S)
-	// Collect application spine and check for known-arity call.
+	// Collect application spine. Single OpApplyN dispatch handles every
+	// runtime value type and every saturation case via applyN, so the
+	// only structural decision left is "single arg vs multi arg".
 	fn, args := collectAppSpine(app)
+
+	// Direct prim-alias call: when the spine head is a Var pointing at a
+	// bare prim-alias binding and we have at least the prim's arity in
+	// args, emit OpPrim / OpEffectPrim directly. Bypasses the PrimVal
+	// stub load + applyN dispatch entirely (Phase 1 optimization).
 	if v, ok := fn.(*ir.Var); ok && len(args) > 0 {
-		// Direct prim-alias call: `Var{prim-alias} a b ...` with at least
-		// `arity` arguments bypasses the loaded PrimVal stub and emits
-		// OpPrim/OpEffectPrim directly. This eliminates the (arity-1)
-		// intermediate PrimVal allocations that applyPrim would otherwise
-		// produce walking the partial-application chain.
 		if info, ok := c.varGlobalPrim(v); ok && info.arity > 0 && info.arity <= 255 && len(args) >= info.arity {
 			for _, arg := range args[:info.arity] {
 				c.compileExpr(arg, false)
@@ -177,38 +179,46 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 			return
 		}
 	}
-	if v, ok := fn.(*ir.Var); ok && len(args) > 1 {
-		arity := c.varArity(v)
-		if arity > 1 && len(args) >= arity && arity <= 255 {
-			// Known arity, enough args. Emit OpApplyN for the first arity args.
-			c.compileExpr(fn, false)
-			for _, arg := range args[:arity] {
-				c.compileExpr(arg, false)
-			}
-			if len(args) == arity && tail {
-				c.emitU8(OpTailApplyN, uint8(arity))
-			} else {
-				c.emitU8(OpApplyN, uint8(arity))
-			}
-			// Over-application: remaining args applied sequentially.
-			for i, arg := range args[arity:] {
-				c.compileExpr(arg, false)
-				if tail && i == len(args)-arity-1 {
-					c.emit(OpTailApply)
-				} else {
-					c.emit(OpApply)
-				}
-			}
-			return
+
+	// Single-arg call: OpApply is cheapest (the dispatch loop pops fn
+	// and arg directly without allocating an args slice).
+	if len(args) == 1 {
+		c.compileExpr(fn, false)
+		c.compileExpr(args[0], false)
+		if tail {
+			c.emit(OpTailApply)
+		} else {
+			c.emit(OpApply)
 		}
+		return
 	}
-	// Fallback: sequential 1-arg-at-a-time.
-	c.compileExpr(app.Fun, false)
-	c.compileExpr(app.Arg, false)
-	if tail {
-		c.emit(OpTailApply)
-	} else {
-		c.emit(OpApply)
+
+	// Multi-arg call: emit OpApplyN with the entire spine. applyN
+	// handles every value type and every saturation case (saturated,
+	// partial, over-applied), so the compiler does not need to know
+	// the function's arity statically. This collapses the N-1
+	// intermediate PrimVal/PAPVal allocations that the sequential
+	// OpApply chain would have produced for unknown-arity calls.
+	//
+	// Args are emitted in 255-element chunks (the OpApplyN immediate is
+	// a u8). For each chunk after the first, applyN's result is treated
+	// as the new function being applied to the next chunk.
+	c.compileExpr(fn, false)
+	remaining := args
+	for len(remaining) > 0 {
+		chunk := remaining
+		if len(chunk) > 255 {
+			chunk = chunk[:255]
+		}
+		remaining = remaining[len(chunk):]
+		for _, arg := range chunk {
+			c.compileExpr(arg, false)
+		}
+		op := OpApplyN
+		if tail && len(remaining) == 0 {
+			op = OpTailApplyN
+		}
+		c.emitU8(op, uint8(len(chunk)))
 	}
 }
 

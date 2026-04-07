@@ -252,8 +252,11 @@ func TestCompileAppKnownArity(t *testing.T) {
 	}
 }
 
-func TestCompileAppUnknownArity(t *testing.T) {
-	// f 1 2 where f is a global with unknown arity → sequential OpApply, no OpApplyN.
+func TestCompileAppMultiArg(t *testing.T) {
+	// f 1 2 (multi-arg call): the compiler emits a single OpApplyN(2)
+	// regardless of f's static arity. applyN dispatches at runtime over
+	// every value type and every saturation case, so the compiler does
+	// not need to know f's arity to batch the spine.
 	globals := map[string]int{"f": 0}
 	fn := &ir.Var{Name: "f", Index: -1, Key: "f"}
 	app1 := &ir.App{Fun: fn, Arg: &ir.Lit{Value: int64(1)}}
@@ -262,16 +265,17 @@ func TestCompileAppUnknownArity(t *testing.T) {
 	annotate(app2)
 	proto := c.CompileExpr(app2)
 
-	// Should NOT contain OpApplyN.
+	// Should contain OpApplyN, NOT a sequential OpApply chain.
+	// (CompileExpr compiles the body with tail=false, so OpApplyN is
+	// emitted instead of OpTailApplyN.)
+	assertOp(t, proto, OpApplyN)
 	for i := 0; i < len(proto.Code); {
 		op := Opcode(proto.Code[i])
-		if op == OpApplyN || op == OpTailApplyN {
-			t.Error("unexpected OpApplyN in bytecode for unknown-arity function")
+		if op == OpApply || op == OpTailApply {
+			t.Errorf("unexpected sequential OpApply at offset %d for multi-arg call", i)
 		}
 		i += InstructionSize(op)
 	}
-	// Should contain regular OpApply.
-	assertOp(t, proto, OpApply)
 }
 
 // --- helpers ---

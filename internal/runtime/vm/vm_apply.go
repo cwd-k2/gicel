@@ -517,6 +517,29 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	return nil
 }
 
+// emitEnterObs emits the observer "enter" label for a closure call (or
+// records an internal-frame entry, depending on whether the named binding
+// is user-visible). Returns true if the caller should set leaveObs on its
+// frame so the matching LeaveInternal fires when the closure returns.
+//
+// Centralized so that apply, applySingle, and the multi-arg paths in
+// applyN share one obs-event protocol.
+func (vm *VM) emitEnterObs(name string, sampleArg eval.Value, frame *Frame) bool {
+	if vm.obs == nil || name == "" {
+		return false
+	}
+	if vm.obs.IsInternal(name) {
+		vm.obs.EnterInternal()
+		return true
+	}
+	if vm.obs.Active() {
+		vm.obs.Emit(vm.budget.Depth(), eval.ExplainLabel,
+			eval.ExplainDetail{Name: name, LabelKind: "enter", Value: eval.PrettyValue(sampleArg)},
+			frame.proto.SpanAt(frame.ip))
+	}
+	return false
+}
+
 // applyN dispatches a multi-argument application.
 // Used by OpApplyN/OpTailApplyN. Handles every value type that vm.apply
 // handles — VMClosure, PAPVal, ConVal, PrimVal, VMThunkVal — so the
@@ -532,10 +555,19 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			if arity == 1 {
 				return vm.applySingle(f, args[0], frame, tail)
 			}
+			leaveObs := vm.emitEnterObs(f.Name, args[0], frame)
 			if tail {
+				if frame.leaveObs {
+					vm.obs.LeaveInternal()
+				}
+				frame.leaveObs = leaveObs
 				return vm.tailCallClosureMulti(proto, f.Captured, args, frame)
 			}
-			return vm.callClosureMulti(proto, f.Captured, args, frame)
+			err := vm.callClosureMulti(proto, f.Captured, args, frame)
+			if err == nil && leaveObs {
+				vm.currentFrame().leaveObs = true
+			}
+			return err
 		case len(args) < arity:
 			if err := vm.budget.Alloc(eval.CostPAP + int64(eval.CostPAPArg*len(args))); err != nil {
 				return err
@@ -581,10 +613,19 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		switch {
 		case remaining == 0:
 			proto := f.Fun.Proto.(*Proto)
+			leaveObs := vm.emitEnterObs(f.Fun.Name, args[0], frame)
 			if tail {
+				if frame.leaveObs {
+					vm.obs.LeaveInternal()
+				}
+				frame.leaveObs = leaveObs
 				return vm.tailCallClosureMulti(proto, f.Fun.Captured, combined, frame)
 			}
-			return vm.callClosureMulti(proto, f.Fun.Captured, combined, frame)
+			err := vm.callClosureMulti(proto, f.Fun.Captured, combined, frame)
+			if err == nil && leaveObs {
+				vm.currentFrame().leaveObs = true
+			}
+			return err
 		case remaining > 0:
 			vm.push(&eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity})
 			return nil
