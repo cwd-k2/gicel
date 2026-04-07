@@ -350,18 +350,14 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 	}
 	// Saturated effectful PrimVal.
 	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
-		impl := pv.Impl
-		if impl == nil {
-			var ok bool
-			impl, ok = vm.prims.Lookup(pv.Name)
-			if !ok {
-				return nil, capEnv, vm.runtimeError("missing primitive: "+pv.Name, frame)
-			}
-		}
-		capForImpl := capEnv.MarkShared()
-		val, newCap, err := vm.callPrim(impl, capForImpl, pv.Args)
+		impl, err := vm.resolvePrimImplFrame(pv, frame)
 		if err != nil {
 			return nil, capEnv, err
+		}
+		capForImpl := capEnv.MarkShared()
+		val, newCap, callErr := vm.callPrim(impl, capForImpl, pv.Args)
+		if callErr != nil {
+			return nil, capEnv, callErr
 		}
 		// Observer: emit effect event with CapEnv diff.
 		// Use the call site span (from OpBind) for user-visible location.
@@ -396,6 +392,73 @@ func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv) (eval.Value, eva
 	return result.Value, result.CapEnv, nil
 }
 
+// resolvePrimImplFrame returns the cached PrimImpl for a PrimVal, falling
+// back to a registry lookup. Used by frame-driven dispatch (forceEffectful,
+// applyPrim, applyN PrimVal cases) where the caller has a current Frame for
+// span attribution. The returned error, when non-nil, is already a structured
+// *eval.RuntimeError carrying source location.
+func (vm *VM) resolvePrimImplFrame(pv *eval.PrimVal, frame *Frame) (eval.PrimImpl, error) {
+	if pv.Impl != nil {
+		return pv.Impl, nil
+	}
+	impl, ok := vm.prims.Lookup(pv.Name)
+	if !ok {
+		return nil, vm.runtimeError("missing primitive: "+pv.Name, frame)
+	}
+	return impl, nil
+}
+
+// resolvePrimImplBare returns the cached PrimImpl for a PrimVal, falling
+// back to a registry lookup. Used by barrier-driven dispatch (applyForPrim,
+// applyNForPrim) where no Frame is available. The returned error, when
+// non-nil, is a plain "missing primitive" error without source attribution
+// — the host callback boundary is the right place to add context if needed.
+//
+// Two helpers (Frame vs Bare) instead of one with optional Frame: the return
+// shapes are categorically different (RuntimeError with span vs plain error),
+// and forcing callers to pick the right one preserves the layering between
+// VM-internal and host-callback dispatch.
+func (vm *VM) resolvePrimImplBare(pv *eval.PrimVal) (eval.PrimImpl, error) {
+	if pv.Impl != nil {
+		return pv.Impl, nil
+	}
+	impl, ok := vm.prims.Lookup(pv.Name)
+	if !ok {
+		return nil, errors.New("missing primitive: " + pv.Name)
+	}
+	return impl, nil
+}
+
+// asPartialPrim returns a PrimVal stub representing a partially-applied
+// primitive. The args slice MUST outlive the call (it becomes the stub's
+// Args field) — callers building it from scratch and from primScratch must
+// distinguish: scratch is heap-managed and aliasable, so partial stubs
+// MUST use a heap-allocated args slice.
+func asPartialPrim(pv *eval.PrimVal, args []eval.Value) *eval.PrimVal {
+	return &eval.PrimVal{
+		Name:      pv.Name,
+		Arity:     pv.Arity,
+		Effectful: pv.Effectful,
+		Args:      args,
+		S:         pv.S,
+		Impl:      pv.Impl,
+	}
+}
+
+// asDeferredEffectful returns a PrimVal stub representing a saturated
+// (or over-saturated) effectful primitive whose execution is deferred until
+// `forceEffectful` runs it. Same args-lifetime contract as asPartialPrim.
+func asDeferredEffectful(pv *eval.PrimVal, args []eval.Value) *eval.PrimVal {
+	return &eval.PrimVal{
+		Name:      pv.Name,
+		Arity:     pv.Arity,
+		Effectful: true,
+		Args:      args,
+		S:         pv.S,
+		Impl:      pv.Impl,
+	}
+}
+
 // applyPrim handles application to a PrimVal.
 func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	newLen := len(pv.Args) + 1
@@ -405,21 +468,17 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	// transient argument slice. Safe because non-effectful primitives
 	// return before any re-entrant VM execution can alias the buffer.
 	if newLen >= pv.Arity && !pv.Effectful && newLen <= len(vm.primScratch) {
-		impl := pv.Impl
-		if impl == nil {
-			var ok bool
-			impl, ok = vm.prims.Lookup(pv.Name)
-			if !ok {
-				return vm.runtimeError("missing primitive: "+pv.Name, frame)
-			}
+		impl, err := vm.resolvePrimImplFrame(pv, frame)
+		if err != nil {
+			return err
 		}
 		args := vm.primScratch[:newLen]
 		copy(args, pv.Args)
 		args[len(pv.Args)] = arg
-		val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
+		val, newCap, callErr := vm.callPrim(impl, frame.capEnv, args)
 		clear(vm.primScratch[:newLen])
-		if err != nil {
-			return err
+		if callErr != nil {
+			return callErr
 		}
 		frame.capEnv = newCap
 		vm.push(val)
@@ -432,32 +491,22 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 
 	if newLen < pv.Arity {
 		// Partially applied.
-		vm.push(&eval.PrimVal{
-			Name: pv.Name, Arity: pv.Arity,
-			Effectful: pv.Effectful, Args: args, S: pv.S, Impl: pv.Impl,
-		})
+		vm.push(asPartialPrim(pv, args))
 		return nil
 	}
 	if pv.Effectful {
 		// Saturated effectful — defer (keep as PrimVal).
-		vm.push(&eval.PrimVal{
-			Name: pv.Name, Arity: pv.Arity,
-			Effectful: true, Args: args, S: pv.S, Impl: pv.Impl,
-		})
+		vm.push(asDeferredEffectful(pv, args))
 		return nil
 	}
 	// Saturated non-effectful, arity > scratch size.
-	impl := pv.Impl
-	if impl == nil {
-		var ok bool
-		impl, ok = vm.prims.Lookup(pv.Name)
-		if !ok {
-			return vm.runtimeError("missing primitive: "+pv.Name, frame)
-		}
-	}
-	val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
+	impl, err := vm.resolvePrimImplFrame(pv, frame)
 	if err != nil {
 		return err
+	}
+	val, newCap, callErr := vm.callPrim(impl, frame.capEnv, args)
+	if callErr != nil {
+		return callErr
 	}
 	frame.capEnv = newCap
 	vm.push(val)
@@ -663,21 +712,17 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		// Builds the combined arg view in primScratch with no heap alloc.
 		// Safe because non-effectful primitives never call back into the VM.
 		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
-			impl := f.Impl
-			if impl == nil {
-				var ok bool
-				impl, ok = vm.prims.Lookup(f.Name)
-				if !ok {
-					return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
-				}
+			impl, err := vm.resolvePrimImplFrame(f, frame)
+			if err != nil {
+				return nil, err
 			}
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			copy(scratch[len(f.Args):], args)
-			val, newCap, err := vm.callPrim(impl, frame.capEnv, scratch)
+			val, newCap, callErr := vm.callPrim(impl, frame.capEnv, scratch)
 			clear(vm.primScratch[:newLen])
-			if err != nil {
-				return nil, err
+			if callErr != nil {
+				return nil, callErr
 			}
 			frame.capEnv = newCap
 			return val, nil
@@ -690,29 +735,19 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		copy(combined[len(f.Args):], args)
 		switch {
 		case newLen < f.Arity:
-			return &eval.PrimVal{
-				Name: f.Name, Arity: f.Arity,
-				Effectful: f.Effectful, Args: combined, S: f.S, Impl: f.Impl,
-			}, nil
+			return asPartialPrim(f, combined), nil
 		case newLen == f.Arity && f.Effectful:
 			// Saturated effectful — defer execution until forced.
-			return &eval.PrimVal{
-				Name: f.Name, Arity: f.Arity,
-				Effectful: true, Args: combined, S: f.S, Impl: f.Impl,
-			}, nil
+			return asDeferredEffectful(f, combined), nil
 		case newLen == f.Arity:
 			// Saturated non-effectful, but arity exceeds scratch.
-			impl := f.Impl
-			if impl == nil {
-				var ok bool
-				impl, ok = vm.prims.Lookup(f.Name)
-				if !ok {
-					return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
-				}
-			}
-			val, newCap, err := vm.callPrim(impl, frame.capEnv, combined)
+			impl, err := vm.resolvePrimImplFrame(f, frame)
 			if err != nil {
 				return nil, err
+			}
+			val, newCap, callErr := vm.callPrim(impl, frame.capEnv, combined)
+			if callErr != nil {
+				return nil, callErr
 			}
 			frame.capEnv = newCap
 			return val, nil
@@ -723,22 +758,15 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		var head eval.Value
 		callerCapEnv := frame.capEnv
 		if f.Effectful {
-			head = &eval.PrimVal{
-				Name: f.Name, Arity: f.Arity,
-				Effectful: true, Args: combined[:f.Arity], S: f.S, Impl: f.Impl,
-			}
+			head = asDeferredEffectful(f, combined[:f.Arity])
 		} else {
-			impl := f.Impl
-			if impl == nil {
-				var ok bool
-				impl, ok = vm.prims.Lookup(f.Name)
-				if !ok {
-					return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
-				}
-			}
-			val, newCap, err := vm.callPrim(impl, callerCapEnv, combined[:f.Arity])
+			impl, err := vm.resolvePrimImplFrame(f, frame)
 			if err != nil {
 				return nil, err
+			}
+			val, newCap, callErr := vm.callPrim(impl, callerCapEnv, combined[:f.Arity])
+			if callErr != nil {
+				return nil, callErr
 			}
 			head = val
 			callerCapEnv = newCap
@@ -864,21 +892,17 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		// callback context because non-effectful prims do not re-enter
 		// the VM operand stack.
 		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
-			impl := f.Impl
-			if impl == nil {
-				var ok bool
-				impl, ok = vm.prims.Lookup(f.Name)
-				if !ok {
-					return nil, capEnv, errors.New("missing primitive: " + f.Name)
-				}
+			impl, err := vm.resolvePrimImplBare(f)
+			if err != nil {
+				return nil, capEnv, err
 			}
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			scratch[len(f.Args)] = arg
-			val, newCap, err := vm.callPrim(impl, capEnv, scratch)
+			val, newCap, callErr := vm.callPrim(impl, capEnv, scratch)
 			clear(vm.primScratch[:newLen])
-			if err != nil {
-				return nil, capEnv, err
+			if callErr != nil {
+				return nil, capEnv, callErr
 			}
 			return val, newCap, nil
 		}
@@ -886,22 +910,18 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		copy(args, f.Args)
 		args[len(f.Args)] = arg
 		if newLen < f.Arity {
-			return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: args, S: f.S, Impl: f.Impl}, capEnv, nil
+			return asPartialPrim(f, args), capEnv, nil
 		}
 		if f.Effectful {
-			return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: args, S: f.S, Impl: f.Impl}, capEnv, nil
+			return asDeferredEffectful(f, args), capEnv, nil
 		}
-		impl := f.Impl
-		if impl == nil {
-			var ok bool
-			impl, ok = vm.prims.Lookup(f.Name)
-			if !ok {
-				return nil, capEnv, errors.New("missing primitive: " + f.Name)
-			}
-		}
-		val, newCap, err := vm.callPrim(impl, capEnv, args)
+		impl, err := vm.resolvePrimImplBare(f)
 		if err != nil {
 			return nil, capEnv, err
+		}
+		val, newCap, callErr := vm.callPrim(impl, capEnv, args)
+		if callErr != nil {
+			return nil, capEnv, callErr
 		}
 		return val, newCap, nil
 
@@ -1002,21 +1022,17 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		// land here, and the cached f.Impl + scratch buffer eliminate
 		// the per-call hash lookup and args slice allocation.
 		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
-			impl := f.Impl
-			if impl == nil {
-				var ok bool
-				impl, ok = vm.prims.Lookup(f.Name)
-				if !ok {
-					return nil, capEnv, errors.New("missing primitive: " + f.Name)
-				}
+			impl, err := vm.resolvePrimImplBare(f)
+			if err != nil {
+				return nil, capEnv, err
 			}
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			copy(scratch[len(f.Args):], args)
-			val, newCap, err := vm.callPrim(impl, capEnv, scratch)
+			val, newCap, callErr := vm.callPrim(impl, capEnv, scratch)
 			clear(vm.primScratch[:newLen])
-			if err != nil {
-				return nil, capEnv, err
+			if callErr != nil {
+				return nil, capEnv, callErr
 			}
 			return val, newCap, nil
 		}
@@ -1024,28 +1040,23 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		copy(combined, f.Args)
 		copy(combined[len(f.Args):], args)
 		if newLen < f.Arity {
-			return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: f.Effectful, Args: combined, S: f.S, Impl: f.Impl}, capEnv, nil
+			return asPartialPrim(f, combined), capEnv, nil
 		}
 		if f.Effectful {
 			if newLen == f.Arity {
-				return &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: combined, S: f.S, Impl: f.Impl}, capEnv, nil
+				return asDeferredEffectful(f, combined), capEnv, nil
 			}
 			// Over-saturated effectful: defer first, then apply rest.
-			deferred := &eval.PrimVal{Name: f.Name, Arity: f.Arity, Effectful: true, Args: combined[:f.Arity], S: f.S, Impl: f.Impl}
-			return vm.applyNForPrim(deferred, combined[f.Arity:], capEnv)
+			return vm.applyNForPrim(asDeferredEffectful(f, combined[:f.Arity]), combined[f.Arity:], capEnv)
 		}
-		impl := f.Impl
-		if impl == nil {
-			var ok bool
-			impl, ok = vm.prims.Lookup(f.Name)
-			if !ok {
-				return nil, capEnv, errors.New("missing primitive: " + f.Name)
-			}
+		impl, err := vm.resolvePrimImplBare(f)
+		if err != nil {
+			return nil, capEnv, err
 		}
 		if newLen == f.Arity {
-			val, newCap, err := vm.callPrim(impl, capEnv, combined)
-			if err != nil {
-				return nil, capEnv, err
+			val, newCap, callErr := vm.callPrim(impl, capEnv, combined)
+			if callErr != nil {
+				return nil, capEnv, callErr
 			}
 			return val, newCap, nil
 		}
