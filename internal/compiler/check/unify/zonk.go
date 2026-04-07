@@ -4,6 +4,10 @@ import "github.com/cwd-k2/gicel/internal/lang/types"
 
 // Zonk replaces all solved metavariables in a type.
 // Optimizations:
+//   - HasMeta fast path: types known to be meta-free skip the entire
+//     budget infrastructure and return immediately. Profile (cold path)
+//     showed the budget Nest/Unnest pair was a measurable share of the
+//     Zonk wrapper cost on the meta-free fast path that dominates calls.
 //   - Path compression: meta chains (m1 -> m2 -> Int) are compressed so
 //     soln[m1] points directly to the final answer.
 //   - Structural identity: if all children are unchanged (pointer-equal),
@@ -14,6 +18,12 @@ import "github.com/cwd-k2/gicel/internal/lang/types"
 // Internal recursion uses zonkInner which is budget-free — the type's
 // structural depth is bounded by the allocation limit, not the nesting limit.
 func (u *Unifier) Zonk(t types.Type) types.Type {
+	// Fast path: meta-free types need no zonking and no budget tracking.
+	// HasMeta is O(1) for composites (FlagMetaFree check) and constant-
+	// time for leaves, so this is strictly cheaper than the budget path.
+	if !types.HasMeta(t) {
+		return t
+	}
 	if u.Budget != nil {
 		if err := u.Budget.Nest(); err != nil {
 			return t // bail out, preserving the unzonked type

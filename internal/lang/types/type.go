@@ -351,11 +351,17 @@ func (t *TyError) Children() []Type    { return nil }
 
 // ContainsMetaOrSkolem returns true if the type contains any TyMeta or TySkolem.
 // A type that returns false is "ground" — Zonk cannot reveal hidden skolems.
+//
+// Composite types whose FlagMetaFree is set are answered in O(1) via the
+// HasMeta fast path. The recursive walk is only entered for types that
+// HasMeta cannot rule out — i.e., subtrees that may contain a meta or
+// skolem at some depth.
 func ContainsMetaOrSkolem(t Type) bool {
+	if !HasMeta(t) {
+		return false
+	}
 	switch t.(type) {
-	case *TyMeta:
-		return true
-	case *TySkolem:
+	case *TyMeta, *TySkolem:
 		return true
 	}
 	found := false
