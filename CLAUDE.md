@@ -22,6 +22,11 @@ prettier --write docs/                 # format docs
 ./scripts/smoke-test.sh                # CLI smoke test
 ./scripts/run-examples.sh              # run all Go + GICEL examples
 ./scripts/full-check.sh                # full suite (tests + examples + smoke)
+
+# Performance (see docs/perf-overview.md for tier definitions)
+./scripts/perf-snapshot.sh [label]     # take a full bench snapshot → tmp/perf/<label>/
+./scripts/perf-compare.sh A B          # benchstat-diff two snapshots
+./scripts/perf-profile.sh BenchName    # CPU + alloc profile for one bench
 ```
 
 **Build output goes to `bin/` only.** Never `go build ./some/pkg` without `-o bin/...` — it dumps a binary in the working directory.
@@ -175,6 +180,35 @@ In-package probes: `internal/compiler/check/*_probe_test.go`, `internal/compiler
 - `probe`: requires `//go:build probe`. Not run by `go test ./...`. Run explicitly with `go test -tags probe ./...`.
 - `scale`: requires `//go:build scale`. Not run by `go test ./...`. Run explicitly with `go test -tags scale ./...`. O(N) scaling verification.
 - `stress`: no tag. Run with `go test ./tests/stress/`.
+
+### Performance benchmarks
+
+See [docs/perf-overview.md](docs/perf-overview.md) for the full bench
+map and tier definitions. Quick reference:
+
+- **Tier 1** — `BenchmarkEngineEndToEnd*` / `BenchmarkEndToEnd*`: cold
+  end-to-end (compile + run per iter). Reflects CLI wall time. Compile
+  share is 97-99% on Map/Set workloads.
+- **Tier 2** — `BenchmarkExec*`: pre-compiled, RunWith only. The right
+  signal for runtime exec changes — Tier 1 conflates compile noise.
+- **Tier 3** — `BenchmarkEngineCompile*` / `BenchmarkEngineNewRuntime*`:
+  pure compile / runtime construction. Use for compile-side work.
+- **Tier 4** — Per-package micro: parse, check, unify, solve, optimize,
+  budget, types. Use for isolated subsystem regression checks.
+
+Workflow for any perf-relevant change:
+
+```sh
+./scripts/perf-snapshot.sh main         # baseline (use git rev or label)
+# … make changes …
+./scripts/perf-snapshot.sh HEAD
+./scripts/perf-compare.sh main HEAD     # benchstat-diff all categories
+./scripts/perf-profile.sh BenchExecMapInsert50  # deep dive on a hot bench
+```
+
+Default snapshot uses `count=5 benchtime=2s` (≈5 min wall time).
+Override with `PERF_COUNT=...` and `PERF_BENCHTIME=...`. Snapshots
+land in `tmp/perf/<label>/` (gitignored).
 
 ### Probe test execution policy
 
