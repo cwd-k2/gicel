@@ -110,19 +110,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 		if len(newArgs) == f.Arity {
 			// Saturated: enter the closure body directly.
 			proto := f.Fun.Proto.(*Proto)
-			leaveObs := vm.emitEnterObs(f.Fun.Name, arg, frame)
-			if tail {
-				if frame.leaveObs {
-					vm.obs.LeaveInternal()
-				}
-				frame.leaveObs = leaveObs
-				return vm.tailCallClosureMulti(proto, f.Fun.Captured, newArgs, frame)
-			}
-			err := vm.callClosureMulti(proto, f.Fun.Captured, newArgs, frame)
-			if err == nil && leaveObs {
-				vm.currentFrame().leaveObs = true
-			}
-			return err
+			return vm.enterClosureMulti(proto, f.Fun.Captured, newArgs, frame, tail, f.Fun.Name)
 		}
 		// Still partial.
 		if err := vm.budget.Alloc(eval.CostPAPArg); err != nil {
@@ -598,19 +586,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			if arity == 1 {
 				return nil, vm.applySingle(f, args[0], frame, tail)
 			}
-			leaveObs := vm.emitEnterObs(f.Name, args[0], frame)
-			if tail {
-				if frame.leaveObs {
-					vm.obs.LeaveInternal()
-				}
-				frame.leaveObs = leaveObs
-				return nil, vm.tailCallClosureMulti(proto, f.Captured, args, frame)
-			}
-			err := vm.callClosureMulti(proto, f.Captured, args, frame)
-			if err == nil && leaveObs {
-				vm.currentFrame().leaveObs = true
-			}
-			return nil, err
+			return nil, vm.enterClosureMulti(proto, f.Captured, args, frame, tail, f.Name)
 		case len(args) < arity:
 			if err := vm.budget.Alloc(eval.CostPAP + int64(eval.CostPAPArg*len(args))); err != nil {
 				return nil, err
@@ -657,26 +633,12 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		}
 
 	case *eval.PAPVal:
-		combined := make([]eval.Value, len(f.Args)+len(args))
-		copy(combined, f.Args)
-		copy(combined[len(f.Args):], args)
+		combined := combineArgs(f.Args, args)
 		remaining := f.Arity - len(combined)
 		switch {
 		case remaining == 0:
 			proto := f.Fun.Proto.(*Proto)
-			leaveObs := vm.emitEnterObs(f.Fun.Name, args[0], frame)
-			if tail {
-				if frame.leaveObs {
-					vm.obs.LeaveInternal()
-				}
-				frame.leaveObs = leaveObs
-				return nil, vm.tailCallClosureMulti(proto, f.Fun.Captured, combined, frame)
-			}
-			err := vm.callClosureMulti(proto, f.Fun.Captured, combined, frame)
-			if err == nil && leaveObs {
-				vm.currentFrame().leaveObs = true
-			}
-			return nil, err
+			return nil, vm.enterClosureMulti(proto, f.Fun.Captured, combined, frame, tail, f.Fun.Name)
 		case remaining > 0:
 			return &eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity}, nil
 		default:
@@ -730,9 +692,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		// All other PrimVal cases need a single combined slice that
 		// outlives this call (it lands inside a deferred PrimVal or
 		// gets passed to a non-trusted prim impl). Allocate once.
-		combined := make([]eval.Value, newLen)
-		copy(combined, f.Args)
-		copy(combined[len(f.Args):], args)
+		combined := combineArgs(f.Args, args)
 		switch {
 		case newLen < f.Arity:
 			return asPartialPrim(f, combined), nil
@@ -795,10 +755,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+len(args)))); err != nil {
 			return nil, err
 		}
-		combined := make([]eval.Value, len(f.Args)+len(args))
-		copy(combined, f.Args)
-		copy(combined[len(f.Args):], args)
-		return &eval.ConVal{Con: f.Con, Args: combined}, nil
+		return &eval.ConVal{Con: f.Con, Args: combineArgs(f.Args, args)}, nil
 
 	case *eval.VMThunkVal:
 		// Force the thunk in isolation, then apply all original args to
@@ -842,6 +799,54 @@ func (vm *VM) applySingle(f *eval.VMClosure, arg eval.Value, frame *Frame, tail 
 		vm.currentFrame().leaveObs = true
 	}
 	return err
+}
+
+// enterClosureMulti is the frame-driven multi-argument closure entry path,
+// the multi-arg counterpart of applySingle. Used by apply (saturated PAPVal
+// case) and applyN (VMClosure exact case, PAPVal saturated case) — anywhere
+// VM-internal dispatch needs to enter a multi-param closure body with TCO
+// support and observer attribution.
+//
+// Pre-condition: len(args) > 0. The first arg is used as the observer
+// "sample" for the enter event; the call passes the full args slice through
+// to callClosureMulti / tailCallClosureMulti.
+//
+// Note: this helper is frame-driven (TCO + observer hooks). Host-callback
+// dispatch (applyForPrim / applyNForPrim) cannot use it — those paths run
+// outside the bytecode loop, have no caller frame to attribute spans to,
+// and dispatch through runCallee + callClosureMulti instead. The two layers
+// are categorically different abstractions; do not try to unify.
+func (vm *VM) enterClosureMulti(proto *Proto, captured []eval.Value, args []eval.Value, frame *Frame, tail bool, name string) error {
+	leaveObs := vm.emitEnterObs(name, args[0], frame)
+	if tail {
+		if frame.leaveObs {
+			vm.obs.LeaveInternal()
+		}
+		frame.leaveObs = leaveObs
+		return vm.tailCallClosureMulti(proto, captured, args, frame)
+	}
+	err := vm.callClosureMulti(proto, captured, args, frame)
+	if err == nil && leaveObs {
+		vm.currentFrame().leaveObs = true
+	}
+	return err
+}
+
+// combineArgs builds a freshly heap-allocated slice that concatenates an
+// existing args prefix (typically from a PAPVal/ConVal/PrimVal that has
+// accumulated arguments over time) with the new args slice from a current
+// application. The result outlives the call (it lands inside a new aggregate
+// value or feeds a saturating closure entry), so the operand-stack-aliased
+// input `more` is copied rather than referenced.
+//
+// Used by both frame-driven (applyN PAPVal/ConVal/PrimVal cases) and
+// barrier-driven (applyForPrim, applyNForPrim PAPVal/PrimVal cases) dispatch
+// — the args-merging step is structural and shared across layers.
+func combineArgs(prefix []eval.Value, more []eval.Value) []eval.Value {
+	combined := make([]eval.Value, len(prefix)+len(more))
+	copy(combined, prefix)
+	copy(combined[len(prefix):], more)
+	return combined
 }
 
 // applyForPrim is the Applier callback exposed to primitives.
@@ -982,9 +987,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		}
 
 	case *eval.PAPVal:
-		combined := make([]eval.Value, len(f.Args)+len(args))
-		copy(combined, f.Args)
-		copy(combined[len(f.Args):], args)
+		combined := combineArgs(f.Args, args)
 		switch {
 		case len(combined) == f.Arity:
 			proto := f.Fun.Proto.(*Proto)
@@ -1036,9 +1039,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 			}
 			return val, newCap, nil
 		}
-		combined := make([]eval.Value, newLen)
-		copy(combined, f.Args)
-		copy(combined[len(f.Args):], args)
+		combined := combineArgs(f.Args, args)
 		if newLen < f.Arity {
 			return asPartialPrim(f, combined), capEnv, nil
 		}
