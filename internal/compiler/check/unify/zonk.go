@@ -99,7 +99,10 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		}
 		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, Grade: zGrade, Flags: types.MetaFreeFlags(zPre, zPost, zResult, zGrade), S: ty.S}
 	case *types.TyEvidenceRow:
-		newEntries, changed := ty.Entries.ZonkEntries(u.zonkInner)
+		// Use the pre-bound zonkEntriesFn callback (allocated once at
+		// NewUnifier time) instead of creating a fresh method-value
+		// closure on every TyEvidenceRow visit.
+		newEntries, changed := ty.Entries.ZonkEntries(u.zonkEntriesFn)
 		var tail types.Type
 		if ty.Tail != nil {
 			tail = u.zonkInner(ty.Tail)

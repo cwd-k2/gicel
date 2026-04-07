@@ -21,6 +21,23 @@ type ReduceEnv struct {
 	// RegisterStuckFn, when non-nil, registers a stuck type family
 	// application as a solver constraint for later re-activation.
 	RegisterStuckFn func(name string, args []types.Type, resultKind types.Type, s span.Span) *types.TyMeta
+
+	// tfCache is the per-top-level-call cycle-breaking cache for type
+	// family reduction. Used by reduceFamilyAppsN to detect and short-
+	// circuit recursive reductions like `Grow a = Pair (Grow a) (Grow a)`.
+	//
+	// Lifecycle: reduceFamilyApps saves the prior tfCache, sets it to nil,
+	// runs the reduction, then restores the saved value. Re-entry from
+	// unification (which calls FamilyReducer recursively via normalize)
+	// is therefore safe — each top-level reduceFamilyApps call gets its
+	// own cycle-breaking scope without interfering with outer calls.
+	//
+	// The map itself is allocated lazily on the first family hit, so
+	// reductions that touch no families pay zero map-allocation cost.
+	// Avoiding the prior `&cache` local-variable pattern eliminates the
+	// per-call heap escape that dominated alloc_objects on Prelude
+	// (1.2M allocs, 14.81% of cold start) before this change.
+	tfCache map[string]types.Type
 }
 
 // lookupFamily returns the TypeFamilyInfo for name via the LookupFamily callback.
@@ -147,12 +164,21 @@ func (e *ReduceEnv) MatchTyPattern(pat, arg types.Type, subst map[string]types.T
 
 // reduceFamilyApps walks a type and reduces any TyFamilyApp nodes
 // or TyApp chains that form a saturated type family application.
+//
+// The cycle-breaking cache lives on the ReduceEnv (e.tfCache); this
+// entry point saves the outer cache (in case of re-entry from a
+// recursive normalize call inside the unifier) and restores it on
+// return. Inner recursion uses reduceFamilyAppsN directly without
+// disturbing the cache scope.
 func (e *ReduceEnv) reduceFamilyApps(t types.Type) types.Type {
-	var cache map[string]types.Type // nil; lazy-init on first family reduction
-	return e.reduceFamilyAppsN(t, &cache)
+	saved := e.tfCache
+	e.tfCache = nil
+	result := e.reduceFamilyAppsN(t)
+	e.tfCache = saved
+	return result
 }
 
-func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type) types.Type {
+func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 	if err := e.Budget.TFStep(); err != nil {
 		return t
 	}
@@ -160,7 +186,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 	if tf, ok := t.(*types.TyFamilyApp); ok {
 		var newArgs []types.Type // nil until first change (lazy-init)
 		for i, a := range tf.Args {
-			rA := e.reduceFamilyAppsN(a, cache)
+			rA := e.reduceFamilyAppsN(a)
 			if newArgs == nil && rA != a {
 				newArgs = make([]types.Type, len(tf.Args))
 				copy(newArgs[:i], tf.Args[:i])
@@ -174,8 +200,8 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 			rArgs = tf.Args
 		}
 		key := familyAppKey(tf.Name, rArgs)
-		if *cache != nil {
-			if cached, ok := (*cache)[key]; ok {
+		if e.tfCache != nil {
+			if cached, ok := e.tfCache[key]; ok {
 				return cached
 			}
 		}
@@ -187,13 +213,13 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 			// returned instead of re-entering, breaking the exponential
 			// blowup. The sentinel is the unreduced TyFamilyApp — a stuck
 			// application, which is the correct semantics for a cycle.
-			if *cache == nil {
-				*cache = make(map[string]types.Type)
+			if e.tfCache == nil {
+				e.tfCache = make(map[string]types.Type)
 			}
 			stuck := &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
-			(*cache)[key] = stuck
-			r := e.reduceFamilyAppsN(result, cache)
-			(*cache)[key] = r
+			e.tfCache[key] = stuck
+			r := e.reduceFamilyAppsN(result)
+			e.tfCache[key] = r
 			return r
 		}
 		if placeholder := e.registerStuckFamily(tf.Name, rArgs, tf.Kind, tf.S); placeholder != nil {
@@ -209,23 +235,23 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 			if fam, ok := e.lookupFamily(con.Name); ok && len(fam.Params) == depth {
 				_, args := types.UnwindApp(t)
 				for i, a := range args {
-					args[i] = e.reduceFamilyAppsN(a, cache)
+					args[i] = e.reduceFamilyAppsN(a)
 				}
 				key := familyAppKey(con.Name, args)
-				if *cache != nil {
-					if cached, ok := (*cache)[key]; ok {
+				if e.tfCache != nil {
+					if cached, ok := e.tfCache[key]; ok {
 						return cached
 					}
 				}
 				result, reduced := e.ReduceTyFamily(con.Name, args, t.Span())
 				if reduced {
-					if *cache == nil {
-						*cache = make(map[string]types.Type)
+					if e.tfCache == nil {
+						e.tfCache = make(map[string]types.Type)
 					}
 					stuck := &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
-					(*cache)[key] = stuck
-					r := e.reduceFamilyAppsN(result, cache)
-					(*cache)[key] = r
+					e.tfCache[key] = stuck
+					r := e.reduceFamilyAppsN(result)
+					e.tfCache[key] = r
 					return r
 				}
 				if placeholder := e.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
@@ -234,8 +260,8 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
 			}
 		}
-		rFun := e.reduceFamilyAppsN(app.Fun, cache)
-		rArg := e.reduceFamilyAppsN(app.Arg, cache)
+		rFun := e.reduceFamilyAppsN(app.Fun)
+		rArg := e.reduceFamilyAppsN(app.Arg)
 		if rFun == app.Fun && rArg == app.Arg {
 			return t
 		}
@@ -247,43 +273,45 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type, cache *map[string]types.Type
 	if !types.HasFamilyApp(t) {
 		return t
 	}
-	return e.reduceChildren(t, cache)
+	return e.reduceChildren(t)
 }
 
 // reduceChildren applies reduceFamilyAppsN to each child of a composite type,
 // reconstructing the node only when a child changes. Inlined equivalent of
 // types.MapType to avoid closure heap allocation on every call.
-func (e *ReduceEnv) reduceChildren(t types.Type, cache *map[string]types.Type) types.Type {
+//
+// The cycle-breaking cache is read from e.tfCache (managed by reduceFamilyApps).
+func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 	switch ty := t.(type) {
 	case *types.TyArrow:
-		rFrom := e.reduceFamilyAppsN(ty.From, cache)
-		rTo := e.reduceFamilyAppsN(ty.To, cache)
+		rFrom := e.reduceFamilyAppsN(ty.From)
+		rTo := e.reduceFamilyAppsN(ty.To)
 		if rFrom == ty.From && rTo == ty.To {
 			return t
 		}
 		return &types.TyArrow{From: rFrom, To: rTo, Flags: types.MetaFreeFlags(rFrom, rTo), S: ty.S}
 	case *types.TyForall:
-		rKind := e.reduceFamilyAppsN(ty.Kind, cache)
-		rBody := e.reduceFamilyAppsN(ty.Body, cache)
+		rKind := e.reduceFamilyAppsN(ty.Kind)
+		rBody := e.reduceFamilyAppsN(ty.Body)
 		if rKind == ty.Kind && rBody == ty.Body {
 			return t
 		}
 		return &types.TyForall{Var: ty.Var, Kind: rKind, Body: rBody, Flags: types.MetaFreeFlags(rKind, rBody), S: ty.S}
 	case *types.TyCBPV:
-		rPre := e.reduceFamilyAppsN(ty.Pre, cache)
-		rPost := e.reduceFamilyAppsN(ty.Post, cache)
-		rResult := e.reduceFamilyAppsN(ty.Result, cache)
+		rPre := e.reduceFamilyAppsN(ty.Pre)
+		rPost := e.reduceFamilyAppsN(ty.Post)
+		rResult := e.reduceFamilyAppsN(ty.Result)
 		rGrade := ty.Grade
 		if rGrade != nil {
-			rGrade = e.reduceFamilyAppsN(rGrade, cache)
+			rGrade = e.reduceFamilyAppsN(rGrade)
 		}
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result && rGrade == ty.Grade {
 			return t
 		}
 		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, Grade: rGrade, Flags: types.MetaFreeFlags(rPre, rPost, rResult, rGrade), S: ty.S}
 	case *types.TyEvidence:
-		rConstraints := e.reduceFamilyAppsN(ty.Constraints, cache)
-		rBody := e.reduceFamilyAppsN(ty.Body, cache)
+		rConstraints := e.reduceFamilyAppsN(ty.Constraints)
+		rBody := e.reduceFamilyAppsN(ty.Body)
 		if rConstraints == ty.Constraints && rBody == ty.Body {
 			return t
 		}
@@ -294,11 +322,11 @@ func (e *ReduceEnv) reduceChildren(t types.Type, cache *map[string]types.Type) t
 		return &types.TyEvidence{Constraints: cr, Body: rBody, Flags: types.MetaFreeFlags(cr, rBody), S: ty.S}
 	case *types.TyEvidenceRow:
 		newEntries, changed := ty.Entries.MapChildren(func(child types.Type) types.Type {
-			return e.reduceFamilyAppsN(child, cache)
+			return e.reduceFamilyAppsN(child)
 		})
 		var tail types.Type
 		if ty.Tail != nil {
-			tail = e.reduceFamilyAppsN(ty.Tail, cache)
+			tail = e.reduceFamilyAppsN(ty.Tail)
 			if tail != ty.Tail {
 				changed = true
 			}

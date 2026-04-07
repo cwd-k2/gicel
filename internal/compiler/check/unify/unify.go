@@ -86,6 +86,14 @@ type Unifier struct {
 	// checker unifier — the flex path skips the occurs check, which
 	// is safe only when the types being unified are freshly instantiated.
 	FlexSkolems bool
+
+	// zonkEntriesFn is a pre-bound method value for u.zonkInner used as
+	// the callback to EvidenceEntries.ZonkEntries on TyEvidenceRow nodes.
+	// Constructed once at NewUnifier time so the per-call method-value
+	// closure allocation that the alloc profile showed dominating the
+	// TyEvidenceRow zonk path (425K objects on cold start) is paid once
+	// per Unifier instead of once per evidence row visited.
+	zonkEntriesFn func(types.Type) types.Type
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
@@ -93,13 +101,15 @@ type Unifier struct {
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
 func NewUnifier() *Unifier {
 	id := 0
-	return &Unifier{
+	u := &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
 		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     &id,
 		SolverLevel: -1,
 	}
+	u.zonkEntriesFn = u.zonkInner
+	return u
 }
 
 // NewUnifierShared creates a Unifier that shares a fresh ID counter
@@ -108,13 +118,15 @@ func NewUnifier() *Unifier {
 // NewUnifierShared creates a Unifier that shares a fresh ID counter
 // with the calling Checker, ensuring no ID collisions.
 func NewUnifierShared(freshID *int) *Unifier {
-	return &Unifier{
+	u := &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
 		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     freshID,
 		SolverLevel: -1,
 	}
+	u.zonkEntriesFn = u.zonkInner
+	return u
 }
 
 // FreshLevelMeta creates a fresh universe level metavariable.

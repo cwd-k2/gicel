@@ -148,6 +148,12 @@ func (c *CapabilityEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, 
 
 // EvidenceRowFlags computes FlagMetaFree and FlagNoFamilyApp for a TyEvidenceRow
 // by checking its entries and tail. O(n) in field count, each child O(1) via Flags.
+//
+// Iteration is type-switched directly on EvidenceEntries instead of going
+// through ForEachChild's func-typed callback, because the closure capture of
+// `flags` (a stack-local uint8 written from the callback) was forcing a heap
+// allocation of the closure on every call. The cold-start profile showed
+// this single line allocating ~196K objects (2.96% of total).
 func EvidenceRowFlags(entries EvidenceEntries, tail Type) uint8 {
 	flags := FlagStable
 	if tail != nil {
@@ -156,10 +162,69 @@ func EvidenceRowFlags(entries EvidenceEntries, tail Type) uint8 {
 			return 0
 		}
 	}
-	entries.ForEachChild(func(child Type) bool {
-		flags &= nodeFlags(child)
-		return flags != 0
-	})
+	switch e := entries.(type) {
+	case *CapabilityEntries:
+		for _, f := range e.Fields {
+			flags &= nodeFlags(f.Type)
+			if flags == 0 {
+				return 0
+			}
+			for _, g := range f.Grades {
+				flags &= nodeFlags(g)
+				if flags == 0 {
+					return 0
+				}
+			}
+		}
+	case *ConstraintEntries:
+		for i := range e.Entries {
+			flags = constraintEntryFlags(&e.Entries[i], flags)
+			if flags == 0 {
+				return 0
+			}
+		}
+	}
+	return flags
+}
+
+// constraintEntryFlags folds nodeFlags over each child of a ConstraintEntry,
+// short-circuiting as soon as the accumulated flag set becomes empty. Mirrors
+// forEachConstraintEntryChild without the callback indirection.
+func constraintEntryFlags(e *ConstraintEntry, flags uint8) uint8 {
+	for _, a := range e.Args {
+		flags &= nodeFlags(a)
+		if flags == 0 {
+			return 0
+		}
+	}
+	if e.IsEquality {
+		flags &= nodeFlags(e.EqLhs)
+		if flags == 0 {
+			return 0
+		}
+		flags &= nodeFlags(e.EqRhs)
+		if flags == 0 {
+			return 0
+		}
+	}
+	if e.ConstraintVar != nil {
+		flags &= nodeFlags(e.ConstraintVar)
+		if flags == 0 {
+			return 0
+		}
+	}
+	if e.Quantified != nil {
+		for i := range e.Quantified.Context {
+			flags = constraintEntryFlags(&e.Quantified.Context[i], flags)
+			if flags == 0 {
+				return 0
+			}
+		}
+		flags = constraintEntryFlags(&e.Quantified.Head, flags)
+		if flags == 0 {
+			return 0
+		}
+	}
 	return flags
 }
 
