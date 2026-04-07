@@ -46,12 +46,25 @@ type Proto struct {
 
 // ResolvePrims populates ResolvedPrims by looking up each string in the
 // registry. Called once at link time for each Proto (and its nested Protos).
+//
+// Also walks the Constants pool: any *eval.PrimVal stub stored as a
+// constant (these are emitted by compilePrimOp as the value pushed by
+// OpPrimPartial) gets its Impl field populated. This eliminates the
+// per-call PrimRegistry.Lookup that the apply paths would otherwise
+// incur every time a partial-application PrimVal flows through them.
 func (p *Proto) ResolvePrims(reg *eval.PrimRegistry) {
 	if len(p.Strings) > 0 {
 		p.ResolvedPrims = make([]eval.PrimImpl, len(p.Strings))
 		for i, name := range p.Strings {
 			if impl, ok := reg.Lookup(name); ok {
 				p.ResolvedPrims[i] = impl
+			}
+		}
+	}
+	for _, c := range p.Constants {
+		if pv, ok := c.(*eval.PrimVal); ok && pv.Impl == nil {
+			if impl, ok := reg.Lookup(pv.Name); ok {
+				pv.Impl = impl
 			}
 		}
 	}

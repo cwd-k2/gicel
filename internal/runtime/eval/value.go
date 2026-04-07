@@ -37,12 +37,19 @@ type ConVal struct {
 // PrimVal is a partially or fully applied primitive operation.
 // Non-effectful PrimVals are called when len(Args) == Arity.
 // Effectful PrimVals (those returning Computation) are deferred until forced in Bind or top-level.
+//
+// Impl is an optional cached pointer to the resolved PrimImpl. When non-nil
+// the apply paths skip the per-call PrimRegistry.Lookup(Name) hash lookup.
+// Populated at link time by Proto.ResolvePrims for stub PrimVals living in
+// the Constants pool, and propagated to derived PrimVals (partial / over-
+// app intermediates) by every apply site that constructs a fresh PrimVal.
 type PrimVal struct {
 	Name      string
 	Arity     int
 	Effectful bool
 	Args      []Value
 	S         span.Span // source location from the originating PrimOp
+	Impl      PrimImpl  // resolved impl, or nil to fall back to registry lookup
 }
 
 // UnitVal is the unit value () — an empty record.

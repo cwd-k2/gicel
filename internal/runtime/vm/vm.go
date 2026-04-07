@@ -762,6 +762,13 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			arity := int(frame.proto.Code[frame.ip])
 			frame.ip++
 			name := frame.proto.Strings[nameIdx]
+			// Resolve impl up-front so the eventual force-effectful path
+			// (and any subsequent applyN that touches this PrimVal) can
+			// skip the per-call PrimRegistry lookup.
+			var impl eval.PrimImpl
+			if int(nameIdx) < len(frame.proto.ResolvedPrims) {
+				impl = frame.proto.ResolvedPrims[nameIdx]
+			}
 			args := make([]eval.Value, arity)
 			for i := arity - 1; i >= 0; i-- {
 				args[i] = vm.pop()
@@ -770,6 +777,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				Name: name, Arity: arity,
 				Effectful: true, Args: args,
 				S: frame.proto.SpanAt(frame.ip),
+				Impl: impl,
 			})
 
 		default:
