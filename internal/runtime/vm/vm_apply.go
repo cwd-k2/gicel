@@ -517,6 +517,38 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	return nil
 }
 
+// dispatchApplyN runs an OpApplyN / OpTailApplyN instruction using a
+// stack view: the function and its n arguments are taken directly from
+// the operand stack without allocating an args slice. After applyN
+// finishes, the [fn, arg0..argn-1] residue is cleared and, if applyN
+// produced a value (PrimVal/PAPVal/ConVal/etc.), it is placed at the
+// fn's old slot.
+//
+// For frame-pushing dispatches (saturated VMClosure / PAPVal entry,
+// thunk force), applyN returns (nil, nil) and the new frame is already
+// on the call stack. The cleanup still happens, leaving the operand
+// stack at sp = fnIdx so the closure body's eventual OpReturn can push
+// its result onto a clean baseline.
+func (vm *VM) dispatchApplyN(n int, frame *Frame, tail bool) error {
+	fnIdx := vm.sp - n - 1
+	fn := vm.stack[fnIdx]
+	args := vm.stack[fnIdx+1 : vm.sp]
+	val, err := vm.applyN(fn, args, frame, tail)
+	if err != nil {
+		return err
+	}
+	// Clear the [fn, args] section. applyN has either copied the args
+	// into a heap-retaining value (PAPVal/PrimVal/ConVal), copied them
+	// into the new closure's locals via callClosureMulti, or consumed
+	// them by passing to a trusted prim. The stack slots are now dead.
+	clear(vm.stack[fnIdx:vm.sp])
+	vm.sp = fnIdx
+	if val != nil {
+		vm.push(val)
+	}
+	return nil
+}
+
 // emitEnterObs emits the observer "enter" label for a closure call (or
 // records an internal-frame entry, depending on whether the named binding
 // is user-visible). Returns true if the caller should set leaveObs on its
@@ -541,11 +573,23 @@ func (vm *VM) emitEnterObs(name string, sampleArg eval.Value, frame *Frame) bool
 }
 
 // applyN dispatches a multi-argument application.
-// Used by OpApplyN/OpTailApplyN. Handles every value type that vm.apply
-// handles — VMClosure, PAPVal, ConVal, PrimVal, VMThunkVal — so the
-// compiler may emit OpApplyN for any multi-argument call spine and
-// avoid the N-allocation cost of the sequential OpApply chain.
-func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) error {
+//
+// Returns one of three outcomes:
+//   - (val, nil): a value was produced synchronously; the OpApplyN
+//     handler must push it onto the operand stack after cleanup.
+//   - (nil, nil): a new call frame was pushed (closure / thunk entry);
+//     the operand stack must still be cleaned up of [fn, args] residue,
+//     but no value to push — the closure's eventual OpReturn will push
+//     its result onto the cleaned stack.
+//   - (nil, err): error.
+//
+// Pre-condition: the args slice may be aliased to the operand stack
+// (the caller passes a stack view to avoid heap allocation). applyN
+// MUST copy args before storing them into any heap-retaining value
+// (PAPVal, PrimVal, ConVal). Saturated dispatches that consume args
+// immediately (callClosureMulti, callTrustedPrim) read args before
+// the operand stack is cleaned up, so a stack view is safe there.
+func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) (eval.Value, error) {
 	switch f := fn.(type) {
 	case *eval.VMClosure:
 		proto := f.Proto.(*Proto)
@@ -553,7 +597,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		switch {
 		case len(args) == arity:
 			if arity == 1 {
-				return vm.applySingle(f, args[0], frame, tail)
+				return nil, vm.applySingle(f, args[0], frame, tail)
 			}
 			leaveObs := vm.emitEnterObs(f.Name, args[0], frame)
 			if tail {
@@ -561,39 +605,48 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 					vm.obs.LeaveInternal()
 				}
 				frame.leaveObs = leaveObs
-				return vm.tailCallClosureMulti(proto, f.Captured, args, frame)
+				return nil, vm.tailCallClosureMulti(proto, f.Captured, args, frame)
 			}
 			err := vm.callClosureMulti(proto, f.Captured, args, frame)
 			if err == nil && leaveObs {
 				vm.currentFrame().leaveObs = true
 			}
-			return err
+			return nil, err
 		case len(args) < arity:
 			if err := vm.budget.Alloc(eval.CostPAP + int64(eval.CostPAPArg*len(args))); err != nil {
-				return err
+				return nil, err
 			}
-			vm.push(&eval.PAPVal{Fun: f, Args: args, Arity: arity})
-			return nil
+			// Copy args — the slice is aliased to the operand stack
+			// and PAPVal retains the underlying storage long-term.
+			storedArgs := make([]eval.Value, len(args))
+			copy(storedArgs, args)
+			return &eval.PAPVal{Fun: f, Args: storedArgs, Arity: arity}, nil
 		default:
 			// Over-application: enter with first arity args via a barrier
 			// so the closure body runs in isolation, then apply remaining
 			// args to its result. Each subsequent apply also goes through
 			// runCallee because it may itself enter a closure.
+			//
+			// Pin the extras into a heap slice now: the operand stack
+			// (which `args` views) gets cleaned up by runCallee's barrier
+			// machinery during sub-execution.
+			extras := make([]eval.Value, len(args)-arity)
+			copy(extras, args[arity:])
 			callerCapEnv := frame.capEnv
 			result, err := vm.runCallee(callerCapEnv, func(b *Frame) error {
 				return vm.callClosureMulti(proto, f.Captured, args[:arity], b)
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 			cur := result.Value
 			capEnv := result.CapEnv
-			for _, extra := range args[arity:] {
+			for _, extra := range extras {
 				next, err := vm.runCallee(capEnv, func(b *Frame) error {
 					return vm.apply(cur, extra, b, false)
 				})
 				if err != nil {
-					return err
+					return nil, err
 				}
 				cur = next.Value
 				capEnv = next.CapEnv
@@ -601,8 +654,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			// Re-acquire current frame: runCallee may have reallocated
 			// the frames slice, invalidating the original `frame` ptr.
 			vm.currentFrame().capEnv = capEnv
-			vm.push(cur)
-			return nil
+			return cur, nil
 		}
 
 	case *eval.PAPVal:
@@ -619,16 +671,15 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 					vm.obs.LeaveInternal()
 				}
 				frame.leaveObs = leaveObs
-				return vm.tailCallClosureMulti(proto, f.Fun.Captured, combined, frame)
+				return nil, vm.tailCallClosureMulti(proto, f.Fun.Captured, combined, frame)
 			}
 			err := vm.callClosureMulti(proto, f.Fun.Captured, combined, frame)
 			if err == nil && leaveObs {
 				vm.currentFrame().leaveObs = true
 			}
-			return err
+			return nil, err
 		case remaining > 0:
-			vm.push(&eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity})
-			return nil
+			return &eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity}, nil
 		default:
 			// Over-saturated PAP: enter with the saturating prefix via a
 			// barrier, then apply remaining args to the result.
@@ -638,7 +689,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 				return vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], b)
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 			cur := result.Value
 			capEnv := result.CapEnv
@@ -647,14 +698,13 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 					return vm.apply(cur, extra, b, false)
 				})
 				if err != nil {
-					return err
+					return nil, err
 				}
 				cur = next.Value
 				capEnv = next.CapEnv
 			}
 			vm.currentFrame().capEnv = capEnv
-			vm.push(cur)
-			return nil
+			return cur, nil
 		}
 
 	case *eval.PrimVal:
@@ -665,7 +715,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
 			impl, ok := vm.prims.Lookup(f.Name)
 			if !ok {
-				return vm.runtimeError("missing primitive: "+f.Name, frame)
+				return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
 			}
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
@@ -673,11 +723,10 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, scratch)
 			clear(vm.primScratch[:newLen])
 			if err != nil {
-				return err
+				return nil, err
 			}
 			frame.capEnv = newCap
-			vm.push(val)
-			return nil
+			return val, nil
 		}
 		// All other PrimVal cases need a single combined slice that
 		// outlives this call (it lands inside a deferred PrimVal or
@@ -687,31 +736,28 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		copy(combined[len(f.Args):], args)
 		switch {
 		case newLen < f.Arity:
-			vm.push(&eval.PrimVal{
+			return &eval.PrimVal{
 				Name: f.Name, Arity: f.Arity,
 				Effectful: f.Effectful, Args: combined, S: f.S,
-			})
-			return nil
+			}, nil
 		case newLen == f.Arity && f.Effectful:
 			// Saturated effectful — defer execution until forced.
-			vm.push(&eval.PrimVal{
+			return &eval.PrimVal{
 				Name: f.Name, Arity: f.Arity,
 				Effectful: true, Args: combined, S: f.S,
-			})
-			return nil
+			}, nil
 		case newLen == f.Arity:
 			// Saturated non-effectful, but arity exceeds scratch.
 			impl, ok := vm.prims.Lookup(f.Name)
 			if !ok {
-				return vm.runtimeError("missing primitive: "+f.Name, frame)
+				return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
 			}
 			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, combined)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			frame.capEnv = newCap
-			vm.push(val)
-			return nil
+			return val, nil
 		}
 		// Over-application: saturate the prim, then thread the result
 		// through the remaining args. Effectful prims defer; non-effectful
@@ -726,11 +772,11 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		} else {
 			impl, ok := vm.prims.Lookup(f.Name)
 			if !ok {
-				return vm.runtimeError("missing primitive: "+f.Name, frame)
+				return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
 			}
 			val, newCap, err := vm.callTrustedPrim(impl, callerCapEnv, combined[:f.Arity])
 			if err != nil {
-				return err
+				return nil, err
 			}
 			head = val
 			callerCapEnv = newCap
@@ -742,14 +788,13 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 				return vm.apply(cur, extra, b, false)
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 			cur = next.Value
 			capEnv = next.CapEnv
 		}
 		vm.currentFrame().capEnv = capEnv
-		vm.push(cur)
-		return nil
+		return cur, nil
 
 	case *eval.ConVal:
 		// Constructors are uncurried at the IR level (Con.Args is the
@@ -758,34 +803,36 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		// in one shot to avoid the per-arg allocation that the sequential
 		// apply chain would produce.
 		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+len(args)))); err != nil {
-			return err
+			return nil, err
 		}
 		combined := make([]eval.Value, len(f.Args)+len(args))
 		copy(combined, f.Args)
 		copy(combined[len(f.Args):], args)
-		vm.push(&eval.ConVal{Con: f.Con, Args: combined})
-		return nil
+		return &eval.ConVal{Con: f.Con, Args: combined}, nil
 
 	case *eval.VMThunkVal:
 		// Force the thunk in isolation, then apply all original args to
-		// its result. Mirrors apply's behavior of "force and discard arg"
-		// but generalizes to N args.
+		// its result. The args slice may be aliased to the operand stack
+		// — pin into a heap copy because runCallee will manipulate the
+		// stack while forcing.
+		stored := make([]eval.Value, len(args))
+		copy(stored, args)
 		result, err := vm.runCallee(frame.capEnv, func(b *Frame) error {
 			return vm.force(f, b, false)
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// Recurse with the forced value as the new function.
 		// frame may be stale after runCallee — fetch fresh.
-		return vm.applyN(result.Value, args, vm.currentFrame(), tail)
+		return vm.applyN(result.Value, stored, vm.currentFrame(), tail)
 
 	default:
 		msg := "application of non-function"
 		if fn != nil {
 			msg = "application of non-function: " + fn.String()
 		}
-		return vm.runtimeError(msg, frame)
+		return nil, vm.runtimeError(msg, frame)
 	}
 }
 

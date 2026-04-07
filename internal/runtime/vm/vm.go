@@ -355,24 +355,14 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 		case OpApplyN:
 			n := int(frame.proto.Code[frame.ip])
 			frame.ip++
-			args := make([]eval.Value, n)
-			for i := n - 1; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
-			fn := vm.pop()
-			if err := vm.applyN(fn, args, frame, false); err != nil {
+			if err := vm.dispatchApplyN(n, frame, false); err != nil {
 				return eval.EvalResult{}, err
 			}
 
 		case OpTailApplyN:
 			n := int(frame.proto.Code[frame.ip])
 			frame.ip++
-			args := make([]eval.Value, n)
-			for i := n - 1; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
-			fn := vm.pop()
-			if err := vm.applyN(fn, args, frame, true); err != nil {
+			if err := vm.dispatchApplyN(n, frame, true); err != nil {
 				return eval.EvalResult{}, err
 			}
 
