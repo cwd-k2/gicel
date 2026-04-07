@@ -97,36 +97,32 @@ type Unifier struct {
 }
 
 // NewUnifier creates a Unifier with its own internal fresh ID counter.
-
-// NewUnifier creates a Unifier with its own internal fresh ID counter.
+//
+// zonkEntriesFn is left nil and bound lazily on the first TyEvidenceRow
+// zonk; trial unifiers that never touch evidence rows therefore pay no
+// closure-allocation cost at all (the Tier 4 micro benchmarks observed
+// a 1-alloc/iter regression when the binding was eager in NewUnifier).
 func NewUnifier() *Unifier {
 	id := 0
-	u := &Unifier{
+	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
 		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     &id,
 		SolverLevel: -1,
 	}
-	u.zonkEntriesFn = u.zonkInner
-	return u
 }
 
 // NewUnifierShared creates a Unifier that shares a fresh ID counter
 // with the calling Checker, ensuring no ID collisions.
-
-// NewUnifierShared creates a Unifier that shares a fresh ID counter
-// with the calling Checker, ensuring no ID collisions.
 func NewUnifierShared(freshID *int) *Unifier {
-	u := &Unifier{
+	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
 		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     freshID,
 		SolverLevel: -1,
 	}
-	u.zonkEntriesFn = u.zonkInner
-	return u
 }
 
 // FreshLevelMeta creates a fresh universe level metavariable.

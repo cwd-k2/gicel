@@ -99,9 +99,15 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		}
 		return &types.TyCBPV{Tag: ty.Tag, Pre: zPre, Post: zPost, Result: zResult, Grade: zGrade, Flags: types.MetaFreeFlags(zPre, zPost, zResult, zGrade), S: ty.S}
 	case *types.TyEvidenceRow:
-		// Use the pre-bound zonkEntriesFn callback (allocated once at
-		// NewUnifier time) instead of creating a fresh method-value
-		// closure on every TyEvidenceRow visit.
+		// Use the lazily-bound zonkEntriesFn callback (allocated on the
+		// first TyEvidenceRow zonk and cached on the Unifier) instead
+		// of creating a fresh method-value closure on every visit.
+		// Lazy binding keeps trial unifiers that never zonk evidence
+		// rows allocation-free (Tier 4 micro benches noticed the
+		// per-NewUnifier alloc when the binding was eager).
+		if u.zonkEntriesFn == nil {
+			u.zonkEntriesFn = u.zonkInner
+		}
 		newEntries, changed := ty.Entries.ZonkEntries(u.zonkEntriesFn)
 		var tail types.Type
 		if ty.Tail != nil {
