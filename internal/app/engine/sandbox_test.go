@@ -55,7 +55,12 @@ func TestSandboxRunCompileError(t *testing.T) {
 }
 
 func TestSandboxRunJSON(t *testing.T) {
-	result, err := RunSandbox("import Prelude\nmain := True", &SandboxConfig{
+	// Use a source that has at least one CBPV reduction step (App), so
+	// the assertion is well-defined regardless of whether module-init
+	// steps are accounted for. `main := True` is intentionally avoided
+	// because constructor loads are value forms and emit no step in
+	// the bytecode (compileExpr's emitStep gate excludes Var/Lit/Con).
+	result, err := RunSandbox("import Prelude\nmain := 1 + 2", &SandboxConfig{
 		Packs: []registry.Pack{stdlib.Prelude},
 	})
 	if err != nil {

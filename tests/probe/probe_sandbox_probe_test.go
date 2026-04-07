@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/host/registry"
+	"github.com/cwd-k2/gicel/internal/host/stdlib"
 )
 
 // ===================================================================
@@ -225,8 +227,14 @@ func TestProbeC_Limits_TimeoutVeryShort(t *testing.T) {
 }
 
 func TestProbeC_Limits_StepLimitStatsAccurate(t *testing.T) {
-	// Verify stats report correct step count.
-	result, err := probeSandbox("main := 42", &gicel.SandboxConfig{
+	// Verify stats report correct step count. The source must contain
+	// at least one CBPV reduction (App/Force/Bind/Case/PrimOp/Fix) so
+	// the assertion is well-defined: bare literals like `main := 42`
+	// emit no steps in the bytecode (Lit is a value form per
+	// compileExpr's emitStep gate). Importing Prelude and using `+`
+	// produces a saturated PrimOp call that DOES emit a step.
+	result, err := probeSandbox("import Prelude\nmain := 1 + 2", &gicel.SandboxConfig{
+		Packs:    []registry.Pack{stdlib.Prelude},
 		MaxSteps: 100000,
 	})
 	if err != nil {
