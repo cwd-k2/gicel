@@ -251,12 +251,12 @@ func TestUnifyEvidenceRowCapOpenClosedExtraOnOpenSide(t *testing.T) {
 	if err == nil {
 		t.Fatal("open row with extra labels should not unify with closed row")
 	}
-	ue, ok := err.(*UnifyError)
+	rme, ok := err.(*RowMismatchError)
 	if !ok {
-		t.Fatalf("expected *UnifyError, got %T", err)
+		t.Fatalf("expected *RowMismatchError, got %T", err)
 	}
-	if len(ue.Labels) != 1 || ue.Labels[0] != "y" {
-		t.Errorf("expected Labels=[y], got %v", ue.Labels)
+	if len(rme.Labels) != 1 || rme.Labels[0] != "y" {
+		t.Errorf("expected Labels=[y], got %v", rme.Labels)
 	}
 }
 
@@ -269,12 +269,12 @@ func TestUnifyEvidenceRowCapClosedMismatchLabels(t *testing.T) {
 	if err == nil {
 		t.Fatal("different labels should not unify")
 	}
-	ue, ok := err.(*UnifyError)
+	rme, ok := err.(*RowMismatchError)
 	if !ok {
-		t.Fatalf("expected *UnifyError, got %T", err)
+		t.Fatalf("expected *RowMismatchError, got %T", err)
 	}
-	if len(ue.Labels) != 2 {
-		t.Errorf("expected 2 labels, got %v", ue.Labels)
+	if len(rme.Labels) != 2 {
+		t.Errorf("expected 2 labels, got %v", rme.Labels)
 	}
 }
 

@@ -230,8 +230,8 @@ func TestProbeD_Unify_OccursCheckDirect(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected occurs check error, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifyOccursCheck {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifyOccursCheck {
 		t.Errorf("expected unify.UnifyOccursCheck, got %v", err)
 	}
 }
@@ -255,8 +255,8 @@ func TestProbeD_Unify_OccursCheckDeepNesting(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected occurs check error for deeply nested meta, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifyOccursCheck {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifyOccursCheck {
 		t.Errorf("expected unify.UnifyOccursCheck, got %v", err)
 	}
 }
@@ -443,8 +443,8 @@ func TestProbeD_RowUnify_DuplicateLabelDetection(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate label error, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifyDupLabel {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifyDupLabel {
 		t.Errorf("expected unify.UnifyDupLabel, got %v", err)
 	}
 }
@@ -545,8 +545,8 @@ func TestProbeE_Unify_OccursCheckThroughSolvedMeta(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected occurs check error when meta chain creates cycle")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifyOccursCheck {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifyOccursCheck {
 		t.Errorf("expected unify.UnifyOccursCheck, got %v", err)
 	}
 }
@@ -800,8 +800,8 @@ func TestProbeE_Row_LabelContextPreventsDuplicates(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate label error when solving meta with conflicting label context")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifyDupLabel {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifyDupLabel {
 		t.Errorf("expected unify.UnifyDupLabel, got %v", err)
 	}
 }

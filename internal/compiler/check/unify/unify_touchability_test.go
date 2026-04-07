@@ -33,12 +33,12 @@ func TestSolverLevelBlocksOuterMeta(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected UnifyUntouchable error, got nil")
 	}
-	ue, ok := err.(*UnifyError)
+	ue, ok := err.(UnifyError)
 	if !ok {
-		t.Fatalf("expected *UnifyError, got %T", err)
+		t.Fatalf("expected UnifyError, got %T", err)
 	}
-	if ue.Kind != UnifyUntouchable {
-		t.Errorf("expected UnifyUntouchable, got %v", ue.Kind)
+	if ue.Kind() != UnifyUntouchable {
+		t.Errorf("expected UnifyUntouchable, got %v", ue.Kind())
 	}
 }
 
@@ -82,12 +82,12 @@ func TestSolverLevelBlocksRHS(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected UnifyUntouchable error for RHS meta")
 	}
-	ue, ok := err.(*UnifyError)
+	ue, ok := err.(UnifyError)
 	if !ok {
-		t.Fatalf("expected *UnifyError, got %T", err)
+		t.Fatalf("expected UnifyError, got %T", err)
 	}
-	if ue.Kind != UnifyUntouchable {
-		t.Errorf("expected UnifyUntouchable, got %v", ue.Kind)
+	if ue.Kind() != UnifyUntouchable {
+		t.Errorf("expected UnifyUntouchable, got %v", ue.Kind())
 	}
 }
 

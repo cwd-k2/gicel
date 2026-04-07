@@ -99,8 +99,8 @@ func TestUnifyLevelsOccursCheck(t *testing.T) {
 	if err == nil {
 		t.Error("should detect occurs check")
 	}
-	ue, ok := err.(*UnifyError)
-	if !ok || ue.Kind != UnifyOccursCheck {
+	ue, ok := err.(UnifyError)
+	if !ok || ue.Kind() != UnifyOccursCheck {
 		t.Errorf("expected UnifyOccursCheck, got %v", err)
 	}
 }

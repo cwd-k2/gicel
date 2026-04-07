@@ -10,17 +10,17 @@ func (u *Unifier) unifyEvidenceRows(r1, r2 *types.TyEvidenceRow) error {
 	case *types.CapabilityEntries:
 		b, ok := r2.Entries.(*types.CapabilityEntries)
 		if !ok {
-			return &UnifyError{Kind: UnifyMismatch, Message: "cannot unify capability row with constraint row"}
+			return &MessageError{Message: "cannot unify capability row with constraint row"}
 		}
 		return u.unifyEvCapRows(a.Fields, r1.Tail, b.Fields, r2.Tail)
 	case *types.ConstraintEntries:
 		b, ok := r2.Entries.(*types.ConstraintEntries)
 		if !ok {
-			return &UnifyError{Kind: UnifyMismatch, Message: "cannot unify constraint row with capability row"}
+			return &MessageError{Message: "cannot unify constraint row with capability row"}
 		}
 		return u.unifyEvConRows(a.Entries, r1.Tail, b.Entries, r2.Tail)
 	default:
-		return &UnifyError{Kind: UnifyMismatch, Message: "unknown evidence fiber"}
+		return &MessageError{Message: "unknown evidence fiber"}
 	}
 }
 
@@ -31,11 +31,11 @@ func (u *Unifier) unifyEvCapRows(
 	// Normalize field order.
 	an, err := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: aFields}, Tail: aTail})
 	if err != nil {
-		return &UnifyError{Kind: UnifyMismatch, Message: err.Error()}
+		return &MessageError{Message: err.Error()}
 	}
 	bn, err := types.NormalizeRow(&types.TyEvidenceRow{Entries: &types.CapabilityEntries{Fields: bFields}, Tail: bTail})
 	if err != nil {
-		return &UnifyError{Kind: UnifyMismatch, Message: err.Error()}
+		return &MessageError{Message: err.Error()}
 	}
 	aFieldsN := an.CapFields()
 	bFieldsN := bn.CapFields()
@@ -64,7 +64,7 @@ func (u *Unifier) unifyEvCapRows(
 		}
 		// Unify grade annotations pairwise — count must match.
 		if len(aField.Grades) != len(bField.Grades) {
-			return &UnifyError{Kind: UnifyMismatch, Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
+			return &GradeMismatchError{Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
 		}
 		for i := range aField.Grades {
 			if err := u.Unify(aField.Grades[i], bField.Grades[i]); err != nil {
@@ -150,7 +150,7 @@ func (u *Unifier) unifyEvConRows(
 
 	for _, m := range shared {
 		if len(m.A.Args) != len(m.B.Args) {
-			return &UnifyError{Kind: UnifyRowMismatch, Name: m.A.ClassName, CountA: len(m.A.Args), CountB: len(m.B.Args)}
+			return &ClassArgCountError{ClassName: m.A.ClassName, CountA: len(m.A.Args), CountB: len(m.B.Args)}
 		}
 		for i := range m.A.Args {
 			if err := u.Unify(m.A.Args[i], m.B.Args[i]); err != nil {
@@ -171,18 +171,18 @@ func (u *Unifier) resolveEvidenceTails(aTail, bTail types.Type, onlyA, onlyB typ
 	switch {
 	case aTail == nil && bTail == nil:
 		if onlyA.EntryCount() > 0 || onlyB.EntryCount() > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, CountA: onlyA.EntryCount(), CountB: onlyB.EntryCount(),
+			return &RowMismatchError{CountA: onlyA.EntryCount(), CountB: onlyB.EntryCount(),
 				Labels: capFieldLabels(onlyA, onlyB)}
 		}
 	case aTail != nil && bTail == nil:
 		if onlyA.EntryCount() > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, CountA: onlyA.EntryCount(),
+			return &RowMismatchError{CountA: onlyA.EntryCount(),
 				Labels: capFieldLabels(onlyA, nil)}
 		}
 		return u.solveEvidenceTail(aTail, onlyB, nil)
 	case aTail == nil && bTail != nil:
 		if onlyB.EntryCount() > 0 {
-			return &UnifyError{Kind: UnifyRowMismatch, CountB: onlyB.EntryCount(),
+			return &RowMismatchError{CountB: onlyB.EntryCount(),
 				Labels: capFieldLabels(nil, onlyB)}
 		}
 		return u.solveEvidenceTail(bTail, onlyA, nil)

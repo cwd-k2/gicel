@@ -16,11 +16,11 @@ import (
 // unifyErrorCode maps a UnifyError to the corresponding diagnostic.Code.
 // Returns ErrTypeMismatch for non-UnifyError or general mismatch.
 func unifyErrorCode(err error) diagnostic.Code {
-	ue, ok := err.(*unify.UnifyError)
+	ue, ok := err.(unify.UnifyError)
 	if !ok {
 		return diagnostic.ErrTypeMismatch
 	}
-	switch ue.Kind {
+	switch ue.Kind() {
 	case unify.UnifyOccursCheck:
 		return diagnostic.ErrOccursCheck
 	case unify.UnifyDupLabel:
@@ -40,8 +40,10 @@ func unifyErrorCode(err error) diagnostic.Code {
 // Used at general type-mismatch sites where the UnifyError kind IS the primary diagnosis.
 func (s *CheckState) addUnifyError(err error, sp span.Span, ctx string) {
 	// Avoid redundant detail when the unifier reports a simple type mismatch —
-	// the context already contains the type expectation.
-	if ue, ok := err.(*unify.UnifyError); ok && ue.IsMismatch() {
+	// the context already contains the type expectation. Only the
+	// MismatchError variant carries both type sides; other UnifyMismatch-kind
+	// variants (Grade/Level/Message) need their detail message appended.
+	if _, ok := err.(*unify.MismatchError); ok {
 		s.addCodedError(unifyErrorCode(err), sp, ctx)
 		return
 	}

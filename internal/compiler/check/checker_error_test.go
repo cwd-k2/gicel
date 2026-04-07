@@ -61,12 +61,12 @@ func TestErrorDuplicateLabel(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate label error, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
+	ue, ok := err.(unify.UnifyError)
 	if !ok {
 		t.Fatalf("expected UnifyError, got %T: %v", err, err)
 	}
-	if ue.Kind != unify.UnifyDupLabel {
-		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Error())
+	if ue.Kind() != unify.UnifyDupLabel {
+		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind(), ue.Error())
 	}
 }
 
@@ -80,12 +80,12 @@ func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected duplicate label error for evidence row, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
+	ue, ok := err.(unify.UnifyError)
 	if !ok {
 		t.Fatalf("expected UnifyError, got %T: %v", err, err)
 	}
-	if ue.Kind != unify.UnifyDupLabel {
-		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind, ue.Error())
+	if ue.Kind() != unify.UnifyDupLabel {
+		t.Errorf("expected unify.UnifyDupLabel, got %v: %s", ue.Kind(), ue.Error())
 	}
 }
 

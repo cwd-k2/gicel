@@ -27,8 +27,8 @@ func TestProbeD_Skolem_RigidUnifyWithConcrete(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected skolem rigidity error, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifySkolemRigid {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifySkolemRigid {
 		t.Errorf("expected unify.UnifySkolemRigid, got %v", err)
 	}
 }

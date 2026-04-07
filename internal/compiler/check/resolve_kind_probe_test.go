@@ -72,8 +72,8 @@ func TestProbeD_KindUnify_OccursCheck(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected kind occurs check, got nil")
 	}
-	ue, ok := err.(*unify.UnifyError)
-	if !ok || ue.Kind != unify.UnifyOccursCheck {
+	ue, ok := err.(unify.UnifyError)
+	if !ok || ue.Kind() != unify.UnifyOccursCheck {
 		t.Errorf("expected unify.UnifyOccursCheck for kind, got %v", err)
 	}
 }

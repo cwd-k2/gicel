@@ -57,9 +57,9 @@ func (u *Unifier) UnifyLevels(l1, l2 types.LevelExpr) error {
 		}
 	}
 
-	return &UnifyError{
-		Kind:  UnifyMismatch,
-		Label: l1.LevelString() + " vs " + l2.LevelString(),
+	return &LevelMismatchError{
+		A: l1.LevelString(),
+		B: l2.LevelString(),
 	}
 }
 
@@ -69,9 +69,9 @@ func (u *Unifier) solveLevelMeta(m *types.LevelMeta, l types.LevelExpr) error {
 		return nil
 	}
 	if levelOccursIn(m.ID, l) {
-		return &UnifyError{
-			Kind:   UnifyOccursCheck,
-			MetaID: m.ID,
+		return &OccursError{
+			MetaID:  m.ID,
+			IsLevel: true,
 		}
 	}
 	u.trailLevelWrite(m.ID)

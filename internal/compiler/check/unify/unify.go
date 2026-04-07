@@ -10,9 +10,6 @@
 package unify
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -30,80 +27,9 @@ const (
 	UnifyUntouchable                       // meta is untouchable at current solver level
 )
 
-// UnifyError is a structured error returned by the unifier.
-// Fields carry structured data; Error() formats lazily so that trial
-// unification paths that discard the error pay no formatting cost.
-
-// UnifyError is a structured error returned by the unifier.
-// Fields carry structured data; Error() formats lazily so that trial
-// unification paths that discard the error pay no formatting cost.
-type UnifyError struct {
-	Kind    UnifyErrorKind
-	TypeA   types.Type // left-hand type (nil when not applicable)
-	TypeB   types.Type // right-hand type (nil when not applicable)
-	MetaID  int        // metavariable ID (occurs check, untouchable)
-	Level   int        // meta level (untouchable)
-	SLevel  int        // solver level (untouchable)
-	Name    string     // structural identifier: skolem name or class name
-	Message string     // human-readable description (row mismatch detail, etc.)
-	Label   string     // row label (dup label, grade mismatch)
-	Labels  []string   // field/entry labels (row mismatch detail)
-	CountA  int        // left count (grade count, arg count, entry count)
-	CountB  int        // right count
-}
-
-func (e *UnifyError) Error() string {
-	switch e.Kind {
-	case UnifyMismatch:
-		if e.TypeA != nil && e.TypeB != nil {
-			return "type mismatch: " + types.Pretty(e.TypeA) + " vs " + types.Pretty(e.TypeB)
-		}
-		if e.Label != "" && e.CountA >= 0 && e.CountB >= 0 {
-			return "grade count mismatch for label " + strconv.Quote(e.Label) + ": " + strconv.Itoa(e.CountA) + " vs " + strconv.Itoa(e.CountB)
-		}
-		if e.Message != "" {
-			return e.Message
-		}
-		return "type mismatch"
-	case UnifyOccursCheck:
-		if e.TypeA != nil {
-			return "infinite type: ?" + strconv.Itoa(e.MetaID) + " occurs in " + types.Pretty(e.TypeA)
-		}
-		return "infinite level: ?l" + strconv.Itoa(e.MetaID)
-	case UnifyDupLabel:
-		return "duplicate label " + strconv.Quote(e.Label) + " in row"
-	case UnifyRowMismatch:
-		if e.Name != "" {
-			return "constraint arg count mismatch: " + e.Name + " has " + strconv.Itoa(e.CountA) + " args vs " + strconv.Itoa(e.CountB)
-		}
-		if e.CountA > 0 && e.CountB > 0 {
-			return "row mismatch: extra entries (left=" + strconv.Itoa(e.CountA) + ", right=" + strconv.Itoa(e.CountB) + ")"
-		}
-		detail := strconv.Itoa(e.CountA + e.CountB)
-		if len(e.Labels) > 0 {
-			detail = strings.Join(e.Labels, ", ")
-		}
-		return "record has unmatched field(s): " + detail
-	case UnifySkolemRigid:
-		if e.TypeA != nil {
-			return "cannot unify " + types.Pretty(e.TypeA) + " with rigid type variable #" + e.Name
-		}
-		return "cannot unify rigid type variable #" + e.Name + " with " + types.Pretty(e.TypeB)
-	case UnifyUntouchable:
-		return "untouchable meta ?" + strconv.Itoa(e.MetaID) + " (level " + strconv.Itoa(e.Level) + ") at solver level " + strconv.Itoa(e.SLevel)
-	default:
-		return "unification error"
-	}
-}
-
-// IsMismatch reports whether this error is a simple type mismatch
-// (as opposed to occurs check, skolem rigidity, etc.).
-
-// IsMismatch reports whether this error is a simple type mismatch
-// (as opposed to occurs check, skolem rigidity, etc.).
-func (e *UnifyError) IsMismatch() bool {
-	return e.Kind == UnifyMismatch && e.TypeA != nil && e.TypeB != nil
-}
+// The UnifyError interface and its 10 variant types are defined in
+// unify_error.go. Constructors for each variant are inlined at the
+// generation sites below; the unifier never names UnifyError as a struct.
 
 // AliasExpander is a callback for expanding type aliases during unification.
 
@@ -301,7 +227,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			u.skolemSoln[as.ID] = b
 			return nil
 		}
-		return &UnifyError{Kind: UnifySkolemRigid, TypeB: b, Name: as.Name}
+		return &SkolemRigidError{SkolemName: as.Name, Other: b, SkolemOnLeft: true}
 	}
 	if bs, ok := b.(*types.TySkolem); ok {
 		if u.skolemSoln != nil {
@@ -317,7 +243,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			u.skolemSoln[bs.ID] = a
 			return nil
 		}
-		return &UnifyError{Kind: UnifySkolemRigid, TypeA: a, Name: bs.Name}
+		return &SkolemRigidError{SkolemName: bs.Name, Other: a, SkolemOnLeft: false}
 	}
 
 	switch at := a.(type) {
@@ -443,7 +369,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	}
 
-	return &UnifyError{Kind: UnifyMismatch, TypeA: a, TypeB: b}
+	return &MismatchError{A: a, B: b}
 }
 
 // unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
@@ -460,7 +386,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)
 	if len(args) < 3 {
-		return &UnifyError{Kind: UnifyMismatch, TypeA: app, TypeB: types.Con(conName)}
+		return &MismatchError{A: app, B: types.Con(conName)}
 	}
 	// Reconstruct head with excess leading args (handles len(args) > 3).
 	conHead := head
@@ -485,8 +411,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	// Touchability: a meta created at an outer level cannot be solved
 	// from within an implication (inner level).
 	if u.SolverLevel >= 0 && m.Level < u.SolverLevel {
-		return &UnifyError{
-			Kind:   UnifyUntouchable,
+		return &UntouchableMetaError{
 			MetaID: m.ID,
 			Level:  m.Level,
 			SLevel: u.SolverLevel,
@@ -494,7 +419,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	}
 	// Occurs check.
 	if u.occursIn(m.ID, t) {
-		return &UnifyError{Kind: UnifyOccursCheck, MetaID: m.ID, TypeA: t}
+		return &OccursError{MetaID: m.ID, Type: t}
 	}
 	// Label uniqueness: if this meta has a label context, verify the
 	// solution doesn't introduce duplicate labels (spec §8, §6.3).
@@ -503,7 +428,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 			if cap, ok := ev.Entries.(*types.CapabilityEntries); ok {
 				for _, f := range cap.Fields {
 					if _, dup := ctx[f.Label]; dup {
-						return &UnifyError{Kind: UnifyDupLabel, Label: f.Label}
+						return &DupLabelError{Label: f.Label}
 					}
 				}
 			}
