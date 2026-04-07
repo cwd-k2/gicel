@@ -17,14 +17,14 @@ func compilePatternMatch(c *Compiler, cs *ir.Case, tail bool) {
 	numAlts := len(cs.Alts)
 	var endJumps []int
 
-	caseSavedLocals := len(c.top().locals)
+	caseSavedLocals := c.localCount()
 	scrutSlot := c.allocLocal("$scrut")
 	c.emitU16(OpStoreLocal, uint16(scrutSlot))
 
 	allFailPatches := make([][]int, numAlts)
 
 	for i, alt := range cs.Alts {
-		savedLocals := len(c.top().locals)
+		savedLocals := c.localCount()
 
 		c.emitU16(OpLoadLocal, uint16(scrutSlot))
 

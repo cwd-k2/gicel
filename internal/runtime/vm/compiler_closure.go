@@ -94,8 +94,6 @@ func (c *Compiler) compileFixMultiProto(selfName string, params []string, body i
 
 // resolveCapturesFiltered resolves free variable names to parent-frame local slots,
 // filtering out globals (which the child accesses via LOAD_GLOBAL).
-// resolveCapturesFiltered resolves free variable names to parent-frame local slots,
-// filtering out globals (which the child accesses via LOAD_GLOBAL).
 func (c *Compiler) resolveCapturesFiltered(fv []string, fvIndices []int) ([]string, []int) {
 	if len(fv) == 0 {
 		return nil, nil
@@ -104,7 +102,7 @@ func (c *Compiler) resolveCapturesFiltered(fv []string, fvIndices []int) ([]stri
 	var names []string
 	var slots []int
 	for i, name := range fv {
-		if slot, ok := resolveLocalInFrame(f, name); ok {
+		if slot, ok := c.resolveLocalInFrame(f, name); ok {
 			names = append(names, name)
 			slots = append(slots, slot)
 		} else if fvIndices != nil && i < len(fvIndices) && fvIndices[i] >= 0 {
@@ -115,11 +113,13 @@ func (c *Compiler) resolveCapturesFiltered(fv []string, fvIndices []int) ([]stri
 	return names, slots
 }
 
-// resolveLocalInFrame searches a specific frame's locals by name.
-func resolveLocalInFrame(f *frame, name string) (int, bool) {
-	for i := len(f.locals) - 1; i >= 0; i-- {
-		if f.locals[i].name == name {
-			return f.locals[i].slot, true
+// resolveLocalInFrame searches a specific frame's locals by name,
+// reading from the Compiler's shared locals pool in the frame's range.
+func (c *Compiler) resolveLocalInFrame(f *frame, name string) (int, bool) {
+	locals := c.pool.locals
+	for i := f.localsEnd - 1; i >= f.localsStart; i-- {
+		if locals[i].name == name {
+			return locals[i].slot, true
 		}
 	}
 	return -1, false
