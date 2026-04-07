@@ -111,26 +111,8 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 // right-side children. Prevents Go stack overflow on deeply left-nested
 // operator chains.
 func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, depth int) {
-	var rights []Core
-
-	cur := Core(app)
-	for {
-		switch n := cur.(type) {
-		case *App:
-			rights = append(rights, n.Arg)
-			cur = n.Fun
-			continue
-		case *TyApp:
-			cur = n.Expr
-			continue
-		case *TyLam:
-			cur = n.Body
-			continue
-		default:
-			freeVarsRec(n, bound, fv, depth+1)
-		}
-		break
-	}
+	head, rights := unwindLeftSpine(app)
+	freeVarsRec(head, bound, fv, depth+1)
 	for i := len(rights) - 1; i >= 0; i-- {
 		freeVarsRec(rights[i], bound, fv, depth+1)
 	}
@@ -209,28 +191,8 @@ func (r fvResult) delete(name string) {
 // traverseFVLeftSpine iteratively descends the left spine of App nodes,
 // merging free variable sets from right children.
 func traverseFVLeftSpine(app *App, depth int, obs fvObserver) fvResult {
-	var rights []Core
-
-	cur := Core(app)
-	for {
-		switch n := cur.(type) {
-		case *App:
-			rights = append(rights, n.Arg)
-			cur = n.Fun
-			continue
-		case *TyApp:
-			cur = n.Expr
-			continue
-		case *TyLam:
-			cur = n.Body
-			continue
-		default:
-			// Reached spine root.
-		}
-		break
-	}
-
-	result := traverseFV(cur, depth+1, obs)
+	head, rights := unwindLeftSpine(app)
+	result := traverseFV(head, depth+1, obs)
 	for i := len(rights) - 1; i >= 0; i-- {
 		result = mergeFV(result, traverseFV(rights[i], depth+1, obs))
 	}

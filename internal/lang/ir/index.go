@@ -32,25 +32,8 @@ func AssignIndicesProgram(p *Program) {
 // processing right children recursively. Prevents Go stack overflow on
 // deeply left-nested operator chains (e.g., 500-operator expressions).
 func assignIndicesLeftSpine(c Core, localScope map[string]int) {
-	var rights []Core
-	cur := c
-	for {
-		switch n := cur.(type) {
-		case *App:
-			rights = append(rights, n.Arg)
-			cur = n.Fun
-			continue
-		case *TyApp:
-			cur = n.Expr
-			continue
-		case *TyLam:
-			cur = n.Body
-			continue
-		default:
-			assignIndices(n, localScope, 0)
-		}
-		break
-	}
+	head, rights := unwindLeftSpine(c)
+	assignIndices(head, localScope, 0)
 	for i := len(rights) - 1; i >= 0; i-- {
 		assignIndices(rights[i], localScope, 0)
 	}
