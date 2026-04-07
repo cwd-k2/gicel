@@ -518,7 +518,10 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 }
 
 // applyN dispatches a multi-argument application.
-// Used by OpApplyN/OpTailApplyN.
+// Used by OpApplyN/OpTailApplyN. Handles every value type that vm.apply
+// handles — VMClosure, PAPVal, ConVal, PrimVal, VMThunkVal — so the
+// compiler may emit OpApplyN for any multi-argument call spine and
+// avoid the N-allocation cost of the sequential OpApply chain.
 func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) error {
 	switch f := fn.(type) {
 	case *eval.VMClosure:
@@ -613,10 +616,135 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			return nil
 		}
 
+	case *eval.PrimVal:
+		newLen := len(f.Args) + len(args)
+		// Fast path: saturated non-effectful prim that fits in scratch.
+		// Builds the combined arg view in primScratch with no heap alloc.
+		// Safe because non-effectful primitives never call back into the VM.
+		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
+			impl, ok := vm.prims.Lookup(f.Name)
+			if !ok {
+				return vm.runtimeError("missing primitive: "+f.Name, frame)
+			}
+			scratch := vm.primScratch[:newLen]
+			copy(scratch, f.Args)
+			copy(scratch[len(f.Args):], args)
+			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, scratch)
+			clear(vm.primScratch[:newLen])
+			if err != nil {
+				return err
+			}
+			frame.capEnv = newCap
+			vm.push(val)
+			return nil
+		}
+		// All other PrimVal cases need a single combined slice that
+		// outlives this call (it lands inside a deferred PrimVal or
+		// gets passed to a non-trusted prim impl). Allocate once.
+		combined := make([]eval.Value, newLen)
+		copy(combined, f.Args)
+		copy(combined[len(f.Args):], args)
+		switch {
+		case newLen < f.Arity:
+			vm.push(&eval.PrimVal{
+				Name: f.Name, Arity: f.Arity,
+				Effectful: f.Effectful, Args: combined, S: f.S,
+			})
+			return nil
+		case newLen == f.Arity && f.Effectful:
+			// Saturated effectful — defer execution until forced.
+			vm.push(&eval.PrimVal{
+				Name: f.Name, Arity: f.Arity,
+				Effectful: true, Args: combined, S: f.S,
+			})
+			return nil
+		case newLen == f.Arity:
+			// Saturated non-effectful, but arity exceeds scratch.
+			impl, ok := vm.prims.Lookup(f.Name)
+			if !ok {
+				return vm.runtimeError("missing primitive: "+f.Name, frame)
+			}
+			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, combined)
+			if err != nil {
+				return err
+			}
+			frame.capEnv = newCap
+			vm.push(val)
+			return nil
+		}
+		// Over-application: saturate the prim, then thread the result
+		// through the remaining args. Effectful prims defer; non-effectful
+		// ones execute immediately.
+		var head eval.Value
+		callerCapEnv := frame.capEnv
+		if f.Effectful {
+			head = &eval.PrimVal{
+				Name: f.Name, Arity: f.Arity,
+				Effectful: true, Args: combined[:f.Arity], S: f.S,
+			}
+		} else {
+			impl, ok := vm.prims.Lookup(f.Name)
+			if !ok {
+				return vm.runtimeError("missing primitive: "+f.Name, frame)
+			}
+			val, newCap, err := vm.callTrustedPrim(impl, callerCapEnv, combined[:f.Arity])
+			if err != nil {
+				return err
+			}
+			head = val
+			callerCapEnv = newCap
+		}
+		cur := head
+		capEnv := callerCapEnv
+		for _, extra := range combined[f.Arity:] {
+			next, err := vm.runCallee(capEnv, func(b *Frame) error {
+				return vm.apply(cur, extra, b, false)
+			})
+			if err != nil {
+				return err
+			}
+			cur = next.Value
+			capEnv = next.CapEnv
+		}
+		vm.currentFrame().capEnv = capEnv
+		vm.push(cur)
+		return nil
+
+	case *eval.ConVal:
+		// Constructors are uncurried at the IR level (Con.Args is the
+		// full argument list); seeing one in apply position means a
+		// curried Con value is being applied to more arguments. Append
+		// in one shot to avoid the per-arg allocation that the sequential
+		// apply chain would produce.
+		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+len(args)))); err != nil {
+			return err
+		}
+		combined := make([]eval.Value, len(f.Args)+len(args))
+		copy(combined, f.Args)
+		copy(combined[len(f.Args):], args)
+		vm.push(&eval.ConVal{Con: f.Con, Args: combined})
+		return nil
+
+	case *eval.VMThunkVal:
+		// Force the thunk in isolation, then apply all original args to
+		// its result. Mirrors apply's behavior of "force and discard arg"
+		// but generalizes to N args.
+		result, err := vm.runCallee(frame.capEnv, func(b *Frame) error {
+			return vm.force(f, b, false)
+		})
+		if err != nil {
+			return err
+		}
+		// Recurse with the forced value as the new function.
+		// frame may be stale after runCallee — fetch fresh.
+		return vm.applyN(result.Value, args, vm.currentFrame(), tail)
+
 	default:
-		// OpApplyN is emitted only for known-arity VMClosure/PAPVal call sites.
-		// Reaching this case indicates a compiler invariant violation.
-		return vm.runtimeError(fmt.Sprintf("applyN: unexpected value type %T", fn), frame)
+		msg := "application of non-function"
+		if fn != nil {
+			msg = "application of non-function: " + fn.String()
+		}
+		return vm.runtimeError(msg, frame)
 	}
 }
 
