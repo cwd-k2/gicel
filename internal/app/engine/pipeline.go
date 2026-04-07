@@ -245,7 +245,10 @@ func collectUserBindings(prog *ir.Program) map[string]bool {
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.
-func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runtime {
+// Returns a CompileError if precompileVM detects a structural compile-time
+// limit (e.g. bytecode pool overflow); other panics from the bytecode
+// compiler propagate as real bugs.
+func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) (*Runtime, error) {
 	entries := pc.store.Entries()
 
 	entryName := pc.entryPoint
@@ -280,6 +283,8 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) *Runt
 	rt.initBuiltinGlobals(runtimeGates)
 	rt.buildGlobalSlots()
 
-	rt.precompileVM(runtimeGates)
-	return rt
+	if err := rt.precompileVM(runtimeGates); err != nil {
+		return nil, err
+	}
+	return rt, nil
 }

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -269,7 +270,30 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 // precompileVM compiles all module bindings, main bindings, entry expression,
 // and builtins to bytecode at NewRuntime time. This avoids per-execution
 // compilation overhead in RunWith.
-func (r *Runtime) precompileVM(gates map[string]bool) {
+//
+// Pool overflow panics from the bytecode compiler (vm.PoolOverflowError) are
+// caught and converted to a structured CompileError with code
+// ErrCompilePoolOverflow. The recover deliberately type-asserts on
+// *vm.PoolOverflowError so that any other panic shape (internal compiler
+// invariant violations, nil dereferences) continues to propagate as a real
+// crash — those are bugs, not user-recoverable conditions.
+func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			if poe, isOverflow := rec.(*vm.PoolOverflowError); isOverflow {
+				diags := &diagnostic.Errors{Source: r.source}
+				diags.Add(&diagnostic.Error{
+					Code:    diagnostic.ErrCompilePoolOverflow,
+					Phase:   diagnostic.PhaseCheck,
+					Message: poe.Error(),
+				})
+				err = &CompileError{Errors: diags}
+				return
+			}
+			panic(rec) // real bug — propagate
+		}
+	}()
+
 	compiler := vm.NewCompiler(r.globalSlots, r.source)
 
 	// Pre-pass: register prim-alias bindings (assumption declarations whose
@@ -337,6 +361,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) {
 	if r.vmEntryProto != nil {
 		r.vmEntryProto.ResolvePrims(r.prims)
 	}
+	return nil
 }
 
 // executeVM runs the entry expression on the VM. On the first call, module

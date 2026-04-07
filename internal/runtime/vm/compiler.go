@@ -9,6 +9,8 @@
 package vm
 
 import (
+	"strconv"
+
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
@@ -150,6 +152,24 @@ func (c *Compiler) RecordGlobalPrim(key, name string, arity int, effectful bool)
 
 const maxPoolSize = 1<<16 - 1
 
+// PoolOverflowError is the typed panic raised when a per-Proto pool reaches
+// the u16 capacity limit (65535 entries). It carries the offending pool name
+// so that the recover site can produce a structured diagnostic instead of a
+// raw runtime panic. Caught by the targeted recover in `precompileVM`; any
+// other panic shape from this package is treated as a real bug and propagates.
+type PoolOverflowError struct {
+	Pool string // "constant" | "string" | "match desc" | "record desc" | "merge desc" | "proto"
+}
+
+func (e *PoolOverflowError) Error() string {
+	return "bytecode " + e.Pool + " pool exceeded maximum of " +
+		strconv.Itoa(maxPoolSize) + " entries"
+}
+
+func poolOverflow(pool string) {
+	panic(&PoolOverflowError{Pool: pool})
+}
+
 func (c *Compiler) addConstant(v eval.Value) uint16 {
 	f := c.top()
 	for i, existing := range f.constants {
@@ -158,7 +178,7 @@ func (c *Compiler) addConstant(v eval.Value) uint16 {
 		}
 	}
 	if len(f.constants) >= maxPoolSize {
-		panic("vm/compiler: constant pool overflow (max 65535)")
+		poolOverflow("constant")
 	}
 	idx := len(f.constants)
 	f.constants = append(f.constants, v)
@@ -172,7 +192,7 @@ func (c *Compiler) addString(s string) uint16 {
 		}
 	}
 	if len(f.strings) >= maxPoolSize {
-		panic("vm/compiler: string pool overflow (max 65535)")
+		poolOverflow("string")
 	}
 	idx := len(f.strings)
 	f.strings = append(f.strings, s)
@@ -181,7 +201,7 @@ func (c *Compiler) addString(s string) uint16 {
 func (c *Compiler) addMatchDesc(md MatchDesc) uint16 {
 	f := c.top()
 	if len(f.matchDescs) >= maxPoolSize {
-		panic("vm/compiler: match descriptor pool overflow")
+		poolOverflow("match desc")
 	}
 	idx := len(f.matchDescs)
 	f.matchDescs = append(f.matchDescs, md)
@@ -190,7 +210,7 @@ func (c *Compiler) addMatchDesc(md MatchDesc) uint16 {
 func (c *Compiler) addRecordDesc(rd RecordDesc) uint16 {
 	f := c.top()
 	if len(f.recordDescs) >= maxPoolSize {
-		panic("vm/compiler: record descriptor pool overflow")
+		poolOverflow("record desc")
 	}
 	idx := len(f.recordDescs)
 	f.recordDescs = append(f.recordDescs, rd)
@@ -199,7 +219,7 @@ func (c *Compiler) addRecordDesc(rd RecordDesc) uint16 {
 func (c *Compiler) addMergeDesc(md MergeDesc) uint16 {
 	f := c.top()
 	if len(f.mergeDescs) >= maxPoolSize {
-		panic("vm/compiler: merge descriptor pool overflow")
+		poolOverflow("merge desc")
 	}
 	idx := len(f.mergeDescs)
 	f.mergeDescs = append(f.mergeDescs, md)
@@ -252,7 +272,7 @@ func (c *Compiler) addSpan(s span.Span) {
 func (c *Compiler) addProto(p *Proto) uint16 {
 	f := c.top()
 	if len(f.protos) >= maxPoolSize {
-		panic("vm/compiler: proto pool overflow")
+		poolOverflow("proto")
 	}
 	idx := len(f.protos)
 	f.protos = append(f.protos, p)

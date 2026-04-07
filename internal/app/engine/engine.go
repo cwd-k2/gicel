@@ -352,5 +352,5 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	if err != nil {
 		return nil, err
 	}
-	return pc.assembleRuntime(prog, src), nil
+	return pc.assembleRuntime(prog, src)
 }

@@ -322,12 +322,22 @@ func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKi
 	return nil
 }
 
-// safeSubstMany applies SubstMany, recovering from depth-exceeded panics.
-// Returns (result, true) on success, or (nil, false) on depth exceeded.
+// safeSubstMany applies SubstMany, recovering specifically from
+// `*types.DepthExceededError` panics. Returns (result, true) on success, or
+// (nil, false) when the substitution would exceed `types.maxTraversalDepth`.
+//
+// The recover deliberately type-asserts on the depth-exceeded variant rather
+// than catching all panics: a nil dereference or index-out-of-range from a
+// programming bug should crash loudly, not be silently misclassified as a
+// recoverable depth condition.
 func safeSubstMany(t types.Type, subs map[string]types.Type) (result types.Type, ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
-			result, ok = nil, false
+			if _, isDepth := r.(*types.DepthExceededError); isDepth {
+				result, ok = nil, false
+				return
+			}
+			panic(r) // re-panic unrelated panics (real bugs)
 		}
 	}()
 	return types.SubstMany(t, subs), true
