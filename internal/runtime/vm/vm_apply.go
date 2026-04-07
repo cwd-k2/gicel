@@ -416,7 +416,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 		args := vm.primScratch[:newLen]
 		copy(args, pv.Args)
 		args[len(pv.Args)] = arg
-		val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, args)
+		val, newCap, err := vm.callPrim(impl, frame.capEnv, args)
 		clear(vm.primScratch[:newLen])
 		if err != nil {
 			return err
@@ -537,7 +537,7 @@ func (vm *VM) emitEnterObs(name string, sampleArg eval.Value, frame *Frame) bool
 // (the caller passes a stack view to avoid heap allocation). applyN
 // MUST copy args before storing them into any heap-retaining value
 // (PAPVal, PrimVal, ConVal). Saturated dispatches that consume args
-// immediately (callClosureMulti, callTrustedPrim) read args before
+// immediately (callClosureMulti, callPrim) read args before
 // the operand stack is cleaned up, so a stack view is safe there.
 func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) (eval.Value, error) {
 	switch f := fn.(type) {
@@ -674,7 +674,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			copy(scratch[len(f.Args):], args)
-			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, scratch)
+			val, newCap, err := vm.callPrim(impl, frame.capEnv, scratch)
 			clear(vm.primScratch[:newLen])
 			if err != nil {
 				return nil, err
@@ -710,7 +710,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 					return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
 				}
 			}
-			val, newCap, err := vm.callTrustedPrim(impl, frame.capEnv, combined)
+			val, newCap, err := vm.callPrim(impl, frame.capEnv, combined)
 			if err != nil {
 				return nil, err
 			}
@@ -736,7 +736,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 					return nil, vm.runtimeError("missing primitive: "+f.Name, frame)
 				}
 			}
-			val, newCap, err := vm.callTrustedPrim(impl, callerCapEnv, combined[:f.Arity])
+			val, newCap, err := vm.callPrim(impl, callerCapEnv, combined[:f.Arity])
 			if err != nil {
 				return nil, err
 			}
@@ -1071,34 +1071,28 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 	}
 }
 
-// callTrustedPrim invokes a stdlib PrimImpl without panic recovery.
-// Used for OpPrim (non-effectful saturated primitives compiled from known
-// stdlib assumptions). These are within the trust boundary and cannot panic.
-func (vm *VM) callTrustedPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+// callPrim invokes a host-registered PrimImpl. It is the single dispatch
+// path for every prim invocation in the VM (OpPrim direct dispatch, applyN
+// saturated, applyForPrim/applyNForPrim host re-entry, applyPrim slow path,
+// forceEffectful). One way for one thing.
+//
+// Trust boundary: prim impls are host-registered code under our control,
+// not user-supplied. A panic from a prim impl is a programming bug in the
+// host code, not a recoverable runtime condition. We deliberately do NOT
+// wrap the call in defer/recover — letting the panic propagate surfaces
+// the bug at its source rather than masking it as a generic
+// "primitive panicked: internal error" downstream. Stdlib regression tests
+// must catch any such panic before reaching production.
+//
+// Errors from the impl pass through wrapPrimError, which preserves
+// structured errors (RuntimeError, ctx cancellation, budget limits) and
+// wraps plain errors as RuntimeError so the runtime error path is uniform.
+func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
 	val, newCap, err := impl(vm.ctx, capEnv, args, vm.cachedApplier)
 	if err != nil {
 		return nil, capEnv, wrapPrimError(err)
 	}
 	return val, newCap, nil
-}
-
-// callPrim safely invokes a PrimImpl, wrapping plain errors with source/span.
-func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (val eval.Value, newCap eval.CapEnv, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			// Sanitize: do not include stack traces in user-facing errors.
-			// Stack traces leak filesystem paths, Go version, and memory addresses.
-			val, newCap, err = nil, capEnv, fmt.Errorf("primitive panicked: internal error")
-		}
-	}()
-	val, newCap, err = impl(vm.ctx, capEnv, args, vm.cachedApplier)
-	if err == nil && val == nil {
-		err = errors.New("primitive returned nil value")
-	}
-	if err != nil {
-		err = wrapPrimError(err)
-	}
-	return
 }
 
 // wrapPrimError wraps plain errors from stdlib primitives into RuntimeError.

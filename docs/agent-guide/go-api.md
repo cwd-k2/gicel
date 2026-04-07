@@ -222,6 +222,7 @@ The sandbox guarantees do **not** extend to `RegisterPrim` implementations. A bl
 - Bounded execution time
 - No uncontrolled side effects
 - Correct `CapEnv` handling
+- **No panics**: primitive panics propagate to the embedder as Go runtime panics rather than being wrapped into a `RuntimeError`. This surfaces stdlib and host-prim bugs at their source instead of masking them. Wrap `Engine.Run` / `Runtime.RunWith` in `recover()` if you need to contain prim-impl bugs at the embedding boundary.
 
 **CLI module paths**: The `--module Name=path` flag reads any file accessible to the process. If an AI agent constructs CLI arguments, validate module paths against an allowed directory to prevent arbitrary file reads via parser error messages.
 
