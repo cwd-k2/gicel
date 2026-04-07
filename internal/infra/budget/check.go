@@ -184,13 +184,16 @@ func (b *CheckBudget) checkCtx() error {
 type TFStepLimitError struct{}
 
 func (e *TFStepLimitError) Error() string { return "type family reduction step limit exceeded" }
+func (e *TFStepLimitError) limitError()   {}
 
 // SolverStepLimitError indicates the constraint solver step limit was exceeded.
 type SolverStepLimitError struct{}
 
 func (e *SolverStepLimitError) Error() string { return "constraint solver step limit exceeded" }
+func (e *SolverStepLimitError) limitError()   {}
 
 // ResolveDepthLimitError indicates the instance resolution depth limit was exceeded.
 type ResolveDepthLimitError struct{}
 
 func (e *ResolveDepthLimitError) Error() string { return "instance resolution depth limit exceeded" }
+func (e *ResolveDepthLimitError) limitError()   {}
