@@ -1,10 +1,10 @@
 package engine
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 )
 
@@ -66,44 +66,128 @@ func RuntimeCacheLen() int {
 }
 
 // computeRuntimeCacheKey builds a deterministic cache key from the main
-// source and the full runtime environment. The fingerprint is a strict
-// superset of moduleCacheKey.envFingerprint — anything that influences
-// the *Runtime value (post-precompileVM Protos, global slot layout, prim
-// resolution, runtime limits, pipeline flags) must contribute to it.
+// source and the full runtime environment. The runtime fingerprint is a
+// strict superset of moduleCacheKey.envFingerprint — anything that
+// influences the *Runtime value (post-precompileVM Protos, global slot
+// layout, prim resolution, runtime limits, pipeline flags) must
+// contribute to it. See tmp/perf/c2-design.md L1 for the closure-capture
+// limitation.
 //
-// Inputs (in canonical order, separated by NUL):
-//
-//  1. Existing env: registeredTys, assumptions, host bindings, gatedBuiltins
-//  2. Existing env: registered modules with source hashes
-//  3. Existing env: compiler limits (nestingLimit, maxTFSteps, maxSolverSteps, maxResolveDepth)
-//  4. NEW: runtime limits (stepLimit, depthLimit, allocLimit)
-//  5. NEW: store.recursion flag (gates fix/rec at NewRuntime time)
-//  6. NEW: pipeline flags (entryPoint, denyAssumptions, noInline, verifyIR)
-//  7. NEW: prim impl identities — sorted name + reflect.Pointer() of each impl
-//
-// See tmp/perf/c2-design.md L1 for the closure-capture limitation.
+// The fingerprint itself is cached on the Engine and invalidated on
+// mutation; see Engine.runtimeFingerprint.
 func (pc *pipelineCtx) computeRuntimeCacheKey(source string) runtimeCacheKey {
 	sourceHash := sha256.Sum256([]byte(source))
+	return runtimeCacheKey{
+		sourceHash:         sourceHash,
+		runtimeFingerprint: pc.engine.runtimeFingerprint(),
+	}
+}
 
-	var b strings.Builder
-	b.Grow(1024)
+// invalidateFingerprints marks both the module-env and runtime
+// fingerprints as stale. Called by mutators that change any part of
+// Engine state that affects compiled module output.
+//
+// Invalidation is idempotent — re-invalidating an already-stale cache
+// is a no-op. The single-goroutine invariant on Engine means no sync.
+func (e *Engine) invalidateFingerprints() {
+	e.moduleEnvFpValid = false
+	e.runtimeFpValid = false
+}
 
-	// Sections 1-3: identical to moduleCache envFingerprint.
-	writeTypesMap(&b, pc.host.registeredTys)
-	b.WriteByte(0)
-	writeTypesMap(&b, pc.host.assumptions)
-	b.WriteByte(0)
-	writeTypesMap(&b, pc.host.bindings)
-	b.WriteByte(0)
-	writeBoolMap(&b, pc.host.gatedBuiltins)
+// invalidateRuntimeFingerprint marks only the runtime fingerprint as
+// stale. Called by mutators that change runtime-only state (prim impls,
+// runtime limits, pipeline flags) without affecting compiled module
+// output.
+func (e *Engine) invalidateRuntimeFingerprint() {
+	e.runtimeFpValid = false
+}
+
+// moduleEnvFingerprint returns the cached SHA-256 digest of the module
+// compilation environment: registered types, assumptions, host bindings,
+// gated builtins, registered modules (name + source hash), and compiler
+// limits. This is exactly the content that moduleCacheKey.envFingerprint
+// previously computed — the digest is unchanged.
+//
+// Recomputed lazily on first call after invalidation; stable otherwise.
+// Uses Engine.fpScratch as the work buffer so the underlying byte slice
+// is reused across recomputations after invalidation.
+func (e *Engine) moduleEnvFingerprint() [32]byte {
+	if e.moduleEnvFpValid {
+		return e.moduleEnvFp
+	}
+
+	e.fpScratch.Reset()
+	e.writeModuleEnvSection(&e.fpScratch)
+	e.moduleEnvFp = sha256.Sum256(e.fpScratch.Bytes())
+	e.moduleEnvFpValid = true
+	return e.moduleEnvFp
+}
+
+// runtimeFingerprint returns the cached SHA-256 digest of the full
+// runtime environment. The digest is computed by hashing the cached
+// moduleEnvFingerprint as a prefix, followed by the runtime-specific
+// sections: runtime limits, store.recursion, pipeline flags, and prim
+// impl identities.
+//
+// Recomputed lazily on first call after invalidation; stable otherwise.
+// Uses Engine.fpScratch as the work buffer.
+func (e *Engine) runtimeFingerprint() [32]byte {
+	if e.runtimeFpValid {
+		return e.runtimeFp
+	}
+
+	// moduleEnvFingerprint has its own cache; recomputed only if the
+	// module env was invalidated. Calling it here either returns the
+	// cached digest or populates it (using fpScratch). Either way the
+	// scratch is in a known state when we return.
+	moduleFp := e.moduleEnvFingerprint()
+
+	// Reset the scratch buffer for the runtime-specific section.
+	// bytes.Buffer.Reset() preserves the underlying byte slice so the
+	// previous Grow does not need to be repeated.
+	e.fpScratch.Reset()
+
+	// Prefix with the module env digest. This makes runtime fingerprint
+	// a strict function of (moduleEnvFp, runtime-specific state) and
+	// preserves the C2 invariant: anything in moduleCacheKey flows into
+	// runtimeCacheKey as well.
+	e.fpScratch.Write(moduleFp[:])
+	e.fpScratch.WriteByte(0)
+
+	e.writeRuntimeSpecificSection(&e.fpScratch)
+
+	e.runtimeFp = sha256.Sum256(e.fpScratch.Bytes())
+	e.runtimeFpValid = true
+	return e.runtimeFp
+}
+
+// writeModuleEnvSection writes the module-env section (registered
+// types, assumptions, bindings, gated builtins, modules, compiler
+// limits) into b in canonical order. Used by moduleEnvFingerprint and
+// kept as a separate function so the section is documented in one place.
+func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
+	// 1. Registered types (sorted for determinism).
+	writeTypesMap(b, e.host.registeredTys)
 	b.WriteByte(0)
 
-	// Registered modules: name + source hash, sorted.
-	modNames := pc.store.sortedModuleNames()
+	// 2. Assumptions.
+	writeTypesMap(b, e.host.assumptions)
+	b.WriteByte(0)
+
+	// 3. Bindings.
+	writeTypesMap(b, e.host.bindings)
+	b.WriteByte(0)
+
+	// 4. Gated builtins.
+	writeBoolMap(b, e.host.gatedBuiltins)
+	b.WriteByte(0)
+
+	// 5. Registered modules: name + source hash (sorted).
+	modNames := e.store.sortedModuleNames()
 	for _, n := range modNames {
 		b.WriteString(n)
 		b.WriteByte('=')
-		mod := pc.store.modules[n]
+		mod := e.store.modules[n]
 		if mod.source != nil {
 			h := sha256.Sum256([]byte(mod.source.Text))
 			b.Write(h[:])
@@ -112,49 +196,55 @@ func (pc *pipelineCtx) computeRuntimeCacheKey(source string) runtimeCacheKey {
 	}
 	b.WriteByte(0)
 
-	// Compiler limits.
-	fmt.Fprintf(&b, "cl:%d/%d/%d/%d",
-		pc.limits.nestingLimit,
-		pc.limits.maxTFSteps,
-		pc.limits.maxSolverSteps,
-		pc.limits.maxResolveDepth,
+	// 6. Compiler limits (unchanged format — matches legacy modcache).
+	fmt.Fprintf(b, "%d/%d/%d/%d",
+		e.limits.nestingLimit,
+		e.limits.maxTFSteps,
+		e.limits.maxSolverSteps,
+		e.limits.maxResolveDepth,
+	)
+}
+
+// writeRuntimeSpecificSection writes the runtime-only section (runtime
+// limits, store.recursion, pipeline flags, prim impl identities) into b.
+// Used by runtimeFingerprint after the module-env digest prefix.
+func (e *Engine) writeRuntimeSpecificSection(b *bytes.Buffer) {
+	// Runtime limits.
+	fmt.Fprintf(b, "rl:%d/%d/%d",
+		e.limits.stepLimit,
+		e.limits.depthLimit,
+		e.limits.allocLimit,
 	)
 	b.WriteByte(0)
 
-	// Section 4: runtime limits.
-	fmt.Fprintf(&b, "rl:%d/%d/%d",
-		pc.limits.stepLimit,
-		pc.limits.depthLimit,
-		pc.limits.allocLimit,
-	)
-	b.WriteByte(0)
-
-	// Section 5: store.recursion flag.
-	if pc.store.recursion {
+	// Store.recursion flag (gates fix/rec at NewRuntime time).
+	if e.store.recursion {
 		b.WriteString("rec:1")
 	} else {
 		b.WriteString("rec:0")
 	}
 	b.WriteByte(0)
 
-	// Section 6: pipeline flags.
-	fmt.Fprintf(&b, "pf:%s/%t/%t/%t",
-		pc.entryPoint,
-		pc.denyAssumptions,
-		pc.noInline,
-		pc.verifyIR,
+	// Pipeline flags. entryPoint defaults to DefaultEntryPoint so the
+	// cached digest matches what pipeline() would produce.
+	ep := e.entryPoint
+	if ep == "" {
+		ep = DefaultEntryPoint
+	}
+	fmt.Fprintf(b, "pf:%s/%t/%t/%t",
+		ep,
+		e.denyAssumptions,
+		e.noInline,
+		e.verifyIR,
 	)
 	b.WriteByte(0)
 
-	// Section 7: prim impl identities. Function pointer identifies the
-	// code body (not closure captures) — see L1 in c2-design.md.
-	for _, name := range pc.host.prims.SortedNames() {
-		impl, _ := pc.host.prims.Lookup(name)
+	// Prim impl identities. Function pointer identifies the code body
+	// (not closure captures) — see L1 in c2-design.md.
+	for _, name := range e.host.prims.SortedNames() {
+		impl, _ := e.host.prims.Lookup(name)
 		ptr := reflect.ValueOf(impl).Pointer()
-		fmt.Fprintf(&b, "p:%s=%x\n", name, ptr)
+		fmt.Fprintf(b, "p:%s=%x\n", name, ptr)
 	}
 	b.WriteByte(0)
-
-	fingerprint := sha256.Sum256([]byte(b.String()))
-	return runtimeCacheKey{sourceHash: sourceHash, runtimeFingerprint: fingerprint}
 }

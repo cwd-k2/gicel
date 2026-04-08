@@ -16,7 +16,12 @@ import (
 
 // pipelineCtx encapsulates the compile-time environment shared across
 // pipeline stages: lex → parse → check → optimize → assemble.
+//
+// The engine back-pointer gives pipeline stages access to Engine-level
+// caches (fingerprints, etc.). host/store/limits remain as explicit
+// fields for direct access inside hot paths.
 type pipelineCtx struct {
+	engine          *Engine
 	ctx             context.Context
 	host            *HostEnv
 	store           *ModuleStore

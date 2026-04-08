@@ -2,10 +2,21 @@ package types
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"sync"
 )
+
+// KeyWriter is the minimal writer interface accepted by WriteTypeKey.
+// Both *strings.Builder and *bytes.Buffer satisfy it, so callers can
+// build keys into either a one-shot growable buffer (for TypeKey-style
+// callers) or a reusable scratch buffer (for engine fingerprinting).
+type KeyWriter interface {
+	io.Writer
+	io.ByteWriter
+	io.StringWriter
+}
 
 // WriteTypeKey writes a canonical, injective structural key for a type.
 // The encoding is deterministic and collision-free: distinct types always
@@ -14,6 +25,7 @@ import (
 // Used for:
 //   - type family reduction cache keys
 //   - instance dictionary binding names
+//   - engine fingerprinting (via shared scratch buffer)
 //
 // The key format uses unambiguous delimiters:
 //   - TyCon: Name
@@ -28,7 +40,7 @@ import (
 //   - TyEvidence: {E Constraints Body}
 //   - TyEvidenceRow: capability = {R Label:Type ...}, constraint = {Q Class Args ...}
 //   - TyError: !
-func WriteTypeKey(b *strings.Builder, t Type) {
+func WriteTypeKey(b KeyWriter, t Type) {
 	switch ty := t.(type) {
 	case *TyCon:
 		b.WriteString(ty.Name)
@@ -140,7 +152,7 @@ func TypeListKey(prefix string, sep byte, args []Type) string {
 	return s
 }
 
-func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
+func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 	switch entries := row.Entries.(type) {
 	case *CapabilityEntries:
 		b.WriteString("{R")
@@ -197,7 +209,7 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 //	E  EqualityEntry       "E<lhs>:<rhs>"
 //	V  VarEntry            "V<var>"
 //	Q  QuantifiedConstraint "Q<head>"  (full quantifier encoding deferred)
-func writeConstraintEntryKey(b *strings.Builder, e ConstraintEntry) {
+func writeConstraintEntryKey(b KeyWriter, e ConstraintEntry) {
 	switch e := e.(type) {
 	case *ClassEntry:
 		b.WriteByte('C')

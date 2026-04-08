@@ -384,3 +384,150 @@ main := 1
 		t.Errorf("expected cache to be empty after reset, got %d", RuntimeCacheLen())
 	}
 }
+
+// TestFingerprintInvalidation_MutationAfterFirstCompile verifies the
+// invalidation hooks on every mutator. Pattern: compile once (populates
+// fingerprint cache), mutate Engine state, compile again, assert the
+// cache key changed (cache miss on same source). If any mutator forgets
+// to invalidate, this test fails — a stale cached fingerprint would
+// return the first *Runtime for the second compile despite different
+// Engine state.
+//
+// Covers: DeclareBinding, DeclareAssumption, RegisterType, RegisterPrim,
+// EnableRecursion, DenyAssumptions, EnableVerifyIR, RegisterModule,
+// SetStepLimit, SetDepthLimit, SetNestingLimit, SetAllocLimit,
+// SetMaxTFSteps, SetMaxSolverSteps, SetMaxResolveDepth, SetEntryPoint,
+// DisableInlining.
+func TestFingerprintInvalidation_MutationAfterFirstCompile(t *testing.T) {
+	source := `import Prelude
+main := 1
+`
+
+	cases := []struct {
+		name   string
+		mutate func(e *Engine)
+	}{
+		{"DeclareBinding", func(e *Engine) { e.DeclareBinding("x", ConType("Int")) }},
+		{"DeclareAssumption", func(e *Engine) { e.DeclareAssumption("op", ConType("Int")) }},
+		{"RegisterType", func(e *Engine) { e.RegisterType("Extra", nil) }},
+		{"RegisterPrim", func(e *Engine) {
+			e.RegisterPrim("p_extra", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+				return nil, capEnv, nil
+			})
+		}},
+		{"EnableRecursion", func(e *Engine) { e.EnableRecursion() }},
+		{"DenyAssumptions", func(e *Engine) { e.DenyAssumptions() }},
+		{"EnableVerifyIR", func(e *Engine) { e.EnableVerifyIR() }},
+		{"SetStepLimit", func(e *Engine) { e.SetStepLimit(e.limits.stepLimit + 1) }},
+		{"SetDepthLimit", func(e *Engine) { e.SetDepthLimit(e.limits.depthLimit + 1) }},
+		{"SetNestingLimit", func(e *Engine) { e.SetNestingLimit(e.limits.nestingLimit + 1) }},
+		{"SetAllocLimit", func(e *Engine) { e.SetAllocLimit(123_456) }},
+		{"SetMaxTFSteps", func(e *Engine) { e.SetMaxTFSteps(e.limits.maxTFSteps + 1) }},
+		{"SetMaxSolverSteps", func(e *Engine) { e.SetMaxSolverSteps(e.limits.maxSolverSteps + 1) }},
+		{"SetMaxResolveDepth", func(e *Engine) { e.SetMaxResolveDepth(e.limits.maxResolveDepth + 1) }},
+		{"SetEntryPoint", func(e *Engine) { e.SetEntryPoint("other") }},
+		{"DisableInlining", func(e *Engine) { e.DisableInlining() }},
+		{"RegisterModule", func(e *Engine) {
+			_ = e.RegisterModule("Extra", "main := 7")
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetCaches()
+			defer resetCaches()
+
+			eng := NewEngine()
+			stdlib.Prelude(eng)
+			pc := eng.pipeline(context.Background())
+			k1 := pc.computeRuntimeCacheKey(source)
+
+			tc.mutate(eng)
+			pc2 := eng.pipeline(context.Background())
+			k2 := pc2.computeRuntimeCacheKey(source)
+
+			if k1 == k2 {
+				t.Errorf("%s: fingerprint unchanged after mutation — stale cached fingerprint", tc.name)
+			}
+		})
+	}
+}
+
+// TestFingerprintInvalidation_RegisterModuleRecRestoresState verifies
+// that RegisterModuleRec's direct mutation of gatedBuiltins (set then
+// restore) does not leave a stale cached fingerprint. The "rec/fix
+// enabled" state is transient to the RegisterModule call; afterwards
+// gatedBuiltins is restored and the fingerprint must reflect the
+// restored state.
+func TestFingerprintInvalidation_RegisterModuleRecRestoresState(t *testing.T) {
+	resetCaches()
+	defer resetCaches()
+
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+
+	// Baseline fingerprint before any rec module.
+	source := `import Prelude
+main := 1
+`
+	pc := eng.pipeline(context.Background())
+	kBefore := pc.computeRuntimeCacheKey(source)
+
+	// Register a rec module. Inside this call, gatedBuiltins gains
+	// rec/fix and then loses them again. The store.recursion flag
+	// does get set, so kAfter is expected to differ from kBefore on
+	// the "rec:1" vs "rec:0" component — but the gatedBuiltins part
+	// must match the restored state.
+	if err := eng.RegisterModuleRec("RecMod", "fixpoint := 1"); err != nil {
+		t.Fatal(err)
+	}
+	pc2 := eng.pipeline(context.Background())
+	kAfter := pc2.computeRuntimeCacheKey(source)
+
+	// They should differ (store.recursion flipped, new module registered).
+	if kBefore == kAfter {
+		t.Errorf("expected fingerprint to change after RegisterModuleRec")
+	}
+
+	// Second compile with identical state should hit the cache.
+	pc3 := eng.pipeline(context.Background())
+	kAfter2 := pc3.computeRuntimeCacheKey(source)
+	if kAfter != kAfter2 {
+		t.Errorf("expected fingerprint stability after RegisterModuleRec settled")
+	}
+}
+
+// TestFingerprintInvalidation_Memoization verifies that repeated
+// computeRuntimeCacheKey calls on an unchanged Engine produce the same
+// cache key — the positive path of the memoization. This doesn't prove
+// alloc savings (that's the benchmark's job) but it proves we are not
+// producing a different digest across calls when state is unchanged.
+func TestFingerprintInvalidation_Memoization(t *testing.T) {
+	resetCaches()
+	defer resetCaches()
+
+	source := `import Prelude
+main := True
+`
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	pc := eng.pipeline(context.Background())
+
+	k1 := pc.computeRuntimeCacheKey(source)
+	k2 := pc.computeRuntimeCacheKey(source)
+	k3 := pc.computeRuntimeCacheKey(source)
+
+	if k1 != k2 || k2 != k3 {
+		t.Errorf("repeated computeRuntimeCacheKey on unchanged Engine produced different keys")
+	}
+
+	// Also verify the Engine-level cached fingerprint is stable.
+	fp1 := eng.runtimeFingerprint()
+	fp2 := eng.runtimeFingerprint()
+	if fp1 != fp2 {
+		t.Errorf("repeated runtimeFingerprint calls returned different digests")
+	}
+	if !eng.runtimeFpValid {
+		t.Errorf("runtimeFpValid should be true after runtimeFingerprint call")
+	}
+}

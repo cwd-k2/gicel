@@ -8,6 +8,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"maps"
@@ -44,6 +45,34 @@ type Engine struct {
 	verifyIR        bool                 // when true, run structural IR verification in post-check
 	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
 	typeRecorder    bool                 // when true, Analyze populates TypeIndex
+
+	// Cached cache-key fingerprints. Computing these is the dominant
+	// alloc source on the warm NewRuntime path (profiled at ~94% of
+	// BenchmarkEngineMultiCompileSameSource allocs) because stdlib
+	// registers 100+ primitives, and every call re-serializes them
+	// through fmt.Fprintf("%s=%x\n"). Caching the digests and
+	// invalidating on mutation eliminates the work on steady-state
+	// warm paths.
+	//
+	// Guarded by the Engine's single-goroutine invariant — no sync.
+	//
+	// Two levels:
+	//   moduleEnvFp: SHA-256 of the parts that affect compiled module
+	//     output (identical content to moduleCacheKey.envFingerprint).
+	//   runtimeFp: SHA-256 that includes moduleEnvFp as prefix plus
+	//     the runtime-specific parts (prim impls, runtime limits,
+	//     store.recursion, pipeline flags).
+	//
+	// fpScratch is a reusable bytes.Buffer for fingerprint computation:
+	// bytes.Buffer.Reset() preserves the underlying byte slice (unlike
+	// strings.Builder.Reset() which frees it), so subsequent
+	// invalidations don't pay re-allocation cost. The first compute
+	// allocates the buffer; later computes reuse it.
+	moduleEnvFpValid bool
+	moduleEnvFp      [32]byte
+	runtimeFpValid   bool
+	runtimeFp        [32]byte
+	fpScratch        bytes.Buffer
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -76,21 +105,25 @@ func (e *Engine) Use(p registry.Pack) error {
 // DeclareBinding registers a host-provided value binding at compile time.
 func (e *Engine) DeclareBinding(name string, ty types.Type) {
 	e.host.bindings[name] = ty
+	e.invalidateFingerprints()
 }
 
 // DeclareAssumption registers a primitive operation type.
 func (e *Engine) DeclareAssumption(name string, ty types.Type) {
 	e.host.assumptions[name] = ty
+	e.invalidateFingerprints()
 }
 
 // RegisterType registers an opaque host type with the given kind.
 func (e *Engine) RegisterType(name string, kind types.Type) {
 	e.host.registeredTys[name] = kind
+	e.invalidateFingerprints()
 }
 
 // RegisterPrim registers a primitive implementation for an assumption.
 func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 	e.host.prims.Register(name, impl)
+	e.invalidateRuntimeFingerprint()
 }
 
 // EnableRecursion enables the rec and fix built-in identifiers for all
@@ -98,12 +131,14 @@ func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 func (e *Engine) EnableRecursion() {
 	e.host.gatedBuiltins["rec"] = true
 	e.host.gatedBuiltins["fix"] = true
+	e.invalidateFingerprints()
 }
 
 // DenyAssumptions prevents user code from using `assumption` declarations.
 // Stdlib modules are unaffected. Use this in sandbox/agent contexts.
 func (e *Engine) DenyAssumptions() {
 	e.denyAssumptions = true
+	e.invalidateRuntimeFingerprint()
 }
 
 // EnableVerifyIR enables structural IR verification in the post-check pipeline.
@@ -111,68 +146,107 @@ func (e *Engine) DenyAssumptions() {
 // Intended for testing and debug builds; panics on first violation.
 func (e *Engine) EnableVerifyIR() {
 	e.verifyIR = true
+	e.invalidateRuntimeFingerprint()
 }
 
 // RegisterRewriteRule adds a fusion rule to the optimization pipeline.
+// Rewrite rules are not part of the cache key — see moduleEnvFingerprint
+// docs for the rationale. No fingerprint invalidation is needed.
 func (e *Engine) RegisterRewriteRule(rule registry.RewriteRule) {
 	e.host.rewriteRules = append(e.host.rewriteRules, rule)
 }
 
 // RegisterModuleRec compiles a module with fix/rec enabled, scoped to
-// this single compilation.
+// this single compilation. Because this method mutates gatedBuiltins
+// directly (both setting and restoring) without going through
+// EnableRecursion, fingerprint invalidation is applied at both ends
+// to avoid leaving a stale cache from the transient "rec enabled"
+// state.
 func (e *Engine) RegisterModuleRec(name, source string) error {
 	saved := maps.Clone(e.host.gatedBuiltins)
 	e.host.gatedBuiltins["rec"] = true
 	e.host.gatedBuiltins["fix"] = true
+	e.invalidateFingerprints()
 	err := e.RegisterModule(name, source)
 	e.host.gatedBuiltins = saved
 	if err == nil {
 		e.store.recursion = true
 	}
+	e.invalidateFingerprints()
 	return err
 }
 
 // SetStepLimit sets the maximum number of evaluation steps.
-func (e *Engine) SetStepLimit(n int) { e.limits.stepLimit = n }
+func (e *Engine) SetStepLimit(n int) {
+	e.limits.stepLimit = n
+	e.invalidateRuntimeFingerprint()
+}
 
 // SetDepthLimit sets the maximum call depth.
-func (e *Engine) SetDepthLimit(n int) { e.limits.depthLimit = n }
+func (e *Engine) SetDepthLimit(n int) {
+	e.limits.depthLimit = n
+	e.invalidateRuntimeFingerprint()
+}
 
 // SetNestingLimit sets the maximum structural nesting depth.
-func (e *Engine) SetNestingLimit(n int) { e.limits.nestingLimit = n }
+func (e *Engine) SetNestingLimit(n int) {
+	e.limits.nestingLimit = n
+	e.invalidateFingerprints()
+}
 
 // SetAllocLimit sets the maximum cumulative allocation in bytes.
-func (e *Engine) SetAllocLimit(bytes int64) { e.limits.allocLimit = bytes }
+func (e *Engine) SetAllocLimit(bytes int64) {
+	e.limits.allocLimit = bytes
+	e.invalidateRuntimeFingerprint()
+}
 
 // SetCheckTraceHook sets the type checking trace hook.
+// The trace hook is not part of the cache key — it does not influence
+// compiled module output, only side-effect diagnostics.
 func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 	e.checkTraceHook = hook
 }
 
 // SetMaxTFSteps sets the type family reduction step limit.
-func (e *Engine) SetMaxTFSteps(n int) { e.limits.maxTFSteps = n }
+func (e *Engine) SetMaxTFSteps(n int) {
+	e.limits.maxTFSteps = n
+	e.invalidateFingerprints()
+}
 
 // SetMaxSolverSteps sets the constraint solver step limit.
-func (e *Engine) SetMaxSolverSteps(n int) { e.limits.maxSolverSteps = n }
+func (e *Engine) SetMaxSolverSteps(n int) {
+	e.limits.maxSolverSteps = n
+	e.invalidateFingerprints()
+}
 
 // SetMaxResolveDepth sets the instance resolution depth limit.
-func (e *Engine) SetMaxResolveDepth(n int) { e.limits.maxResolveDepth = n }
+func (e *Engine) SetMaxResolveDepth(n int) {
+	e.limits.maxResolveDepth = n
+	e.invalidateFingerprints()
+}
 
 // SetEntryPoint sets the entry point name for bare Computation checking.
 // Non-entry top-level bindings with bare Computation type are rejected.
-func (e *Engine) SetEntryPoint(name string) { e.entryPoint = name }
+func (e *Engine) SetEntryPoint(name string) {
+	e.entryPoint = name
+	e.invalidateRuntimeFingerprint()
+}
 
 // SetCompileContext sets the context used for module compilation.
 // This allows callers to impose a timeout or cancellation on
-// RegisterModule / RegisterModuleRec calls.
+// RegisterModule / RegisterModuleRec calls. The context is not part
+// of the cache key.
 func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
 
 // DisableInlining prevents selective inlining of user-defined bindings.
 // Use when explain traces must preserve function boundaries.
-func (e *Engine) DisableInlining() { e.noInline = true }
+func (e *Engine) DisableInlining() {
+	e.noInline = true
+	e.invalidateRuntimeFingerprint()
+}
 
 // EnableTypeIndex causes Analyze to populate the TypeIndex field
-// in the returned AnalysisResult.
+// in the returned AnalysisResult. Not part of the cache key.
 func (e *Engine) EnableTypeIndex() { e.typeRecorder = true }
 
 // RegisterModuleFile reads a .gicel file and registers it as a module.
@@ -195,6 +269,7 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		ep = DefaultEntryPoint
 	}
 	return &pipelineCtx{
+		engine:          e,
 		ctx:             ctx,
 		host:            &e.host,
 		store:           &e.store,
@@ -235,6 +310,10 @@ func ValidateModuleName(name string) error {
 // RegisterModule compiles a module and makes it available for import.
 // Module names must start with an uppercase letter and contain only
 // ASCII letters, digits, and underscores.
+//
+// Fingerprint invalidation happens after successful registration so
+// that compileModule itself runs against the current fingerprint state
+// (which correctly reflects the environment without the new module).
 func (e *Engine) RegisterModule(name, source string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -254,6 +333,7 @@ func (e *Engine) RegisterModule(name, source string) (err error) {
 		return err
 	}
 	e.store.Register(name, mod)
+	e.invalidateFingerprints()
 	return nil
 }
 
