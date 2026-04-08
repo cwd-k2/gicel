@@ -387,7 +387,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	// Resolve deferred constraints now that metas are solved.
 	// For unannotated bindings, defer constraints on unsolved metas
 	// so they can be lifted into qualified types by generalization.
-	var unresolvedConstraints []*CtClass
+	var unresolvedConstraints []*CtPlainClass
 	if hasAnn {
 		coreExpr = ch.resolveDeferredConstraints(coreExpr)
 	} else {

@@ -33,7 +33,7 @@ func TestImplicationResolvableWanteds(t *testing.T) {
 
 	ch.solver.Emit(&CtImplication{
 		Wanteds: []Ct{
-			&CtClass{
+			&CtPlainClass{
 				Placeholder: "$dict_inner_1",
 				ClassName:   "Num",
 				Args:        []types.Type{&types.TyCon{Name: "Int"}},
@@ -59,7 +59,7 @@ func TestImplicationStuckLocalSkolem(t *testing.T) {
 	ch.solver.Emit(&CtImplication{
 		Skolems: []*types.TySkolem{sk},
 		Wanteds: []Ct{
-			&CtClass{
+			&CtPlainClass{
 				Placeholder: "$dict_stuck",
 				ClassName:   "Num",
 				Args:        []types.Type{sk},
@@ -84,7 +84,7 @@ func TestImplicationFloatableResidual(t *testing.T) {
 	outerMeta := &types.TyMeta{ID: ch.fresh(), Kind: types.TypeOfTypes, Level: 0}
 
 	// Emit an outer constraint first to verify it's preserved.
-	ch.solver.Emit(&CtClass{
+	ch.solver.Emit(&CtPlainClass{
 		Placeholder: "$dict_outer",
 		ClassName:   "Eq",
 		Args:        []types.Type{&types.TyCon{Name: "Int"}},
@@ -92,7 +92,7 @@ func TestImplicationFloatableResidual(t *testing.T) {
 
 	ch.solver.Emit(&CtImplication{
 		Wanteds: []Ct{
-			&CtClass{
+			&CtPlainClass{
 				Placeholder: "$dict_float",
 				ClassName:   "Num",
 				Args:        []types.Type{outerMeta},

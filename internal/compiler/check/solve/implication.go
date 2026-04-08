@@ -122,7 +122,7 @@ func localShouldDefer() func(string, []types.Type) bool {
 // partitionResiduals splits residual constraints into floatable (promoted
 // to the outer scope) and stuck (mentions local skolems or inner-level
 // metas → error). Stuck constraints are reported as ErrNoInstance.
-func (s *Solver) partitionResiduals(residuals []*CtClass, localSkolems map[int]bool, level int) []Ct {
+func (s *Solver) partitionResiduals(residuals []*CtPlainClass, localSkolems map[int]bool, level int) []Ct {
 	var floatable []Ct
 	for _, r := range residuals {
 		if s.constraintMentionsLocal(r, localSkolems, level) {
@@ -137,7 +137,7 @@ func (s *Solver) partitionResiduals(residuals []*CtClass, localSkolems map[int]b
 
 // constraintMentionsLocal returns true if the constraint's type arguments
 // mention any local skolem ID or any meta created at the given inner level.
-func (s *Solver) constraintMentionsLocal(ct *CtClass, localSkolems map[int]bool, innerLevel int) bool {
+func (s *Solver) constraintMentionsLocal(ct *CtPlainClass, localSkolems map[int]bool, innerLevel int) bool {
 	for _, arg := range ct.Args {
 		zonked := s.env.Zonk(arg)
 		if typeHasLocal(zonked, localSkolems, innerLevel) {

@@ -9,15 +9,15 @@ package solve
 // constraints inserted at depth d are cleared when Reset is called at depth d,
 // but constraints from outer scopes (depth < d) are preserved.
 type InertSet struct {
-	classMap       map[string][]*CtClass // className → class constraints
-	funEqs         map[string][]*CtFunEq // familyName → stuck equations
-	givenEqs       []*CtEq               // given equalities (skolem ~ concrete)
-	metaIndex      map[int][]Ct          // metaID → constraints mentioning it
-	ctMetas        map[Ct][]int          // constraint → meta IDs it's indexed under (reverse of metaIndex)
-	resolutionKeys map[string]string     // canonical key → placeholder (for cache lookup)
-	scopeDepth     int                   // current scope depth
-	ctScope        map[Ct]int            // constraint → scope depth at insertion
-	scopeCts       map[int][]Ct          // scope depth → constraints at that scope
+	classMap       map[string][]*CtPlainClass // className → plain class constraints
+	funEqs         map[string][]*CtFunEq      // familyName → stuck equations
+	givenEqs       []*CtEq                    // given equalities (skolem ~ concrete)
+	metaIndex      map[int][]Ct               // metaID → constraints mentioning it
+	ctMetas        map[Ct][]int               // constraint → meta IDs it's indexed under (reverse of metaIndex)
+	resolutionKeys map[string]string          // canonical key → placeholder (for cache lookup)
+	scopeDepth     int                        // current scope depth
+	ctScope        map[Ct]int                 // constraint → scope depth at insertion
+	scopeCts       map[int][]Ct               // scope depth → constraints at that scope
 }
 
 // NewInertSet returns an empty InertSet.
@@ -38,10 +38,13 @@ func (is *InertSet) LeaveScope() {
 // ScopeDepth returns the current scope depth.
 func (is *InertSet) ScopeDepth() int { return is.scopeDepth }
 
-// InsertClass adds a class constraint to the inert set.
-func (is *InertSet) InsertClass(ct *CtClass, canonKey string) {
+// InsertClass adds a plain class constraint to the inert set. Only
+// CtPlainClass ever appears here — transient CtVarClass and
+// CtQuantifiedClass are handled directly by processCtVarClass /
+// processCtQuantifiedClass without entering the inert set.
+func (is *InertSet) InsertClass(ct *CtPlainClass, canonKey string) {
 	if is.classMap == nil {
-		is.classMap = make(map[string][]*CtClass)
+		is.classMap = make(map[string][]*CtPlainClass)
 	}
 	is.classMap[ct.ClassName] = append(is.classMap[ct.ClassName], ct)
 	is.indexMetas(ct, collectMetaIDs(ct.Args))
@@ -157,7 +160,7 @@ func (is *InertSet) removeFromMetaIndex(ct Ct) {
 }
 
 // LookupClass returns all inert class constraints for the given class name.
-func (is *InertSet) LookupClass(className string) []*CtClass {
+func (is *InertSet) LookupClass(className string) []*CtPlainClass {
 	return is.classMap[className]
 }
 
@@ -174,7 +177,7 @@ func (is *InertSet) KickOut(metaID int) []Ct {
 	for _, ct := range cts {
 		// Clean secondary maps.
 		switch c := ct.(type) {
-		case *CtClass:
+		case *CtPlainClass:
 			is.removeClass(c)
 		case *CtFunEq:
 			is.removeFunEq(c)
@@ -188,9 +191,11 @@ func (is *InertSet) KickOut(metaID int) []Ct {
 	return cts
 }
 
-// CollectClassResiduals returns all remaining class constraints.
-func (is *InertSet) CollectClassResiduals() []*CtClass {
-	var result []*CtClass
+// CollectClassResiduals returns all remaining plain class constraints.
+// Only CtPlainClass is ever stored in the inert set, so residuals carry
+// the same refined type.
+func (is *InertSet) CollectClassResiduals() []*CtPlainClass {
+	var result []*CtPlainClass
 	for _, cts := range is.classMap {
 		result = append(result, cts...)
 	}
@@ -237,7 +242,7 @@ func (is *InertSet) clearScope(d int) {
 	for _, ct := range toRemove {
 		removedSet[ct] = true
 		switch c := ct.(type) {
-		case *CtClass:
+		case *CtPlainClass:
 			is.removeClass(c)
 		case *CtFunEq:
 			is.removeFunEq(c)
@@ -301,9 +306,10 @@ func (is *InertSet) removeFromOtherMetaBuckets(ct Ct, skipID int) {
 	delete(is.ctMetas, ct)
 }
 
-// removeClass removes a specific CtClass from the classMap using swap-remove.
-// Order within a bucket is not significant (membership-only invariant).
-func (is *InertSet) removeClass(ct *CtClass) {
+// removeClass removes a specific CtPlainClass from the classMap using
+// swap-remove. Order within a bucket is not significant (membership-only
+// invariant).
+func (is *InertSet) removeClass(ct *CtPlainClass) {
 	cts := is.classMap[ct.ClassName]
 	for i, c := range cts {
 		if c == ct {

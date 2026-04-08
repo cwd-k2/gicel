@@ -34,23 +34,99 @@ type Ct interface {
 	ctSpan() span.Span
 }
 
-// CtClass represents a type class constraint: className args.
+// CtClass is the sealed interface implemented by every variant of class
+// constraint the solver puts on its worklist. Three variants:
 //
-// Maps to the three branches of the former deferredConstraint:
-//   - quantified != nil:    quantified constraint  (forall a. C a => D (F a))
-//   - constraintVar != nil: constraint variable     (Dict reification)
-//   - otherwise:            plain className + args  (Num Int, Eq a)
-type CtClass struct {
-	Placeholder   string
-	ClassName     string
-	Args          []types.Type
-	S             span.Span
-	Quantified    *types.QuantifiedConstraint
-	ConstraintVar types.Type
+//	*CtPlainClass       — resolved head: ClassName + Args (Num Int, Eq a).
+//	                      This is the only form that ever enters the inert
+//	                      set or appears in residuals.
+//	*CtVarClass         — constraint variable (Dict reification). Transient:
+//	                      processCtVarClass normalizes it into a CtPlainClass
+//	                      or reports ErrNoInstance. Never stored in the
+//	                      inert set.
+//	*CtQuantifiedClass  — quantified constraint (forall a. C a => D (F a)).
+//	                      Transient: processCtQuantifiedClass discharges it
+//	                      immediately via resolveQuantifiedConstraint and
+//	                      never inserts it into the inert set.
+//
+// Maps directly onto the three branches of the former packed CtClass
+// struct (Quantified != nil / ConstraintVar != nil / plain). The sealed
+// interface + variant split replaces nil-check discrimination with a
+// type-switch, and lets the inert set and residual slices express
+// "plain class only" at the type level.
+type CtClass interface {
+	Ct
+	ctClassMarker()
 }
 
-func (*CtClass) ctMarker()           {}
-func (c *CtClass) ctSpan() span.Span { return c.S }
+// CtPlainClass is a plain class constraint with a resolved head:
+// className + zonked args. This is the canonical form the solver works
+// with — after processCtVarClass normalization, this is the only variant
+// that enters the inert set, the resolution cache, or residuals.
+type CtPlainClass struct {
+	Placeholder string
+	ClassName   string
+	Args        []types.Type
+	S           span.Span
+}
+
+func (*CtPlainClass) ctMarker()           {}
+func (c *CtPlainClass) ctSpan() span.Span { return c.S }
+func (*CtPlainClass) ctClassMarker()      {}
+
+// CtVarClass is an unresolved constraint variable: the checker has a
+// term of kind Constraint whose head class is not yet known. Transient:
+// processCtVarClass zonks the variable, decomposes it into (className,
+// args), and delegates to processCtPlainClass. Never stored in the
+// inert set — there is no observable moment when a CtVarClass coexists
+// with a resolved head.
+type CtVarClass struct {
+	Placeholder   string
+	ConstraintVar types.Type
+	S             span.Span
+}
+
+func (*CtVarClass) ctMarker()           {}
+func (c *CtVarClass) ctSpan() span.Span { return c.S }
+func (*CtVarClass) ctClassMarker()      {}
+
+// CtQuantifiedClass is a universally quantified constraint like
+// `forall a. Eq a => Eq (List a)`. Discharged immediately by
+// processCtQuantifiedClass via resolveQuantifiedConstraint; never
+// enters the inert set and never becomes a residual.
+type CtQuantifiedClass struct {
+	Placeholder string
+	Quantified  *types.QuantifiedConstraint
+	S           span.Span
+}
+
+func (*CtQuantifiedClass) ctMarker()           {}
+func (c *CtQuantifiedClass) ctSpan() span.Span { return c.S }
+func (*CtQuantifiedClass) ctClassMarker()      {}
+
+// Compile-time interface conformance checks. If a variant accidentally
+// drops a required method, this fails to compile rather than at runtime.
+var (
+	_ CtClass = (*CtPlainClass)(nil)
+	_ CtClass = (*CtVarClass)(nil)
+	_ CtClass = (*CtQuantifiedClass)(nil)
+)
+
+// CtClassHeadName returns the class name of a class-headed constraint
+// variant (CtPlainClass, or CtQuantifiedClass with a non-nil Head), or
+// "" for CtVarClass (the head is not yet resolved). Mirrors the shape
+// of types.HeadClassName for ConstraintEntry.
+func CtClassHeadName(c CtClass) string {
+	switch c := c.(type) {
+	case *CtPlainClass:
+		return c.ClassName
+	case *CtQuantifiedClass:
+		if c.Quantified != nil && c.Quantified.Head != nil {
+			return c.Quantified.Head.ClassName
+		}
+	}
+	return ""
+}
 
 // CtFunEq represents a stuck type family equation: F args ~ resultMeta.
 // When blocking metavariables are solved, the equation is kicked out

@@ -16,7 +16,7 @@ import (
 // Example: \x. x + x  with unresolved Num ?a
 //
 //	→ \ a. Num a => a -> a  with Core: \dict x. ...
-func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved []*CtClass, maxLevel int) (types.Type, ir.Core) {
+func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved []*CtPlainClass, maxLevel int) (types.Type, ir.Core) {
 	collectFn := func(tys ...types.Type) []metaInfo {
 		return collectUnsolvedMetas(maxLevel, tys...)
 	}
@@ -26,7 +26,7 @@ func (ch *Checker) generalizeConstrained(ty types.Type, expr ir.Core, unresolved
 // generalizeLocal replaces unsolved metavariables born after watermark
 // with universally quantified type variables. Used for nested
 // let-generalization in block expressions and do-block pure binds.
-func (ch *Checker) generalizeLocal(ty types.Type, expr ir.Core, unresolved []*CtClass, watermark int) (types.Type, ir.Core) {
+func (ch *Checker) generalizeLocal(ty types.Type, expr ir.Core, unresolved []*CtPlainClass, watermark int) (types.Type, ir.Core) {
 	collectFn := func(tys ...types.Type) []metaInfo {
 		return collectUnsolvedMetasAfter(watermark, tys...)
 	}
@@ -35,7 +35,7 @@ func (ch *Checker) generalizeLocal(ty types.Type, expr ir.Core, unresolved []*Ct
 
 // generalizeWith is the shared implementation for generalizeConstrained and
 // generalizeLocal. The collectFn parameter determines which metas to collect.
-func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtClass, collectFn func(...types.Type) []metaInfo) (types.Type, ir.Core) {
+func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtPlainClass, collectFn func(...types.Type) []metaInfo) (types.Type, ir.Core) {
 	typeMetas := collectFn(ty)
 	// Build set of meta IDs that appear in the result type.
 	typeMetaIDs := make(map[int]bool, len(typeMetas))

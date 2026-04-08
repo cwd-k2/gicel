@@ -9,27 +9,24 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
-// EmitClassConstraint records a class constraint by pushing it to the worklist.
-// The entry carries the constraint's class, args, and optional quantifier/variable;
-// placeholder is the deferred dictionary name and sp is the source span for errors.
+// EmitClassConstraint records a class constraint by pushing it to the
+// worklist. Each ConstraintEntry variant maps directly to a CtClass
+// variant — no field packing, no hybrid state. The entry's class head
+// (for QuantifiedConstraint) is consulted later by processCtQuantifiedClass
+// through the Quantified.Head pointer; we do not copy it here.
 //
-// Equality entries are not routed through this path — the checker emits them
-// directly as CtEq constraints. Passing a non-class variant here is a checker
-// bug, so it panics to surface the issue loudly during development.
+// Equality entries are not routed through this path — the checker emits
+// them directly as CtEq constraints. Passing a non-class variant here is
+// a checker bug, so it panics to surface the issue loudly during development.
 func (s *Solver) EmitClassConstraint(placeholder string, entry types.ConstraintEntry, sp span.Span) {
-	ct := &CtClass{Placeholder: placeholder, S: sp}
+	var ct CtClass
 	switch e := entry.(type) {
 	case *types.ClassEntry:
-		ct.ClassName = e.ClassName
-		ct.Args = e.Args
+		ct = &CtPlainClass{Placeholder: placeholder, ClassName: e.ClassName, Args: e.Args, S: sp}
 	case *types.VarEntry:
-		ct.ConstraintVar = e.Var
+		ct = &CtVarClass{Placeholder: placeholder, ConstraintVar: e.Var, S: sp}
 	case *types.QuantifiedConstraint:
-		ct.Quantified = e
-		if e.Head != nil {
-			ct.ClassName = e.Head.ClassName
-			ct.Args = e.Head.Args
-		}
+		ct = &CtQuantifiedClass{Placeholder: placeholder, Quantified: e, S: sp}
 	default:
 		panic("EmitClassConstraint: unexpected entry variant")
 	}
@@ -47,8 +44,10 @@ func (s *Solver) ResolveDeferredConstraints(expr ir.Core) ir.Core {
 // ResolveDeferredConstraintsDeferrable resolves worklist constraints but
 // returns ambiguous plain-args constraints as residuals instead of forcing
 // them. Used in infer mode so let-generalization can lift residuals into
-// \-qualified types.
-func (s *Solver) ResolveDeferredConstraintsDeferrable(expr ir.Core) (ir.Core, []*CtClass) {
+// \-qualified types. Only plain class constraints (*CtPlainClass) ever
+// appear as residuals — quantified constraints are discharged eagerly
+// and constraint variables are normalized during processing.
+func (s *Solver) ResolveDeferredConstraintsDeferrable(expr ir.Core) (ir.Core, []*CtPlainClass) {
 	shouldDefer := func(className string, zonkedArgs []types.Type) bool {
 		return SliceHasMeta(zonkedArgs) && s.isAmbiguousInstance(className, zonkedArgs)
 	}

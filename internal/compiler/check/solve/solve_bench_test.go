@@ -16,7 +16,7 @@ func BenchmarkWorklistPushPop(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var w Worklist
 				for range n {
-					w.Push(&CtClass{
+					w.Push(&CtPlainClass{
 						ClassName: "Eq",
 						Args:      []types.Type{types.Con("Int")},
 						S:         span.Span{},

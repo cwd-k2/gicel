@@ -125,11 +125,15 @@ func (s *Solver) InertSet() *InertSet {
 //
 // shouldDefer governs whether a plain class constraint is deferred
 // (returned as residual) or discharged. Nil means discharge all.
+//
+// Residuals are typed as []*CtPlainClass: quantified constraints never
+// defer (they resolve immediately), and constraint variables never
+// defer (they are normalized to plain class form during processing).
 func (s *Solver) SolveWanteds(
 	shouldDefer func(className string, zonkedArgs []types.Type) bool,
-) (map[string]ir.Core, []*CtClass) {
+) (map[string]ir.Core, []*CtPlainClass) {
 	resolutions := make(map[string]ir.Core)
-	var residuals []*CtClass
+	var residuals []*CtPlainClass
 	s.inertSet.Reset()
 	s.ambiguityCache = nil // lazily allocated; zero-cost when shouldDefer is nil
 	// Only reset the step budget at the top level. Nested SolveWanteds calls
@@ -153,8 +157,12 @@ func (s *Solver) SolveWanteds(
 			break
 		}
 		switch c := ct.(type) {
-		case *CtClass:
-			s.processCtClass(c, resolutions, &residuals, shouldDefer)
+		case *CtPlainClass:
+			s.processCtPlainClass(c, resolutions, &residuals, shouldDefer)
+		case *CtVarClass:
+			s.processCtVarClass(c, resolutions, &residuals, shouldDefer)
+		case *CtQuantifiedClass:
+			s.processCtQuantifiedClass(c, resolutions)
 		case *CtFunEq:
 			s.processCtFunEq(c)
 		case *CtEq:
@@ -176,7 +184,7 @@ func (s *Solver) SolveWanteds(
 		// Discharge from inert set: resolve if not already resolved.
 		if _, exists := resolutions[ct.Placeholder]; !exists {
 			key := constraintKey(ct.ClassName, ct.Args)
-			s.resolveCtClassKeyed(ct, key, resolutions)
+			s.resolveCtPlainClassKeyed(ct, key, resolutions)
 		}
 	}
 
@@ -184,14 +192,14 @@ func (s *Solver) SolveWanteds(
 	// later constraints (e.g. row unification from put/get sequences).
 	// Re-zonk and attempt resolution for any that are no longer ambiguous.
 	if shouldDefer != nil && len(residuals) > 0 {
-		var stillDeferred []*CtClass
+		var stillDeferred []*CtPlainClass
 		for _, ct := range residuals {
 			ct.Args = s.zonkAll(ct.Args)
 			if shouldDefer(ct.ClassName, ct.Args) {
 				stillDeferred = append(stillDeferred, ct)
 			} else {
 				key := constraintKey(ct.ClassName, ct.Args)
-				s.resolveCtClassKeyed(ct, key, resolutions)
+				s.resolveCtPlainClassKeyed(ct, key, resolutions)
 			}
 		}
 		residuals = stillDeferred
@@ -201,38 +209,17 @@ func (s *Solver) SolveWanteds(
 	return resolutions, residuals
 }
 
-// processCtClass handles a single class constraint from the worklist.
-func (s *Solver) processCtClass(
-	ct *CtClass,
+// processCtPlainClass handles a plain class constraint: zonk args,
+// consult the resolution cache, defer on ambiguity, or resolve against
+// the available instances. This is the canonical path — CtVarClass
+// normalizes into this after zonking.
+func (s *Solver) processCtPlainClass(
+	ct *CtPlainClass,
 	resolutions map[string]ir.Core,
-	residuals *[]*CtClass,
+	residuals *[]*CtPlainClass,
 	shouldDefer func(className string, zonkedArgs []types.Type) bool,
 ) {
-	// Branch A: quantified constraint.
-	if ct.Quantified != nil {
-		resolutions[ct.Placeholder] = s.resolveQuantifiedConstraint(ct.Quantified, ct.S)
-		return
-	}
-
-	// Branch B: constraint variable.
-	if ct.ConstraintVar != nil {
-		cv := s.env.Zonk(ct.ConstraintVar)
-		cn, cArgs, ok := types.DecomposeConstraintType(cv)
-		if ok {
-			ct.ClassName = cn
-			ct.Args = cArgs
-		} else if ct.ClassName != "" {
-			ct.Args = s.zonkAll(ct.Args)
-		} else {
-			s.env.AddCodedError(diagnostic.ErrNoInstance, ct.S,
-				"cannot resolve constraint variable "+types.Pretty(cv))
-			resolutions[ct.Placeholder] = &ir.Var{Name: "<no-instance>", S: ct.S}
-			return
-		}
-	} else {
-		// Branch C: plain className + args.
-		ct.Args = s.zonkAll(ct.Args)
-	}
+	ct.Args = s.zonkAll(ct.Args)
 
 	// Build canonical key for cache lookup.
 	key := constraintKey(ct.ClassName, ct.Args)
@@ -245,23 +232,59 @@ func (s *Solver) processCtClass(
 		}
 	}
 
-	// Check defer predicate for non-quantified constraints.
-	// Applies to both plain (Branch C) and normalized ConstraintVar (Branch B)
-	// constraints — both have ClassName/Args populated at this point.
-	if ct.Quantified == nil && shouldDefer != nil {
-		if shouldDefer(ct.ClassName, ct.Args) {
-			*residuals = append(*residuals, ct)
-			return
-		}
+	// Defer if ambiguous at this point — let-generalization may lift
+	// the constraint into the enclosing type later.
+	if shouldDefer != nil && shouldDefer(ct.ClassName, ct.Args) {
+		*residuals = append(*residuals, ct)
+		return
 	}
 
-	// Resolve the constraint.
-	s.resolveCtClassKeyed(ct, key, resolutions)
+	s.resolveCtPlainClassKeyed(ct, key, resolutions)
 }
 
-// resolveCtClassKeyed resolves a class constraint, records the resolution,
-// and inserts it into the inert set with a canonical cache key.
-func (s *Solver) resolveCtClassKeyed(ct *CtClass, key string, resolutions map[string]ir.Core) {
+// processCtVarClass normalizes an unresolved constraint variable into a
+// plain class constraint by zonking and decomposing into (className, args),
+// then delegates to processCtPlainClass. If the variable cannot be
+// decomposed into a class head, ErrNoInstance is reported and the
+// placeholder gets a sentinel resolution.
+func (s *Solver) processCtVarClass(
+	ct *CtVarClass,
+	resolutions map[string]ir.Core,
+	residuals *[]*CtPlainClass,
+	shouldDefer func(className string, zonkedArgs []types.Type) bool,
+) {
+	cv := s.env.Zonk(ct.ConstraintVar)
+	cn, cArgs, ok := types.DecomposeConstraintType(cv)
+	if !ok {
+		s.env.AddCodedError(diagnostic.ErrNoInstance, ct.S,
+			"cannot resolve constraint variable "+types.Pretty(cv))
+		resolutions[ct.Placeholder] = &ir.Var{Name: "<no-instance>", S: ct.S}
+		return
+	}
+	plain := &CtPlainClass{
+		Placeholder: ct.Placeholder,
+		ClassName:   cn,
+		Args:        cArgs,
+		S:           ct.S,
+	}
+	s.processCtPlainClass(plain, resolutions, residuals, shouldDefer)
+}
+
+// processCtQuantifiedClass discharges a quantified constraint immediately
+// via resolveQuantifiedConstraint. Quantified constraints never enter
+// the inert set and never become residuals — evidence is a function
+// from context dicts to a head dict, which is always constructible.
+func (s *Solver) processCtQuantifiedClass(
+	ct *CtQuantifiedClass,
+	resolutions map[string]ir.Core,
+) {
+	resolutions[ct.Placeholder] = s.resolveQuantifiedConstraint(ct.Quantified, ct.S)
+}
+
+// resolveCtPlainClassKeyed resolves a plain class constraint, records
+// the resolution, and inserts it into the inert set with a canonical
+// cache key.
+func (s *Solver) resolveCtPlainClassKeyed(ct *CtPlainClass, key string, resolutions map[string]ir.Core) {
 	resolved := s.resolveInstance(ct.ClassName, ct.Args, ct.S)
 	resolutions[ct.Placeholder] = resolved
 	s.inertSet.InsertClass(ct, key)

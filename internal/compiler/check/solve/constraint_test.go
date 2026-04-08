@@ -16,8 +16,8 @@ func TestWorklistPushPop(t *testing.T) {
 	if !w.Empty() {
 		t.Fatal("new worklist should be empty")
 	}
-	c1 := &CtClass{Placeholder: "a", ClassName: "Eq"}
-	c2 := &CtClass{Placeholder: "b", ClassName: "Num"}
+	c1 := &CtPlainClass{Placeholder: "a", ClassName: "Eq"}
+	c2 := &CtPlainClass{Placeholder: "b", ClassName: "Num"}
 	w.Push(c1)
 	w.Push(c2)
 	if w.Len() != 2 {
@@ -39,9 +39,9 @@ func TestWorklistPushPop(t *testing.T) {
 
 func TestWorklistPushFront(t *testing.T) {
 	var w Worklist
-	c1 := &CtClass{Placeholder: "a", ClassName: "Eq"}
-	c2 := &CtClass{Placeholder: "b", ClassName: "Num"}
-	c3 := &CtClass{Placeholder: "c", ClassName: "Show"}
+	c1 := &CtPlainClass{Placeholder: "a", ClassName: "Eq"}
+	c2 := &CtPlainClass{Placeholder: "b", ClassName: "Num"}
+	c3 := &CtPlainClass{Placeholder: "c", ClassName: "Show"}
 	w.Push(c1)
 	w.PushFront(c2, c3)
 	// Order should be: c2, c3, c1
@@ -61,8 +61,8 @@ func TestWorklistPushFront(t *testing.T) {
 
 func TestWorklistReset(t *testing.T) {
 	var w Worklist
-	w.Push(&CtClass{Placeholder: "a"})
-	w.Push(&CtClass{Placeholder: "b"})
+	w.Push(&CtPlainClass{Placeholder: "a"})
+	w.Push(&CtPlainClass{Placeholder: "b"})
 	w.Reset()
 	if !w.Empty() {
 		t.Fatal("worklist should be empty after Reset")
@@ -71,7 +71,7 @@ func TestWorklistReset(t *testing.T) {
 
 func TestWorklistPushFrontEmpty(t *testing.T) {
 	var w Worklist
-	w.Push(&CtClass{Placeholder: "a"})
+	w.Push(&CtPlainClass{Placeholder: "a"})
 	w.PushFront() // no-op
 	if w.Len() != 1 {
 		t.Fatal("PushFront with no args should be no-op")
@@ -82,9 +82,9 @@ func TestWorklistPushFrontEmpty(t *testing.T) {
 
 func TestInertSetInsertLookupClass(t *testing.T) {
 	var is InertSet
-	ct1 := &CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
-	ct2 := &CtClass{Placeholder: "d2", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Bool"}}}
-	ct3 := &CtClass{Placeholder: "d3", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct1 := &CtPlainClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct2 := &CtPlainClass{Placeholder: "d2", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Bool"}}}
+	ct3 := &CtPlainClass{Placeholder: "d3", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(ct1, "")
 	is.InsertClass(ct2, "")
 	is.InsertClass(ct3, "")
@@ -122,11 +122,11 @@ func TestInertSetInsertLookupFunEq(t *testing.T) {
 func TestInertSetKickOut(t *testing.T) {
 	var is InertSet
 	meta := &types.TyMeta{ID: 42}
-	ct1 := &CtClass{
+	ct1 := &CtPlainClass{
 		Placeholder: "d1", ClassName: "Eq",
 		Args: []types.Type{meta},
 	}
-	ct2 := &CtClass{
+	ct2 := &CtPlainClass{
 		Placeholder: "d2", ClassName: "Num",
 		Args: []types.Type{&types.TyCon{Name: "Int"}},
 	}
@@ -158,7 +158,7 @@ func TestInertSetKickOut(t *testing.T) {
 
 func TestInertSetKickOutNoMatch(t *testing.T) {
 	var is InertSet
-	ct := &CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct := &CtPlainClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(ct, "")
 	kicked := is.KickOut(999) // meta 999 not in any constraint
 	if len(kicked) != 0 {
@@ -171,8 +171,8 @@ func TestInertSetKickOutNoMatch(t *testing.T) {
 
 func TestInertSetCollectClassResiduals(t *testing.T) {
 	var is InertSet
-	ct1 := &CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
-	ct2 := &CtClass{Placeholder: "d2", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct1 := &CtPlainClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct2 := &CtPlainClass{Placeholder: "d2", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(ct1, "")
 	is.InsertClass(ct2, "")
 	residuals := is.CollectClassResiduals()
@@ -183,7 +183,7 @@ func TestInertSetCollectClassResiduals(t *testing.T) {
 
 func TestInertSetReset(t *testing.T) {
 	var is InertSet
-	is.InsertClass(&CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}, "")
+	is.InsertClass(&CtPlainClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}, "")
 	is.InsertFunEq(&CtFunEq{FamilyName: "F", BlockingOn: []int{1}})
 	is.Reset()
 	if len(is.CollectClassResiduals()) != 0 {
@@ -199,11 +199,11 @@ func TestInertSetReset(t *testing.T) {
 func TestInertSetScopeAwareReset(t *testing.T) {
 	// Constraints inserted at outer scope survive Reset at inner scope.
 	var is InertSet
-	outerCt := &CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	outerCt := &CtPlainClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(outerCt, "")
 
 	is.EnterScope()
-	innerCt := &CtClass{Placeholder: "d2", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	innerCt := &CtPlainClass{Placeholder: "d2", ClassName: "Num", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(innerCt, "")
 
 	// Reset at inner scope: only innerCt should be cleared.
@@ -244,7 +244,7 @@ func TestInertSetLeaveScope(t *testing.T) {
 func TestInertSetResetAtDepthZero(t *testing.T) {
 	// Reset at depth 0 clears all constraints (backward compatible).
 	var is InertSet
-	is.InsertClass(&CtClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}, "")
+	is.InsertClass(&CtPlainClass{Placeholder: "d1", ClassName: "Eq", Args: []types.Type{&types.TyCon{Name: "Int"}}}, "")
 	is.InsertFunEq(&CtFunEq{FamilyName: "F", BlockingOn: []int{1}})
 	is.Reset()
 	if len(is.CollectClassResiduals()) != 0 {
@@ -258,15 +258,15 @@ func TestInertSetResetAtDepthZero(t *testing.T) {
 func TestInertSetNestedScopes(t *testing.T) {
 	// Three levels: constraints at each level survive resets at deeper levels.
 	var is InertSet
-	ct0 := &CtClass{Placeholder: "d0", ClassName: "A", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct0 := &CtPlainClass{Placeholder: "d0", ClassName: "A", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(ct0, "")
 
 	is.EnterScope() // depth 1
-	ct1 := &CtClass{Placeholder: "d1", ClassName: "B", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct1 := &CtPlainClass{Placeholder: "d1", ClassName: "B", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(ct1, "")
 
 	is.EnterScope() // depth 2
-	ct2 := &CtClass{Placeholder: "d2", ClassName: "C", Args: []types.Type{&types.TyCon{Name: "Int"}}}
+	ct2 := &CtPlainClass{Placeholder: "d2", ClassName: "C", Args: []types.Type{&types.TyCon{Name: "Int"}}}
 	is.InsertClass(ct2, "")
 
 	// Reset at depth 2: only ct2 cleared.
@@ -299,13 +299,13 @@ func TestCtInterfaceCompliance(t *testing.T) {
 	s := span.Span{Start: 0, End: 10}
 	var ct Ct
 
-	cc := &CtClass{Placeholder: "p1", ClassName: "Eq", S: s}
+	cc := &CtPlainClass{Placeholder: "p1", ClassName: "Eq", S: s}
 	ct = cc
 	if cc.Placeholder != "p1" {
-		t.Fatal("CtClass placeholder mismatch")
+		t.Fatal("CtPlainClass placeholder mismatch")
 	}
 	if ct.ctSpan() != s {
-		t.Fatal("CtClass span mismatch")
+		t.Fatal("CtPlainClass span mismatch")
 	}
 
 	ct = &CtFunEq{FamilyName: "F", S: s}
@@ -354,7 +354,7 @@ func TestInertSetKickOutNestedMeta(t *testing.T) {
 	var is InertSet
 	meta := &types.TyMeta{ID: 7}
 	// Meta nested inside TyApp
-	ct := &CtClass{
+	ct := &CtPlainClass{
 		Placeholder: "d1", ClassName: "Show",
 		Args: []types.Type{&types.TyApp{Fun: &types.TyCon{Name: "List"}, Arg: meta}},
 	}

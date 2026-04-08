@@ -393,12 +393,23 @@ func (ch *Checker) localLetGen(expr syntax.Expr) (types.Type, ir.Core) {
 // list belongs to a class with associated type families. Used by
 // localLetGen to trigger the MonoLocalBinds path: generalizing such
 // bindings would orphan implicit type family equations.
+//
+// Both CtPlainClass and CtQuantifiedClass (via its head) can carry a
+// class whose methods have associated types; CtVarClass has no resolved
+// head yet and is skipped. The helper solve.CtClassHeadName handles
+// that dispatch uniformly.
 func constraintsHaveAssocType(cts []solve.Ct, reg *Registry) bool {
 	for _, ct := range cts {
-		if cc, ok := ct.(*CtClass); ok {
-			if ci, ok := reg.LookupClass(cc.ClassName); ok && len(ci.AssocTypes) > 0 {
-				return true
-			}
+		cc, ok := ct.(solve.CtClass)
+		if !ok {
+			continue
+		}
+		className := solve.CtClassHeadName(cc)
+		if className == "" {
+			continue
+		}
+		if ci, ok := reg.LookupClass(className); ok && len(ci.AssocTypes) > 0 {
+			return true
 		}
 	}
 	return false
@@ -406,7 +417,7 @@ func constraintsHaveAssocType(cts []solve.Ct, reg *Registry) bool {
 
 // hasAmbiguousLocal checks whether any unresolved constraint has metas
 // (born after watermark) that don't appear in the result type.
-func (ch *Checker) hasAmbiguousLocal(ty types.Type, unresolved []*CtClass, watermark int) bool {
+func (ch *Checker) hasAmbiguousLocal(ty types.Type, unresolved []*CtPlainClass, watermark int) bool {
 	if len(unresolved) == 0 {
 		return false
 	}

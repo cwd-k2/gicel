@@ -17,6 +17,9 @@ import (
 // Ct, CtClass, CtEq, CtFunEq, CtImplication are defined in the solve subpackage.
 type Ct = solve.Ct
 type CtClass = solve.CtClass
+type CtPlainClass = solve.CtPlainClass
+type CtVarClass = solve.CtVarClass
+type CtQuantifiedClass = solve.CtQuantifiedClass
 type CtEq = solve.CtEq
 type CtFunEq = solve.CtFunEq
 type CtImplication = solve.CtImplication
@@ -71,7 +74,7 @@ func (ch *Checker) ReduceTyFamily(name string, args []types.Type, s span.Span) (
 // --- Delegation methods ---
 
 // solveWanteds delegates to the solver's SolveWanteds.
-func (ch *Checker) solveWanteds(shouldDefer func(string, []types.Type) bool) (map[string]ir.Core, []*CtClass) {
+func (ch *Checker) solveWanteds(shouldDefer func(string, []types.Type) bool) (map[string]ir.Core, []*CtPlainClass) {
 	return ch.solver.SolveWanteds(shouldDefer)
 }
 
@@ -102,7 +105,7 @@ func (ch *Checker) resolveDeferredConstraints(expr ir.Core) ir.Core {
 
 // resolveDeferredConstraintsDeferrable resolves worklist constraints but
 // returns ambiguous plain-args constraints as residuals.
-func (ch *Checker) resolveDeferredConstraintsDeferrable(expr ir.Core) (ir.Core, []*CtClass) {
+func (ch *Checker) resolveDeferredConstraintsDeferrable(expr ir.Core) (ir.Core, []*CtPlainClass) {
 	return ch.solver.ResolveDeferredConstraintsDeferrable(expr)
 }
 
