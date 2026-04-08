@@ -123,6 +123,15 @@ The type alias `Suspended r a := Thunk Zero r r a` mirrors `Effect` for suspende
 
 ### Named Capabilities
 
+> **⚠ Runtime gap**: `*At` variants **type-check correctly** but their runtime
+> handling is label-erasing. In particular, `runStateAt` / `evalStateAt` /
+> `execStateAt` handlers **are not yet implemented** — only top-level host-seeded
+> named state capabilities survive. Label-scoped `try` does not actually
+> restrict catching to the named label either. Programs that rely on nested
+> `runState` under the same label will type-check but crash at runtime with
+> "state capability lost during execution". Treat this section as
+> **forward-compatible API design** rather than a fully operational feature.
+
 Named capabilities allow multiple independent instances of the same effect type to coexist. Use `@#name` in type application position to specify a label:
 
 ```

@@ -8,10 +8,10 @@ to take comparable snapshots.
 GICEL has three execution phases that need to be measured separately:
 
 1. **Compile** — `lex → parse → check → optimize → annotate → emit
-   bytecode`. One-shot per source. Heavy on allocations from the IR
+bytecode`. One-shot per source. Heavy on allocations from the IR
    graph, type metadata, and bytecode emit pools.
 2. **Runtime startup** — `precompileVM → buildGlobalArray → seed
-   capEnv`. Done once per `RunWith` (or once-cached per process,
+capEnv`. Done once per `RunWith` (or once-cached per process,
    depending on hot-path). Allocates the VM struct, the globals
    table, and module-binding closure values.
 3. **Runtime exec** — the bytecode dispatch loop. Hot, called many
@@ -33,15 +33,15 @@ The four bench tiers, sorted from "closest to user wall-clock" to
 Simulate `gicel run program.gicel`: every iteration creates a fresh
 engine, compiles, runs, and discards. Closest to a real CLI invocation.
 
-| Benchmark | Workload |
-|---|---|
-| `BenchmarkEngineEndToEndSmall` | Trivial `main := 1 + 2` |
-| `BenchmarkEngineEndToEndSmallCold` | Same, with module cache reset |
-| `BenchmarkEngineEndToEndArray` | `Effect.Array` write/read loop |
-| `BenchmarkEngineEndToEndMap` | Three `Map.insert` + `Map.lookup` |
-| `BenchmarkEndToEndMapInsert50` | 50 sequential `Map.insert` |
-| `BenchmarkEndToEndMutableMapInsert50` | 50 `Effect.Map.insert` |
-| `BenchmarkEndToEndSetAlgebra` | Set union/intersection/difference |
+| Benchmark                             | Workload                          |
+| ------------------------------------- | --------------------------------- |
+| `BenchmarkEngineEndToEndSmall`        | Trivial `main := 1 + 2`           |
+| `BenchmarkEngineEndToEndSmallCold`    | Same, with module cache reset     |
+| `BenchmarkEngineEndToEndArray`        | `Effect.Array` write/read loop    |
+| `BenchmarkEngineEndToEndMap`          | Three `Map.insert` + `Map.lookup` |
+| `BenchmarkEndToEndMapInsert50`        | 50 sequential `Map.insert`        |
+| `BenchmarkEndToEndMutableMapInsert50` | 50 `Effect.Map.insert`            |
+| `BenchmarkEndToEndSetAlgebra`         | Set union/intersection/difference |
 
 These dominate compile time (97-99% of wall time for the Map/Set
 workloads after the 2026-04-07 dispatch refactor). When you optimize
@@ -56,14 +56,14 @@ Compile once outside the loop, then time only `RunWith`. This isolates
 steady-state runtime cost from compile cost. The right tool for
 investigating VM dispatch, allocation churn, primitive call overhead.
 
-| Benchmark | Workload |
-|---|---|
-| `BenchmarkExecSmall` | Trivial `main` |
-| `BenchmarkExecArray` | `Effect.Array` write/read loop |
-| `BenchmarkExecMapInsert50` | 50 `Map.insert` (warm) |
-| `BenchmarkExecMutableMapInsert50` | 50 `Effect.Map.insert` (warm) |
-| `BenchmarkExecSetAlgebra` | Set algebra (warm) |
-| `BenchmarkExecArithmeticLoop` | `fix`-driven `sumTo 1000` |
+| Benchmark                         | Workload                       |
+| --------------------------------- | ------------------------------ |
+| `BenchmarkExecSmall`              | Trivial `main`                 |
+| `BenchmarkExecArray`              | `Effect.Array` write/read loop |
+| `BenchmarkExecMapInsert50`        | 50 `Map.insert` (warm)         |
+| `BenchmarkExecMutableMapInsert50` | 50 `Effect.Map.insert` (warm)  |
+| `BenchmarkExecSetAlgebra`         | Set algebra (warm)             |
+| `BenchmarkExecArithmeticLoop`     | `fix`-driven `sumTo 1000`      |
 
 File: `internal/app/engine/engine_vm_bench_test.go`
 
@@ -81,16 +81,16 @@ compile share:                98%
 Time `NewRuntime` only (no `RunWith`). Where the type checker,
 optimizer, and bytecode emitter spend their time.
 
-| Benchmark | What it stresses |
-|---|---|
-| `BenchmarkEngineCompileSmall` | Minimal compile |
-| `BenchmarkEngineCompileLarge` | 100-decl source |
-| `BenchmarkEngineCompileLarge500` | 500-decl source |
-| `BenchmarkEngineCompileDoBlock10/30` | Do-notation desugar at scale |
-| `BenchmarkEngineNewRuntimeNoModules` | Pure NewRuntime, no Prelude |
-| `BenchmarkEngineNewRuntimePrelude` | NewRuntime + Prelude |
-| `BenchmarkEngineNewRuntimeWithModules` | NewRuntime + 3 user modules |
-| `BenchmarkEngineNewRuntimeAllPacks` | All stdlib packs |
+| Benchmark                              | What it stresses             |
+| -------------------------------------- | ---------------------------- |
+| `BenchmarkEngineCompileSmall`          | Minimal compile              |
+| `BenchmarkEngineCompileLarge`          | 100-decl source              |
+| `BenchmarkEngineCompileLarge500`       | 500-decl source              |
+| `BenchmarkEngineCompileDoBlock10/30`   | Do-notation desugar at scale |
+| `BenchmarkEngineNewRuntimeNoModules`   | Pure NewRuntime, no Prelude  |
+| `BenchmarkEngineNewRuntimePrelude`     | NewRuntime + Prelude         |
+| `BenchmarkEngineNewRuntimeWithModules` | NewRuntime + 3 user modules  |
+| `BenchmarkEngineNewRuntimeAllPacks`    | All stdlib packs             |
 
 File: `internal/app/engine/engine_bench_test.go`
 
@@ -119,28 +119,28 @@ the 6-commit refactor `35254ee..9c68906`.
 
 ### Where the allocations live
 
-| Source | Share | Phase | Notes |
-|---|---|---|---|
-| `vm.applyPrim` | ~20% | runtime exec | Down from 31% pre-refactor. Remainder is `applyForPrim` (host-callback) and curried-via-local paths the unified dispatch can't reach |
-| `Compiler.leaveFrame` | ~13% | compile | Builds the per-Proto state struct from the stack frame. Likely unavoidable without arena alloc |
-| `Compiler.addSpan` | ~9% | compile | Span pool growth — one entry per IR node visited |
-| `optimize.substMany` | ~9% | compile | IR substitution copies. Step toward in-place mutation already partial (TransformMut) |
-| `runtime.NewVM` | ~10% | runtime startup | Per-`RunWith` VM struct + locals + frames + stack |
-| `applyN` | ~8.5% | runtime exec | Step 4-introduced batched dispatch; some retain copies still required by partial PAP/PrimVal/ConVal |
-| `Compiler.addMatchDesc` | ~6% | compile | Pattern match descriptors |
-| `runtime.buildGlobalArray` | ~6% | runtime startup | Template clone for cached globals |
-| `pipelineCtx.computeModuleCacheKey` | ~6% | compile | String key construction |
-| `Compiler.allocLocalWithArity` | ~3% | compile | Local var slot tracking |
-| `eval.IntVal (inline)` | ~1.5% | runtime exec | Boxing of large ints (small ints interned) |
+| Source                              | Share | Phase           | Notes                                                                                                                                |
+| ----------------------------------- | ----- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `vm.applyPrim`                      | ~20%  | runtime exec    | Down from 31% pre-refactor. Remainder is `applyForPrim` (host-callback) and curried-via-local paths the unified dispatch can't reach |
+| `Compiler.leaveFrame`               | ~13%  | compile         | Builds the per-Proto state struct from the stack frame. Likely unavoidable without arena alloc                                       |
+| `Compiler.addSpan`                  | ~9%   | compile         | Span pool growth — one entry per IR node visited                                                                                     |
+| `optimize.substMany`                | ~9%   | compile         | IR substitution copies. Step toward in-place mutation already partial (TransformMut)                                                 |
+| `runtime.NewVM`                     | ~10%  | runtime startup | Per-`RunWith` VM struct + locals + frames + stack                                                                                    |
+| `applyN`                            | ~8.5% | runtime exec    | Step 4-introduced batched dispatch; some retain copies still required by partial PAP/PrimVal/ConVal                                  |
+| `Compiler.addMatchDesc`             | ~6%   | compile         | Pattern match descriptors                                                                                                            |
+| `runtime.buildGlobalArray`          | ~6%   | runtime startup | Template clone for cached globals                                                                                                    |
+| `pipelineCtx.computeModuleCacheKey` | ~6%   | compile         | String key construction                                                                                                              |
+| `Compiler.allocLocalWithArity`      | ~3%   | compile         | Local var slot tracking                                                                                                              |
+| `eval.IntVal (inline)`              | ~1.5% | runtime exec    | Boxing of large ints (small ints interned)                                                                                           |
 
 ### Cost categories rolled up
 
-| Category | Share |
-|---|---|
-| Compile (parse + check + optimize + emit) | ~50% |
-| Runtime startup (NewVM + buildGlobalArray) | ~16% |
-| Runtime exec (apply paths + value boxing) | ~30% |
-| Other (host stdlib + budget tracking) | ~4% |
+| Category                                   | Share |
+| ------------------------------------------ | ----- |
+| Compile (parse + check + optimize + emit)  | ~50%  |
+| Runtime startup (NewVM + buildGlobalArray) | ~16%  |
+| Runtime exec (apply paths + value boxing)  | ~30%  |
+| Other (host stdlib + budget tracking)      | ~4%   |
 
 The 2026-04-07 dispatch refactor moved the needle on runtime exec.
 The next big block is **compile-side allocations**, which dominate
@@ -172,13 +172,13 @@ that benchmark directly:
 
 ### Use the right tier for the question
 
-| Question | Tier to use |
-|---|---|
-| "Did my runtime change regress something?" | Tier 2 (warm exec) — compile noise drowns runtime signal in Tier 1 |
-| "Did my compile change regress something?" | Tier 3 (compile only) |
-| "Does this matter for end users running the CLI?" | Tier 1 (cold end-to-end) |
-| "Why is type checking slow on this program?" | Tier 4 (check micro) + `perf-profile.sh` on the relevant compile bench |
-| "Where do allocations come from in this hot loop?" | `perf-profile.sh` with `mem.prof`; pprof's `-list` is your friend |
+| Question                                           | Tier to use                                                            |
+| -------------------------------------------------- | ---------------------------------------------------------------------- |
+| "Did my runtime change regress something?"         | Tier 2 (warm exec) — compile noise drowns runtime signal in Tier 1     |
+| "Did my compile change regress something?"         | Tier 3 (compile only)                                                  |
+| "Does this matter for end users running the CLI?"  | Tier 1 (cold end-to-end)                                               |
+| "Why is type checking slow on this program?"       | Tier 4 (check micro) + `perf-profile.sh` on the relevant compile bench |
+| "Where do allocations come from in this hot loop?" | `perf-profile.sh` with `mem.prof`; pprof's `-list` is your friend      |
 
 ### GC noise mitigation
 
@@ -201,7 +201,7 @@ scheduler runtime samples. Mitigations:
 Look at the **memory profile** instead. GC time is proportional to
 allocation rate × heap size. If you reduce allocations and the CPU
 profile still shows GC dominance, the GC pressure is coming from
-something *other* than the workload you're profiling — usually a
+something _other_ than the workload you're profiling — usually a
 warmup phase or a cached structure that the bench isn't isolating.
 
 `perf-profile.sh` runs with `-memprofilerate=1` so the memory
@@ -249,14 +249,14 @@ docs/perf-overview.md   this document
 
 **Tier 2 — Warm exec** (RunWith only, n=5, 2s benchtime):
 
-| Benchmark | sec/op | B/op | allocs/op |
-|---|---|---|---|
-| `ExecSmall` | 11.3 µs | 22.1 KiB | 11 |
-| `ExecArray` | 196 µs | 71.8 KiB | 1096 |
-| `ExecMapInsert50` | 110 µs | 74.5 KiB | 1085 |
-| `ExecMutableMapInsert50` | 10.8 µs | 22.1 KiB | **11** |
-| `ExecSetAlgebra` | 75 µs | 60.3 KiB | 759 |
-| `ExecArithmeticLoop` | 1.65 ms | 393 KiB | 10631 |
+| Benchmark                | sec/op  | B/op     | allocs/op |
+| ------------------------ | ------- | -------- | --------- |
+| `ExecSmall`              | 11.3 µs | 22.1 KiB | 11        |
+| `ExecArray`              | 196 µs  | 71.8 KiB | 1096      |
+| `ExecMapInsert50`        | 110 µs  | 74.5 KiB | 1085      |
+| `ExecMutableMapInsert50` | 10.8 µs | 22.1 KiB | **11**    |
+| `ExecSetAlgebra`         | 75 µs   | 60.3 KiB | 759       |
+| `ExecArithmeticLoop`     | 1.65 ms | 393 KiB  | 10631     |
 
 `ExecMutableMapInsert50` having only 11 allocs/iter is the
 benchmark to beat for runtime efficiency: state mutation avoids
@@ -264,12 +264,12 @@ the per-step rebuild cost of immutable Map.
 
 **Tier 3 — Compile only** (NewRuntime, n=5):
 
-| Benchmark | sec/op | allocs/op |
-|---|---|---|
-| `EngineNewRuntimeNoModules` | 79 µs | 551 |
-| `EngineNewRuntimePrelude` | **1.28 ms** | **9229** |
-| `EngineCompileSmall` | 1.27 ms | 9229 |
-| `EngineCompileLarge` | 2.13 ms | 13154 |
+| Benchmark                   | sec/op      | allocs/op |
+| --------------------------- | ----------- | --------- |
+| `EngineNewRuntimeNoModules` | 79 µs       | 551       |
+| `EngineNewRuntimePrelude`   | **1.28 ms** | **9229**  |
+| `EngineCompileSmall`        | 1.27 ms     | 9229      |
+| `EngineCompileLarge`        | 2.13 ms     | 13154     |
 
 Prelude compile alone costs **1.2 ms / 9229 allocs** — that is the
 floor for any program that imports Prelude. Comparing
@@ -280,13 +280,13 @@ still pays the cost of evaluating Prelude's bindings.
 
 **Tier 4 — Type checker scaling**:
 
-| Benchmark | sec/op | allocs/op |
-|---|---|---|
-| `ResolveInstances10` | 132 µs | 1028 |
-| `ResolveInstances50` | 740 µs | 6943 |
-| `ResolveInstances100` | 2.00 ms | 21049 |
-| `SuperclassDepth5` | 106 µs | 941 |
-| `SuperclassDepth10` | 180 µs | 1596 |
+| Benchmark             | sec/op  | allocs/op |
+| --------------------- | ------- | --------- |
+| `ResolveInstances10`  | 132 µs  | 1028      |
+| `ResolveInstances50`  | 740 µs  | 6943      |
+| `ResolveInstances100` | 2.00 ms | 21049     |
+| `SuperclassDepth5`    | 106 µs  | 941       |
+| `SuperclassDepth10`   | 180 µs  | 1596      |
 
 Linear scaling in instance count and superclass depth — confirms
 the inert-set + supersedes invariants. Watch these for any
@@ -296,14 +296,14 @@ unexpected jump.
 
 Comparing the same workload across tiers reveals the compile share:
 
-| Workload | Tier 1 (cold) | Tier 2 (warm) | compile share |
-|---|---|---|---|
-| `*Small` | 1.50 ms | 11.3 µs | **99.2%** |
-| `*Array` | 1.92 ms | 196 µs | 89.8% |
-| `*Map` | 2.20 ms | (no warm yet) | — |
-| `*MapInsert50` | 6.37 ms | 110 µs | **98.3%** |
-| `*MutableMapInsert50` | 3.68 ms | 10.8 µs | **99.7%** |
-| `*SetAlgebra` | 2.72 ms | 75 µs | 97.2% |
+| Workload              | Tier 1 (cold) | Tier 2 (warm) | compile share |
+| --------------------- | ------------- | ------------- | ------------- |
+| `*Small`              | 1.50 ms       | 11.3 µs       | **99.2%**     |
+| `*Array`              | 1.92 ms       | 196 µs        | 89.8%         |
+| `*Map`                | 2.20 ms       | (no warm yet) | —             |
+| `*MapInsert50`        | 6.37 ms       | 110 µs        | **98.3%**     |
+| `*MutableMapInsert50` | 3.68 ms       | 10.8 µs       | **99.7%**     |
+| `*SetAlgebra`         | 2.72 ms       | 75 µs         | 97.2%         |
 
 **This is the most important table in this document.** It says:
 end-user wall time on these workloads is dominated by compile, not
@@ -316,10 +316,10 @@ biggest remaining lever is **compile-time work**.
 Commits `35254ee..9c68906`. Cumulative geomean improvement vs the
 pre-refactor baseline (`6ef77e0`):
 
-| Tier | sec/op geomean | allocs/op geomean |
-|---|---|---|
-| Tier 1 (cold end-to-end) | -29% | -3.5% |
-| Tier 2 (warm exec) | -31.6% | -8.97% |
+| Tier                     | sec/op geomean | allocs/op geomean |
+| ------------------------ | -------------- | ----------------- |
+| Tier 1 (cold end-to-end) | -29%           | -3.5%             |
+| Tier 2 (warm exec)       | -31.6%         | -8.97%            |
 
 Single biggest mover: `ExecArray` -43.57% sec, -45.34% allocs.
 

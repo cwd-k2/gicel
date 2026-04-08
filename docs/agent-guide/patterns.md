@@ -177,6 +177,8 @@ Note: for list traversal, prefer Prelude's `map`/`filter`/`foldr` over manual `c
 A top-level binding with a preceding type annotation may self-reference without `fix`:
 
 ```
+import Prelude
+
 -- OK: type annotation enables self-reference
 countdown :: Int -> Int
 countdown := \n. if n == 0 then 0 else countdown (n - 1)
@@ -185,6 +187,8 @@ countdown := \n. if n == 0 then 0 else countdown (n - 1)
 Without a type annotation, use `fix` (requires `--recursion`):
 
 ```
+import Prelude
+
 -- fix provides self as parameter
 countdown := fix (\self n. if n == 0 then 0 else self (n - 1))
 ```

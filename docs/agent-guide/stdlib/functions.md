@@ -74,7 +74,8 @@ seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
 | Foldable  | `foldMap`, `collectList`, `find`, `elem`, `notElem`, `any`, `all`             |
 | List      | `lookup`, `concatMap`, `flatten`, `catMaybes`, `mapMaybe`                     |
 | List      | `partition`, `takeWhile`, `intersperse`, `nub`, `nubBy`, `and`, `or`          |
-| List      | `length`, `concat`, `foldl`, `take`, `drop`, `index`, `replicate`, `reverse`  |
+| List      | `length`, `foldl`, `take`, `drop`, `index`, `replicate`, `reverse`            |
+| List      | `concat` (binary append, `List a -> List a -> List a`, same as `<>`)          |
 | List      | `zip`, `unzip`, `zipWith`, `dropWhile`, `span`, `break`                       |
 | List      | `sortBy`, `sort`, `scanl`, `unfoldr`, `iterateN`, `intercalate`, `range`      |
 | List      | `fromSlice`, `toSlice`                                                        |

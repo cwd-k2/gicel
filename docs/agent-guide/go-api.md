@@ -42,7 +42,7 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 
 | Pack                | Module         | Provides                                         |
 | ------------------- | -------------- | ------------------------------------------------ |
-| `gicel.Prelude`     | `Prelude`      | Num, Str, List — arithmetic, strings, lists      |
+| `gicel.Prelude`     | `Prelude`      | Int, String, List — arithmetic, strings, lists   |
 | `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                                   |
 | `gicel.EffectState` | `Effect.State` | Get/put state + runState/evalState/execState     |
 | `gicel.EffectIO`    | `Effect.IO`    | Log/dbg output                                   |
