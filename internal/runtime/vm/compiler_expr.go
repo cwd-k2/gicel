@@ -13,6 +13,17 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
+// lookupFVInfo unpacks an FVInfo into the (fv, fvIndices) pair that the
+// closure-emitting helpers expect. Overflow entries yield (nil, nil) to
+// match the legacy "capture entire env" signal used by child proto
+// builders.
+func lookupFVInfo(info *ir.FVInfo) (fv []string, fvIndices []int) {
+	if info.Overflow {
+		return nil, nil
+	}
+	return info.Vars, info.Indices
+}
+
 // --- compilation ---
 
 func (c *Compiler) compileExpr(expr ir.Core, tail bool) {
@@ -96,20 +107,23 @@ func (c *Compiler) compileLit(lit *ir.Lit) {
 }
 func (c *Compiler) compileLam(lam *ir.Lam) {
 	// Flatten lambda chain: \x. \y. \z. body → single Proto with Params=["x","y","z"].
-	params, body, fv, fvIndices := flattenLamChain(lam)
+	params, body, fv, fvIndices := c.flattenLamChain(lam)
 	child := c.compileMultiParamProto(params, body, fv, fvIndices)
 	protoIdx := c.addProto(child)
 	c.emitU16(OpClosure, protoIdx)
 }
 
-// irLamArity returns the arity of a Lam chain, or -1 if expr is not a Lam.
 // flattenLamChain collects a chain of nested Lam nodes into a parameter
-// list and the innermost body. Returns the outermost Lam's FV/FVIndices
+// list and the innermost body. Returns the outermost Lam's FV/Indices
 // (inner params become local slots in the flattened Proto, not captures).
-func flattenLamChain(lam *ir.Lam) (params []string, body ir.Core, fv []string, fvIndices []int) {
+// FV metadata is looked up from the Compiler's FVAnnotations side table.
+func (c *Compiler) flattenLamChain(lam *ir.Lam) (params []string, body ir.Core, fv []string, fvIndices []int) {
 	params = []string{lam.Param}
-	fv = lam.FV
-	fvIndices = lam.FVIndices
+	info := c.fvAnnots.LookupLam(lam)
+	if !info.Overflow {
+		fv = info.Vars
+		fvIndices = info.Indices
+	}
 	body = lam.Body
 	for {
 		inner := ir.PeelTyLam(body)
@@ -258,12 +272,14 @@ func (c *Compiler) compileFix(fix *ir.Fix) {
 	body := ir.PeelTyLam(fix.Body)
 	switch b := body.(type) {
 	case *ir.Lam:
-		params, innerBody, _, _ := flattenLamChain(b)
-		child := c.compileFixMultiProto(fix.Name, params, innerBody, b.FV, b.FVIndices)
+		params, innerBody, _, _ := c.flattenLamChain(b)
+		fv, fvIndices := lookupFVInfo(c.fvAnnots.LookupLam(b))
+		child := c.compileFixMultiProto(fix.Name, params, innerBody, fv, fvIndices)
 		protoIdx := c.addProto(child)
 		c.emitU16(OpFixClosure, protoIdx)
 	case *ir.Thunk:
-		child := c.compileFixProto(fix.Name, "", b.Comp, true, b.FV, b.FVIndices)
+		fv, fvIndices := lookupFVInfo(c.fvAnnots.LookupThunk(b))
+		child := c.compileFixProto(fix.Name, "", b.Comp, true, fv, fvIndices)
 		protoIdx := c.addProto(child)
 		c.emitU16(OpFixThunk, protoIdx)
 	default:
@@ -288,18 +304,23 @@ func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
 	c.compileExpr(bind.Body, tail)
 }
 func (c *Compiler) compileThunk(thunk *ir.Thunk) {
-	child := c.compileChildProto("", thunk.Comp, true, thunk.FV, thunk.FVIndices)
+	fv, fvIndices := lookupFVInfo(c.fvAnnots.LookupThunk(thunk))
+	child := c.compileChildProto("", thunk.Comp, true, fv, fvIndices)
 	protoIdx := c.addProto(child)
 	c.emitU16(OpThunk, protoIdx)
 }
 func (c *Compiler) compileMerge(merge *ir.Merge) {
-	leftProto := c.compileMergeChildProto(merge.Left, merge.LeftFV, merge.LeftFVIdx)
-	leftIdx := c.addProto(leftProto)
-	c.emitU16(OpThunk, leftIdx)
+	mergeInfo := c.fvAnnots.LookupMerge(merge)
+	leftFV, leftIdx := lookupFVInfo(&mergeInfo.Left)
+	rightFV, rightIdx := lookupFVInfo(&mergeInfo.Right)
 
-	rightProto := c.compileMergeChildProto(merge.Right, merge.RightFV, merge.RightFVIdx)
-	rightIdx := c.addProto(rightProto)
-	c.emitU16(OpThunk, rightIdx)
+	leftProto := c.compileMergeChildProto(merge.Left, leftFV, leftIdx)
+	leftProtoIdx := c.addProto(leftProto)
+	c.emitU16(OpThunk, leftProtoIdx)
+
+	rightProto := c.compileMergeChildProto(merge.Right, rightFV, rightIdx)
+	rightProtoIdx := c.addProto(rightProto)
+	c.emitU16(OpThunk, rightProtoIdx)
 
 	descIdx := c.addMergeDesc(MergeDesc{
 		LeftLabels:  merge.LeftLabels,

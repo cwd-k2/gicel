@@ -140,10 +140,11 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		}
 	}
 
-	pc.postCheck(prog, nil) // module: no inlining
+	annots := pc.postCheck(prog, nil) // module: no inlining
 
 	mod := &compiledModule{
 		prog:           prog,
+		annots:         annots,
 		exports:        exports,
 		deps:           deps,
 		fixity:         modFixity,
@@ -157,7 +158,9 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 // postCheck applies the shared post-type-checking pipeline:
 // label erasure → [verify structure] → optimize → annotate FV → assign indices → [verify annotations].
 // userBindings limits selective inlining to the given names (nil = no inlining).
-func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) {
+// Returns the freshly computed FVAnnotations so callers can store them
+// alongside the Program they own — the ir layer keeps no hidden state.
+func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) *ir.FVAnnotations {
 	ir.EraseLabelArgsProgram(prog)
 	if pc.verifyIR {
 		if errs := ir.VerifyProgram(prog); len(errs) > 0 {
@@ -165,13 +168,14 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 		}
 	}
 	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings)
-	ir.AnnotateFreeVarsProgram(prog)
-	ir.AssignIndicesProgram(prog)
+	annots := ir.AnnotateFreeVarsProgram(prog)
+	ir.AssignIndicesProgram(prog, annots)
 	if pc.verifyIR {
-		if errs := ir.VerifyAnnotations(prog); len(errs) > 0 {
+		if errs := ir.VerifyAnnotations(prog, annots); len(errs) > 0 {
 			panic("IR annotation verification failed: " + errs[0].Error())
 		}
 	}
+	return annots
 }
 
 // analyze runs lex → parse → check, returning partial results on error.
@@ -222,19 +226,20 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 }
 
 // compileMain compiles the main source: lex → parse → type check → optimize → annotate.
-func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *span.Source, error) {
+// Returns the Program, its FV annotations side table, and the source map.
+func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *ir.FVAnnotations, *span.Source, error) {
 	ar := pc.analyze(source)
 	if !ar.Complete {
-		return nil, nil, &CompileError{Errors: ar.Errors}
+		return nil, nil, nil, &CompileError{Errors: ar.Errors}
 	}
 
 	var userBindings map[string]bool
 	if !pc.noInline {
 		userBindings = collectUserBindings(ar.Program)
 	}
-	pc.postCheck(ar.Program, userBindings)
+	annots := pc.postCheck(ar.Program, userBindings)
 
-	return ar.Program, ar.Source, nil
+	return ar.Program, annots, ar.Source, nil
 }
 
 // collectUserBindings returns the set of non-generated binding names
@@ -253,7 +258,7 @@ func collectUserBindings(prog *ir.Program) map[string]bool {
 // Returns a CompileError if precompileVM detects a structural compile-time
 // limit (e.g. bytecode pool overflow); other panics from the bytecode
 // compiler propagate as real bugs.
-func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) (*Runtime, error) {
+func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotations, src *span.Source) (*Runtime, error) {
 	entries := pc.store.Entries()
 
 	entryName := pc.entryPoint
@@ -268,6 +273,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, src *span.Source) (*Run
 
 	rt := &Runtime{
 		prog:               prog,
+		annots:             annots,
 		prims:              pc.host.prims.Clone(),
 		stepLimit:          pc.limits.stepLimit,
 		depthLimit:         pc.limits.depthLimit,

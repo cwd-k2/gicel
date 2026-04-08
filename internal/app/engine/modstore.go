@@ -13,6 +13,7 @@ import (
 
 type compiledModule struct {
 	prog           *ir.Program
+	annots         *ir.FVAnnotations // FV metadata for every Lam/Thunk/Merge in prog
 	exports        *check.ModuleExports
 	deps           []string
 	fixity         map[string]parse.Fixity
@@ -80,6 +81,7 @@ func (s *ModuleStore) Entries() []moduleEntry {
 		entries = append(entries, moduleEntry{
 			name:           name,
 			prog:           mod.prog,
+			annots:         mod.annots,
 			sortedBindings: mod.sortedBindings,
 			source:         mod.source,
 		})

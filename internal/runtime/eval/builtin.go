@@ -2,9 +2,14 @@ package eval
 
 import "github.com/cwd-k2/gicel/internal/lang/ir"
 
+// These builders emit phase-invariant Core IR: they contain no FV metadata.
+// Callers must run ir.AnnotateFreeVars followed by ir.AssignIndices on the
+// returned tree (or compose it into a larger tree that undergoes the same
+// pipeline) before handing it to the bytecode compiler.
+
 // PureBody returns the IR for the pure builtin: \v. v
 func PureBody() *ir.Lam {
-	return &ir.Lam{Param: "_v", Body: &ir.Var{Name: "_v", Index: 0}}
+	return &ir.Lam{Param: "_v", Body: &ir.Var{Name: "_v"}}
 }
 
 // BindBody returns the IR for the bind builtin: \comp. \f. f comp
@@ -12,17 +17,15 @@ func BindBody() *ir.Lam {
 	return &ir.Lam{
 		Param: "_comp",
 		Body: &ir.Lam{
-			Param:     "_f",
-			FV:        []string{"_comp"},
-			FVIndices: []int{0},
-			Body:      &ir.App{Fun: &ir.Var{Name: "_f", Index: 0}, Arg: &ir.Var{Name: "_comp", Index: 1}},
+			Param: "_f",
+			Body:  &ir.App{Fun: &ir.Var{Name: "_f"}, Arg: &ir.Var{Name: "_comp"}},
 		},
 	}
 }
 
 // ForceBody returns the IR for the force builtin: \thk. force thk
 func ForceBody() *ir.Lam {
-	return &ir.Lam{Param: "_thk", Body: &ir.Force{Expr: &ir.Var{Name: "_thk", Index: 0}}}
+	return &ir.Lam{Param: "_thk", Body: &ir.Force{Expr: &ir.Var{Name: "_thk"}}}
 }
 
 // FixBody returns the Fix IR node for the fix builtin.
@@ -36,15 +39,13 @@ func fixBody() *ir.Fix {
 	return &ir.Fix{
 		Name: "_x",
 		Body: &ir.Lam{
-			Param:     "_arg",
-			FV:        []string{"_f"},
-			FVIndices: []int{0},
+			Param: "_arg",
 			Body: &ir.App{
 				Fun: &ir.App{
-					Fun: &ir.Var{Name: "_f", Index: 2},
-					Arg: &ir.Var{Name: "_x", Index: 1},
+					Fun: &ir.Var{Name: "_f"},
+					Arg: &ir.Var{Name: "_x"},
 				},
-				Arg: &ir.Var{Name: "_arg", Index: 0},
+				Arg: &ir.Var{Name: "_arg"},
 			},
 		},
 	}
@@ -56,11 +57,9 @@ func recBody() ir.Core {
 		Expr: &ir.Fix{
 			Name: "_thk",
 			Body: &ir.Thunk{
-				FV:        []string{"_f"},
-				FVIndices: []int{0},
 				Comp: &ir.App{
-					Fun: &ir.Var{Name: "_f", Index: 1},
-					Arg: &ir.Var{Name: "_thk", Index: 0},
+					Fun: &ir.Var{Name: "_f"},
+					Arg: &ir.Var{Name: "_thk"},
 				},
 			},
 		},

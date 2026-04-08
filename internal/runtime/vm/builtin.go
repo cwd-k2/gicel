@@ -30,8 +30,9 @@ func CompileBuiltinGlobals(compiler *Compiler, enableFix, enableRec bool) map[st
 
 // compileBuiltinLam compiles a Lam IR expression into a VMClosure.
 func compileBuiltinLam(compiler *Compiler, name string, lam *ir.Lam) eval.Value {
-	ir.AnnotateFreeVars(lam)
-	ir.AssignIndices(lam)
+	annots := ir.AnnotateFreeVars(lam)
+	ir.AssignIndices(lam, annots)
+	compiler.SetFVAnnots(annots)
 	proto := compiler.CompileBinding(ir.Binding{Name: name, Expr: lam})
 	if len(proto.Protos) == 1 {
 		childProto := proto.Protos[0]

@@ -120,21 +120,23 @@ func verifyThunk(th *Thunk, errs []VerifyError) []VerifyError {
 	return errs
 }
 
-// VerifyAnnotations checks annotation-layer invariants of a Core IR program.
-// Must be called after AnnotateFreeVarsProgram and AssignIndicesProgram.
+// VerifyAnnotations checks annotation-layer invariants of a Core IR program
+// against a caller-supplied FVAnnotations side table. Must be called after
+// AnnotateFreeVarsProgram and AssignIndicesProgram on the same tree.
 //
 // Checked invariants:
-//   - V5a: Lam.FV, Thunk.FV, Merge.LeftFV/RightFV match recomputed free variables.
+//   - V5a: FV entries in annots match recomputed free variables for every
+//     Lam, Thunk, and Merge reachable from the program.
 //   - V5b: Every Var node has a non-empty Key after annotation.
-func VerifyAnnotations(prog *Program) []VerifyError {
+func VerifyAnnotations(prog *Program, annots *FVAnnotations) []VerifyError {
 	var errs []VerifyError
 	for _, b := range prog.Bindings {
-		errs = verifyAnnotationsCore(b.Expr, errs)
+		errs = verifyAnnotationsCore(b.Expr, annots, errs)
 	}
 	return errs
 }
 
-func verifyAnnotationsCore(c Core, errs []VerifyError) []VerifyError {
+func verifyAnnotationsCore(c Core, annots *FVAnnotations, errs []VerifyError) []VerifyError {
 	// V5b: Var.Key must be populated after AnnotateFreeVars.
 	Walk(c, func(node Core) bool {
 		if v, ok := node.(*Var); ok && v.Key == "" {
@@ -146,60 +148,85 @@ func verifyAnnotationsCore(c Core, errs []VerifyError) []VerifyError {
 		return true
 	})
 	// V5a: FV coherence — single bottom-up pass via traverseFV (O(N)).
-	obs := &verifyObs{}
+	obs := &verifyObs{annots: annots}
 	traverseFV(c, 0, obs)
 	errs = append(errs, obs.errs...)
 	return errs
 }
 
 // verifyObs checks FV annotations at each annotation point by comparing
-// the stored annotation with the recomputed free variable set.
+// the side-table entry with the recomputed free variable set.
 type verifyObs struct {
-	errs []VerifyError
+	annots *FVAnnotations
+	errs   []VerifyError
 }
 
 func (v *verifyObs) OnLam(lam *Lam, bodyFV fvResult) {
-	if lam.FV == nil || bodyFV.overflow {
+	info, ok := v.annots.Lams[lam]
+	if !ok {
+		v.errs = append(v.errs, VerifyError{
+			Node:    lam,
+			Message: "Lam missing from FVAnnotations",
+		})
+		return
+	}
+	if info.Overflow || bodyFV.overflow {
 		return
 	}
 	expected := fvResultToSlice(bodyFV)
-	if !sliceEqual(lam.FV, expected) {
+	if !sliceEqual(info.Vars, expected) {
 		v.errs = append(v.errs, VerifyError{
 			Node:    lam,
-			Message: fmt.Sprintf("Lam.FV mismatch: annotated %v, computed %v", lam.FV, expected),
+			Message: fmt.Sprintf("Lam.FV mismatch: annotated %v, computed %v", info.Vars, expected),
 		})
 	}
 }
 
 func (v *verifyObs) OnThunk(th *Thunk, compFV fvResult) {
-	if th.FV == nil || compFV.overflow {
+	info, ok := v.annots.Thunks[th]
+	if !ok {
+		v.errs = append(v.errs, VerifyError{
+			Node:    th,
+			Message: "Thunk missing from FVAnnotations",
+		})
+		return
+	}
+	if info.Overflow || compFV.overflow {
 		return
 	}
 	expected := fvResultToSlice(compFV)
-	if !sliceEqual(th.FV, expected) {
+	if !sliceEqual(info.Vars, expected) {
 		v.errs = append(v.errs, VerifyError{
 			Node:    th,
-			Message: fmt.Sprintf("Thunk.FV mismatch: annotated %v, computed %v", th.FV, expected),
+			Message: fmt.Sprintf("Thunk.FV mismatch: annotated %v, computed %v", info.Vars, expected),
 		})
 	}
 }
 
 func (v *verifyObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
-	if m.LeftFV != nil && !leftFV.overflow {
+	info, ok := v.annots.Merges[m]
+	if !ok {
+		v.errs = append(v.errs, VerifyError{
+			Node:    m,
+			Message: "Merge missing from FVAnnotations",
+		})
+		return
+	}
+	if !info.Left.Overflow && !leftFV.overflow {
 		expected := fvResultToSlice(leftFV)
-		if !sliceEqual(m.LeftFV, expected) {
+		if !sliceEqual(info.Left.Vars, expected) {
 			v.errs = append(v.errs, VerifyError{
 				Node:    m,
-				Message: fmt.Sprintf("Merge.LeftFV mismatch: annotated %v, computed %v", m.LeftFV, expected),
+				Message: fmt.Sprintf("Merge.LeftFV mismatch: annotated %v, computed %v", info.Left.Vars, expected),
 			})
 		}
 	}
-	if m.RightFV != nil && !rightFV.overflow {
+	if !info.Right.Overflow && !rightFV.overflow {
 		expected := fvResultToSlice(rightFV)
-		if !sliceEqual(m.RightFV, expected) {
+		if !sliceEqual(info.Right.Vars, expected) {
 			v.errs = append(v.errs, VerifyError{
 				Node:    m,
-				Message: fmt.Sprintf("Merge.RightFV mismatch: annotated %v, computed %v", m.RightFV, expected),
+				Message: fmt.Sprintf("Merge.RightFV mismatch: annotated %v, computed %v", info.Right.Vars, expected),
 			})
 		}
 	}

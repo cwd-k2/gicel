@@ -462,11 +462,11 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	if cached, ok := runtimeCacheGet(key); ok {
 		return cached, nil
 	}
-	prog, src, err := pc.compileMain(source)
+	prog, annots, src, err := pc.compileMain(source)
 	if err != nil {
 		return nil, err
 	}
-	rt, err := pc.assembleRuntime(prog, src)
+	rt, err := pc.assembleRuntime(prog, annots, src)
 	if err != nil {
 		return nil, err
 	}

@@ -124,18 +124,108 @@ func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, d
 	}
 }
 
-// AnnotateFreeVars populates FV fields on Lam and Thunk nodes in a single
-// bottom-up pass (O(n)). For each Lam, FV = free vars of body ∖ {param}.
-// For each Thunk, FV = free vars of comp.
-func AnnotateFreeVars(c Core) {
-	traverseFV(c, 0, annotateObs{})
+// FVInfo carries free-variable metadata for a single annotation point
+// (one Lam, one Thunk, or one side of a Merge).
+//
+//   - Overflow == true  → the FV computation exceeded the traversal depth
+//     limit. Vars and Indices are not meaningful; the evaluator must
+//     capture the entire enclosing environment instead of trimming.
+//   - Overflow == false → Vars holds the sorted free-variable names.
+//     Indices is nil until AssignIndices runs, after which it holds the
+//     de Bruijn positions in the enclosing env (possibly empty when all
+//     free variables are globals).
+type FVInfo struct {
+	Vars     []string
+	Indices  []int
+	Overflow bool
 }
 
-// AnnotateFreeVarsProgram annotates all bindings in a Program.
-func AnnotateFreeVarsProgram(p *Program) {
-	for _, b := range p.Bindings {
-		AnnotateFreeVars(b.Expr)
+// MergeFVInfo carries FV metadata for the two sides of a Merge node.
+type MergeFVInfo struct {
+	Left  FVInfo
+	Right FVInfo
+}
+
+// FVAnnotations is the side table that holds free-variable metadata for
+// every Lam, Thunk, and Merge node in a Core tree. It is populated by
+// AnnotateFreeVars (names) and then by AssignIndices (de Bruijn positions).
+//
+// Pointer-valued map entries let AssignIndices mutate FVInfo in place
+// without rewriting the map, and let downstream consumers rely on stable
+// pointer identity when caching per-annotation compiled artifacts.
+//
+// FVAnnotations is the single source of truth: the IR nodes themselves
+// carry no FV state, so the same *ir.Lam always has the same structural
+// meaning regardless of which pass has run.
+type FVAnnotations struct {
+	Lams   map[*Lam]*FVInfo
+	Thunks map[*Thunk]*FVInfo
+	Merges map[*Merge]*MergeFVInfo
+}
+
+// NewFVAnnotations allocates an empty annotation table.
+func NewFVAnnotations() *FVAnnotations {
+	return &FVAnnotations{
+		Lams:   make(map[*Lam]*FVInfo),
+		Thunks: make(map[*Thunk]*FVInfo),
+		Merges: make(map[*Merge]*MergeFVInfo),
 	}
+}
+
+// LookupLam returns the FV info for a Lam node. Panics if the node is not
+// registered — every Lam reachable through a traversed Core tree must have
+// an entry after AnnotateFreeVars, so a missing entry indicates a bug.
+func (a *FVAnnotations) LookupLam(lam *Lam) *FVInfo {
+	info, ok := a.Lams[lam]
+	if !ok {
+		panic("ir.FVAnnotations: Lam node missing from annotation table")
+	}
+	return info
+}
+
+// LookupThunk returns the FV info for a Thunk node.
+func (a *FVAnnotations) LookupThunk(th *Thunk) *FVInfo {
+	info, ok := a.Thunks[th]
+	if !ok {
+		panic("ir.FVAnnotations: Thunk node missing from annotation table")
+	}
+	return info
+}
+
+// LookupMerge returns the FV info for a Merge node (both sides).
+func (a *FVAnnotations) LookupMerge(m *Merge) *MergeFVInfo {
+	info, ok := a.Merges[m]
+	if !ok {
+		panic("ir.FVAnnotations: Merge node missing from annotation table")
+	}
+	return info
+}
+
+// AnnotateFreeVars computes free-variable metadata for every Lam, Thunk,
+// and Merge node reachable from c in a single bottom-up pass (O(n)).
+// For each Lam, FV = free vars of body ∖ {param}. For each Thunk, FV = free
+// vars of comp. For each Merge, FV is computed independently for each side.
+//
+// Returns a freshly allocated FVAnnotations owned by the caller.
+func AnnotateFreeVars(c Core) *FVAnnotations {
+	annots := NewFVAnnotations()
+	annotateCore(c, annots)
+	return annots
+}
+
+// AnnotateFreeVarsProgram computes FV metadata for every binding in p.
+// Returns a single FVAnnotations spanning all bindings.
+func AnnotateFreeVarsProgram(p *Program) *FVAnnotations {
+	annots := NewFVAnnotations()
+	for _, b := range p.Bindings {
+		annotateCore(b.Expr, annots)
+	}
+	return annots
+}
+
+// annotateCore runs traverseFV with an observer that writes into annots.
+func annotateCore(c Core, annots *FVAnnotations) {
+	traverseFV(c, 0, annotateObs{annots: annots})
 }
 
 // fvObserver receives computed free variables at annotation points during
@@ -147,36 +237,34 @@ type fvObserver interface {
 	OnMerge(m *Merge, leftFV, rightFV fvResult)
 }
 
-// annotateObs sets FV fields on Lam, Thunk, and Merge nodes.
-type annotateObs struct{}
+// annotateObs writes FV results into a FVAnnotations side table.
+type annotateObs struct {
+	annots *FVAnnotations
+}
 
-func (annotateObs) OnLam(lam *Lam, bodyFV fvResult) {
-	if bodyFV.overflow {
-		lam.FV = nil
-	} else {
-		lam.FV = fvResultToSlice(bodyFV)
+func (a annotateObs) OnLam(lam *Lam, bodyFV fvResult) {
+	a.annots.Lams[lam] = fvInfoFromResult(bodyFV)
+}
+
+func (a annotateObs) OnThunk(th *Thunk, compFV fvResult) {
+	a.annots.Thunks[th] = fvInfoFromResult(compFV)
+}
+
+func (a annotateObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
+	a.annots.Merges[m] = &MergeFVInfo{
+		Left:  *fvInfoFromResult(leftFV),
+		Right: *fvInfoFromResult(rightFV),
 	}
 }
 
-func (annotateObs) OnThunk(th *Thunk, compFV fvResult) {
-	if compFV.overflow {
-		th.FV = nil
-	} else {
-		th.FV = fvResultToSlice(compFV)
+// fvInfoFromResult converts a traversal-local fvResult into a persistent
+// FVInfo. Overflow results carry no Vars; non-overflow results carry the
+// sorted free-variable name slice.
+func fvInfoFromResult(r fvResult) *FVInfo {
+	if r.overflow {
+		return &FVInfo{Overflow: true}
 	}
-}
-
-func (annotateObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
-	if leftFV.overflow {
-		m.LeftFV = nil
-	} else {
-		m.LeftFV = fvResultToSlice(leftFV)
-	}
-	if rightFV.overflow {
-		m.RightFV = nil
-	} else {
-		m.RightFV = fvResultToSlice(rightFV)
-	}
+	return &FVInfo{Vars: fvResultToSlice(r)}
 }
 
 // fvResultToSlice materializes the inline-or-map fvResult into a sorted

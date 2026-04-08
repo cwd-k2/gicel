@@ -20,9 +20,8 @@ func TestVMFixSimple(t *testing.T) {
 	fix := &ir.Fix{Name: "self", Body: lam}
 	app := &ir.App{Fun: fix, Arg: &ir.Lit{Value: int64(42)}}
 
-	ir.AnnotateFreeVars(app)
-	ir.AssignIndices(app)
 	c := NewCompiler(nil, nil)
+	annotate(c, app)
 	proto := c.CompileExpr(app)
 
 	// Dump bytecode

@@ -25,13 +25,16 @@ type Var struct {
 }
 
 // Lam — lambda abstraction.
+//
+// FV metadata (names and de Bruijn indices of captured variables) is stored
+// in a separate *FVAnnotations side table, not on the node itself. This keeps
+// Lam phase-invariant: its structural identity is independent of whether any
+// free-variable analysis has been run.
 type Lam struct {
 	Param     string
 	ParamType types.Type
 	Body      Core
-	FV        []string // Free variables by name (populated by AnnotateFreeVars)
-	FVIndices []int    // FV positions in enclosing env (populated by AssignIndices)
-	Generated bool     // true when introduced by the compiler (dict params, pattern desugar, sections)
+	Generated bool // true when introduced by the compiler (dict params, pattern desugar, sections)
 	S         span.Span
 }
 
@@ -100,11 +103,11 @@ type Bind struct {
 }
 
 // Thunk — suspend computation (thunk c).
+//
+// FV metadata lives in the FVAnnotations side table; see Lam for rationale.
 type Thunk struct {
-	Comp      Core
-	FV        []string // Free variables by name (populated by AnnotateFreeVars)
-	FVIndices []int    // FV positions in enclosing env (populated by AssignIndices)
-	S         span.Span
+	Comp Core
+	S    span.Span
 }
 
 // Force — resume suspended computation (force e).
@@ -122,16 +125,14 @@ type Force struct {
 // (compiler/check/checker.go), not on the IR node, so the node has no
 // hidden phase distinction — by the time the IR leaves the checker, the
 // labels are final and the struct contains no transient state.
-// FV/FVIndices are populated by AnnotateFreeVars/AssignIndices (like Thunk).
+//
+// FV metadata (separately for Left and Right) lives in the FVAnnotations
+// side table; see Lam for rationale.
 type Merge struct {
 	Left        Core
 	Right       Core
 	LeftLabels  []string // capability labels for left computation
 	RightLabels []string // capability labels for right computation
-	LeftFV      []string // free vars of Left (populated by AnnotateFreeVars)
-	LeftFVIdx   []int    // FV positions in enclosing env (populated by AssignIndices)
-	RightFV     []string // free vars of Right
-	RightFVIdx  []int    // FV positions in enclosing env
 	S           span.Span
 }
 

@@ -3,36 +3,38 @@
 // Source trees from internal/lang/syntax are lowered into Core by the
 // checker (internal/compiler/check) before any downstream pass runs.
 //
-// # Passes and their artifacts
+// # Phase-invariant nodes, side-table metadata
 //
-// Core trees pass through several annotation stages. Each stage is
-// monotonic — it only fills previously-unset fields:
+// The Core node types (Lam, Thunk, Merge, ...) carry no analysis state.
+// Free-variable metadata lives in a separate *FVAnnotations side table
+// that the caller owns and threads through the pipeline alongside the
+// Program. Two passes populate it:
 //
-//	AnnotateFreeVars   populates Var.Key, Lam.FV, Thunk.FV, Merge.LeftFV/RightFV
-//	AssignIndices      populates Var.Index, Lam.FVIndices, Thunk.FVIndices,
-//	                   Merge.LeftFVIdx/RightFVIdx
+//	AnnotateFreeVars         → *FVAnnotations (names, Var.Key caching)
+//	AssignIndices(_, annots) → populates FVInfo.Indices in place
+//
+// VerifyAnnotations(prog, annots) checks coherence.
 //
 // # Invariants
 //
-// Once a stage has run on a tree, its annotations are final for the
-// tree's lifetime. Tree identity is what determines stage status; a
-// freshly allocated node starts unannotated regardless of whether
-// its siblings are annotated.
-//
-//   - Var.Key is non-empty after AnnotateFreeVars (populated from
-//     Module and Name via varKey).
-//   - Var.Index is -1 for global references (resolved through Key)
-//     and >= 0 for local references (de Bruijn index, 0 = innermost).
-//   - Lam.FV == nil signals overflow: the depth limit was reached
-//     while computing free variables; the evaluator must capture the
-//     entire enclosing environment instead of trimming.
-//   - Lam.FVIndices == nil with Lam.FV != nil signals "no local
-//     captures" (all FVs are global). When both are non-nil,
-//     len(Lam.FVIndices) == len(Lam.FV).
-//   - Thunk.FV / Thunk.FVIndices follow the same conventions as Lam.
-//   - Merge.LeftLabels and Merge.RightLabels are final by the time
-//     the IR leaves the checker. The transient pre-state types needed
-//     to re-extract them after constraint resolution live in a
+//   - *ir.Lam / *ir.Thunk / *ir.Merge are immutable structural forms:
+//     the same pointer has the same meaning regardless of which passes
+//     have been run. Two trees with structurally identical nodes are
+//     interchangeable — there is no hidden state to forget.
+//   - Var.Key is non-empty after any traversal that calls annotateCore
+//     (populated from Module and Name via varKey).
+//   - Var.Index is -1 for global references (resolved through Key) and
+//     >= 0 for local references (de Bruijn index, 0 = innermost).
+//   - FVInfo.Overflow == true signals the FV computation was truncated
+//     by the traversal depth limit. In that case Vars and Indices are
+//     not meaningful and the evaluator must capture the entire
+//     enclosing environment instead of trimming.
+//   - FVInfo.Overflow == false ⇒ Vars is non-nil (possibly empty) after
+//     AnnotateFreeVars, and Indices is non-nil (possibly empty) after
+//     AssignIndices.
+//   - Merge.LeftLabels and Merge.RightLabels are final by the time the
+//     IR leaves the checker. The transient pre-state types needed to
+//     re-extract them after constraint resolution live in a
 //     checker-local side table, not on the IR node, so the node has
 //     no hidden phase distinction. See compiler/check/checker.go for
 //     the side table; downstream passes can treat the labels as
@@ -50,7 +52,7 @@
 //	TransformMut bottom-up mutation; mutates parent fields in place
 //	             (caller must own the tree exclusively)
 //
-// FreeVars, AnnotateFreeVars, and AssignIndices all follow the
-// AnnotateFreeVars → AssignIndices ordering. Running them out of
-// order leaves indices unresolved against stale Key values.
+// Transforms run BEFORE AnnotateFreeVars in the pipeline, so they do
+// not need to propagate FV annotations — the post-transform annotate
+// pass regenerates them over the rewritten tree.
 package ir

@@ -158,30 +158,35 @@ func FuzzAnnotateFreeVars(f *testing.F) {
 		if prog == nil {
 			return
 		}
-		ir.AnnotateFreeVarsProgram(prog)
+		annots := ir.AnnotateFreeVarsProgram(prog)
 		for _, b := range prog.Bindings {
-			verifyFVAnnotation(t, b.Expr)
+			verifyFVAnnotation(t, b.Expr, annots)
 		}
 	})
 }
 
-// verifyFVAnnotation checks that Lam FV annotations match actual free vars.
-func verifyFVAnnotation(t *testing.T, c ir.Core) {
+// verifyFVAnnotation checks that Lam FV entries in the side table match
+// the recomputed free variables of the body.
+func verifyFVAnnotation(t *testing.T, c ir.Core, annots *ir.FVAnnotations) {
 	t.Helper()
 	ir.Walk(c, func(n ir.Core) bool {
 		lam, ok := n.(*ir.Lam)
-		if !ok || lam.FV == nil {
+		if !ok {
+			return true
+		}
+		info, ok := annots.Lams[lam]
+		if !ok || info.Overflow {
 			return true
 		}
 		actual := ir.FreeVars(lam.Body)
 		delete(actual, lam.Param)
-		for _, name := range lam.FV {
+		for _, name := range info.Vars {
 			if _, ok := actual[name]; !ok {
 				t.Errorf("FV annotation contains %q but it is not free in body", name)
 			}
 		}
-		if len(lam.FV) != len(actual) {
-			t.Errorf("FV annotation has %d entries but body has %d free vars", len(lam.FV), len(actual))
+		if len(info.Vars) != len(actual) {
+			t.Errorf("FV annotation has %d entries but body has %d free vars", len(info.Vars), len(actual))
 		}
 		return true
 	})
@@ -214,9 +219,10 @@ func FuzzEvalLimits(f *testing.F) {
 
 		b := budget.New(context.Background(), 100_000, 200)
 		b.SetAllocLimit(64 * 1024) // 64 KiB
-		ir.AnnotateFreeVars(term)
-		ir.AssignIndices(term)
+		annots := ir.AnnotateFreeVars(term)
+		ir.AssignIndices(term, annots)
 		compiler := vm.NewCompiler(map[string]int{}, nil)
+		compiler.SetFVAnnots(annots)
 		proto := compiler.CompileExpr(term)
 		machine := vm.NewVM(vm.VMConfig{
 			Globals:     make([]eval.Value, 0),

@@ -37,6 +37,7 @@ type Compiler struct {
 	globalSlots map[string]int
 	globalPrims map[string]primInfo // prim-alias binding key → resolved metadata
 	source      *span.Source
+	fvAnnots    *ir.FVAnnotations // FV metadata for the current batch of bindings
 	frames      []frame
 	pool        compilerPool
 }
@@ -184,6 +185,16 @@ func NewCompiler(globalSlots map[string]int, source *span.Source) *Compiler {
 // SetSource updates the source context for error attribution.
 func (c *Compiler) SetSource(s *span.Source) {
 	c.source = s
+}
+
+// SetFVAnnots installs the FV annotation side table used by subsequent
+// CompileBinding / CompileExpr calls. The annotation table is the single
+// source of truth for captured-variable metadata — compileLam/compileFix/
+// compileThunk/compileMerge look up per-node FVInfo through it. Callers
+// batch-compiling a group of bindings set the annotations once before the
+// batch and leave them installed for the duration.
+func (c *Compiler) SetFVAnnots(a *ir.FVAnnotations) {
+	c.fvAnnots = a
 }
 
 // top returns a pointer to the current (topmost) compilation frame.

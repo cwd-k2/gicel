@@ -51,6 +51,7 @@ type RunOptions struct {
 // It is goroutine-safe and can be executed concurrently.
 type Runtime struct {
 	prog               *ir.Program
+	annots             *ir.FVAnnotations // FV metadata for main bindings
 	prims              *eval.PrimRegistry
 	stepLimit          int
 	depthLimit         int
@@ -91,8 +92,9 @@ type vmBindingProto struct {
 type moduleEntry struct {
 	name           string
 	prog           *ir.Program
-	sortedBindings []ir.Binding // pre-sorted bindings for evaluation
-	source         *span.Source // source text for error attribution
+	annots         *ir.FVAnnotations // FV metadata shared with prog
+	sortedBindings []ir.Binding      // pre-sorted bindings for evaluation
+	source         *span.Source      // source text for error attribution
 }
 
 // Program returns the compiled Core IR for debugging/inspection.
@@ -315,7 +317,8 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 		}
 	}
 
-	// Compile builtins.
+	// Compile builtins. compileBuiltinLam installs per-builtin annots via
+	// SetFVAnnots, so we must re-install the main annots afterward.
 	r.vmBuiltins = vm.CompileBuiltinGlobals(compiler,
 		gates["fix"], gates["rec"])
 
@@ -323,6 +326,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 	r.vmModuleProtos = make([][]vmBindingProto, len(r.moduleEntries))
 	for i, me := range r.moduleEntries {
 		compiler.SetSource(me.source)
+		compiler.SetFVAnnots(me.annots)
 		protos := make([]vmBindingProto, len(me.sortedBindings))
 		for j, b := range me.sortedBindings {
 			p := compiler.CompileBinding(b)
@@ -333,6 +337,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 
 	// Compile main bindings (non-entry).
 	compiler.SetSource(r.source)
+	compiler.SetFVAnnots(r.annots)
 	for _, b := range r.sortedMainBindings {
 		if b.Name != r.entryName {
 			p := compiler.CompileBinding(b)
@@ -428,6 +433,7 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 		entryProto = r.vmEntryProto
 	} else {
 		compiler := vm.NewCompiler(r.globalSlots, r.source)
+		compiler.SetFVAnnots(r.annots)
 		for _, bb := range r.sortedMainBindings {
 			if bb.Name == req.entry {
 				entryProto = compiler.CompileExpr(bb.Expr)
