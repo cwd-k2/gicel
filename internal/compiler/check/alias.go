@@ -170,10 +170,17 @@ func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
 		// Re-check after recursive expansion.
 		return ch.expandTypeAliasesN(result, depth+1)
 	}
-	// Expand: substitute params with args in the alias body.
-	body := info.Body
-	for i, p := range info.Params {
-		body = types.Subst(body, p, args[i])
+	// Expand: substitute params with args in the alias body. K=1 uses
+	// direct Subst (no map alloc); K>=2 batches into one SubstMany walk.
+	var body types.Type
+	if len(info.Params) == 1 {
+		body = types.Subst(info.Body, info.Params[0], args[0])
+	} else {
+		subs := make(map[string]types.Type, len(info.Params))
+		for i, p := range info.Params {
+			subs[p] = args[i]
+		}
+		body = types.SubstMany(info.Body, subs, nil)
 	}
 	// Recursively expand nested aliases.
 	return ch.expandTypeAliasesN(body, depth+1)

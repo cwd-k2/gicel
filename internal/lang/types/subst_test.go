@@ -184,7 +184,7 @@ func TestSubstManySimple(t *testing.T) {
 	result := SubstMany(ty, map[string]Type{
 		"a": &TyCon{Name: "Int"},
 		"b": &TyCon{Name: "Bool"},
-	})
+	}, nil)
 	arr := result.(*TyArrow)
 	if con, ok := arr.From.(*TyCon); !ok || con.Name != "Int" {
 		t.Error("From should be Int")
@@ -196,7 +196,7 @@ func TestSubstManySimple(t *testing.T) {
 
 func TestSubstManyEmpty(t *testing.T) {
 	ty := &TyVar{Name: "a"}
-	result := SubstMany(ty, map[string]Type{})
+	result := SubstMany(ty, map[string]Type{}, nil)
 	if result != ty {
 		t.Error("empty substitution should return same type")
 	}
@@ -208,7 +208,7 @@ func TestSubstManyNoInterference(t *testing.T) {
 	result := SubstMany(ty, map[string]Type{
 		"a": &TyVar{Name: "b"},
 		"b": &TyVar{Name: "a"},
-	})
+	}, nil)
 	arr := result.(*TyArrow)
 	if v, ok := arr.From.(*TyVar); !ok || v.Name != "b" {
 		t.Errorf("From should be b (swapped), got %v", arr.From)
@@ -229,7 +229,7 @@ func TestSubstManyShadowing(t *testing.T) {
 	result := SubstMany(ty, map[string]Type{
 		"a": &TyCon{Name: "Int"},
 		"b": &TyCon{Name: "Bool"},
-	})
+	}, nil)
 	forall := result.(*TyForall)
 	arr := forall.Body.(*TyArrow)
 	if _, ok := arr.From.(*TyVar); !ok {

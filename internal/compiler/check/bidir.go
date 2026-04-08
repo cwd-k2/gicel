@@ -488,46 +488,70 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 // Precondition: expected must already be zonked by the caller.
 // inferred is zonked here because infer results may contain unresolved metas.
 func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span.Span) ir.Core {
-	inferred = ch.unifier.Zonk(inferred)
-
-	// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B
-	if f, ok := inferred.(*types.TyForall); ok {
-		if isLevelKind(f.Kind) {
-			// Level quantifier: instantiate with a fresh LevelMeta + TyMeta.
-			lm := ch.unifier.FreshLevelMeta()
-			km := ch.freshMeta(types.SortZero)
-			body := types.SubstLevel(f.Body, f.Var, lm)
-			body = types.Subst(body, f.Var, km)
-			return ch.subsCheck(body, expected, expr, s)
+	for {
+		inferred = ch.unifier.Zonk(inferred)
+		// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B.
+		f1, ok := inferred.(*types.TyForall)
+		if !ok {
+			// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
+			if ev, ok := inferred.(*types.TyEvidence); ok {
+				for _, entry := range ev.Constraints.ConEntries() {
+					placeholder := ch.freshName(prefixDictDefer)
+					ch.emitClassConstraint(placeholder, entry, s)
+					expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: s}, S: s}
+				}
+				inferred = ev.Body
+				continue
+			}
+			// Default: unify eagerly. subsCheck is on the critical path for type
+			// information flow — metas must be solved immediately for downstream code.
+			if err := ch.unifier.Unify(inferred, expected); err != nil {
+				ch.addUnifyError(err, s, "type mismatch: expected "+types.Pretty(expected)+", got "+types.Pretty(inferred))
+			}
+			return expr
 		}
-		if isSortKind(f.Kind) {
-			// Kind-level quantifier: instantiate with a fresh kind metavariable
-			km := ch.freshMeta(types.SortZero)
-			body := types.Subst(f.Body, f.Var, km)
-			return ch.subsCheck(body, expected, expr, s)
+		// K=1 fast path: single forall, peel via direct Subst (no map alloc).
+		if _, nested := f1.Body.(*types.TyForall); !nested {
+			if isLevelKind(f1.Kind) {
+				lm := ch.unifier.FreshLevelMeta()
+				km := ch.freshMeta(types.SortZero)
+				inferred = types.SubstLevel(f1.Body, f1.Var, lm)
+				inferred = types.Subst(inferred, f1.Var, km)
+			} else if isSortKind(f1.Kind) {
+				km := ch.freshMeta(types.SortZero)
+				inferred = types.Subst(f1.Body, f1.Var, km)
+			} else {
+				meta := ch.freshMeta(f1.Kind)
+				inferred = types.Subst(f1.Body, f1.Var, meta)
+				expr = &ir.TyApp{Expr: expr, TyArg: meta, S: s}
+			}
+			continue
 		}
-		meta := ch.freshMeta(f.Kind)
-		body := types.Subst(f.Body, f.Var, meta)
-		expr = &ir.TyApp{Expr: expr, TyArg: meta, S: s}
-		return ch.subsCheck(body, expected, expr, s)
-	}
-
-	// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
-	if ev, ok := inferred.(*types.TyEvidence); ok {
-		for _, entry := range ev.Constraints.ConEntries() {
-			placeholder := ch.freshName(prefixDictDefer)
-			ch.emitClassConstraint(placeholder, entry, s)
-			expr = &ir.App{Fun: expr, Arg: &ir.Var{Name: placeholder, S: s}, S: s}
+		// K>=2: batch all visible foralls into one SubstMany walk.
+		typeSubs := map[string]types.Type{}
+		var levelSubs map[string]types.LevelExpr
+		for {
+			f, ok := inferred.(*types.TyForall)
+			if !ok {
+				break
+			}
+			if isLevelKind(f.Kind) {
+				if levelSubs == nil {
+					levelSubs = map[string]types.LevelExpr{}
+				}
+				levelSubs[f.Var] = ch.unifier.FreshLevelMeta()
+				typeSubs[f.Var] = ch.freshMeta(types.SortZero)
+			} else if isSortKind(f.Kind) {
+				typeSubs[f.Var] = ch.freshMeta(types.SortZero)
+			} else {
+				meta := ch.freshMeta(f.Kind)
+				typeSubs[f.Var] = meta
+				expr = &ir.TyApp{Expr: expr, TyArg: meta, S: s}
+			}
+			inferred = f.Body
 		}
-		return ch.subsCheck(ev.Body, expected, expr, s)
+		inferred = types.SubstMany(inferred, typeSubs, levelSubs)
 	}
-
-	// Default: unify eagerly. subsCheck is on the critical path for type
-	// information flow — metas must be solved immediately for downstream code.
-	if err := ch.unifier.Unify(inferred, expected); err != nil {
-		ch.addUnifyError(err, s, "type mismatch: expected "+types.Pretty(expected)+", got "+types.Pretty(inferred))
-	}
-	return expr
 }
 
 // inferEvidence handles `value => expr` in infer mode.

@@ -95,7 +95,7 @@ func BenchmarkSubstMany(b *testing.B) {
 		ty := buildBody(n)
 		b.Run(benchSize(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				SubstMany(ty, subst)
+				SubstMany(ty, subst, nil)
 			}
 		})
 	}

@@ -100,23 +100,47 @@ func (ch *Checker) checkAppQL(head syntax.Expr, args []spineArg, expected types.
 	ty := headTy
 	for range args {
 		ty = ch.unifier.Zonk(ty)
-		// Peel foralls (standard instantiation).
+		// Peel foralls (standard instantiation). K=1 uses direct Subst;
+		// K>=2 batches into a single SubstMany walk.
 		for {
-			if f, ok := ty.(*types.TyForall); ok {
-				if isLevelKind(f.Kind) {
-					lm := ch.unifier.FreshLevelMeta()
-					km := ch.freshMeta(types.SortZero)
-					ty = types.SubstLevel(f.Body, f.Var, lm)
-					ty = types.Subst(ty, f.Var, km)
-				} else {
-					meta := ch.freshMeta(f.Kind)
-					body := types.Subst(f.Body, f.Var, meta)
-					headCore = &ir.TyApp{Expr: headCore, TyArg: meta, S: s}
-					ty = body
-				}
-			} else {
+			f1, ok := ty.(*types.TyForall)
+			if !ok {
 				break
 			}
+			if _, nested := f1.Body.(*types.TyForall); !nested {
+				if isLevelKind(f1.Kind) {
+					lm := ch.unifier.FreshLevelMeta()
+					km := ch.freshMeta(types.SortZero)
+					ty = types.SubstLevel(f1.Body, f1.Var, lm)
+					ty = types.Subst(ty, f1.Var, km)
+				} else {
+					meta := ch.freshMeta(f1.Kind)
+					ty = types.Subst(f1.Body, f1.Var, meta)
+					headCore = &ir.TyApp{Expr: headCore, TyArg: meta, S: s}
+				}
+				continue
+			}
+			typeSubs := map[string]types.Type{}
+			var levelSubs map[string]types.LevelExpr
+			for {
+				f, ok := ty.(*types.TyForall)
+				if !ok {
+					break
+				}
+				if isLevelKind(f.Kind) {
+					if levelSubs == nil {
+						levelSubs = map[string]types.LevelExpr{}
+					}
+					levelSubs[f.Var] = ch.unifier.FreshLevelMeta()
+					typeSubs[f.Var] = ch.freshMeta(types.SortZero)
+				} else {
+					meta := ch.freshMeta(f.Kind)
+					typeSubs[f.Var] = meta
+					headCore = &ir.TyApp{Expr: headCore, TyArg: meta, S: s}
+				}
+				ty = f.Body
+			}
+			ty = types.SubstMany(ty, typeSubs, levelSubs)
 		}
 		// Peel evidence.
 		for {

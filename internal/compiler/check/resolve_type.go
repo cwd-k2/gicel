@@ -279,9 +279,15 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			if aliasBodyRefsSelf(con.Name, info.Body) {
 				return nil
 			}
-			body := info.Body
-			for i, p := range info.Params {
-				body = types.Subst(body, p, args[i])
+			var body types.Type
+			if len(info.Params) == 1 {
+				body = types.Subst(info.Body, info.Params[0], args[0])
+			} else {
+				subs := make(map[string]types.Type, len(info.Params))
+				for i, p := range info.Params {
+					subs[p] = args[i]
+				}
+				body = types.SubstMany(info.Body, subs, nil)
 			}
 			// Re-check the expanded result: alias expansion may produce a
 			// saturated Computation/Thunk TyApp chain that needs TyCBPV conversion.

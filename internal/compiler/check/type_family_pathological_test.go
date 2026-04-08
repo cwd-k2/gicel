@@ -484,7 +484,7 @@ func TestPropertySubstManyEqualsSequential(t *testing.T) {
 	many := types.SubstMany(original, map[string]types.Type{
 		"a": intTy,
 		"b": boolTy,
-	})
+	}, nil)
 
 	if !types.Equal(seq, many) {
 		t.Errorf("SubstMany != sequential Subst for independent vars:\n  seq:  %s\n  many: %s",
@@ -511,7 +511,7 @@ func TestPropertySubstManySimultaneous(t *testing.T) {
 		"a": bVar,
 		"b": intTy,
 	}
-	result := types.SubstMany(original, subs)
+	result := types.SubstMany(original, subs, nil)
 
 	pretty := types.Pretty(result)
 	if pretty != "b -> Int" {
@@ -519,13 +519,13 @@ func TestPropertySubstManySimultaneous(t *testing.T) {
 	}
 
 	// Verify no panic on re-application.
-	_ = types.SubstMany(result, subs)
+	_ = types.SubstMany(result, subs, nil)
 }
 
 // (e”) SubstMany identity: substituting with empty map should be identity.
 func TestPropertySubstManyIdentity(t *testing.T) {
 	original := types.MkArrow(&types.TyVar{Name: "a"}, &types.TyCon{Name: "Int"})
-	result := types.SubstMany(original, map[string]types.Type{})
+	result := types.SubstMany(original, map[string]types.Type{}, nil)
 	if !types.Equal(original, result) {
 		t.Errorf("SubstMany with empty map should be identity, got %s", types.Pretty(result))
 	}
@@ -547,7 +547,7 @@ func TestPathologicalSubstManyDependentVars(t *testing.T) {
 	result := types.SubstMany(original, map[string]types.Type{
 		"a": listB,
 		"b": intTy,
-	})
+	}, nil)
 	pretty := types.Pretty(result)
 
 	// Simultaneous: a → List b (as-is), b → Int. Result: List b -> Int.

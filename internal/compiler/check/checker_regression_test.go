@@ -357,7 +357,7 @@ func TestRegressionSubstManyEquivalence(t *testing.T) {
 	manyResult := types.SubstMany(ty, map[string]types.Type{
 		"a": intTy,
 		"b": boolTy,
-	})
+	}, nil)
 
 	if !types.Equal(seqResult, manyResult) {
 		t.Errorf("SubstMany != sequential Subst:\n  seq:  %s\n  many: %s",
@@ -384,7 +384,7 @@ func TestRegressionSubstManyWithShadowing(t *testing.T) {
 	result := types.SubstMany(ty, map[string]types.Type{
 		"a": &types.TyVar{Name: "b"},
 		"b": &types.TyCon{Name: "Int"},
-	})
+	}, nil)
 
 	// The result depends on map iteration order (non-deterministic).
 	// If a is substituted first: a->b gives (b -> b), then b->Int gives (Int -> Int).
@@ -436,7 +436,7 @@ func TestRegressionSubstManyIndependentVars(t *testing.T) {
 	many := types.SubstMany(ty, map[string]types.Type{
 		"a": unitTy,
 		"b": boolTy,
-	})
+	}, nil)
 	if !types.Equal(seq1, many) {
 		t.Errorf("SubstMany differs from sequential Subst:\n  seq: %s\n  many: %s",
 			types.Pretty(seq1), types.Pretty(many))

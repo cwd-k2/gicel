@@ -368,7 +368,7 @@ func safeSubstMany(t types.Type, subs map[string]types.Type) (result types.Type,
 			panic(r) // re-panic unrelated panics (real bugs)
 		}
 	}()
-	return types.SubstMany(t, subs), true
+	return types.SubstMany(t, subs, nil), true
 }
 
 // familyAppKey produces a structural cache key for a type family application.

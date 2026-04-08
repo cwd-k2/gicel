@@ -22,8 +22,8 @@ func (e *ReduceEnv) VerifyInjectivity(info *env.TypeFamilyInfo) {
 			// variables in the RHS and LHS share the same fresh metas.
 			subsI := e.freshPatVarSubst(eqI.Patterns, info.Params)
 			subsJ := e.freshPatVarSubst(eqJ.Patterns, info.Params)
-			rhsI := types.SubstMany(eqI.RHS, subsI)
-			rhsJ := types.SubstMany(eqJ.RHS, subsJ)
+			rhsI := types.SubstMany(eqI.RHS, subsI, nil)
+			rhsJ := types.SubstMany(eqJ.RHS, subsJ, nil)
 			patsI := substManyList(eqI.Patterns, subsI)
 			patsJ := substManyList(eqJ.Patterns, subsJ)
 
@@ -62,7 +62,7 @@ func (e *ReduceEnv) freshPatVarSubst(patterns []types.Type, params []env.TFParam
 func substManyList(ts []types.Type, subs map[string]types.Type) []types.Type {
 	result := make([]types.Type, len(ts))
 	for i, t := range ts {
-		result[i] = types.SubstMany(t, subs)
+		result[i] = types.SubstMany(t, subs, nil)
 	}
 	return result
 }

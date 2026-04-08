@@ -94,43 +94,51 @@ type pendingCV struct {
 // instantiateConForalls peels outer foralls from a constructor type,
 // classifying each variable as universal (meta) or existential (skolem).
 // Returns the body type after substitution and a map of skolem IDs.
+//
+// K=1 takes the allocation-free Subst path; K>=2 collects all bindings into
+// a single SubstMany walk.
 func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]string) {
-	// Collect \ vars.
-	type fvar struct {
-		name string
-		kind types.Type
-	}
-	var forallVars []fvar
-	tmpTy := conTy
-	for {
-		if f, ok := tmpTy.(*types.TyForall); ok {
-			forallVars = append(forallVars, fvar{name: f.Var, kind: f.Kind})
-			tmpTy = f.Body
-		} else {
-			break
-		}
-	}
-
 	// Get the return type's free vars (strip arrows from after foralls).
 	_, retTy := decomposeConSig(conTy)
 	retFreeVars := types.FreeVars(retTy)
 
-	// Classify each forall var: universal (in return type) → meta, existential → skolem.
-	currentTy := conTy
 	skolemIDs := map[int]string{}
-	for _, fv := range forallVars {
-		if f, ok := currentTy.(*types.TyForall); ok {
-			if _, isUniversal := retFreeVars[fv.name]; isUniversal {
-				meta := ch.freshMeta(fv.kind)
-				currentTy = types.Subst(f.Body, f.Var, meta)
-			} else {
-				skolem := ch.freshSkolem(fv.name, fv.kind)
-				skolemIDs[skolem.ID] = fv.name
-				currentTy = types.Subst(f.Body, f.Var, skolem)
-			}
-		}
+	currentTy := conTy
+	f1, ok := currentTy.(*types.TyForall)
+	if !ok {
+		return currentTy, skolemIDs
 	}
-	return currentTy, skolemIDs
+	if _, nested := f1.Body.(*types.TyForall); !nested {
+		// K=1 fast path
+		var repl types.Type
+		if _, isUniversal := retFreeVars[f1.Var]; isUniversal {
+			repl = ch.freshMeta(f1.Kind)
+		} else {
+			skolem := ch.freshSkolem(f1.Var, f1.Kind)
+			skolemIDs[skolem.ID] = f1.Var
+			repl = skolem
+		}
+		return types.Subst(f1.Body, f1.Var, repl), skolemIDs
+	}
+	// K>=2: collect all bindings into one SubstMany walk.
+	typeSubs := map[string]types.Type{}
+	for {
+		f, ok := currentTy.(*types.TyForall)
+		if !ok {
+			break
+		}
+		var repl types.Type
+		if _, isUniversal := retFreeVars[f.Var]; isUniversal {
+			repl = ch.freshMeta(f.Kind)
+		} else {
+			skolem := ch.freshSkolem(f.Var, f.Kind)
+			skolemIDs[skolem.ID] = f.Var
+			repl = skolem
+		}
+		typeSubs[f.Var] = repl
+		currentTy = f.Body
+	}
+	return types.SubstMany(currentTy, typeSubs, nil), skolemIDs
 }
 
 func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
