@@ -117,6 +117,12 @@ func (p *Parser) parseApp() syn.Expr {
 			}
 		} else {
 			arg := p.parseAtom()
+			if arg == nil {
+				// parseAtom returned nil for an atom-start token — it consumed
+				// nothing we can use. Break to avoid a nil-deref on arg.Span()
+				// and let the outer diagnostic stand.
+				break
+			}
 			f = &syn.ExprApp{
 				Fun: f, Arg: arg,
 				S: span.Span{Start: f.Span().Start, End: arg.Span().End},
@@ -138,7 +144,11 @@ func (p *Parser) parseAtom() syn.Expr {
 				Message: "unknown keyword 'let'; use { name := expr; body } for local bindings",
 			})
 			p.advance()
-			return nil
+			// Return ExprError (not nil) so callers that don't re-check for nil
+			// — e.g. parseApp's inner-loop arg collection — can't panic on
+			// Span() deref. parseApp treats nil from its *initial* parseAtom
+			// call specially at line 96; the inner loop has no such guard.
+			return &syn.ExprError{S: tok.S}
 		}
 		p.advance()
 		e = &syn.ExprVar{Name: tok.Text, S: tok.S}
