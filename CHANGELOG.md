@@ -1,5 +1,154 @@
 # Changelog
 
+## v0.27.0 — 2026-04-08
+
+This release introduces the **GICEL Language Server**, **file header directives** for self-contained source files, and a major performance pass that reduces cold compile time by ~28%, warm compile time to **literal zero allocations**, and runtime dispatch by ~32% geomean. It also lands several structural refactors that finish removing hidden phase-state from the IR, and a handful of correctness fixes discovered in a 10-agent field test.
+
+### Language Server Protocol
+
+- **`gicel lsp` subcommand starts a stdio-based LSP server.** Zero external dependencies — JSON-RPC 2.0 transport, LSP protocol types, and message framing are all implemented from scratch in `internal/lsp/`. Supports the standard lifecycle (`initialize`, `initialized`, `shutdown`, `exit`).
+- **Diagnostics on save.** The server runs the full type checker and reports parse, lex, and check errors with span-accurate ranges. Errors clear correctly on subsequent saves.
+- **Hover with type information.** Position a cursor on any expression or top-level binding name to see its inferred type. Hover works at definition sites (binding names on the left of `:=`) as well as use sites.
+- **Header-directive aware.** The server honors `-- gicel: --module Lib=path` headers in the source file, including transitive module resolution.
+- **Robustness fixes:** Content-Length cap on incoming messages with graceful recovery from malformed JSON; LSP lifecycle protocol compliance (correct error codes for pre-`initialize` requests, etc.); UTF-16 position encoding to match the LSP spec.
+- New `Engine.Analyze(ctx, source) *AnalysisResult` API: returns partial results (with diagnostics) even on errors. Underpinned by a new `TypeIndex` (span → type lookup) that the checker populates via a `TypeRecorder` callback.
+- Editor integration verified for VS Code, Neovim, Zed, and Helix. See `docs/agent-guide/features/lsp.md`.
+
+### File Header Directives
+
+- **Source files can now declare module dependencies and language flags inline** via leading `-- gicel:` comments:
+  ```gicel
+  -- gicel: --module Lib=./lib/Lib.gicel
+  -- gicel: --recursion
+  import Prelude
+  import Lib
+  main := ...
+  ```
+- Paths resolve relative to the declaring file. Transitive dependencies are discovered recursively (with cycle detection). CLI flags override header directives.
+- Recognized by `run`, `check`, and `lsp`. Backed by a new `internal/app/header` package that lives outside the engine to keep header parsing testable in isolation.
+- All examples migrated to header directives, so `bin/gicel run examples/gicel/algorithms/dijkstra.gicel` now works without specifying flags.
+- Recursive header resolution with containment check protects against directory-traversal attempts.
+
+### Performance — Cold Compile Path (Phase III)
+
+- **`EngineCompileSmall` cold path: -28.6% sec/op, -86.1% B/op, -79.8% allocs/op** vs. v0.26.1 baseline. Headline improvements:
+  - **`computeRuntimeCacheKey` no longer dominates warm-path allocs.** Engine state is stable across calls, so the fingerprint is now cached on the Engine and invalidated on mutation. Warm cache-hit allocations dropped from ~94% of total → 0.
+  - **`fmt.Fprintf` removed from the cold-path fingerprint loop.** Per-prim `fmt.Fprintf("p:%s=%x\n")` was responsible for ~63% of cold-path allocs (interface boxing for 100+ prim names). Replaced with direct `strconv.Append*` writes.
+  - **`pipelineCtx` is now embedded in the Engine** rather than allocated per call (Engine is single-goroutine; the pipelineCtx never escapes a method call).
+  - **`unsafe.StringData` view for source hashing.** A 9KB Prelude module no longer pays a 9KB `[]byte(source)` copy on every fingerprint computation; SHA-256 reads it in place.
+- **`BenchmarkEngineMultiCompileSameSource` (warm path): 84.34µs → 182ns, 55289 B/op → 0, 194 allocs/op → 0.** Warm-path GICEL programs now compile in literal zero allocations.
+- New process-level `runtimeCache` (`internal/app/engine/runtimecache.go`) caches the assembled `*Runtime` keyed on a content-addressed runtime fingerprint that includes Engine state, source, packs, prim impls, and runtime limits. Sharing is unconditional because `*Runtime` is immutable.
+- The `EvidenceEntries` `SubstEntries` refactor (see Internal section) contributes geomean **-6.41% sec/op** on subst micro-benches by eliminating closure escape on the parallel-substitution path.
+
+### Performance — Runtime Dispatch (V1, V5, V8)
+
+- **`BenchmarkExec*` Tier 2 geomean: -31.64% sec/op, -8.97% allocs/op** vs. v0.26.1 baseline. Multi-step refactor that root-causes the curried-function-model overhead:
+  - **`runCallee` helper introduces a barrier-frame protocol** that separates "drive a single sub-call to completion" from `execute()`'s frame-stack loop. Used by host primitive callbacks, auto-force thunks, and over-application paths. `execBarrier` is folded into `runCallee` (single source for the pattern).
+  - **`applyN` extended to all value types** (`PrimVal`, `ConVal`, `VMThunkVal`, `PAPVal`, `VMClosure`). `compileApp` is uniformly `OpApplyN(all)`; the known-arity check is gone.
+  - **`OpApplyN` is now a stack-view opcode.** Previously each call allocated a `[]Value` args slice; the new dispatch reads args directly from the operand stack via `applyN`'s `(Value, error)` signature.
+  - **`PrimVal` carries a `PrimImpl` cache field.** `Proto.ResolvePrims` walks the Constants pool at link time, eliminating the `vm.prims.Lookup` hash map probe on every prim call.
+  - **`applyNForPrim` PrimVal fast path uses a `primScratch` slice**, eliminating `make([]Value, n)` on every effectful prim invocation.
+  - **`callPrim` defer/recover removed on the trusted path.** stdlib/host prim panics now propagate as Go panics; embedders who need containment must wrap with their own `recover()` (documented in `docs/agent-guide/go-api.md`).
+- **Top-level workload deltas** (single-iter cold E2E vs. v0.26.1):
+  - `EngineEndToEndSmall`: -33.65% sec/op
+  - `EngineEndToEndArray`: -31.20% sec/op
+  - `EngineEndToEndMap`: -33.64% sec/op
+  - `EndToEndMapInsert50`: -27.05% sec/op
+  - `ExecArray`: **-43.57% sec/op, -45.34% allocs/op**
+- New per-NewRuntime typed pools for `matchDescs`, `recordDescs`, `mergeDescs`, and locals (`internal/runtime/vm`) cut compile-side scratch allocations.
+
+### Performance — Type Checker (B1–B3, P1–P2, S1–S2)
+
+- **`BenchmarkCheckLargeDecl500` cold: -22.50% sec/op** (P1: trail-based skolem escape check replaces full Solutions() walk).
+- **B1**: skolem & Zonk hot path -6.23% sec/op cold.
+- **B2**: removed alloc sources across check hot paths -19.27% allocs cold.
+- **B3**: `fvResult` inlined and pattern-walker fused -22.07% allocs cold.
+- **P2**: exhaustiveness uses a probe-isolated unifier instance -4.10% allocs cold.
+- **S1**: lazy-init row/constraint allocations in `Subst` (one-way alignment) — fewer empty slice allocations.
+- **S2**: batch instantiation via `SubstMany` with K=1 fast path replaces N body walks for forall chains.
+- `PeelForalls` helper hoisted into `internal/lang/types` so check, alias expansion, and type-family reduction share a single forall-peeling driver.
+
+### Refactor — Variant Types (Sealed Sums)
+
+A coordinated refactor turning four 12-field product structs with implicit conventions into proper sealed-interface variant types. Matches the existing `eval.Value` pattern and lets the type checker enforce per-variant invariants:
+
+- **`unify.UnifyError` → 10 variant types** (`UnifyMismatchError`, `UnifyOccursError`, `UnifySkolemRigidError`, etc.). The previous struct had `Name` overloaded with two meanings and `Label` overloaded with two more.
+- **`types.ConstraintEntry` → 4 variants** (`ClassEntry`, `EqualityEntry`, `VarEntry`, `QuantifiedConstraint`).
+- **`solve.CtClass` → 3 variants** (`CtPlainClass`, `CtVarClass`, `CtQuantifiedClass`). `SolveWanteds` and `ResolveDeferredConstraintsDeferrable` residuals now refine to `[]*CtPlainClass` (the only kind that can survive solving).
+- **`EvidenceEntries.SubstEntries` / `SubstEntriesMany`** added to complete the variant-method symmetry with `MapChildren` and `ZonkEntries`. As a side effect, `SubstMany` now correctly rewrites label variables in capability rows — previously `SubstMany` went through `MapChildren` and silently dropped the rewrite, so it disagreed with single-var `Subst`. Pinned by `TestSubstManyLabelVar` / `TestSubstManyLabelVarEquivalence`.
+
+### Refactor — IR Hidden State Eliminated
+
+- **`ir.Lam` / `ir.Thunk` / `ir.Merge` no longer carry FV/FVIndices fields.** Free-variable annotations are stored in a side table (`ir.FVAnnotations`) owned by the engine. `AnnotateFreeVars*` is now a pure function that returns the annotations map; `AssignIndices*` and `VerifyAnnotations` accept the table as a parameter. Core IR nodes are now phase-invariant — struct identity equals meaning regardless of pipeline phase.
+- **`ir.Merge.PreLeft` / `PreRight` removed.** The pre-evaluation labels are now tracked in `Checker.pendingMergeLabels` and consumed by `refineMergeLabels` after constraint solving.
+- **`(*Checker).withPeeledForallScope` encapsulates** the forall peel/check/escape protocol that was previously inlined in `bidir.go` with a `pushedCtxs` counter and deferred pop loop. The helper mirrors the existing `withEvidenceScope` idiom and makes push/pop balance lexically scoped.
+- `internal/lang/ir/spine.go`: `unwindLeftSpine` extracted as a shared kernel for free-variable computation, FV annotation, and downstream passes.
+
+### Crashes & Correctness Fixes
+
+- **Parser no longer panics on `let` as an identifier in expression position.** `do { let := 1; pure let }` previously hit a nil-pointer dereference in `parseApp`'s argument loop because `parseAtom`'s `let`-keyword handler returned nil and the caller dereferenced `arg.Span()` without a guard. Returns an `ExprError` and the loop has a belt-and-suspenders nil check.
+- **Pattern checker rejects duplicate variable bindings.** `case (1, 2) { (x, x) => x; _ => 0 }` previously silently overwrote the first `x` binding, then blamed the `_` catch-all as "redundant" — hiding the real bug. The checker now reports `E0210: variable "x" is bound more than once in the same pattern` at the duplicate occurrence. Applies to tuple, record, and constructor patterns.
+- **`form Name := Con` single-constructor shorthand now works.** Previously, `form End := MkEnd` was parsed as a constructorless nominal wrapper, causing "unknown constructor: MkEnd" at use sites. The parser now treats a bare `Upper` RHS followed by end-of-decl as a single-constructor ADT, matching the documented `Con (| Con)*` grammar.
+- **`fix`/`rec` outside `--recursion` gives a teaching hint** instead of a bare "unbound variable: fix". Negative literal at expression head similarly hints at `negate`.
+- **Compiler-phase limit errors implement `LimitError`.** `TFStepLimitError`, `SolverStepLimitError`, and `ResolveDepthLimitError` were missing the marker method, so `budget.IsLimitError()` was misclassifying compile-time limit hits — a 7-year-dormant bug discovered via coverage analysis.
+- **Compiler-internal panics are typed and recover-bounded.** `internal/compiler` now uses sentinel panic types so external callers see a clean error rather than a stack trace.
+
+### Go Embedding API
+
+- **`Engine.NewRuntime`, `Engine.Compile`, `Engine.Analyze`, and `Runtime.RunWith` are nil-safe.** Passing a nil context or calling a method on a nil receiver previously crashed the host process with a nil-pointer dereference. They now return typed errors (or, for `Analyze`, an empty `AnalysisResult`).
+- **`RunSandbox(src, nil)` now loads Prelude by default.** The doc promised "conservative defaults" but the nil-config path loaded zero packs, producing "unknown module: Prelude" on any program using basic arithmetic. `Packs: nil` (the zero value) loads Prelude; `Packs: []registry.Pack{}` (explicit empty slice) still loads nothing.
+- **`go-api.md` Prelude type listing corrected.** The pack description incorrectly listed "Num, Str, List"; the actual type names are `Int`, `String`, `List`.
+- New host-facing type construction helpers (`ConType`, `ArrowType`, `ForallRow`, `RecordType`, etc.) covered by direct unit tests.
+
+### Standard Library
+
+- **`concat` documentation clarified.** The function is binary list append (`List a -> List a -> List a`, same as `<>`), not Haskell's `[[a]] -> [a]`. The doc previously placed it in the List section alongside `flatten`, suggesting the wrong semantics. Use `flatten` for list-of-lists join.
+- **CLI bare-value output of `Data.Slice` no longer leaks `HostVal(...)`.** Running a program whose entry point is a bare slice value previously printed `[HostVal(1) HostVal(2) HostVal(3)]` — Go's default formatting for the underlying `[]eval.Value`. `PrettyValue` now recognizes the slice wrapping and prints `Slice.fromList [1, 2, 3]`, matching the source-level `Show` instance.
+- **`stdlib.Core` Pack** wraps the SMC primitives (`merge`, `dag`) so that all stdlib registration goes through the unified Pack pathway. Previously these were registered via direct `e.RegisterPrim` calls outside the Pack pipeline.
+- `list_higher.go` merged into `list.go`; the higher/lower split was a naming source of confusion.
+- `Effect.Array` write is now a no-op (instead of an error) on out-of-bounds index, matching `read` returning `Nothing`.
+
+### CLI & UX
+
+- **Subcommand split.** `cmd/gicel/main.go` (~894 lines) is now seven files: `cmd_run.go`, `cmd_check.go`, `cmd_lsp.go`, `cmd_docs.go`, `engine.go`, `flags.go`, `main.go`. Each subcommand owns its flag-set definition.
+- **Examples list shows required flags.** Examples whose `-- Flags:` header includes `--recursion` now display the flag in `bin/gicel example` listings.
+- **Improved error hints for negative literals and self-reference.**
+- **Header directive warnings** for unknown directives or invalid syntax — non-fatal, processed before compile.
+- **`--max-alloc` documentation matches the binary** (`100 MiB` with space).
+
+### Documentation
+
+- **Package-level doc comments** added to `check`, `ir`, `types`, and `vm` packages, listing invariants and file layout.
+- **`features/effects.md` named-capabilities section now has a runtime-gap banner** marking `*At` variants as forward-compatible API design pending label-aware runtime. Nested `runState` under the same label crashes at runtime; the banner says so explicitly.
+- **`docs/perf-overview.md`** new — bench tier map (Tier 1 cold E2E, Tier 2 pre-compiled exec, Tier 3 compile-only, Tier 4 micro), workflow scripts (`perf-snapshot.sh`, `perf-compare.sh`, `perf-profile.sh`), and the perf history that produced the current numbers.
+- **CBPV grade duality documented** in `internal/lang/types/doc.go` (was previously labeled "legacy" — misleading).
+- **`patterns.md` countdown self-reference example** now includes `import Prelude`. Previously copy-paste produced five unbound-operator errors.
+- Header directives and the `lsp` subcommand documented across all relevant agent-guide pages.
+
+### Internal — File Splits & Cleanup
+
+- `internal/runtime/vm/compiler.go` (~967 lines) split into `compiler.go`, `compiler_emit.go`, `compiler_expr.go`, `compiler_closure.go`, `compiler_match.go`.
+- `internal/compiler/check/unify/unify.go` (~789 lines): `unify_trail.go` and `unify_normalize.go` extracted.
+- `internal/compiler/check/instance_assoc_family.go` extracted from `instance_body.go`.
+- `internal/lang/types/constraint_entries.go` and `constraint_entry.go` separated from `evidence.go`.
+- Several large test files split by topic: `type_family_interaction_test.go` (1531 lines) → 5 files; `type_family_reduction_test.go` (1219 lines) → 4 files.
+- `eval.ThunkVal` removed (zero callers); `eval.Closure` reduced to a minimal test fixture; the legacy tree-walker value types are gone.
+- `vm_apply.go` IsolationToken struct field alignment fixed.
+- Go 1.24+ idioms (`range N`, `b.Loop()`, `maps.Copy`, `strings.Cut`, `max()`) applied across 47 files via `gopls modernize`.
+- Cross-package coverage: 78.2% (verified after the cleanup).
+
+### Tests
+
+- New regression tests for the field-test fixes: `TestProbeCrash_LetAsAtomInAppPosition`, `TestProbeFormSingleConShorthand`, `TestPatternDuplicateBindingTuple`, `TestPatternDuplicateBindingConstructor`, `TestSubstManyLabelVar`, `TestSubstManyLabelVarEquivalence`.
+- Engine fingerprint invalidation regression test (`TestFingerprintInvalidation_MutationAfterFirstCompile`) — every Engine mutator must invalidate the cached fingerprint or the test catches it.
+- Bench coverage closed in three places: multi-compile (Tier 3), list HoF (Tier 2 `ExecListFoldrSum` / `ListMap`), and dispatch micro (`callPrim` vs `callTrustedPrim`).
+
+### Behavioral Changes
+
+- **`stdlib`/`host` prim panics now propagate as Go runtime panics** instead of being wrapped as errors. Embedders that need containment should wrap calls with their own `recover()`. See `docs/agent-guide/go-api.md` "Trust Boundary" section.
+- **`Runtime` is now content-addressed and process-level cached.** Two `*Engine` instances with identical state will share the same compiled `*Runtime` for the same source. `ResetRuntimeCache()` is exposed for tests.
+- **`*StateAt` named state handlers** are documented as forward-compatible — they type-check but a label-aware runtime is not yet implemented. Nested `runState` under the same label will crash at runtime. (Single, anonymous `runState` continues to work as in v0.26.x.)
+
 ## v0.26.1 — 2026-04-04
 
 ### Bug Fix
