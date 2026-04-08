@@ -82,15 +82,24 @@ func (e *CheckEnv) constructorArgTypes(conName string, scrutTy types.Type) []typ
 
 	// Refine type variables by unifying the return type with the scrutinee.
 	// Only worth doing when the scrutinee has a known head type constructor.
+	//
+	// Previously this allocated a fresh `tmp := unify.NewUnifier()` per
+	// call, which the alloc profile attributed 100% of the cold-start
+	// NewUnifier cost (~127K alloc objects, all from this single line).
+	// Replace with BeginProbeIsolated / EndProbeIsolated on the existing
+	// main unifier: same isolation semantics (Snapshot/Restore for
+	// soln/labels/skolemSoln/levelSoln, OnSolve / FamilyReducer /
+	// AliasExpander suspended for the duration), zero allocations.
 	if scrutTy != nil && headTyCon(e.Unifier.Zonk(scrutTy)) != "" {
-		tmp := unify.NewUnifier()
-		if tmp.Unify(ty, e.Unifier.Zonk(scrutTy)) == nil {
+		tok := e.Unifier.BeginProbeIsolated()
+		if e.Unifier.Unify(ty, e.Unifier.Zonk(scrutTy)) == nil {
 			for i, a := range argTys {
 				if a != nil {
-					argTys[i] = tmp.Zonk(a)
+					argTys[i] = e.Unifier.Zonk(a)
 				}
 			}
 		}
+		e.Unifier.EndProbeIsolated(tok)
 	}
 	return argTys
 }

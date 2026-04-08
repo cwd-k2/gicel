@@ -124,6 +124,76 @@ func (u *Unifier) VisitSolnWritesSince(pos int, fn func(metaID int)) {
 	}
 }
 
+// IsolationToken captures the state that BeginProbeIsolated saves
+// and EndProbeIsolated restores. Use to wrap a trial unification
+// scope that needs **state isolation** stronger than withTrial /
+// withProbe alone.
+//
+// What this isolates beyond a plain Snapshot/Restore:
+//
+//   - SolverLevel is forced to -1 so touchability is suspended for
+//     the duration; speculative unifications can solve metas at any
+//     level (the same semantics as withProbe).
+//   - OnSolve is nilled out so solveMeta cannot reach into the
+//     solver's worklist. Snapshot/Restore can roll back trail-tracked
+//     state (soln, labels, skolemSoln, levelSoln) but **cannot** undo
+//     worklist mutations made by Reactivate; nilling OnSolve removes
+//     the side channel entirely.
+//   - FamilyReducer and AliasExpander are nilled out so the trial
+//     sees only raw types — matching the semantics that the previous
+//     "tmp := NewUnifier()" callers relied on (the fresh unifier did
+//     not have these callbacks set).
+//   - FlexSkolems is preserved across the scope so the caller may
+//     temporarily flip it inside (e.g. canUnifyWith for GADT
+//     accessibility) and have it auto-restored.
+//
+// Caller MUST pair every BeginProbeIsolated with EndProbeIsolated,
+// passing back the returned token. Panics across the scope leak the
+// state — but probe paths are not expected to panic; an internal
+// invariant violation means the compiler is in an unrecoverable
+// state regardless.
+type IsolationToken struct {
+	snap     Snapshot
+	level    int
+	onSolve  func(int)
+	family   FamilyReducer
+	alias    AliasExpander
+	flexSks  bool
+}
+
+// BeginProbeIsolated enters an isolated probe scope on the unifier.
+// All mutations during the scope are rolled back when EndProbeIsolated
+// is called with the returned token; side-effect callbacks are
+// suspended; touchability is disabled.
+//
+// Returns a stack-friendly token (small struct, no heap allocation).
+func (u *Unifier) BeginProbeIsolated() IsolationToken {
+	tok := IsolationToken{
+		snap:    u.Snapshot(),
+		level:   u.SolverLevel,
+		onSolve: u.OnSolve,
+		family:  u.FamilyReducer,
+		alias:   u.AliasExpander,
+		flexSks: u.FlexSkolems,
+	}
+	u.SolverLevel = -1
+	u.OnSolve = nil
+	u.FamilyReducer = nil
+	u.AliasExpander = nil
+	return tok
+}
+
+// EndProbeIsolated reverts everything that BeginProbeIsolated changed.
+// MUST be called with the token returned by the matching Begin call.
+func (u *Unifier) EndProbeIsolated(tok IsolationToken) {
+	u.AliasExpander = tok.alias
+	u.FamilyReducer = tok.family
+	u.OnSolve = tok.onSolve
+	u.FlexSkolems = tok.flexSks
+	u.SolverLevel = tok.level
+	u.Restore(tok.snap)
+}
+
 // trailSolnWrite records the current soln[id] value before mutation.
 
 // trailSolnWrite records the current soln[id] value before mutation.

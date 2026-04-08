@@ -23,15 +23,26 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []ir.Alt, s span.Spa
 	env.CheckExhaustive(scrutTy, alts, s)
 }
 
-// canUnifyWith tests whether retTy can unify with scrutTy in a temporary
-// unifier. Used for GADT exhaustiveness to filter irrelevant constructors.
+// canUnifyWith tests whether retTy can unify with scrutTy in an
+// isolated probe scope on the main unifier. Used for GADT exhaustiveness
+// to filter irrelevant constructors.
+//
+// Previously created a fresh `tmp := unify.NewUnifierShared(...)` per
+// call. Now uses BeginProbeIsolated / EndProbeIsolated on the existing
+// main unifier — same isolation guarantees, zero allocations.
+//
+// GADT branches refine skolems via given equalities, so we set
+// FlexSkolems = true inside the probe scope to allow skolems to unify
+// with arbitrary types for accessibility testing. The IsolationToken
+// captures the surrounding FlexSkolems state and EndProbeIsolated
+// restores it on exit.
 func (ch *Checker) canUnifyWith(retTy, scrutTy types.Type) bool {
-	tmp := unify.NewUnifierShared(&ch.freshID)
-	// GADT branches refine skolems via given equalities, so allow
-	// skolems to unify with arbitrary types for accessibility testing.
-	tmp.FlexSkolems = true
-	retTy = ch.instantiateFresh(tmp, retTy)
-	return tmp.Unify(retTy, scrutTy) == nil
+	tok := ch.unifier.BeginProbeIsolated()
+	ch.unifier.FlexSkolems = true
+	retTy = ch.instantiateFresh(ch.unifier, retTy)
+	ok := ch.unifier.Unify(retTy, scrutTy) == nil
+	ch.unifier.EndProbeIsolated(tok)
+	return ok
 }
 
 func (ch *Checker) instantiateFresh(u *unify.Unifier, ty types.Type) types.Type {
