@@ -108,12 +108,9 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
 			changed := false
-			fields := make([]RowField, len(entries.Fields))
+			var fields []RowField // nil until first change (lazy alloc)
 			for i, f := range entries.Fields {
 				newT := substDepth(f.Type, varName, replacement, depth+1)
-				if newT != f.Type {
-					changed = true
-				}
 				// Label substitution: when a row field label matches the
 				// variable being substituted and the replacement is a label
 				// literal (L1 TyCon), replace the label string. This enables
@@ -121,55 +118,92 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 				// when l is substituted with #counter.
 				newLabel := f.Label
 				isLabelVar := f.IsLabelVar
+				labelChanged := false
 				if f.IsLabelVar && f.Label == varName {
 					if lc, ok := replacement.(*TyCon); ok && IsKindLevel(lc.Level) {
 						newLabel = lc.Name
 						isLabelVar = false // now a concrete label
-						changed = true
+						labelChanged = true
 					}
 				}
+				// Grades — also lazy alloc.
 				var newGrades []Type
-				if len(f.Grades) > 0 {
-					newGrades = make([]Type, len(f.Grades))
-					for j, g := range f.Grades {
-						newGrades[j] = substDepth(g, varName, replacement, depth+1)
-						if newGrades[j] != g {
-							changed = true
+				for j, g := range f.Grades {
+					ng := substDepth(g, varName, replacement, depth+1)
+					if ng != g {
+						if newGrades == nil {
+							newGrades = make([]Type, len(f.Grades))
+							copy(newGrades[:j], f.Grades[:j])
 						}
+						newGrades[j] = ng
+					} else if newGrades != nil {
+						newGrades[j] = g
 					}
 				}
-				fields[i] = RowField{Label: newLabel, Type: newT, Grades: newGrades, IsLabelVar: isLabelVar, S: f.S}
+				fieldChanged := newT != f.Type || labelChanged || newGrades != nil
+				if fieldChanged {
+					if fields == nil {
+						fields = make([]RowField, len(entries.Fields))
+						copy(fields[:i], entries.Fields[:i])
+					}
+					grades := f.Grades
+					if newGrades != nil {
+						grades = newGrades
+					}
+					fields[i] = RowField{Label: newLabel, Type: newT, Grades: grades, IsLabelVar: isLabelVar, S: f.S}
+					changed = true
+				} else if fields != nil {
+					fields[i] = f
+				}
 			}
-			var newTail Type
+			newTail := ty.Tail
 			if ty.Tail != nil {
-				newTail = substDepth(ty.Tail, varName, replacement, depth+1)
-				if newTail != ty.Tail {
+				nt := substDepth(ty.Tail, varName, replacement, depth+1)
+				if nt != ty.Tail {
+					newTail = nt
 					changed = true
 				}
 			}
 			if !changed {
 				return ty
 			}
-			e := &CapabilityEntries{Fields: fields}
-			return &TyEvidenceRow{Entries: e, Tail: newTail, Flags: EvidenceRowFlags(e, newTail), S: ty.S}
+			var newEntries EvidenceEntries = entries
+			if fields != nil {
+				newEntries = &CapabilityEntries{Fields: fields}
+			}
+			return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
 		case *ConstraintEntries:
 			changed := false
-			ces := make([]ConstraintEntry, len(entries.Entries))
+			var ces []ConstraintEntry // nil until first change (lazy alloc)
 			for i, e := range entries.Entries {
-				ces[i] = substConstraintEntry(e, varName, replacement, &changed, depth+1)
+				newE, entryChanged := substConstraintEntry(e, varName, replacement, depth+1)
+				if entryChanged {
+					if ces == nil {
+						ces = make([]ConstraintEntry, len(entries.Entries))
+						copy(ces[:i], entries.Entries[:i])
+					}
+					ces[i] = newE
+					changed = true
+				} else if ces != nil {
+					ces[i] = e
+				}
 			}
-			var newTail Type
+			newTail := ty.Tail
 			if ty.Tail != nil {
-				newTail = substDepth(ty.Tail, varName, replacement, depth+1)
-				if newTail != ty.Tail {
+				nt := substDepth(ty.Tail, varName, replacement, depth+1)
+				if nt != ty.Tail {
+					newTail = nt
 					changed = true
 				}
 			}
 			if !changed {
 				return ty
 			}
-			e := &ConstraintEntries{Entries: ces}
-			return &TyEvidenceRow{Entries: e, Tail: newTail, Flags: EvidenceRowFlags(e, newTail), S: ty.S}
+			var newEntries EvidenceEntries = entries
+			if ces != nil {
+				newEntries = &ConstraintEntries{Entries: ces}
+			}
+			return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
 		default:
 			return ty
 		}
@@ -492,115 +526,201 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, fvUnion *map
 
 // substConstraintEntry substitutes within a single ConstraintEntry,
 // handling the Quantified field with proper variable shadowing.
-func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, changed *bool, depth int) ConstraintEntry {
+// Returns the (possibly new) entry and whether anything changed.
+// When the second return value is false, the first value is e itself.
+func substConstraintEntry(e ConstraintEntry, varName string, replacement Type, depth int) (ConstraintEntry, bool) {
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
-	args := make([]Type, len(e.Args))
+	changed := false
+	var args []Type // nil until first change (lazy alloc)
 	for j, a := range e.Args {
 		newA := substDepth(a, varName, replacement, depth+1)
 		if newA != a {
-			*changed = true
+			if args == nil {
+				args = make([]Type, len(e.Args))
+				copy(args[:j], e.Args[:j])
+			}
+			args[j] = newA
+			changed = true
+		} else if args != nil {
+			args[j] = a
 		}
-		args[j] = newA
 	}
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, IsEquality: e.IsEquality, S: e.S}
+	finalArgs := e.Args
+	if args != nil {
+		finalArgs = args
+	}
+	var newEqLhs, newEqRhs Type
 	if e.IsEquality {
-		newLhs := substDepth(e.EqLhs, varName, replacement, depth+1)
-		newRhs := substDepth(e.EqRhs, varName, replacement, depth+1)
-		if newLhs != e.EqLhs || newRhs != e.EqRhs {
-			*changed = true
+		newEqLhs = substDepth(e.EqLhs, varName, replacement, depth+1)
+		newEqRhs = substDepth(e.EqRhs, varName, replacement, depth+1)
+		if newEqLhs != e.EqLhs || newEqRhs != e.EqRhs {
+			changed = true
 		}
-		result.EqLhs = newLhs
-		result.EqRhs = newRhs
+	}
+	var newCV Type
+	if e.ConstraintVar != nil {
+		newCV = substDepth(e.ConstraintVar, varName, replacement, depth+1)
+		if newCV != e.ConstraintVar {
+			changed = true
+		}
+	}
+	var newQC *QuantifiedConstraint
+	if e.Quantified != nil {
+		// Check if varName is shadowed by any quantified variable.
+		shadowed := false
+		for _, v := range e.Quantified.Vars {
+			if v.Name == varName {
+				shadowed = true
+				break
+			}
+		}
+		if shadowed {
+			newQC = e.Quantified // no substitution inside
+		} else {
+			var qcChanged bool
+			newQC, qcChanged = substQuantifiedConstraint(e.Quantified, varName, replacement, depth+1)
+			if qcChanged {
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return e, false
+	}
+	result := ConstraintEntry{ClassName: e.ClassName, Args: finalArgs, IsEquality: e.IsEquality, S: e.S}
+	if e.IsEquality {
+		result.EqLhs = newEqLhs
+		result.EqRhs = newEqRhs
 	}
 	if e.ConstraintVar != nil {
-		newCV := substDepth(e.ConstraintVar, varName, replacement, depth+1)
-		if newCV != e.ConstraintVar {
-			*changed = true
-		}
 		result.ConstraintVar = newCV
 	}
 	if e.Quantified != nil {
-		// Check if varName is shadowed by any quantified variable.
-		for _, v := range e.Quantified.Vars {
-			if v.Name == varName {
-				result.Quantified = e.Quantified // shadowed, no substitution inside
-				return result
-			}
-		}
-		newQC := substQuantifiedConstraint(e.Quantified, varName, replacement, changed, depth+1)
 		result.Quantified = newQC
 	}
-	return result
+	return result, true
 }
 
-func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replacement Type, changed *bool, depth int) *QuantifiedConstraint {
+// substQuantifiedConstraint substitutes within a QuantifiedConstraint, handling
+// capture avoidance by renaming bound variables that appear free in replacement.
+// Returns the (possibly new) constraint and whether anything changed.
+func substQuantifiedConstraint(qc *QuantifiedConstraint, varName string, replacement Type, depth int) (*QuantifiedConstraint, bool) {
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
+	changed := false
 	// Capture avoidance: rename bound vars that appear free in replacement
 	// BEFORE substituting, so the rename does not corrupt the replacement.
-	vars := make([]ForallBinder, len(qc.Vars))
-	copy(vars, qc.Vars)
-
-	// Step 1: Determine which bound vars need freshening.
-	ctx := make([]ConstraintEntry, len(qc.Context))
-	copy(ctx, qc.Context)
+	var vars []ForallBinder   // nil until first rename
+	var ctx []ConstraintEntry // nil until first change in ctx OR first rename
 	head := qc.Head
 
-	for i, v := range vars {
+	for i, v := range qc.Vars {
 		if OccursIn(v.Name, replacement) {
 			fresh := freshName(v.Name)
-			vars[i] = ForallBinder{Name: fresh, Kind: v.Kind}
-			*changed = true
-			// Step 2: Rename the bound variable in context and head BEFORE substitution.
-			for j := range ctx {
-				ctx[j] = renameInConstraintEntry(ctx[j], v.Name, fresh, depth+1)
+			if vars == nil {
+				vars = make([]ForallBinder, len(qc.Vars))
+				copy(vars, qc.Vars)
 			}
-			head = renameInConstraintEntry(head, v.Name, fresh, depth+1)
+			vars[i] = ForallBinder{Name: fresh, Kind: v.Kind}
+			changed = true
+			// Rename the bound variable in context and head BEFORE substitution.
+			if ctx == nil {
+				ctx = make([]ConstraintEntry, len(qc.Context))
+				copy(ctx, qc.Context)
+			}
+			for j := range ctx {
+				ctx[j], _ = renameInConstraintEntry(ctx[j], v.Name, fresh, depth+1)
+			}
+			head, _ = renameInConstraintEntry(head, v.Name, fresh, depth+1)
 		}
 	}
 
-	// Step 3: Now substitute — the renamed body no longer shadows the replacement.
-	for i, c := range ctx {
-		ctx[i] = substConstraintEntry(c, varName, replacement, changed, depth+1)
+	// Step 2: Now substitute in context — the renamed body no longer shadows the replacement.
+	for i, c := range qc.Context {
+		var src ConstraintEntry
+		if ctx != nil {
+			src = ctx[i]
+		} else {
+			src = c
+		}
+		newC, cChanged := substConstraintEntry(src, varName, replacement, depth+1)
+		if cChanged {
+			if ctx == nil {
+				ctx = make([]ConstraintEntry, len(qc.Context))
+				copy(ctx, qc.Context)
+			}
+			ctx[i] = newC
+			changed = true
+		} else if ctx != nil {
+			ctx[i] = src
+		}
 	}
-	head = substConstraintEntry(head, varName, replacement, changed, depth+1)
+	newHead, headChanged := substConstraintEntry(head, varName, replacement, depth+1)
+	if headChanged {
+		head = newHead
+		changed = true
+	}
 
-	return &QuantifiedConstraint{Vars: vars, Context: ctx, Head: head}
+	if !changed {
+		return qc, false
+	}
+	finalVars := qc.Vars
+	if vars != nil {
+		finalVars = vars
+	}
+	finalCtx := qc.Context
+	if ctx != nil {
+		finalCtx = ctx
+	}
+	return &QuantifiedConstraint{Vars: finalVars, Context: finalCtx, Head: head}, true
 }
 
-func renameInConstraintEntry(e ConstraintEntry, oldName, newName string, depth int) ConstraintEntry {
+// renameInConstraintEntry replaces oldName with a TyVar named newName
+// throughout a constraint entry. Returns (entry, changed). When changed
+// is false, the returned entry is e itself.
+func renameInConstraintEntry(e ConstraintEntry, oldName, newName string, depth int) (ConstraintEntry, bool) {
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
 	replacement := &TyVar{Name: newName}
 	changed := false
-	args := make([]Type, len(e.Args))
+	var args []Type // nil until first change (lazy alloc)
 	for j, a := range e.Args {
-		args[j] = substDepth(a, oldName, replacement, depth+1)
-		if args[j] != a {
+		newA := substDepth(a, oldName, replacement, depth+1)
+		if newA != a {
+			if args == nil {
+				args = make([]Type, len(e.Args))
+				copy(args[:j], e.Args[:j])
+			}
+			args[j] = newA
 			changed = true
+		} else if args != nil {
+			args[j] = a
 		}
 	}
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, IsEquality: e.IsEquality, S: e.S}
+	finalArgs := e.Args
+	if args != nil {
+		finalArgs = args
+	}
+	var newEqLhs, newEqRhs Type
 	if e.IsEquality {
-		newLhs := substDepth(e.EqLhs, oldName, replacement, depth+1)
-		newRhs := substDepth(e.EqRhs, oldName, replacement, depth+1)
-		if newLhs != e.EqLhs || newRhs != e.EqRhs {
+		newEqLhs = substDepth(e.EqLhs, oldName, replacement, depth+1)
+		newEqRhs = substDepth(e.EqRhs, oldName, replacement, depth+1)
+		if newEqLhs != e.EqLhs || newEqRhs != e.EqRhs {
 			changed = true
 		}
-		result.EqLhs = newLhs
-		result.EqRhs = newRhs
 	}
+	var newCV Type
 	if e.ConstraintVar != nil {
-		newCV := substDepth(e.ConstraintVar, oldName, replacement, depth+1)
+		newCV = substDepth(e.ConstraintVar, oldName, replacement, depth+1)
 		if newCV != e.ConstraintVar {
 			changed = true
 		}
-		result.ConstraintVar = newCV
 	}
+	var newQC *QuantifiedConstraint
 	if e.Quantified != nil {
 		// Check if oldName is shadowed by a quantified variable.
 		shadowed := false
@@ -610,20 +730,50 @@ func renameInConstraintEntry(e ConstraintEntry, oldName, newName string, depth i
 				break
 			}
 		}
-		if !shadowed {
-			ctx := make([]ConstraintEntry, len(e.Quantified.Context))
-			for i, c := range e.Quantified.Context {
-				ctx[i] = renameInConstraintEntry(c, oldName, newName, depth+1)
-			}
-			head := renameInConstraintEntry(e.Quantified.Head, oldName, newName, depth+1)
-			result.Quantified = &QuantifiedConstraint{Vars: e.Quantified.Vars, Context: ctx, Head: head}
-			changed = true
+		if shadowed {
+			newQC = e.Quantified
 		} else {
-			result.Quantified = e.Quantified
+			ctxChanged := false
+			var ctx []ConstraintEntry // nil until first change
+			for i, c := range e.Quantified.Context {
+				newC, cChanged := renameInConstraintEntry(c, oldName, newName, depth+1)
+				if cChanged {
+					if ctx == nil {
+						ctx = make([]ConstraintEntry, len(e.Quantified.Context))
+						copy(ctx[:i], e.Quantified.Context[:i])
+					}
+					ctx[i] = newC
+					ctxChanged = true
+				} else if ctx != nil {
+					ctx[i] = c
+				}
+			}
+			newHead, headChanged := renameInConstraintEntry(e.Quantified.Head, oldName, newName, depth+1)
+			if ctxChanged || headChanged {
+				finalCtx := e.Quantified.Context
+				if ctx != nil {
+					finalCtx = ctx
+				}
+				newQC = &QuantifiedConstraint{Vars: e.Quantified.Vars, Context: finalCtx, Head: newHead}
+				changed = true
+			} else {
+				newQC = e.Quantified
+			}
 		}
 	}
 	if !changed {
-		return e
+		return e, false
 	}
-	return result
+	result := ConstraintEntry{ClassName: e.ClassName, Args: finalArgs, IsEquality: e.IsEquality, S: e.S}
+	if e.IsEquality {
+		result.EqLhs = newEqLhs
+		result.EqRhs = newEqRhs
+	}
+	if e.ConstraintVar != nil {
+		result.ConstraintVar = newCV
+	}
+	if e.Quantified != nil {
+		result.Quantified = newQC
+	}
+	return result, true
 }
