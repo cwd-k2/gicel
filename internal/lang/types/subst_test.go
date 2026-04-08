@@ -177,6 +177,87 @@ func TestSubstEvidenceRowTail(t *testing.T) {
 	}
 }
 
+// TestSubstLabelVar pins that single-var Subst rewrites label-variable
+// fields when the replacement is a label literal (TyCon at kind level).
+func TestSubstLabelVar(t *testing.T) {
+	row := &TyEvidenceRow{
+		Entries: &CapabilityEntries{
+			Fields: []RowField{
+				{Label: "l", Type: &TyCon{Name: "Int"}, IsLabelVar: true},
+			},
+		},
+	}
+	result := Subst(row, "l", &TyCon{Name: "foo", Level: L1, IsLabel: true})
+	r := result.(*TyEvidenceRow)
+	fields := r.Entries.(*CapabilityEntries).Fields
+	if fields[0].Label != "foo" {
+		t.Errorf("expected label rewritten to foo, got %q", fields[0].Label)
+	}
+	if fields[0].IsLabelVar {
+		t.Error("expected IsLabelVar cleared after label rewrite")
+	}
+}
+
+// TestSubstManyLabelVar pins that parallel SubstMany rewrites label-variable
+// fields the same way single-var Subst does. Prior to evidence_subst.go,
+// substManyEvidenceRow used MapChildren which only walked type children and
+// silently dropped the label rewriting — a latent inconsistency between the
+// two paths. This test guards against regression.
+func TestSubstManyLabelVar(t *testing.T) {
+	row := &TyEvidenceRow{
+		Entries: &CapabilityEntries{
+			Fields: []RowField{
+				{Label: "l", Type: &TyVar{Name: "a"}, IsLabelVar: true},
+			},
+		},
+	}
+	result := SubstMany(row, map[string]Type{
+		"l": &TyCon{Name: "foo", Level: L1, IsLabel: true},
+		"a": &TyCon{Name: "Int"},
+	}, nil)
+	r := result.(*TyEvidenceRow)
+	fields := r.Entries.(*CapabilityEntries).Fields
+	if fields[0].Label != "foo" {
+		t.Errorf("expected label rewritten to foo, got %q", fields[0].Label)
+	}
+	if fields[0].IsLabelVar {
+		t.Error("expected IsLabelVar cleared after label rewrite")
+	}
+	if con, ok := fields[0].Type.(*TyCon); !ok || con.Name != "Int" {
+		t.Errorf("expected field type Int, got %v", fields[0].Type)
+	}
+}
+
+// TestSubstManyLabelVarEquivalence pins that single-var sequential Subst and
+// parallel SubstMany agree on label rewriting — extending the existing
+// SubstMany equivalence contract to capability rows with label vars.
+func TestSubstManyLabelVarEquivalence(t *testing.T) {
+	mkRow := func() *TyEvidenceRow {
+		return &TyEvidenceRow{
+			Entries: &CapabilityEntries{
+				Fields: []RowField{
+					{Label: "l", Type: &TyVar{Name: "a"}, IsLabelVar: true},
+				},
+			},
+		}
+	}
+	labelLit := &TyCon{Name: "foo", Level: L1, IsLabel: true}
+	intTy := &TyCon{Name: "Int"}
+
+	seq := Subst(mkRow(), "l", labelLit)
+	seq = Subst(seq, "a", intTy)
+
+	many := SubstMany(mkRow(), map[string]Type{
+		"l": labelLit,
+		"a": intTy,
+	}, nil)
+
+	if !Equal(seq, many) {
+		t.Errorf("SubstMany != sequential Subst on label var:\n  seq:  %s\n  many: %s",
+			Pretty(seq), Pretty(many))
+	}
+}
+
 // --- SubstMany ---
 
 func TestSubstManySimple(t *testing.T) {

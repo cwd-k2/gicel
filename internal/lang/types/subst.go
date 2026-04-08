@@ -105,108 +105,20 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		return ty
 
 	case *TyEvidenceRow:
-		switch entries := ty.Entries.(type) {
-		case *CapabilityEntries:
-			changed := false
-			var fields []RowField // nil until first change (lazy alloc)
-			for i, f := range entries.Fields {
-				newT := substDepth(f.Type, varName, replacement, depth+1)
-				// Label substitution: when a row field label matches the
-				// variable being substituted and the replacement is a label
-				// literal (L1 TyCon), replace the label string. This enables
-				// \(l: Label) s r. { l: s | r } to concretize to { counter: s | r }
-				// when l is substituted with #counter.
-				newLabel := f.Label
-				isLabelVar := f.IsLabelVar
-				labelChanged := false
-				if f.IsLabelVar && f.Label == varName {
-					if lc, ok := replacement.(*TyCon); ok && IsKindLevel(lc.Level) {
-						newLabel = lc.Name
-						isLabelVar = false // now a concrete label
-						labelChanged = true
-					}
-				}
-				// Grades — also lazy alloc.
-				var newGrades []Type
-				for j, g := range f.Grades {
-					ng := substDepth(g, varName, replacement, depth+1)
-					if ng != g {
-						if newGrades == nil {
-							newGrades = make([]Type, len(f.Grades))
-							copy(newGrades[:j], f.Grades[:j])
-						}
-						newGrades[j] = ng
-					} else if newGrades != nil {
-						newGrades[j] = g
-					}
-				}
-				fieldChanged := newT != f.Type || labelChanged || newGrades != nil
-				if fieldChanged {
-					if fields == nil {
-						fields = make([]RowField, len(entries.Fields))
-						copy(fields[:i], entries.Fields[:i])
-					}
-					grades := f.Grades
-					if newGrades != nil {
-						grades = newGrades
-					}
-					fields[i] = RowField{Label: newLabel, Type: newT, Grades: grades, IsLabelVar: isLabelVar, S: f.S}
-					changed = true
-				} else if fields != nil {
-					fields[i] = f
-				}
+		newEntries, entriesChanged := ty.Entries.SubstEntries(varName, replacement, depth+1)
+		newTail := ty.Tail
+		tailChanged := false
+		if ty.Tail != nil {
+			nt := substDepth(ty.Tail, varName, replacement, depth+1)
+			if nt != ty.Tail {
+				newTail = nt
+				tailChanged = true
 			}
-			newTail := ty.Tail
-			if ty.Tail != nil {
-				nt := substDepth(ty.Tail, varName, replacement, depth+1)
-				if nt != ty.Tail {
-					newTail = nt
-					changed = true
-				}
-			}
-			if !changed {
-				return ty
-			}
-			var newEntries EvidenceEntries = entries
-			if fields != nil {
-				newEntries = &CapabilityEntries{Fields: fields}
-			}
-			return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
-		case *ConstraintEntries:
-			changed := false
-			var ces []ConstraintEntry // nil until first change (lazy alloc)
-			for i, e := range entries.Entries {
-				newE, entryChanged := substConstraintEntry(e, varName, replacement, depth+1)
-				if entryChanged {
-					if ces == nil {
-						ces = make([]ConstraintEntry, len(entries.Entries))
-						copy(ces[:i], entries.Entries[:i])
-					}
-					ces[i] = newE
-					changed = true
-				} else if ces != nil {
-					ces[i] = e
-				}
-			}
-			newTail := ty.Tail
-			if ty.Tail != nil {
-				nt := substDepth(ty.Tail, varName, replacement, depth+1)
-				if nt != ty.Tail {
-					newTail = nt
-					changed = true
-				}
-			}
-			if !changed {
-				return ty
-			}
-			var newEntries EvidenceEntries = entries
-			if ces != nil {
-				newEntries = &ConstraintEntries{Entries: ces}
-			}
-			return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
-		default:
+		}
+		if !entriesChanged && !tailChanged {
 			return ty
 		}
+		return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
 
 	case *TyFamilyApp:
 		var args []Type // nil until first change (lazy-init)
@@ -625,9 +537,7 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, levelSubs ma
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
-	newEntries, changed := row.Entries.MapChildren(func(child Type) Type {
-		return substManyOpt(child, subs, levelSubs, fvUnion, depth+1)
-	})
+	newEntries, changed := row.Entries.SubstEntriesMany(subs, levelSubs, fvUnion, depth+1)
 	var newTail Type
 	if row.Tail != nil {
 		newTail = substManyOpt(row.Tail, subs, levelSubs, fvUnion, depth+1)

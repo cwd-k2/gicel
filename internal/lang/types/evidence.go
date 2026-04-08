@@ -24,6 +24,16 @@ type EvidenceEntries interface {
 	FiberKind() Type
 	Empty() EvidenceEntries                                   // empty entries of the same fiber
 	ZonkEntries(zonk func(Type) Type) (EvidenceEntries, bool) // zonked entries, changed
+	// SubstEntries applies a single-variable substitution [varName := replacement]
+	// to all type children. CapabilityEntries additionally rewrites label-variable
+	// fields whose label is varName when replacement is a label literal (a TyCon
+	// at kind level). depth is propagated into recursive substDepth calls.
+	SubstEntries(varName string, replacement Type, depth int) (EvidenceEntries, bool)
+	// SubstEntriesMany is the parallel-substitution counterpart to SubstEntries.
+	// CapabilityEntries rewrites label-variable fields whose label appears in
+	// subs mapped to a label literal. fvUnion tracks free-variable union for
+	// downstream capture avoidance and is propagated into substManyOpt calls.
+	SubstEntriesMany(subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool)
 }
 
 // TyEvidenceRow is the unified row type for capability and constraint rows.
