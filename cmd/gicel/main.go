@@ -93,13 +93,9 @@ func isHelpFlag(s string) bool {
 }
 
 // catalogEntry is a name–description pair for docs/example listing.
-
-// catalogEntry is a name–description pair for docs/example listing.
 type catalogEntry struct {
 	name, desc string
 }
-
-// printCatalog groups entries by dot-separated category prefix and prints them.
 
 // printCatalog groups entries by dot-separated category prefix and prints them.
 func printCatalog(entries []catalogEntry, defaultLabel string) {
@@ -131,8 +127,6 @@ func printCatalog(entries []catalogEntry, defaultLabel string) {
 		fmt.Println()
 	}
 }
-
-// warnTrailingFlags warns about flag-like arguments after the positional filename.
 
 // warnTrailingFlags warns about flag-like arguments after the positional filename.
 func warnTrailingFlags(fs *flag.FlagSet) {
