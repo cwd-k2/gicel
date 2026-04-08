@@ -318,12 +318,12 @@ func SubstMany(t Type, typeSubs map[string]Type, levelSubs map[string]LevelExpr)
 // not a TyForall.
 func PeelForalls(t Type, visit func(f *TyForall) (typeRepl Type, levelRepl LevelExpr)) Type {
 	var (
-		firstVar    string
-		firstRepl   Type
-		firstLevel  LevelExpr
-		hasFirst    bool
-		typeSubs    map[string]Type
-		levelSubs   map[string]LevelExpr
+		firstVar   string
+		firstRepl  Type
+		firstLevel LevelExpr
+		hasFirst   bool
+		typeSubs   map[string]Type
+		levelSubs  map[string]LevelExpr
 	)
 	for {
 		f, ok := t.(*TyForall)

@@ -1,8 +1,9 @@
 package eval
 
-import "maps"
-
-import "sort"
+import (
+	"maps"
+	"sort"
+)
 
 // CapEnv is a capability environment: label -> capability state.
 // Copy-on-write semantics. A nil caps map represents an empty environment

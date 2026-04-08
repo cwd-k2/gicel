@@ -192,6 +192,18 @@ func prettyValueDepth(v Value, depth int) string {
 	}
 	switch val := v.(type) {
 	case *HostVal:
+		// HostVal wrapping a []Value is the runtime representation of
+		// Data.Slice. Render it to match the Slice Show instance
+		// (`Slice.fromList [...]`) rather than falling through to Go's
+		// default %v which prints `[HostVal(1) HostVal(2) ...]` — leaking
+		// the wrapper type into user-facing output. See field-test B4.
+		if items, ok := val.Inner.([]Value); ok {
+			elems := make([]string, len(items))
+			for i, e := range items {
+				elems[i] = prettyValueDepth(e, depth+1)
+			}
+			return "Slice.fromList [" + strings.Join(elems, ", ") + "]"
+		}
 		return prettyHost(val.Inner)
 	case *ConVal:
 		if s, ok := collectListElems(val, func(v Value) string { return prettyValueDepth(v, depth+1) }); ok {
