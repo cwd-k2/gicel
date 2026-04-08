@@ -7,7 +7,6 @@ package vm
 
 import (
 	"github.com/cwd-k2/gicel/internal/lang/ir"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // irNodeKind returns a short human-readable name for the Core IR node type.
@@ -38,7 +37,7 @@ func irNodeKind(n ir.Core) string {
 	case *ir.PrimOp:
 		return "PrimOp"
 	case *ir.RecordLit:
-		return types.TyConRecord
+		return "RecordLit"
 	case *ir.RecordProj:
 		return "RecordProj"
 	case *ir.RecordUpdate:

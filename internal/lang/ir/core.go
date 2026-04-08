@@ -6,7 +6,7 @@ import (
 )
 
 // Core is a term in the core intermediate representation.
-// 18 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate, Error.
+// 19 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, Merge, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate, Error.
 type Core interface {
 	coreNode()
 	Span() span.Span

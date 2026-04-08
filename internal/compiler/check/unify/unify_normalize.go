@@ -30,14 +30,6 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 //	3-arg: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 //
 // This arises when a class type parameter is substituted with Computation.
-
-// normalizeCompApp converts fully-applied TyApp chains to their special type
-// representations. Handles both 4-arg (graded) and 3-arg (legacy) forms:
-//
-//	4-arg: TyApp(TyApp(TyApp(TyApp(TyCon("Computation"), grade), pre), post), result)
-//	3-arg: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
-//
-// This arises when a class type parameter is substituted with Computation.
 func normalizeCompApp(t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
 	if !ok {
@@ -79,9 +71,6 @@ func normalizeCompApp(t types.Type) types.Type {
 	}
 	return t
 }
-
-// normalizeCompApp4Only normalizes only 4-arg Computation/Thunk TyApp chains.
-// Used in Zonk where 3-arg normalization would be premature.
 
 // normalizeCompApp4Only normalizes only 4-arg Computation/Thunk TyApp chains.
 // Used in Zonk where 3-arg normalization would be premature.
