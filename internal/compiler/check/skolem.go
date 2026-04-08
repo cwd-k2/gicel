@@ -58,8 +58,10 @@ func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s 
 	}
 }
 
-// checkSkolemEscapeSince checks that no soln write that happened at or
-// after trailPos with metaID ≤ preID contains the target skolem.
+// checkSkolemSetEscapeSince checks that no soln write that happened at
+// or after trailPos with metaID ≤ preID contains any skolem in the
+// given set. The map is keyed by skolem ID and stores the source name
+// for diagnostic messages.
 //
 // This is the *belt-and-suspenders* safety net for skolem escape. When
 // level-based touchability is enabled, the guard in solveMeta prevents
@@ -81,9 +83,14 @@ func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s 
 //
 // Algorithm: VisitSolnWritesSince enumerates each unique meta written
 // since trailPos. For each ID ≤ preID we read the current value via
-// Solve and run the same Zonk + containsSkolem check as before.
-func (ch *Checker) checkSkolemEscapeSince(skolem *types.TySkolem, preID int, trailPos int, s span.Span) {
-	ids := map[int]string{skolem.ID: skolem.Name}
+// Solve and run the same Zonk + containsSkolem check as before. The
+// set form lets a chain of nested forall binders (e.g. forall a. forall
+// b. forall c. T) share a single trail walk instead of N separate ones.
+func (ch *Checker) checkSkolemSetEscapeSince(skolemIDs map[int]string, preID int, trailPos int, s span.Span) {
+	if len(skolemIDs) == 0 {
+		return
+	}
+	var foundID int
 	var found bool
 	ch.unifier.VisitSolnWritesSince(trailPos, func(metaID int) {
 		if found || metaID > preID {
@@ -94,12 +101,15 @@ func (ch *Checker) checkSkolemEscapeSince(skolem *types.TySkolem, preID int, tra
 			return
 		}
 		zonked := ch.unifier.Zonk(soln)
-		if _, ok := ch.containsSkolem(zonked, ids); ok {
-			ch.addCodedError(diagnostic.ErrSkolemEscape, s,
-				"type variable '"+skolem.Name+"' would escape its scope")
+		if id, ok := ch.containsSkolem(zonked, skolemIDs); ok {
+			foundID = id
 			found = true
 		}
 	})
+	if found {
+		ch.addCodedError(diagnostic.ErrSkolemEscape, s,
+			"type variable '"+skolemIDs[foundID]+"' would escape its scope")
+	}
 }
 
 // removeSkolemIDsFrom removes any skolem IDs found in ty from the ids map.

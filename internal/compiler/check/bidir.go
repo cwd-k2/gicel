@@ -305,44 +305,89 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 		}
 	}
 
-	// If the expected type is a forall, introduce a TyLam and check the body
+	// If the expected type is a forall, introduce TyLams and check the body
 	// against the quantified type. This implements the spec rule:
 	//   ⟦ e : \ a:K. T ⟧ = TyLam(a, K, ⟦e: T⟧)
-	if f, ok := expected.(*types.TyForall); ok {
-		if isLevelKind(f.Kind) {
-			// Level quantifier: introduce a fresh skolem.
-			// Substitute in both level positions (TyCon.Level via SubstLevel)
-			// and type positions (TyVar via Subst with a kind-level TyVar).
-			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
-			body := types.SubstLevel(f.Body, f.Var, &types.LevelVar{Name: freshName})
-			body = types.Subst(body, f.Var, &types.TyVar{Name: freshName})
-			bodyCore := ch.check(expr, body)
-			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
-		}
-		if isSortKind(f.Kind) {
-			// Kind-level quantifier: introduce a fresh kind skolem (TyVar)
-			// and substitute in all kind positions.
-			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
-			body := types.Subst(f.Body, f.Var, &types.TyVar{Name: freshName})
-			bodyCore := ch.check(expr, body)
-			return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
-		}
+	//
+	// A chain of forall binders (e.g. \a. \b. \c. T) is peeled in one
+	// PeelForalls pass: visit allocates a skolem (or fresh TyVar for
+	// level/sort binders) per binder, and PeelForalls applies the whole
+	// substitution to T via a single SubstMany walk. This avoids the N
+	// body walks (and the corresponding heap copies) that recursive
+	// per-binder dispatch would otherwise perform — substDepth was the
+	// largest CPU consumer after the dispatch refactor (commit 9c68906),
+	// and this batching closes the per-binder share.
+	//
+	// Side effects per visit:
+	//   - level-kinded: substitute f.Var → fresh TyVar in both level and
+	//     type positions. No CtxTyVar push (level vars are not bound in
+	//     the term-level context).
+	//   - sort-kinded: substitute f.Var → fresh TyVar in type positions.
+	//     No CtxTyVar push.
+	//   - type-kinded: substitute f.Var → fresh skolem, push a CtxTyVar
+	//     for the body's term-level context, and record the skolem ID
+	//     for the batched escape check after the body check completes.
+	if _, ok := expected.(*types.TyForall); ok {
 		ch.enterSolverScope()
 		preID := ch.freshID // belt-and-suspenders scope boundary
 		trailPos := ch.unifier.TrailLen()
-		skolem := ch.freshSkolem(f.Var, f.Kind)
-		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
-		bodyCore := ch.check(expr, types.Subst(f.Body, f.Var, skolem))
-		ch.ctx.Pop()
+
+		var skolemIDs map[int]string
+		type tyLamSpec struct {
+			name string
+			kind types.Type
+		}
+		var lamSpecs []tyLamSpec
+		var pushedCtxs int
+
+		body := types.PeelForalls(expected, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+			lamSpecs = append(lamSpecs, tyLamSpec{name: f.Var, kind: f.Kind})
+			if isLevelKind(f.Kind) {
+				freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
+				return &types.TyVar{Name: freshName}, &types.LevelVar{Name: freshName}
+			}
+			if isSortKind(f.Kind) {
+				freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
+				return &types.TyVar{Name: freshName}, nil
+			}
+			// Type-kinded: skolemize and track for escape check.
+			skolem := ch.freshSkolem(f.Var, f.Kind)
+			if skolemIDs == nil {
+				skolemIDs = make(map[int]string, 4)
+			}
+			skolemIDs[skolem.ID] = skolem.Name
+			ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
+			pushedCtxs++
+			return skolem, nil
+		})
+
+		bodyCore := ch.check(expr, body)
+
+		for range pushedCtxs {
+			ch.ctx.Pop()
+		}
 		ch.exitSolverScope()
-		// Belt-and-suspenders: verify skolem didn't leak into outer solutions.
-		// Touchability (when enabled) prevents this structurally; this check
-		// detects level-system bugs and trial-scope commits that bypassed
-		// touchability via SolverLevel = -1. The trail-incremental walk
-		// inspects only soln writes that happened during the body, not the
-		// full Solutions() map.
-		ch.checkSkolemEscapeSince(skolem, preID, trailPos, expr.Span())
-		return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
+
+		// Belt-and-suspenders: verify no skolem from the peeled chain
+		// leaked into outer solutions. Touchability (when enabled)
+		// prevents this structurally; this check detects level-system
+		// bugs and trial-scope commits that bypassed touchability via
+		// SolverLevel = -1. The trail-incremental walk inspects only
+		// soln writes that happened during the body, not the full
+		// Solutions() map, and the set form shares the trail walk
+		// across all skolems in the chain.
+		ch.checkSkolemSetEscapeSince(skolemIDs, preID, trailPos, expr.Span())
+
+		// Wrap the body in TyLam in source order (outermost first).
+		for i := len(lamSpecs) - 1; i >= 0; i-- {
+			bodyCore = &ir.TyLam{
+				TyParam: lamSpecs[i].name,
+				Kind:    lamSpecs[i].kind,
+				Body:    bodyCore,
+				S:       expr.Span(),
+			}
+		}
+		return bodyCore
 	}
 
 	// If the expected type is a TyEvidence, introduce implicit dict parameters
