@@ -33,8 +33,6 @@ var packMap = map[string]gicel.Pack{
 }
 
 // allPackOrder ensures deterministic pack loading.
-
-// allPackOrder ensures deterministic pack loading.
 var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "ref", "mmap", "mset", "json", "console"}
 
 func setupEngine(packs string) (*gicel.Engine, error) {
