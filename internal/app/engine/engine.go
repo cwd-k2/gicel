@@ -413,7 +413,14 @@ type AnalysisResult struct {
 // partial results even when errors are present. The returned Program
 // always has a value (possibly empty on parse errors). This is the
 // primary entry point for LSP and tooling use.
+//
+// Nil-safe: returns an AnalysisResult with an empty program when called
+// with a nil receiver or nil context, rather than panicking — a hostile
+// panic in the LSP path would crash the editor.
 func (e *Engine) Analyze(ctx context.Context, source string) *AnalysisResult {
+	if e == nil || ctx == nil {
+		return &AnalysisResult{Program: &ir.Program{}}
+	}
 	pc := e.pipeline(ctx)
 	return pc.analyze(source)
 }
@@ -422,6 +429,12 @@ func (e *Engine) Analyze(ctx context.Context, source string) *AnalysisResult {
 // static inspection. Unlike NewRuntime, it does not optimize or assemble
 // a runtime. Pass context.Background() when cancellation is not needed.
 func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, error) {
+	if e == nil {
+		return nil, fmt.Errorf("engine: Compile called on nil *Engine")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("engine: Compile called with nil context")
+	}
 	pc := e.pipeline(ctx)
 	ast, src, err := pc.lexAndParse("<input>", source, e.store.Has("Core"))
 	if err != nil {
@@ -454,6 +467,12 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 // "do no work past this deadline" intent applies regardless of whether
 // the work is reusable.
 func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error) {
+	if e == nil {
+		return nil, fmt.Errorf("engine: NewRuntime called on nil *Engine")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("engine: NewRuntime called with nil context")
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

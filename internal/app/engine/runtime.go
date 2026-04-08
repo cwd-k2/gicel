@@ -504,7 +504,16 @@ func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProt
 }
 
 // RunWith executes the program with the given options.
+//
+// Nil-safe: returns a typed error (not a panic) when called on a nil Runtime
+// or with a nil context. opts may be nil (treated as zero-value options).
 func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, error) {
+	if r == nil {
+		return nil, fmt.Errorf("engine: RunWith called on nil *Runtime")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("engine: RunWith called with nil context")
+	}
 	if opts == nil {
 		opts = &RunOptions{}
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cwd-k2/gicel/internal/host/registry"
+	"github.com/cwd-k2/gicel/internal/host/stdlib"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -34,7 +35,13 @@ const (
 
 // SandboxConfig configures a sandboxed execution.
 type SandboxConfig struct {
-	Packs           []registry.Pack       // stdlib packs to load (default: none)
+	// Packs are the stdlib packs to load.
+	//
+	// Nil (the zero value) loads Prelude by default, so `RunSandbox(src, nil)`
+	// works on any program that uses basic arithmetic and list operations
+	// without requiring explicit configuration. To load no packs at all,
+	// pass an explicit empty slice: `Packs: []registry.Pack{}`.
+	Packs           []registry.Pack
 	Entry           string                // entry point binding (default: DefaultEntryPoint)
 	Timeout         time.Duration         // execution timeout (default: 5s)
 	MaxSteps        int                   // step limit (default: 100_000)
@@ -135,7 +142,13 @@ func RunSandbox(source string, cfg *SandboxConfig) (result *RunResult, err error
 		eng.SetMaxResolveDepth(cfg.MaxResolveDepth)
 	}
 
-	for _, p := range cfg.Packs {
+	// nil Packs loads Prelude by default (distinct from an explicit empty
+	// slice, which loads nothing). See SandboxConfig.Packs doc.
+	packs := cfg.Packs
+	if packs == nil {
+		packs = []registry.Pack{stdlib.Prelude}
+	}
+	for _, p := range packs {
 		if err := p(eng); err != nil {
 			return nil, err
 		}
