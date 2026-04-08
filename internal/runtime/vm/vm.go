@@ -776,7 +776,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			vm.push(&eval.PrimVal{
 				Name: name, Arity: arity,
 				Effectful: true, Args: args,
-				S: frame.proto.SpanAt(frame.ip),
+				S:    frame.proto.SpanAt(frame.ip),
 				Impl: impl,
 			})
 

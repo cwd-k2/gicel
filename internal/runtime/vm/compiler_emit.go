@@ -50,13 +50,22 @@ func irNodeKind(n ir.Core) string {
 
 // --- bytecode emission ---
 
+// emitStep marks a CBPV computation step (reduction) boundary. It records
+// the source span at the current bytecode offset and emits OpStep so the
+// runtime can account for the step against the budget and attribute any
+// subsequent failure back to source.
+//
+// Only reductions (App, Force, Bind, Case, PrimOp, Fix) call emitStep —
+// value forms (Var, Lit, Lam, Thunk, Con, Merge, Record*) compile to pure
+// stack manipulation that cannot fail at runtime, so their source spans
+// are never queried. Recording them would be dead information.
 func (c *Compiler) emitStep(expr ir.Core) {
+	c.addSpan(expr.Span())
 	kind := irNodeKind(expr)
 	idx := c.addString(kind)
 	c.emitU16(OpStep, idx)
 }
 
-// irNodeKind returns a short human-readable name for the Core IR node type.
 func (c *Compiler) emit(op Opcode) int {
 	f := c.top()
 	pos := len(f.code)

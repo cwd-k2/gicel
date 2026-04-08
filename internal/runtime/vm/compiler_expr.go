@@ -73,7 +73,6 @@ func (c *Compiler) compileExpr(expr ir.Core, tail bool) {
 	}
 }
 func (c *Compiler) compileVar(v *ir.Var) {
-	c.addSpan(v.S)
 	if v.Index >= 0 {
 		if slot, ok := c.resolveLocal(v.Name); ok {
 			c.emitU16(OpLoadLocal, uint16(slot))
@@ -92,12 +91,10 @@ func (c *Compiler) compileVar(v *ir.Var) {
 	}
 }
 func (c *Compiler) compileLit(lit *ir.Lit) {
-	c.addSpan(lit.S)
 	idx := c.addConstant(&eval.HostVal{Inner: lit.Value})
 	c.emitU16(OpConst, idx)
 }
 func (c *Compiler) compileLam(lam *ir.Lam) {
-	c.addSpan(lam.S)
 	// Flatten lambda chain: \x. \y. \z. body → single Proto with Params=["x","y","z"].
 	params, body, fv, fvIndices := flattenLamChain(lam)
 	child := c.compileMultiParamProto(params, body, fv, fvIndices)
@@ -145,7 +142,6 @@ func (c *Compiler) compileMultiParamProto(params []string, body ir.Core, fv []st
 	return c.leaveFrame()
 }
 func (c *Compiler) compileApp(app *ir.App, tail bool) {
-	c.addSpan(app.S)
 	// Collect application spine. Single OpApplyN dispatch handles every
 	// runtime value type and every saturation case via applyN, so the
 	// only structural decision left is "single arg vs multi arg".
@@ -248,7 +244,6 @@ func collectAppSpine(node *ir.App) (ir.Core, []ir.Core) {
 	return cur, args
 }
 func (c *Compiler) compileCon(con *ir.Con) {
-	c.addSpan(con.S)
 	for _, arg := range con.Args {
 		c.compileExpr(arg, false)
 	}
@@ -256,12 +251,10 @@ func (c *Compiler) compileCon(con *ir.Con) {
 	c.emitU16U8(OpCon, nameIdx, uint8(len(con.Args)))
 }
 func (c *Compiler) compileCase(cs *ir.Case, tail bool) {
-	c.addSpan(cs.S)
 	c.compileExpr(cs.Scrutinee, false)
 	compilePatternMatch(c, cs, tail)
 }
 func (c *Compiler) compileFix(fix *ir.Fix) {
-	c.addSpan(fix.S)
 	body := ir.PeelTyLam(fix.Body)
 	switch b := body.(type) {
 	case *ir.Lam:
@@ -286,7 +279,6 @@ func (c *Compiler) compileFix(fix *ir.Fix) {
 	}
 }
 func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
-	c.addSpan(bind.S)
 	c.compileExpr(bind.Comp, false)
 	slot := c.allocLocal(bind.Var)
 	c.emitU16(OpBind, uint16(slot))
@@ -296,14 +288,11 @@ func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
 	c.compileExpr(bind.Body, tail)
 }
 func (c *Compiler) compileThunk(thunk *ir.Thunk) {
-	c.addSpan(thunk.S)
 	child := c.compileChildProto("", thunk.Comp, true, thunk.FV, thunk.FVIndices)
 	protoIdx := c.addProto(child)
 	c.emitU16(OpThunk, protoIdx)
 }
 func (c *Compiler) compileMerge(merge *ir.Merge) {
-	c.addSpan(merge.S)
-
 	leftProto := c.compileMergeChildProto(merge.Left, merge.LeftFV, merge.LeftFVIdx)
 	leftIdx := c.addProto(leftProto)
 	c.emitU16(OpThunk, leftIdx)
@@ -319,7 +308,6 @@ func (c *Compiler) compileMerge(merge *ir.Merge) {
 	c.emitU16(OpMerge, descIdx)
 }
 func (c *Compiler) compileForce(force *ir.Force, tail bool) {
-	c.addSpan(force.S)
 	c.compileExpr(force.Expr, false)
 	if tail {
 		c.emit(OpForceTail)
@@ -328,7 +316,6 @@ func (c *Compiler) compileForce(force *ir.Force, tail bool) {
 	}
 }
 func (c *Compiler) compilePrimOp(prim *ir.PrimOp) {
-	c.addSpan(prim.S)
 	if len(prim.Args) == 0 {
 		if prim.Arity == 0 && !prim.Effectful {
 			nameIdx := c.addString(prim.Name)
@@ -368,7 +355,6 @@ func (c *Compiler) compilePrimOp(prim *ir.PrimOp) {
 	}
 }
 func (c *Compiler) compileRecordLit(rec *ir.RecordLit) {
-	c.addSpan(rec.S)
 	if len(rec.Fields) == 0 {
 		c.emit(OpConstUnit)
 		return
@@ -382,13 +368,11 @@ func (c *Compiler) compileRecordLit(rec *ir.RecordLit) {
 	c.emitU16(OpRecord, descIdx)
 }
 func (c *Compiler) compileRecordProj(proj *ir.RecordProj) {
-	c.addSpan(proj.S)
 	c.compileExpr(proj.Record, false)
 	labelIdx := c.addString(proj.Label)
 	c.emitU16(OpRecordProj, labelIdx)
 }
 func (c *Compiler) compileRecordUpdate(upd *ir.RecordUpdate) {
-	c.addSpan(upd.S)
 	c.compileExpr(upd.Record, false)
 	labels := make([]string, len(upd.Updates))
 	for i, f := range upd.Updates {
