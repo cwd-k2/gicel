@@ -194,15 +194,20 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 	}
 	resultTy := types.MkCompGraded(mergedPre, mergedPost, result, mergedGrade)
 
-	return resultTy, &ir.Merge{
+	mergeNode := &ir.Merge{
 		Left:        leftCore,
 		Right:       rightCore,
 		LeftLabels:  leftLabels,
 		RightLabels: rightLabels,
-		PreLeft:     pre1,
-		PreRight:    pre2,
 		S:           s,
 	}
+	// Stash the pre-state row types in the checker-local side table so
+	// refineMergeLabels can re-extract labels after constraint resolution.
+	if ch.pendingMergeLabels == nil {
+		ch.pendingMergeLabels = make(map[*ir.Merge]pendingMergePre)
+	}
+	ch.pendingMergeLabels[mergeNode] = pendingMergePre{Pre1: pre1, Pre2: pre2}
+	return resultTy, mergeNode
 }
 
 // extractRowLabels returns sorted label names from a resolved capability row.

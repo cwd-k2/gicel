@@ -246,7 +246,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		if newLeft == n.Left && newRight == n.Right {
 			return f(n)
 		}
-		return f(&Merge{Left: newLeft, Right: newRight, LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, PreLeft: n.PreLeft, PreRight: n.PreRight, S: n.S})
+		return f(&Merge{Left: newLeft, Right: newRight, LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, S: n.S})
 	case *PrimOp:
 		args, changed := transformSlice(n.Args, f, depth)
 		if !changed {

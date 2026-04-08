@@ -11,8 +11,6 @@
 //	AnnotateFreeVars   populates Var.Key, Lam.FV, Thunk.FV, Merge.LeftFV/RightFV
 //	AssignIndices      populates Var.Index, Lam.FVIndices, Thunk.FVIndices,
 //	                   Merge.LeftFVIdx/RightFVIdx
-//	RefineMergeLabels  fills Merge.LeftLabels/RightLabels and clears
-//	                   Merge.PreLeft/PreRight
 //
 // # Invariants
 //
@@ -32,10 +30,13 @@
 //     captures" (all FVs are global). When both are non-nil,
 //     len(Lam.FVIndices) == len(Lam.FV).
 //   - Thunk.FV / Thunk.FVIndices follow the same conventions as Lam.
-//   - Merge.PreLeft and Merge.PreRight are non-nil between inferMerge
-//     (where labels may still contain unresolved metas) and
-//     RefineMergeLabels (which replaces tentative labels with the
-//     post-constraint-solving truth). After refinement they are nil.
+//   - Merge.LeftLabels and Merge.RightLabels are final by the time
+//     the IR leaves the checker. The transient pre-state types needed
+//     to re-extract them after constraint resolution live in a
+//     checker-local side table, not on the IR node, so the node has
+//     no hidden phase distinction. See compiler/check/checker.go for
+//     the side table; downstream passes can treat the labels as
+//     immutable inputs.
 //   - The App/TyApp/TyLam chain is the left spine; all read-only
 //     traversals descend it iteratively via unwindLeftSpine (spine.go)
 //     to avoid Go stack overflow on long operator chains.

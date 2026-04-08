@@ -115,22 +115,23 @@ type Force struct {
 
 // Merge — parallel composition of two computations.
 // Splits CapEnv by label sets, runs both computations, reunites CapEnvs.
-// LeftLabels/RightLabels are refined by RefineMergeLabels after constraint
-// resolution (initial extraction in inferMerge may see unresolved metas).
-// PreLeft/PreRight store pre-state types for deferred label extraction;
-// cleared after refinement.
+// LeftLabels/RightLabels carry the final, refined capability label sets:
+// the checker first records tentative labels at inferMerge time, then
+// rewrites them after constraint resolution. The transient pre-state types
+// needed to re-extract labels are kept in a checker-local side table
+// (compiler/check/checker.go), not on the IR node, so the node has no
+// hidden phase distinction — by the time the IR leaves the checker, the
+// labels are final and the struct contains no transient state.
 // FV/FVIndices are populated by AnnotateFreeVars/AssignIndices (like Thunk).
 type Merge struct {
 	Left        Core
 	Right       Core
-	LeftLabels  []string   // capability labels for left computation
-	RightLabels []string   // capability labels for right computation
-	PreLeft     types.Type // pre-state type for deferred label extraction (cleared after refinement)
-	PreRight    types.Type // pre-state type for deferred label extraction (cleared after refinement)
-	LeftFV      []string   // free vars of Left (populated by AnnotateFreeVars)
-	LeftFVIdx   []int      // FV positions in enclosing env (populated by AssignIndices)
-	RightFV     []string   // free vars of Right
-	RightFVIdx  []int      // FV positions in enclosing env
+	LeftLabels  []string // capability labels for left computation
+	RightLabels []string // capability labels for right computation
+	LeftFV      []string // free vars of Left (populated by AnnotateFreeVars)
+	LeftFVIdx   []int    // FV positions in enclosing env (populated by AssignIndices)
+	RightFV     []string // free vars of Right
+	RightFVIdx  []int    // FV positions in enclosing env
 	S           span.Span
 }
 

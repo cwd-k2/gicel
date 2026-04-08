@@ -166,6 +166,22 @@ type Checker struct {
 	// currentBinding is the name of the binding currently being checked.
 	// Used for diagnostic hints (e.g., self-reference without annotation).
 	currentBinding string
+
+	// pendingMergeLabels records the pre-state row types of every Merge
+	// node emitted by inferMerge, keyed by the node pointer. The labels
+	// extracted at inferMerge time can be tentative (the row metas may
+	// still be unsolved); refineMergeLabels drains this table after
+	// constraint resolution and rewrites the labels in place. Keeping
+	// the transient state here rather than on ir.Merge means the IR node
+	// has no observable phase distinction once the checker returns.
+	pendingMergeLabels map[*ir.Merge]pendingMergePre
+}
+
+// pendingMergePre carries the unresolved capability row types whose
+// labels need to be re-extracted after constraint resolution.
+type pendingMergePre struct {
+	Pre1 types.Type
+	Pre2 types.Type
 }
 
 // checkCancelled checks the budget context for cancellation.
@@ -222,32 +238,28 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	return coreProgram, exports, ch.errors
 }
 
-// refineMergeLabels walks the IR after constraint resolution and re-extracts
-// CapEnv labels for Merge nodes whose pre-state meta variables are now solved.
-func (ch *Checker) refineMergeLabels(prog *ir.Program) {
-	for i := range prog.Bindings {
-		ir.Walk(prog.Bindings[i].Expr, func(c ir.Core) bool {
-			m, ok := c.(*ir.Merge)
-			if !ok {
-				return true
+// refineMergeLabels rewrites Merge.LeftLabels/RightLabels using the
+// pre-state row types recorded in pendingMergeLabels at inferMerge time,
+// now that constraint resolution has solved the row metavariables. The
+// side table is drained after refinement so the pre-state types can be
+// garbage collected; refineMergeLabels takes a *ir.Program argument only
+// for symmetry with the other passes (the IR is no longer walked).
+func (ch *Checker) refineMergeLabels(_ *ir.Program) {
+	for m, pre := range ch.pendingMergeLabels {
+		if pre.Pre1 != nil {
+			labels := ch.extractRowLabels(ch.unifier.Zonk(pre.Pre1))
+			if labels != nil {
+				m.LeftLabels = labels
 			}
-			if m.PreLeft != nil {
-				labels := ch.extractRowLabels(ch.unifier.Zonk(m.PreLeft))
-				if labels != nil {
-					m.LeftLabels = labels
-				}
-				m.PreLeft = nil
+		}
+		if pre.Pre2 != nil {
+			labels := ch.extractRowLabels(ch.unifier.Zonk(pre.Pre2))
+			if labels != nil {
+				m.RightLabels = labels
 			}
-			if m.PreRight != nil {
-				labels := ch.extractRowLabels(ch.unifier.Zonk(m.PreRight))
-				if labels != nil {
-					m.RightLabels = labels
-				}
-				m.PreRight = nil
-			}
-			return true
-		})
+		}
 	}
+	clear(ch.pendingMergeLabels)
 }
 
 // newChecker initializes a Checker, imports modules, and returns it
