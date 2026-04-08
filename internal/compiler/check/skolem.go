@@ -58,40 +58,48 @@ func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s 
 	}
 }
 
-// checkSkolemEscapeInSolutions checks that a skolem does not appear in
-// solutions for metas created before the given scope boundary (preID).
-// Metas created after the skolem are in its scope and may reference it.
-// Belt-and-suspenders check: when level-based touchability is enabled,
-// this should never fire (the touchability guard prevents the escape).
+// checkSkolemEscapeSince checks that no soln write that happened at or
+// after trailPos with metaID ≤ preID contains the target skolem.
 //
-// Cost note: this is called once per polymorphic binding via
-// `bidir.go:checkAgainst`'s TyForall arm, which makes it run O(N) times
-// per Prelude compile where N = number of forall introductions. Hot
-// path optimization is therefore valuable even though the loop body
-// rarely matches.
+// This is the *belt-and-suspenders* safety net for skolem escape. When
+// level-based touchability is enabled, the guard in solveMeta prevents
+// outer metas from being solved with inner-scope values. However, trial
+// scopes (withTrial / withProbe) deliberately disable touchability so
+// that speculative unifications can probe without commitment. A trial
+// that succeeds and commits its solutions can in principle write a
+// pre-preID meta with a value containing the active skolem — at which
+// point this check is the only thing standing between the type checker
+// and silently broken types.
 //
-// Filtering order: HasMeta(soln) is checked before Zonk so that ground
-// solutions are pruned in O(1) (FlagMetaFree fast path on composites).
-// containsSkolem itself does not re-Zonk; the caller's single Zonk
-// covers the whole subtree.
-func (ch *Checker) checkSkolemEscapeInSolutions(skolem *types.TySkolem, preID int, s span.Span) {
+// The previous full-map iteration walked u.Solutions() per polymorphic
+// binding (once per TyForall introduction), which was O(total solns)
+// per call. The cold-start profile showed this consuming 9.43% cum CPU
+// on a Prelude compile, making it the largest single CPU consumer in
+// the type checker after substDepth. The trail-incremental version
+// walks only the writes that actually happened during the body, which
+// for a typical forall body is a tiny fraction of the full soln map.
+//
+// Algorithm: VisitSolnWritesSince enumerates each unique meta written
+// since trailPos. For each ID ≤ preID we read the current value via
+// Solve and run the same Zonk + containsSkolem check as before.
+func (ch *Checker) checkSkolemEscapeSince(skolem *types.TySkolem, preID int, trailPos int, s span.Span) {
 	ids := map[int]string{skolem.ID: skolem.Name}
-	for metaID, soln := range ch.unifier.Solutions() {
-		if metaID > preID {
-			continue // meta is within the skolem's scope
-		}
-		// Ground solutions (no TyMeta or TySkolem) cannot contain the
-		// target skolem after Zonk — skip via the FlagMetaFree fast path.
-		if !types.HasMeta(soln) {
-			continue
-		}
-		zonked := ch.unifier.Zonk(soln)
-		if _, found := ch.containsSkolem(zonked, ids); found {
-			ch.addCodedError(diagnostic.ErrSkolemEscape, s,
-				"type variable '"+skolem.Name+"' would escape its scope")
+	var found bool
+	ch.unifier.VisitSolnWritesSince(trailPos, func(metaID int) {
+		if found || metaID > preID {
 			return
 		}
-	}
+		soln := ch.unifier.Solve(metaID)
+		if soln == nil || !types.HasMeta(soln) {
+			return
+		}
+		zonked := ch.unifier.Zonk(soln)
+		if _, ok := ch.containsSkolem(zonked, ids); ok {
+			ch.addCodedError(diagnostic.ErrSkolemEscape, s,
+				"type variable '"+skolem.Name+"' would escape its scope")
+			found = true
+		}
+	})
 }
 
 // removeSkolemIDsFrom removes any skolem IDs found in ty from the ids map.

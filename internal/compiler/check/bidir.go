@@ -329,6 +329,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 		}
 		ch.enterSolverScope()
 		preID := ch.freshID // belt-and-suspenders scope boundary
+		trailPos := ch.unifier.TrailLen()
 		skolem := ch.freshSkolem(f.Var, f.Kind)
 		ch.ctx.Push(&CtxTyVar{Name: f.Var, Kind: f.Kind})
 		bodyCore := ch.check(expr, types.Subst(f.Body, f.Var, skolem))
@@ -336,8 +337,11 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 		ch.exitSolverScope()
 		// Belt-and-suspenders: verify skolem didn't leak into outer solutions.
 		// Touchability (when enabled) prevents this structurally; this check
-		// detects level-system bugs.
-		ch.checkSkolemEscapeInSolutions(skolem, preID, expr.Span())
+		// detects level-system bugs and trial-scope commits that bypassed
+		// touchability via SolverLevel = -1. The trail-incremental walk
+		// inspects only soln writes that happened during the body, not the
+		// full Solutions() map.
+		ch.checkSkolemEscapeSince(skolem, preID, trailPos, expr.Span())
 		return &ir.TyLam{TyParam: f.Var, Kind: f.Kind, Body: bodyCore, S: expr.Span()}
 	}
 

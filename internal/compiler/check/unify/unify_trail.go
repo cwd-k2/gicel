@@ -89,6 +89,41 @@ func (u *Unifier) Restore(snap Snapshot) {
 	u.snapshotDepth--
 }
 
+// TrailLen returns the current trail length, suitable as a position
+// marker passed to VisitSolnWritesSince. Use to record the start of a
+// scope before running checker work; afterwards, walking from the saved
+// position visits exactly the soln writes that happened during the
+// scope.
+//
+// Cheap (one slice length read). No allocation. Safe outside snapshot
+// scopes — the trail accumulates writes regardless of snapshot depth.
+func (u *Unifier) TrailLen() int { return len(u.trail) }
+
+// VisitSolnWritesSince calls fn for each soln write at or after the
+// given trail position, in trail order. fn receives the meta ID; the
+// caller can resolve the current value via Solve(id).
+//
+// NOT deduplicated: if the same meta was written multiple times in
+// the range (e.g. via path compression), fn is called multiple times
+// with the same id. Callers whose check is idempotent over the current
+// value can ignore the duplicates; callers that need exactly one visit
+// per id must dedupe themselves. The non-deduping API eliminates a
+// dedup-map allocation per call.
+//
+// Used by the bidirectional checker's TyForall arm to walk only the
+// soln writes that happened during the body, instead of iterating the
+// entire soln map. The cold-start profile showed the full-map
+// iteration consuming 9.43% cum CPU on Prelude before this method was
+// introduced.
+func (u *Unifier) VisitSolnWritesSince(pos int, fn func(metaID int)) {
+	for i := pos; i < len(u.trail); i++ {
+		e := &u.trail[i]
+		if e.tag == trailSoln {
+			fn(e.id)
+		}
+	}
+}
+
 // trailSolnWrite records the current soln[id] value before mutation.
 
 // trailSolnWrite records the current soln[id] value before mutation.

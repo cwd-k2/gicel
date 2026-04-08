@@ -93,3 +93,66 @@ bad := \e. case e { MkExists x => x }
 `
 	checkSourceExpectError(t, source, nil)
 }
+
+// TestProbeD_Skolem_TrailBasedCheckCatchesEscape verifies that the
+// trail-incremental check (checkSkolemEscapeSince) catches the same
+// classes of leaks the previous full-iteration version did. This is the
+// regression guard for the P1 optimization: shrinking the iteration
+// scope from "all soln" to "writes since trailPos" must NOT lose any
+// real escape detection.
+//
+// We construct a scenario that causes a skolem to be written into a
+// pre-existing meta and verify the diagnostic fires. The mechanism:
+// the existential's hidden type appears in a context where the checker
+// instantiates a polymorphic helper, and the metas of the helper end
+// up referencing the skolem.
+func TestProbeD_Skolem_TrailBasedCheckCatchesEscape(t *testing.T) {
+	source := `
+form Bool := { True: Bool; False: Bool; }
+form Exists := { MkExists: \ a. a -> Exists }
+
+id :: \ a. a -> a
+id := \x. x
+
+-- Like the existential escape above, but routed through a polymorphic
+-- helper. The helper's fresh metas may end up holding the skolem,
+-- which the trail-based check must still catch.
+bad :: Exists -> Bool
+bad := \e. case e { MkExists x => id x }
+`
+	checkSourceExpectError(t, source, nil)
+}
+
+// TestProbeD_Skolem_NoFalsePositiveOnPolymorphicBody verifies that the
+// trail-based check does NOT raise false positives on a polymorphic
+// body whose metas all reference only in-scope skolems. The previous
+// full-iteration check would walk all solns; the trail-based version
+// walks only writes within the body. Both must agree on "no escape" for
+// well-typed polymorphic code.
+func TestProbeD_Skolem_NoFalsePositiveOnPolymorphicBody(t *testing.T) {
+	source := `
+form Bool := { True: Bool; False: Bool; }
+
+-- A polymorphic body with multiple metas being solved during checking.
+-- All solutions should reference only the local skolem 'a' or be ground.
+poly :: \ a. a -> a -> a
+poly := \x. \y. x
+`
+	checkSource(t, source, nil)
+}
+
+// TestProbeD_Skolem_NestedForallNoLeak verifies that nested foralls
+// each get their own trailPos and the inner check does not see writes
+// from the outer scope as leaks.
+func TestProbeD_Skolem_NestedForallNoLeak(t *testing.T) {
+	source := `
+form Bool := { True: Bool; False: Bool; }
+
+-- const: outer skolem 'a', inner skolem 'b'. Both must be in scope of
+-- their respective foralls; the trail-based check at each level must
+-- only see writes inside that level's body.
+constant :: \ a. \ b. a -> b -> a
+constant := \x. \y. x
+`
+	checkSource(t, source, nil)
+}
