@@ -73,6 +73,14 @@ type Engine struct {
 	runtimeFpValid   bool
 	runtimeFp        [32]byte
 	fpScratch        bytes.Buffer
+
+	// pipelineCtxCache is the embedded pipelineCtx returned by pipeline().
+	// Since the Engine is single-goroutine and pipeline() callers use
+	// the returned *pipelineCtx synchronously within one Engine method
+	// (no nesting, no escaping), we can reuse a single embedded value
+	// across all calls and skip the per-call allocation. The fields are
+	// re-populated on every pipeline() invocation.
+	pipelineCtxCache pipelineCtx
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -262,25 +270,31 @@ func (e *Engine) RegisterModuleFile(path string) error {
 	return e.RegisterModule(name, string(data))
 }
 
-// pipeline creates a pipelineCtx from the current Engine state.
+// pipeline returns the Engine's reusable pipelineCtx, populating its
+// fields from the current Engine state. The returned *pipelineCtx
+// MUST be used synchronously within the calling Engine method and
+// MUST NOT escape (subsequent pipeline() calls overwrite the same
+// struct in place). This is sound under the documented Engine
+// single-goroutine invariant — pipeline() invocations never nest and
+// never run concurrently.
 func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 	ep := e.entryPoint
 	if ep == "" {
 		ep = DefaultEntryPoint
 	}
-	return &pipelineCtx{
-		engine:          e,
-		ctx:             ctx,
-		host:            &e.host,
-		store:           &e.store,
-		limits:          &e.limits,
-		traceHook:       e.checkTraceHook,
-		entryPoint:      ep,
-		denyAssumptions: e.denyAssumptions,
-		noInline:        e.noInline,
-		verifyIR:        e.verifyIR,
-		typeRecorder:    e.typeRecorder,
-	}
+	pc := &e.pipelineCtxCache
+	pc.engine = e
+	pc.ctx = ctx
+	pc.host = &e.host
+	pc.store = &e.store
+	pc.limits = &e.limits
+	pc.traceHook = e.checkTraceHook
+	pc.entryPoint = ep
+	pc.denyAssumptions = e.denyAssumptions
+	pc.noInline = e.noInline
+	pc.verifyIR = e.verifyIR
+	pc.typeRecorder = e.typeRecorder
+	return pc
 }
 
 // ValidateModuleName checks that name is a valid module identifier.

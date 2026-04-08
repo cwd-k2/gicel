@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"unsafe"
 )
 
 // runtimeCache is the process-level cache for fully assembled Runtimes.
@@ -76,11 +77,23 @@ func RuntimeCacheLen() int {
 // The fingerprint itself is cached on the Engine and invalidated on
 // mutation; see Engine.runtimeFingerprint.
 func (pc *pipelineCtx) computeRuntimeCacheKey(source string) runtimeCacheKey {
-	sourceHash := sha256.Sum256([]byte(source))
 	return runtimeCacheKey{
-		sourceHash:         sourceHash,
+		sourceHash:         sha256SumString(source),
 		runtimeFingerprint: pc.engine.runtimeFingerprint(),
 	}
+}
+
+// sha256SumString hashes a string without the per-call []byte(source)
+// allocation. sha256.Sum256 reads its input only and never retains a
+// reference, so an unsafe view into the string's read-only bytes is
+// sound — the alternative is the standard `[]byte(source)` cast which
+// copies the entire source on every call (the dominant remaining
+// allocation on the cached NewRuntime path).
+func sha256SumString(s string) [32]byte {
+	if len(s) == 0 {
+		return sha256.Sum256(nil)
+	}
+	return sha256.Sum256(unsafe.Slice(unsafe.StringData(s), len(s)))
 }
 
 // invalidateFingerprints marks both the module-env and runtime
@@ -196,7 +209,7 @@ func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
 		b.WriteByte('=')
 		mod := e.store.modules[n]
 		if mod.source != nil {
-			h := sha256.Sum256([]byte(mod.source.Text))
+			h := sha256SumString(mod.source.Text)
 			b.Write(h[:])
 		}
 		b.WriteByte(0)

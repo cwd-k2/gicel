@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"crypto/sha256"
 	"sort"
 	"sync"
 
@@ -54,11 +53,11 @@ func ModuleCacheLen() int {
 // source text and the full compile environment. The environment
 // fingerprint content is defined by Engine.moduleEnvFingerprint and
 // cached there — this function just combines it with the main source
-// hash.
+// hash. Hashes the source via sha256SumString to skip the []byte
+// conversion alloc.
 func (pc *pipelineCtx) computeModuleCacheKey(source string) moduleCacheKey {
-	sourceHash := sha256.Sum256([]byte(source))
 	return moduleCacheKey{
-		sourceHash:     sourceHash,
+		sourceHash:     sha256SumString(source),
 		envFingerprint: pc.engine.moduleEnvFingerprint(),
 	}
 }
