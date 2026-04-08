@@ -332,7 +332,12 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			if err := u.Unify(at.Result, bt.Result); err != nil {
 				return err
 			}
-			// Unify grades: both nil = OK, one nil = skip (ungraded compat).
+			// CBPV grade duality (see types/doc.go): the ungraded 3-arg form
+			// (Grade == nil) is treated by Unify as compatible with any
+			// graded 4-arg form. This is the language-level sugar that lets
+			// users write `Computation pre post a` without committing to a
+			// specific grade. Equal and TypeKey remain strict for soundness
+			// of inert-set caching and substitution.
 			if at.Grade != nil && bt.Grade != nil {
 				return u.Unify(at.Grade, bt.Grade)
 			}

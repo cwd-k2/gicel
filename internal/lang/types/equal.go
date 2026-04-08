@@ -66,6 +66,11 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		if !equalAlpha(at.Pre, bt.Pre, bindings) || !equalAlpha(at.Post, bt.Post, bindings) || !equalAlpha(at.Result, bt.Result, bindings) {
 			return false
 		}
+		// CBPV grade duality (see types/doc.go): Equal is structural and
+		// distinguishes the ungraded form (nil Grade) from any graded form,
+		// even though Unify treats them as compatible. Keeping Equal strict
+		// preserves the substitution principle for TypeKey-based caching:
+		// two types Equal here always have the same TypeKey.
 		if at.Grade == nil && bt.Grade == nil {
 			return true
 		}

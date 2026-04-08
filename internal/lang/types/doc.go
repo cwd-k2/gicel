@@ -51,9 +51,47 @@
 //
 // Constraint entries are kept in insertion order; ConstraintKey
 // provides the canonical serialization used for stable display and
-// set membership. Quantified constraints (forall a. Ctx => Head)
-// are represented by a non-nil ConstraintEntry.Quantified; the outer
-// ClassName/Args describe the head constraint for fast matching.
+// set membership. ConstraintEntry is a sealed interface with four
+// concrete variants (ClassEntry, EqualityEntry, VarEntry,
+// QuantifiedConstraint); see constraint_entry.go for the design.
+//
+// # CBPV grade duality
+//
+// TyCBPV (Computation/Thunk) has two surface forms that share the
+// same node type:
+//
+//	Ungraded (3-arg):  Computation pre post a
+//	Graded   (4-arg):  Computation @g pre post a
+//
+// The Grade field is nil in the ungraded form and non-nil in the
+// graded form. Both forms are first-class — neither is "legacy", and
+// the Prelude itself uses both (e.g., merge/dag/Gate are 3-arg while
+// seq and Effect are 4-arg).
+//
+// The semantic relationship is asymmetric across operations:
+//
+//	Operation  | nil ⊕ non-nil grade  | rationale
+//	-----------|----------------------|-------------------------------
+//	Equal      | not equal (strict)   | structural identity
+//	TypeKey    | distinct keys        | substitution principle
+//	Unify      | compatible           | sugar: ungraded = "any grade"
+//
+// Unify treats an ungraded type as compatible with any graded type by
+// skipping the grade comparison when either side is nil. This is the
+// language-level sugar that lets users write merge/dag/Gate without
+// committing to a grade algebra. Equal and TypeKey are stricter so
+// that the inert set, type family caching, and identity comparisons
+// remain sound under the substitution principle. The asymmetry mirrors
+// the standard Unify-vs-Equal split: a meta unifies with Int but is
+// not structurally equal to Int.
+//
+// 3-arg recognition happens in two places. resolve_type.go's
+// tryExpandApp uses a row-literal heuristic at parse time (only fires
+// when the first argument is a TyEvidenceRow literal); for 3-arg uses
+// where the first arg is a TyVar (e.g., the Prelude merge signature),
+// the resolver leaves a raw TyApp chain and unify_normalize.go's
+// normalizeCompApp converts it to TyCBPV at unification time, where
+// the depth-3 chain unambiguously means 3-arg.
 //
 // # Meta variables
 //

@@ -245,10 +245,14 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			}
 		}
 	}
-	// 3-arg legacy: Computation pre post result (no @ grade annotation).
-	// Only fires when the first arg is a row literal (TyEvidenceRow),
-	// distinguishing from partial 4-arg applications where the first arg
-	// is a grade (TyCon, TyVar, etc.).
+	// 3-arg ungraded form: Computation pre post result (no @ grade
+	// annotation). This branch is a fast-path heuristic that fires only
+	// when the first arg is a row literal (TyEvidenceRow), so a partial
+	// 4-arg application — whose first arg is a grade (TyCon, TyVar) —
+	// is not misclassified. For ungraded uses where the first arg is a
+	// TyVar (e.g., the Prelude `merge` signature), this branch does not
+	// fire and the resolver leaves a raw TyApp chain; the unifier then
+	// converts it via normalizeCompApp at unification time.
 	if app2, ok := fun.(*types.TyApp); ok {
 		if app1, ok := app2.Fun.(*types.TyApp); ok {
 			if con, ok := app1.Fun.(*types.TyCon); ok {

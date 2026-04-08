@@ -76,12 +76,22 @@ const (
 	TyConRecord      = "Record"
 )
 
-// TyCBPV is a CBPV computation or thunk type: Computation pre post a / Thunk pre post a.
-// Grade is an optional per-computation usage grade (nil = ungraded).
+// TyCBPV is a CBPV computation or thunk type. It has two surface forms:
+//
+//   - Ungraded (3-arg):  Computation pre post a   / Thunk pre post a
+//   - Graded   (4-arg):  Computation @g pre post a / Thunk @g pre post a
+//
+// Grade is the optional per-computation usage grade. A nil Grade means the
+// type was written in ungraded form — the user did not commit to a specific
+// grade algebra. See the package comment under "CBPV grade duality" for the
+// semantic relationship between the two forms; in short, ungraded types are
+// treated by the unifier as compatible with any graded form (the grade check
+// is skipped when either side is nil), while structural Equal and TypeKey
+// keep them distinct.
 type TyCBPV struct {
 	Tag               CBPVTag
 	Pre, Post, Result Type
-	Grade             Type // nil = ungraded (backward compatible)
+	Grade             Type // nil = ungraded surface form (3-arg)
 	Flags             uint8
 	S                 span.Span
 }

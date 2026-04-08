@@ -23,13 +23,19 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 	return normalizeCompApp(t)
 }
 
-// normalizeCompApp converts fully-applied TyApp chains to their special type
-// representations. Handles both 4-arg (graded) and 3-arg (legacy) forms:
+// normalizeCompApp converts fully-applied TyApp chains to their TyCBPV
+// representation. Handles both surface forms:
 //
-//	4-arg: TyApp(TyApp(TyApp(TyApp(TyCon("Computation"), grade), pre), post), result)
-//	3-arg: TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
+//	4-arg (graded):   TyApp(TyApp(TyApp(TyApp(TyCon("Computation"), grade), pre), post), result)
+//	3-arg (ungraded): TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 //
-// This arises when a class type parameter is substituted with Computation.
+// Both forms are first-class — see "CBPV grade duality" in package types
+// doc.go for the semantics. The 3-arg form arises when a class type
+// parameter is substituted with Computation, or when the resolver left a
+// raw TyApp chain because its row-literal heuristic failed (e.g., for
+// `Computation pre post a` where pre is a TyVar). At normalization time,
+// the depth-3 chain with Computation/Thunk head is unambiguously the
+// ungraded form.
 func normalizeCompApp(t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
 	if !ok {
@@ -54,11 +60,11 @@ func normalizeCompApp(t types.Type) types.Type {
 			}
 		}
 	}
-	// 3-arg legacy: Computation pre post result (grade omitted).
+	// 3-arg ungraded form: Computation pre post result (grade omitted).
 	// normalizeCompApp runs during unification/zonking, where the full chain
 	// is visible. Safe to normalize without Row restriction because depth-3
-	// with Computation head can only be 3-arg at this point (4-arg would
-	// have been caught by the 4-arg check above which requires depth-4).
+	// with Computation head can only be the ungraded form at this point
+	// (4-arg would have been caught above, which requires depth-4).
 	con, ok := app3.Fun.(*types.TyCon)
 	if !ok {
 		return t

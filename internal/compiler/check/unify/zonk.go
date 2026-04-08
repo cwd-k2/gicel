@@ -65,9 +65,11 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		} else {
 			result = &types.TyApp{Fun: zFun, Arg: zArg, IsGrade: ty.IsGrade, Flags: types.MetaFreeFlags(zFun, zArg), S: ty.S}
 		}
-		// Try 4-arg normalization only (depth-4 Computation/Thunk chains).
-		// 3-arg normalization is deferred to normalizeCompApp during unification
-		// to avoid the 3-arg/4-arg ambiguity at resolver time.
+		// Try 4-arg (graded) normalization only — depth-4 Computation/Thunk
+		// chains. The 3-arg ungraded form is deferred to normalizeCompApp
+		// during unification, where the depth-3 chain is unambiguous; doing
+		// it here would prematurely commit a partial 4-arg application
+		// (still missing its result arg) to the ungraded interpretation.
 		if norm := normalizeCompApp4Only(result); norm != result {
 			return norm
 		}
