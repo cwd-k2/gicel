@@ -386,6 +386,74 @@ func SubstMany(t Type, typeSubs map[string]Type, levelSubs map[string]LevelExpr)
 	return substManyOpt(t, typeSubs, levelSubs, &fvUnion, 0)
 }
 
+// PeelForalls instantiates a chain of TyForall binders by repeatedly calling
+// visit for each peeled binder. visit returns the replacement type for the
+// binder; for level-kinded binders it also returns a LevelExpr that targets
+// level positions of the same name (the type half is still required because
+// the same variable name can flow into both type and level positions).
+//
+// Substitution is applied lazily: when the chain has exactly one binder, a
+// single Subst (plus optional SubstLevel) is used with no map allocation.
+// Two or more binders allocate the substitution map at the second binder
+// — the "deferred materialization" pattern. This replaces the K=1 / K>=2
+// dispatch that previously had to live in line at every call site, where
+// it duplicated ~30 lines of bookkeeping each. The performance trade-off
+// of the look-ahead `f1.Body.(*TyForall)` type assertion (which leaked into
+// Tier 4 micro benches as a +1-5% regression after S2) is gone — the new
+// dispatch is a single bool check on the second iteration only.
+//
+// Returns the body type after all substitutions, or t unchanged when t is
+// not a TyForall.
+func PeelForalls(t Type, visit func(f *TyForall) (typeRepl Type, levelRepl LevelExpr)) Type {
+	var (
+		firstVar    string
+		firstRepl   Type
+		firstLevel  LevelExpr
+		hasFirst    bool
+		typeSubs    map[string]Type
+		levelSubs   map[string]LevelExpr
+	)
+	for {
+		f, ok := t.(*TyForall)
+		if !ok {
+			break
+		}
+		repl, lvl := visit(f)
+		if !hasFirst {
+			firstVar = f.Var
+			firstRepl = repl
+			firstLevel = lvl
+			hasFirst = true
+		} else {
+			if typeSubs == nil {
+				typeSubs = map[string]Type{firstVar: firstRepl}
+				if firstLevel != nil {
+					levelSubs = map[string]LevelExpr{firstVar: firstLevel}
+				}
+			}
+			typeSubs[f.Var] = repl
+			if lvl != nil {
+				if levelSubs == nil {
+					levelSubs = map[string]LevelExpr{}
+				}
+				levelSubs[f.Var] = lvl
+			}
+		}
+		t = f.Body
+	}
+	if !hasFirst {
+		return t
+	}
+	if typeSubs != nil {
+		return SubstMany(t, typeSubs, levelSubs)
+	}
+	// K=1: single binder, fast path with no map.
+	if firstLevel != nil {
+		t = SubstLevel(t, firstVar, firstLevel)
+	}
+	return Subst(t, firstVar, firstRepl)
+}
+
 // PreparedSubst pre-computes state for applying the same substitution to
 // multiple types, avoiding repeated fvUnion computation across calls.
 //

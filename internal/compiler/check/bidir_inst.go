@@ -13,48 +13,13 @@ import (
 func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Type) {
 	ty = ch.unifier.Zonk(ty)
 	// Peel foralls: a higher-rank return type (e.g., from mkId :: () -> \a. a -> a)
-	// must be instantiated before arrow decomposition. K=1 takes the
-	// allocation-free Subst path; K>=2 batches into a single SubstMany walk
-	// to amortize the map allocation across multiple binders.
-	for {
-		f1, ok := ty.(*types.TyForall)
-		if !ok {
-			break
+	// must be instantiated before arrow decomposition.
+	ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+		if isLevelKind(f.Kind) {
+			return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
 		}
-		if _, nested := f1.Body.(*types.TyForall); !nested {
-			// K=1 fast path: single Subst, no map.
-			if isLevelKind(f1.Kind) {
-				lm := ch.unifier.FreshLevelMeta()
-				km := ch.freshMeta(types.SortZero)
-				ty = types.SubstLevel(f1.Body, f1.Var, lm)
-				ty = types.Subst(ty, f1.Var, km)
-			} else {
-				meta := ch.freshMeta(f1.Kind)
-				ty = types.Subst(f1.Body, f1.Var, meta)
-			}
-			continue
-		}
-		// K>=2: batch all visible foralls into one SubstMany walk.
-		typeSubs := map[string]types.Type{}
-		var levelSubs map[string]types.LevelExpr
-		for {
-			f, ok := ty.(*types.TyForall)
-			if !ok {
-				break
-			}
-			if isLevelKind(f.Kind) {
-				if levelSubs == nil {
-					levelSubs = map[string]types.LevelExpr{}
-				}
-				levelSubs[f.Var] = ch.unifier.FreshLevelMeta()
-				typeSubs[f.Var] = ch.freshMeta(types.SortZero)
-			} else {
-				typeSubs[f.Var] = ch.freshMeta(f.Kind)
-			}
-			ty = f.Body
-		}
-		ty = types.SubstMany(ty, typeSubs, levelSubs)
-	}
+		return ch.freshMeta(f.Kind), nil
+	})
 	// Reduce type family applications before arrow decomposition.
 	// check() already reduces the expected type, but matchArrow is also called
 	// from infer paths where the type may not have been pre-reduced.
@@ -150,8 +115,7 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, ir.Core) {
 func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core) {
 	for {
 		ty = ch.unifier.Zonk(ty)
-		f1, ok := ty.(*types.TyForall)
-		if !ok {
+		if _, ok := ty.(*types.TyForall); !ok {
 			if ev, ok := ty.(*types.TyEvidence); ok {
 				for _, entry := range ev.Constraints.ConEntries() {
 					if eq, ok := entry.(*types.EqualityEntry); ok {
@@ -167,51 +131,19 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 			}
 			return ty, expr
 		}
-		// K=1 fast path: peel only one forall using direct Subst (no map alloc).
-		if _, nested := f1.Body.(*types.TyForall); !nested {
-			if isLevelKind(f1.Kind) {
-				lm := ch.unifier.FreshLevelMeta()
-				km := ch.freshMeta(types.SortZero)
-				ty = types.SubstLevel(f1.Body, f1.Var, lm)
-				ty = types.Subst(ty, f1.Var, km)
-				// Levels are erased — no TyApp node emitted.
-			} else {
-				meta := ch.freshMeta(f1.Kind)
-				if ch.config.Trace != nil {
-					ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
-						types.Pretty(ty), f1.Var, types.Pretty(meta), meta.ID)
-				}
-				ty = types.Subst(f1.Body, f1.Var, meta)
-				expr = &ir.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
-			}
-			continue
-		}
-		// K>=2: batch all visible foralls into one SubstMany walk.
-		typeSubs := map[string]types.Type{}
-		var levelSubs map[string]types.LevelExpr
-		for {
-			f, ok := ty.(*types.TyForall)
-			if !ok {
-				break
-			}
+		ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 			if isLevelKind(f.Kind) {
-				if levelSubs == nil {
-					levelSubs = map[string]types.LevelExpr{}
-				}
-				levelSubs[f.Var] = ch.unifier.FreshLevelMeta()
-				typeSubs[f.Var] = ch.freshMeta(types.SortZero)
-			} else {
-				meta := ch.freshMeta(f.Kind)
-				if ch.config.Trace != nil {
-					ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
-						types.Pretty(ty), f.Var, types.Pretty(meta), meta.ID)
-				}
-				typeSubs[f.Var] = meta
-				expr = &ir.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
+				// Levels are erased — no TyApp node emitted.
+				return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
 			}
-			ty = f.Body
-		}
-		ty = types.SubstMany(ty, typeSubs, levelSubs)
+			meta := ch.freshMeta(f.Kind)
+			if ch.config.Trace != nil {
+				ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
+					types.Pretty(f), f.Var, types.Pretty(meta), meta.ID)
+			}
+			expr = &ir.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
+			return meta, nil
+		})
 	}
 }
 

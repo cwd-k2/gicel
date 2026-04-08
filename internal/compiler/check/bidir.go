@@ -498,8 +498,7 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 	for {
 		inferred = ch.unifier.Zonk(inferred)
 		// Inferred ∀a. A ≤ B  →  instantiate a, check A[a:=?m] ≤ B.
-		f1, ok := inferred.(*types.TyForall)
-		if !ok {
+		if _, ok := inferred.(*types.TyForall); !ok {
 			// Inferred { C1, C2 } => A ≤ B  →  defer all constraints, check A ≤ B
 			if ev, ok := inferred.(*types.TyEvidence); ok {
 				for _, entry := range ev.Constraints.ConEntries() {
@@ -517,47 +516,17 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 			}
 			return expr
 		}
-		// K=1 fast path: single forall, peel via direct Subst (no map alloc).
-		if _, nested := f1.Body.(*types.TyForall); !nested {
-			if isLevelKind(f1.Kind) {
-				lm := ch.unifier.FreshLevelMeta()
-				km := ch.freshMeta(types.SortZero)
-				inferred = types.SubstLevel(f1.Body, f1.Var, lm)
-				inferred = types.Subst(inferred, f1.Var, km)
-			} else if isSortKind(f1.Kind) {
-				km := ch.freshMeta(types.SortZero)
-				inferred = types.Subst(f1.Body, f1.Var, km)
-			} else {
-				meta := ch.freshMeta(f1.Kind)
-				inferred = types.Subst(f1.Body, f1.Var, meta)
-				expr = &ir.TyApp{Expr: expr, TyArg: meta, S: s}
-			}
-			continue
-		}
-		// K>=2: batch all visible foralls into one SubstMany walk.
-		typeSubs := map[string]types.Type{}
-		var levelSubs map[string]types.LevelExpr
-		for {
-			f, ok := inferred.(*types.TyForall)
-			if !ok {
-				break
-			}
+		inferred = types.PeelForalls(inferred, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 			if isLevelKind(f.Kind) {
-				if levelSubs == nil {
-					levelSubs = map[string]types.LevelExpr{}
-				}
-				levelSubs[f.Var] = ch.unifier.FreshLevelMeta()
-				typeSubs[f.Var] = ch.freshMeta(types.SortZero)
-			} else if isSortKind(f.Kind) {
-				typeSubs[f.Var] = ch.freshMeta(types.SortZero)
-			} else {
-				meta := ch.freshMeta(f.Kind)
-				typeSubs[f.Var] = meta
-				expr = &ir.TyApp{Expr: expr, TyArg: meta, S: s}
+				return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
 			}
-			inferred = f.Body
-		}
-		inferred = types.SubstMany(inferred, typeSubs, levelSubs)
+			if isSortKind(f.Kind) {
+				return ch.freshMeta(types.SortZero), nil
+			}
+			meta := ch.freshMeta(f.Kind)
+			expr = &ir.TyApp{Expr: expr, TyArg: meta, S: s}
+			return meta, nil
+		})
 	}
 }
 

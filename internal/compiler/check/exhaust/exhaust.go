@@ -106,32 +106,18 @@ func (e *CheckEnv) constructorArgTypes(conName string, scrutTy types.Type) []typ
 
 // instantiateForExhaust strips foralls and evidence qualifiers by substituting
 // fresh metas. Used to extract constructor argument types for exhaustiveness.
-// K=1 takes the allocation-free Subst path; K>=2 batches into one SubstMany.
 func (e *CheckEnv) instantiateForExhaust(ty types.Type) types.Type {
 	for {
-		f1, ok := ty.(*types.TyForall)
-		if !ok {
+		if _, ok := ty.(*types.TyForall); !ok {
 			if ev, ok := ty.(*types.TyEvidence); ok {
 				ty = ev.Body
 				continue
 			}
 			return ty
 		}
-		if _, nested := f1.Body.(*types.TyForall); !nested {
-			m := &types.TyMeta{ID: e.Fresh(), Kind: f1.Kind}
-			ty = types.Subst(f1.Body, f1.Var, m)
-			continue
-		}
-		typeSubs := map[string]types.Type{}
-		for {
-			f, ok := ty.(*types.TyForall)
-			if !ok {
-				break
-			}
-			typeSubs[f.Var] = &types.TyMeta{ID: e.Fresh(), Kind: f.Kind}
-			ty = f.Body
-		}
-		ty = types.SubstMany(ty, typeSubs, nil)
+		ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+			return &types.TyMeta{ID: e.Fresh(), Kind: f.Kind}, nil
+		})
 	}
 }
 
