@@ -92,8 +92,16 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 
 	p.expect(syn.TokColonEq)
 
-	// ADT shorthand: form Name := Con1 | Con2 fields | ...
-	if p.peek().Kind == syn.TokUpper && p.looksLikePipeADT() {
+	// ADT shorthand: form Name := Con1 | Con2 fields | ...          (multi-con)
+	// or             form Name := SingleCon followed by end-of-decl (single-con)
+	//
+	// The single-con form is documented in features.adt as `Con (| Con)*`
+	// (zero or more additional constructors). A bare `form Name := Bar`
+	// without single-con detection would otherwise parse as a constructorless
+	// nominal type (body is TyExprCon "Bar"), which is useless because
+	// the resulting type has no way to be constructed. Detecting it as
+	// single-con shorthand registers Bar as a zero-arg constructor of Name.
+	if p.peek().Kind == syn.TokUpper && p.looksLikeADTShorthand() {
 		body := p.parseADTConsAsRow(name, nil, start)
 		return &syn.DeclForm{Name: name, KindAnn: kindAnn, Body: body, IsLazy: isLazy, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
@@ -109,18 +117,27 @@ func (p *Parser) parseFormDecl() *syn.DeclForm {
 	}
 }
 
-// looksLikePipeADT peeks ahead to see if the current position starts a pipe-separated
-// ADT constructor list (e.g., Red | Green | Blue).
-func (p *Parser) looksLikePipeADT() bool {
+// looksLikeADTShorthand peeks ahead to see if the current position starts an
+// ADT constructor shorthand — either pipe-separated (e.g., Red | Green | Blue)
+// or a bare single constructor name followed by end-of-decl (e.g., form End := MkEnd).
+//
+// Returns true if we see TokPipe before any type-continuation token, OR if we
+// reach end-of-decl (newline, semicolon, EOF) with the RHS being a bare TokUpper
+// (no type args, no arrow, no dot).
+func (p *Parser) looksLikeADTShorthand() bool {
 	return p.tb.scanForward(func(tok syn.Token, offset int) (bool, bool) {
 		if tok.Kind == syn.TokPipe {
 			return true, true
 		}
+		// End-of-decl reached without seeing a pipe: if we saw only the
+		// leading Upper (offset == 1 when we encounter the terminator), it's
+		// single-con shorthand. Otherwise the RHS is a richer type expression
+		// (e.g. `form Maybe := Maybe Int` or `form F := F a -> b`), not a shorthand.
 		if tok.Kind == syn.TokSemicolon || tok.Kind == syn.TokEOF {
-			return true, false
+			return true, offset == 1
 		}
 		if tok.NewlineBefore && offset > 0 {
-			return true, false
+			return true, offset == 1
 		}
 		return false, false
 	})

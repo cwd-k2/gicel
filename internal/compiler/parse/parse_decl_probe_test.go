@@ -299,6 +299,51 @@ impl (Eq a, Show a) => MyClass a := { m := \x. x }`
 	t.Error("MyClass impl not found")
 }
 
+// TestProbeFormSingleConShorthand pins the fix for B8: bare
+// `form Name := Con` (single constructor, no pipe, no braces) must be parsed
+// as an ADT shorthand registering Con as a zero-arg constructor of Name —
+// matching the features.adt grammar `Con (| Con)*`. Previously this was
+// parsed as a constructorless nominal type, causing "unknown constructor"
+// at the use site. Discovered by field-test doc critic (2026-04-08).
+//
+// The new rule is: `form Name := BareUpper` (single upper token followed by
+// end-of-decl) is ALWAYS single-con shorthand. Users who want a nominal
+// wrapper over a concrete type must use the brace form
+// `form Name := { MkName: T -> Name }`.
+func TestProbeFormSingleConShorthand(t *testing.T) {
+	// Different name: form End := MkEnd
+	prog := parseMustSucceed(t, "form End := MkEnd")
+	d := prog.Decls[0].(*DeclForm)
+	if _, ok := d.Body.(*TyExprRow); !ok {
+		t.Errorf("form End := MkEnd: expected TyExprRow body (ADT shorthand), got %T", d.Body)
+	}
+	// Same name: form Foo := Foo (phantom-type pattern, as in phantom.gicel)
+	prog = parseMustSucceed(t, "form Foo := Foo")
+	d = prog.Decls[0].(*DeclForm)
+	if _, ok := d.Body.(*TyExprRow); !ok {
+		t.Errorf("form Foo := Foo: expected TyExprRow body (ADT shorthand), got %T", d.Body)
+	}
+	// Bare Upper RHS (even when name exists elsewhere) is shorthand.
+	prog = parseMustSucceed(t, "form Box := Int")
+	d = prog.Decls[0].(*DeclForm)
+	if _, ok := d.Body.(*TyExprRow); !ok {
+		t.Errorf("form Box := Int: expected TyExprRow body (shorthand), got %T", d.Body)
+	}
+	// Multi-con still works (pipe form).
+	prog = parseMustSucceed(t, "form Color := Red | Green | Blue")
+	d = prog.Decls[0].(*DeclForm)
+	if _, ok := d.Body.(*TyExprRow); !ok {
+		t.Errorf("form Color := ...: expected TyExprRow body (multi-con), got %T", d.Body)
+	}
+	// Type application on RHS must NOT be shorthand (parses as type expression).
+	// form Box := Map Int (no shorthand — this is a type, not a constructor).
+	prog = parseMustSucceed(t, "form Box := List Int")
+	d = prog.Decls[0].(*DeclForm)
+	if _, ok := d.Body.(*TyExprApp); !ok {
+		t.Errorf("form Box := List Int: expected TyExprApp body, got %T", d.Body)
+	}
+}
+
 // TestProbeB_DataWithKindedParam checks data with kinded parameter in body.
 // Unified syntax: form F := \(a: Type). { MkF: a }.
 func TestProbeB_DataWithKindedParam(t *testing.T) {
