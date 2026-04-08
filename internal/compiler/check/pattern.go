@@ -23,6 +23,24 @@ type patternResult struct {
 	HasEvidence bool
 }
 
+// mergePatternBindings merges a child pattern's bindings into a parent
+// binding map, diagnosing duplicate names. Patterns must be linear: each
+// bound variable may appear at most once across the whole pattern. The
+// diagnostic points at sp (the child pattern's span). Generated names
+// (dict params from constraint elaboration) are allowed to duplicate
+// themselves because the freshDictName generator guarantees uniqueness;
+// in practice those never collide with user names.
+func (ch *Checker) mergePatternBindings(parent map[string]types.Type, child map[string]types.Type, sp span.Span) {
+	for name, ty := range child {
+		if _, exists := parent[name]; exists {
+			ch.addCodedError(diagnostic.ErrDuplicateLabel, sp,
+				fmt.Sprintf("variable %q is bound more than once in the same pattern", name))
+			continue
+		}
+		parent[name] = ty
+	}
+}
+
 func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternResult {
 	switch p := pat.(type) {
 	case *syntax.PatVar:
@@ -206,7 +224,7 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 		argTy, restTy := ch.matchArrow(currentTy, s)
 		child := ch.checkPattern(argPat, argTy)
 		args = append(args, child.Pattern)
-		maps.Copy(bindings, child.Bindings)
+		ch.mergePatternBindings(bindings, child.Bindings, argPat.Span())
 		maps.Copy(skolemIDs, child.SkolemIDs)
 		currentTy = restTy
 	}

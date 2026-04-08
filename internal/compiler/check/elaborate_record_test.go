@@ -135,6 +135,30 @@ main := f { x: 42 }`
 	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateLabel)
 }
 
+// TestPatternDuplicateBindingTuple pins B3: `(x, x)` (same variable name
+// bound twice in the same pattern) must be rejected with a clear error
+// pointing at the duplicate. Previously the checker silently overwrote
+// the first binding and then blamed the `_` catch-all as "redundant",
+// making the real bug invisible. Discovered by field-test error critic
+// (2026-04-08).
+func TestPatternDuplicateBindingTuple(t *testing.T) {
+	source := `main := case (1, 2) {
+  (x, x) => x;
+  _ => 0
+}`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateLabel)
+}
+
+// TestPatternDuplicateBindingConstructor pins B3 for constructor patterns:
+// `MkPair a a` must be rejected, not silently accepted.
+func TestPatternDuplicateBindingConstructor(t *testing.T) {
+	source := `form Pair := { MkPair: Int -> Int -> Pair }
+main := case (MkPair 1 2) {
+  MkPair a a => a
+}`
+	checkSourceExpectCode(t, source, nil, diagnostic.ErrDuplicateLabel)
+}
+
 func TestRecordCheckModeTypeMismatch(t *testing.T) {
 	// Field type mismatch should error.
 	source := `form Bool := { True: Bool; False: Bool; }
