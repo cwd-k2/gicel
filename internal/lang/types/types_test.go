@@ -283,15 +283,15 @@ func TestEqualAlphaBindingLookupDirection(t *testing.T) {
 
 func TestEvidenceRowConstraintEntriesEqualOrderIndependent(t *testing.T) {
 	// TyEvidenceRow with ConstraintEntries — order should not matter for Equal.
-	eqA := ConstraintEntry{ClassName: "Eq", Args: []Type{Var("a")}}
-	ordB := ConstraintEntry{ClassName: "Ord", Args: []Type{Var("b")}}
+	var eqA ConstraintEntry = &ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}
+	var ordB ConstraintEntry = &ClassEntry{ClassName: "Ord", Args: []Type{Var("b")}}
 	r1 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, ordB}}}
 	r2 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{ordB, eqA}}}
 	if !Equal(r1, r2) {
 		t.Error("TyEvidenceRow with ConstraintEntries Equal should be order-independent")
 	}
 	// Different entries should not be equal.
-	showC := ConstraintEntry{ClassName: "Show", Args: []Type{Var("c")}}
+	var showC ConstraintEntry = &ClassEntry{ClassName: "Show", Args: []Type{Var("c")}}
 	r3 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, showC}}}
 	if Equal(r1, r3) {
 		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")
@@ -299,8 +299,8 @@ func TestEvidenceRowConstraintEntriesEqualOrderIndependent(t *testing.T) {
 }
 
 func TestConstraintRowEqualOrderIndependent(t *testing.T) {
-	eqA := ConstraintEntry{ClassName: "Eq", Args: []Type{Var("a")}}
-	ordB := ConstraintEntry{ClassName: "Ord", Args: []Type{Var("b")}}
+	var eqA ConstraintEntry = &ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}
+	var ordB ConstraintEntry = &ClassEntry{ClassName: "Ord", Args: []Type{Var("b")}}
 	// Same entries, different order.
 	r1 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, ordB}}}
 	r2 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{ordB, eqA}}}
@@ -308,7 +308,7 @@ func TestConstraintRowEqualOrderIndependent(t *testing.T) {
 		t.Error("TyEvidenceRow with ConstraintEntries Equal should be order-independent")
 	}
 	// Different entries should not be equal.
-	showC := ConstraintEntry{ClassName: "Show", Args: []Type{Var("c")}}
+	var showC ConstraintEntry = &ClassEntry{ClassName: "Show", Args: []Type{Var("c")}}
 	r3 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, showC}}}
 	if Equal(r1, r3) {
 		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")

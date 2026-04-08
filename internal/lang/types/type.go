@@ -97,35 +97,10 @@ type RowField struct {
 	S          span.Span
 }
 
-// ConstraintEntry is a single class constraint in a constraint row.
-// For simple constraints (Eq a), ClassName and Args describe the constraint.
-// For quantified constraints (forall a. Eq a => Eq (f a)), Quantified is non-nil
-// and ClassName/Args reflect the head constraint.
-// For constraint variables (c: Constraint), ConstraintVar is non-nil and
-// ClassName/Args are derived from it after substitution/zonking.
-// For equality constraints (a ~ Int), IsEquality is true and EqLhs/EqRhs
-// hold the two sides. ClassName and Args are unused.
-type ConstraintEntry struct {
-	ClassName     string
-	Args          []Type
-	Quantified    *QuantifiedConstraint // non-nil for forall-quantified constraints
-	ConstraintVar Type                  // non-nil for constraint variable references
-	IsEquality    bool                  // true for equality constraints (a ~ b)
-	EqLhs         Type                  // left side of equality (valid when IsEquality)
-	EqRhs         Type                  // right side of equality (valid when IsEquality)
-	S             span.Span
-}
-
-// QuantifiedConstraint represents a universally quantified constraint:
-//
-//	forall vars. context => head
-//
-// Evidence for this constraint is a function from context dicts to a head dict.
-type QuantifiedConstraint struct {
-	Vars    []ForallBinder
-	Context []ConstraintEntry // premise constraints
-	Head    ConstraintEntry   // conclusion constraint
-}
+// ConstraintEntry and QuantifiedConstraint are defined in constraint_entry.go
+// as a sealed interface with four concrete variants (ClassEntry, EqualityEntry,
+// VarEntry, *QuantifiedConstraint). Field validity is type-enforced; see that
+// file for the full variant design.
 
 // ForallBinder is a universally quantified type variable with its kind.
 type ForallBinder struct {

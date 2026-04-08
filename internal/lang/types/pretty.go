@@ -152,13 +152,22 @@ func prettyEvidenceRow(r *TyEvidenceRow) string {
 }
 
 func prettyConstraintEntry(e ConstraintEntry) string {
-	if e.Quantified != nil {
-		return prettyQuantifiedConstraint(e.Quantified)
+	switch e := e.(type) {
+	case *ClassEntry:
+		return prettyClassEntry(e)
+	case *EqualityEntry:
+		return Pretty(e.Lhs) + " ~ " + Pretty(e.Rhs)
+	case *VarEntry:
+		return Pretty(e.Var)
+	case *QuantifiedConstraint:
+		return prettyQuantifiedConstraint(e)
 	}
-	if e.ConstraintVar != nil && e.ClassName == "" {
-		return Pretty(e.ConstraintVar)
-	}
-	items := []string{e.ClassName}
+	return "<?>"
+}
+
+func prettyClassEntry(e *ClassEntry) string {
+	items := make([]string, 0, 1+len(e.Args))
+	items = append(items, e.ClassName)
 	for _, a := range e.Args {
 		items = append(items, prettyAtom(a))
 	}
@@ -179,7 +188,9 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 	for _, c := range qc.Context {
 		result.WriteString(prettyConstraintEntry(c) + " => ")
 	}
-	result.WriteString(prettyConstraintEntry(qc.Head))
+	if qc.Head != nil {
+		result.WriteString(prettyClassEntry(qc.Head))
+	}
 	return result.String()
 }
 

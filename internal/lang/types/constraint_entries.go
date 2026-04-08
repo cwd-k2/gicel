@@ -40,50 +40,63 @@ func (c *ConstraintEntries) ForEachChild(fn func(Type) bool) {
 // forEachConstraintEntryChild calls fn for each child type in a constraint entry.
 // Returns false if fn returned false (early exit).
 func forEachConstraintEntryChild(e ConstraintEntry, fn func(Type) bool) bool {
-	for _, a := range e.Args {
-		if !fn(a) {
+	switch e := e.(type) {
+	case *ClassEntry:
+		for _, a := range e.Args {
+			if !fn(a) {
+				return false
+			}
+		}
+		return true
+	case *EqualityEntry:
+		if !fn(e.Lhs) || !fn(e.Rhs) {
 			return false
 		}
-	}
-	if e.IsEquality {
-		if !fn(e.EqLhs) || !fn(e.EqRhs) {
-			return false
-		}
-	}
-	if e.ConstraintVar != nil {
-		if !fn(e.ConstraintVar) {
-			return false
-		}
-	}
-	if e.Quantified != nil {
-		for _, c := range e.Quantified.Context {
+		return true
+	case *VarEntry:
+		return fn(e.Var)
+	case *QuantifiedConstraint:
+		for _, c := range e.Context {
 			if !forEachConstraintEntryChild(c, fn) {
 				return false
 			}
 		}
-		if !forEachConstraintEntryChild(e.Quantified.Head, fn) {
-			return false
+		if e.Head != nil {
+			for _, a := range e.Head.Args {
+				if !fn(a) {
+					return false
+				}
+			}
 		}
+		return true
 	}
 	return true
 }
 
 func constraintEntryChildren(e ConstraintEntry) []Type {
-	ch := make([]Type, 0, len(e.Args)+3) // +3 for potential EqLhs, EqRhs, ConstraintVar
-	ch = append(ch, e.Args...)
-	if e.IsEquality {
-		ch = append(ch, e.EqLhs, e.EqRhs)
-	}
-	if e.ConstraintVar != nil {
-		ch = append(ch, e.ConstraintVar)
-	}
-	if e.Quantified != nil {
-		for _, c := range e.Quantified.Context {
+	switch e := e.(type) {
+	case *ClassEntry:
+		if len(e.Args) == 0 {
+			return nil
+		}
+		ch := make([]Type, len(e.Args))
+		copy(ch, e.Args)
+		return ch
+	case *EqualityEntry:
+		return []Type{e.Lhs, e.Rhs}
+	case *VarEntry:
+		return []Type{e.Var}
+	case *QuantifiedConstraint:
+		var ch []Type
+		for _, c := range e.Context {
 			ch = append(ch, constraintEntryChildren(c)...)
 		}
-		ch = append(ch, constraintEntryChildren(e.Quantified.Head)...)
+		if e.Head != nil {
+			ch = append(ch, e.Head.Args...)
+		}
+		return ch
 	}
-	return ch
+	return nil
 }
 
 func (c *ConstraintEntries) MapChildren(f func(Type) Type) (EvidenceEntries, bool) {
@@ -107,57 +120,54 @@ func (c *ConstraintEntries) MapChildren(f func(Type) Type) (EvidenceEntries, boo
 // mapConstraintEntryChanged applies f to all type children in a ConstraintEntry,
 // returning the original unchanged when no child was modified.
 func mapConstraintEntryChanged(e ConstraintEntry, f func(Type) Type) (ConstraintEntry, bool) {
-	changed := false
-
-	var args []Type
-	for j, a := range e.Args {
-		fa := f(a)
-		if args == nil && fa != a {
-			args = make([]Type, len(e.Args))
-			copy(args[:j], e.Args[:j])
-			changed = true
-		}
-		if args != nil {
-			args[j] = fa
-		}
-	}
-	if args == nil {
-		args = e.Args
-	}
-
-	newCV := e.ConstraintVar
-	if e.ConstraintVar != nil {
-		newCV = f(e.ConstraintVar)
-		if newCV != e.ConstraintVar {
-			changed = true
-		}
-	}
-
-	newQ := e.Quantified
-	if e.Quantified != nil {
-		var qChanged bool
-		newQ, qChanged = mapQuantifiedConstraintChanged(e.Quantified, f)
-		if qChanged {
-			changed = true
-		}
-	}
-
-	if e.IsEquality {
-		newLhs := f(e.EqLhs)
-		newRhs := f(e.EqRhs)
-		if newLhs != e.EqLhs || newRhs != e.EqRhs {
-			changed = true
-		}
+	switch e := e.(type) {
+	case *ClassEntry:
+		args, changed := mapTypeSlice(e.Args, f)
 		if !changed {
 			return e, false
 		}
-		return ConstraintEntry{ClassName: e.ClassName, Args: args, ConstraintVar: newCV, Quantified: newQ, IsEquality: true, EqLhs: newLhs, EqRhs: newRhs, S: e.S}, true
+		return &ClassEntry{ClassName: e.ClassName, Args: args, S: e.S}, true
+	case *EqualityEntry:
+		newLhs := f(e.Lhs)
+		newRhs := f(e.Rhs)
+		if newLhs == e.Lhs && newRhs == e.Rhs {
+			return e, false
+		}
+		return &EqualityEntry{Lhs: newLhs, Rhs: newRhs, S: e.S}, true
+	case *VarEntry:
+		newVar := f(e.Var)
+		if newVar == e.Var {
+			return e, false
+		}
+		return &VarEntry{Var: newVar, S: e.S}, true
+	case *QuantifiedConstraint:
+		newQC, changed := mapQuantifiedConstraintChanged(e, f)
+		if !changed {
+			return e, false
+		}
+		return newQC, true
 	}
+	return e, false
+}
 
-	if !changed {
-		return e, false
+// mapTypeSlice applies f to every element of ts, returning the original slice
+// unchanged (and false) when no element was modified.
+func mapTypeSlice(ts []Type, f func(Type) Type) ([]Type, bool) {
+	var out []Type // nil until first change
+	for j, t := range ts {
+		ft := f(t)
+		if out == nil && ft != t {
+			out = make([]Type, len(ts))
+			copy(out[:j], ts[:j])
+		}
+		if out != nil {
+			out[j] = ft
+		}
 	}
-	return ConstraintEntry{ClassName: e.ClassName, Args: args, ConstraintVar: newCV, Quantified: newQ, S: e.S}, true
+	if out == nil {
+		return ts, false
+	}
+	return out, true
 }
 
 // mapQuantifiedConstraintChanged applies f to all type children inside a
@@ -179,14 +189,18 @@ func mapQuantifiedConstraintChanged(qc *QuantifiedConstraint, f func(Type) Type)
 	if ctx == nil {
 		ctx = qc.Context
 	}
-	head, headChanged := mapConstraintEntryChanged(qc.Head, f)
-	if headChanged {
-		changed = true
+	head := qc.Head
+	if head != nil {
+		newArgs, headChanged := mapTypeSlice(head.Args, f)
+		if headChanged {
+			head = &ClassEntry{ClassName: head.ClassName, Args: newArgs, S: head.S}
+			changed = true
+		}
 	}
 	if !changed {
 		return qc, false
 	}
-	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head, S: qc.S}, true
 }
 
 func (c *ConstraintEntries) FiberKind() Type { return TypeOfConstraints }
@@ -212,81 +226,45 @@ func (c *ConstraintEntries) ZonkEntries(zonk func(Type) Type) (EvidenceEntries, 
 }
 
 // zonkConstraintEntry zonks a single constraint entry, returning the
-// original unchanged when no child type was modified. Handles quantified
-// sub-structure and constraint variable decomposition.
+// original unchanged when no child type was modified. A VarEntry whose
+// variable resolves to a concrete class application is transitioned to
+// a ClassEntry — this is the *only* point at which a variant changes
+// identity during zonking, and it replaces the legacy "resolved CV
+// with ClassName set" hybrid state with an explicit variant transition.
 func zonkConstraintEntry(e ConstraintEntry, zonk func(Type) Type) (ConstraintEntry, bool) {
-	changed := false
-
-	// Zonk Args with lazy alloc.
-	var args []Type
-	for j, a := range e.Args {
-		za := zonk(a)
-		if args == nil && za != a {
-			args = make([]Type, len(e.Args))
-			copy(args[:j], e.Args[:j])
-			changed = true
+	switch e := e.(type) {
+	case *ClassEntry:
+		args, changed := mapTypeSlice(e.Args, zonk)
+		if !changed {
+			return e, false
 		}
-		if args != nil {
-			args[j] = za
+		return &ClassEntry{ClassName: e.ClassName, Args: args, S: e.S}, true
+	case *EqualityEntry:
+		newLhs := zonk(e.Lhs)
+		newRhs := zonk(e.Rhs)
+		if newLhs == e.Lhs && newRhs == e.Rhs {
+			return e, false
 		}
-	}
-	if args == nil {
-		args = e.Args
-	}
-
-	// Zonk ConstraintVar.
-	newCV := e.ConstraintVar
-	if e.ConstraintVar != nil {
-		newCV = zonk(e.ConstraintVar)
-		if newCV != e.ConstraintVar {
-			changed = true
+		return &EqualityEntry{Lhs: newLhs, Rhs: newRhs, S: e.S}, true
+	case *VarEntry:
+		newVar := zonk(e.Var)
+		// Variant transition: if the zonked variable has a concrete
+		// TyCon head, decompose into a ClassEntry.
+		if className, args, ok := DecomposeConstraintType(newVar); ok {
+			return &ClassEntry{ClassName: className, Args: args, S: e.S}, true
 		}
-	}
-
-	// Zonk Quantified sub-structure.
-	newQ := e.Quantified
-	if e.Quantified != nil {
-		var qChanged bool
-		newQ, qChanged = zonkQuantifiedConstraint(e.Quantified, zonk)
-		if qChanged {
-			changed = true
+		if newVar == e.Var {
+			return e, false
 		}
-	}
-
-	// Zonk equality constraint sides.
-	var newLhs, newRhs Type
-	if e.IsEquality {
-		newLhs = zonk(e.EqLhs)
-		newRhs = zonk(e.EqRhs)
-		if newLhs != e.EqLhs || newRhs != e.EqRhs {
-			changed = true
+		return &VarEntry{Var: newVar, S: e.S}, true
+	case *QuantifiedConstraint:
+		newQC, changed := zonkQuantifiedConstraint(e, zonk)
+		if !changed {
+			return e, false
 		}
+		return newQC, true
 	}
-
-	if !changed {
-		return e, false
-	}
-
-	result := ConstraintEntry{ClassName: e.ClassName, Args: args, IsEquality: e.IsEquality, S: e.S}
-	if e.IsEquality {
-		result.EqLhs = newLhs
-		result.EqRhs = newRhs
-	}
-	if e.ConstraintVar != nil {
-		result.ConstraintVar = newCV
-		// If zonked ConstraintVar is now concrete, decompose into ClassName + Args.
-		if result.ClassName == "" {
-			head, tArgs := UnwindApp(newCV)
-			if con, ok := head.(*TyCon); ok {
-				result.ClassName = con.Name
-				result.Args = tArgs
-			}
-		}
-	}
-	if e.Quantified != nil {
-		result.Quantified = newQ
-	}
-	return result, true
+	return e, false
 }
 
 // zonkQuantifiedConstraint zonks a QuantifiedConstraint, returning the
@@ -309,15 +287,19 @@ func zonkQuantifiedConstraint(qc *QuantifiedConstraint, zonk func(Type) Type) (*
 		ctx = qc.Context
 	}
 
-	head, headChanged := zonkConstraintEntry(qc.Head, zonk)
-	if headChanged {
-		changed = true
+	head := qc.Head
+	if head != nil {
+		newArgs, headChanged := mapTypeSlice(head.Args, zonk)
+		if headChanged {
+			head = &ClassEntry{ClassName: head.ClassName, Args: newArgs, S: head.S}
+			changed = true
+		}
 	}
 
 	if !changed {
 		return qc, false
 	}
-	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head}, true
+	return &QuantifiedConstraint{Vars: qc.Vars, Context: ctx, Head: head, S: qc.S}, true
 }
 
 // --- Constraint evidence row builders ---
@@ -330,7 +312,7 @@ func EmptyConstraintRow() *TyEvidenceRow {
 // SingleConstraint creates a constraint evidence row with one entry.
 func SingleConstraint(className string, args []Type) *TyEvidenceRow {
 	entries := &ConstraintEntries{
-		Entries: []ConstraintEntry{{ClassName: className, Args: args}},
+		Entries: []ConstraintEntry{&ClassEntry{ClassName: className, Args: args}},
 	}
 	return &TyEvidenceRow{
 		Entries: entries,
@@ -342,15 +324,28 @@ func SingleConstraint(className string, args []Type) *TyEvidenceRow {
 // Used for sorting/display, not for matching (matching uses className + type unification).
 // Delegates to TypeKey for injective encoding.
 func ConstraintKey(e ConstraintEntry) string {
-	if e.IsEquality {
-		return "~ " + TypeKey(e.EqLhs) + " " + TypeKey(e.EqRhs)
+	switch e := e.(type) {
+	case *ClassEntry:
+		parts := make([]string, 0, 1+len(e.Args))
+		parts = append(parts, e.ClassName)
+		for _, a := range e.Args {
+			parts = append(parts, TypeKey(a))
+		}
+		return strings.Join(parts, " ")
+	case *EqualityEntry:
+		return "~ " + TypeKey(e.Lhs) + " " + TypeKey(e.Rhs)
+	case *VarEntry:
+		return "$" + TypeKey(e.Var)
+	case *QuantifiedConstraint:
+		if e.Head == nil {
+			return "forall"
+		}
+		parts := make([]string, 0, 2+len(e.Head.Args))
+		parts = append(parts, "forall", e.Head.ClassName)
+		for _, a := range e.Head.Args {
+			parts = append(parts, TypeKey(a))
+		}
+		return strings.Join(parts, " ")
 	}
-	parts := []string{e.ClassName}
-	for _, a := range e.Args {
-		parts = append(parts, TypeKey(a))
-	}
-	if e.ConstraintVar != nil {
-		parts = append(parts, "$"+TypeKey(e.ConstraintVar))
-	}
-	return strings.Join(parts, " ")
+	return ""
 }

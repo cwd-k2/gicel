@@ -72,8 +72,8 @@ func TestSingleConstraint(t *testing.T) {
 		t.Fatalf("expected 1 entry, got %d", r.Entries.EntryCount())
 	}
 	entries := r.ConEntries()
-	if entries[0].ClassName != "Eq" {
-		t.Errorf("expected Eq, got %s", entries[0].ClassName)
+	if HeadClassName(entries[0]) != "Eq" {
+		t.Errorf("expected Eq, got %s", HeadClassName(entries[0]))
 	}
 	// Children: one arg (Int)
 	if len(r.Children()) != 1 {
@@ -121,8 +121,9 @@ func TestConstraintMapChildren(t *testing.T) {
 		return ty
 	})
 	con := mapped.(*ConstraintEntries)
-	if con.Entries[0].Args[0].(*TyCon).Name != "MappedInt" {
-		t.Errorf("expected MappedInt, got %s", con.Entries[0].Args[0].(*TyCon).Name)
+	cls := con.Entries[0].(*ClassEntry)
+	if cls.Args[0].(*TyCon).Name != "MappedInt" {
+		t.Errorf("expected MappedInt, got %s", cls.Args[0].(*TyCon).Name)
 	}
 }
 
@@ -261,7 +262,7 @@ func TestSubstConstraint(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
 	}
-	entry := ev.ConEntries()[0]
+	entry := ev.ConEntries()[0].(*ClassEntry)
 	if c, ok := entry.Args[0].(*TyCon); !ok || c.Name != "Int" {
 		t.Errorf("expected Int, got %s", Pretty(entry.Args[0]))
 	}

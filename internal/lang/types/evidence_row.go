@@ -195,49 +195,79 @@ type constraintMatch struct {
 	A, B ConstraintEntry
 }
 
-// constraintArgsEqual checks if two constraint entries have the same className
-// and structurally equal args.
-func constraintArgsEqual(a, b ConstraintEntry) bool {
-	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
+// classHeadArgsEqual checks if two class-headed constraint entries have the
+// same class name and structurally equal head args. Non-class variants and
+// mismatched classes return false.
+func classHeadArgsEqual(a, b ConstraintEntry) bool {
+	clsA := HeadClassName(a)
+	if clsA == "" || clsA != HeadClassName(b) {
 		return false
 	}
-	for i := range a.Args {
-		if !Equal(a.Args[i], b.Args[i]) {
+	argsA := HeadClassArgs(a)
+	argsB := HeadClassArgs(b)
+	if len(argsA) != len(argsB) {
+		return false
+	}
+	for i := range argsA {
+		if !Equal(argsA[i], argsB[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// ClassifyConstraints partitions constraint entries into shared (matched by className),
-// onlyA, and onlyB. For entries with the same className, it attempts greedy matching:
-// first by structural equality on args, then by position.
+// ClassifyConstraints partitions constraint entries into shared (matched by class
+// head name), onlyA, and onlyB. Greedy matching: first by structural equality on
+// head args, then by position within the same class name.
+//
+// Non-class variants (equality, var) are classified by canonical key so each such
+// entry must find an exact-key match in b; otherwise it falls into onlyA/onlyB.
 func ClassifyConstraints(a, b []ConstraintEntry) (
 	shared []constraintMatch,
 	onlyA, onlyB []ConstraintEntry,
 ) {
+	// Bucket b by head class name for class-headed entries; non-class entries
+	// live in a separate by-key map so structural match still works.
 	bByClass := make(map[string][]int)
+	bByKey := make(map[string][]int)
 	for i, e := range b {
-		bByClass[e.ClassName] = append(bByClass[e.ClassName], i)
+		if cls := HeadClassName(e); cls != "" {
+			bByClass[cls] = append(bByClass[cls], i)
+		} else {
+			bByKey[ConstraintKey(e)] = append(bByKey[ConstraintKey(e)], i)
+		}
 	}
 	bUsed := make([]bool, len(b))
 
 	for _, ea := range a {
 		matched := false
-		candidates := bByClass[ea.ClassName]
-		for _, bi := range candidates {
-			if bUsed[bi] {
-				continue
-			}
-			if constraintArgsEqual(ea, b[bi]) {
-				shared = append(shared, constraintMatch{A: ea, B: b[bi]})
-				bUsed[bi] = true
-				matched = true
-				break
-			}
-		}
-		if !matched {
+		if cls := HeadClassName(ea); cls != "" {
+			candidates := bByClass[cls]
 			for _, bi := range candidates {
+				if bUsed[bi] {
+					continue
+				}
+				if classHeadArgsEqual(ea, b[bi]) {
+					shared = append(shared, constraintMatch{A: ea, B: b[bi]})
+					bUsed[bi] = true
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				for _, bi := range candidates {
+					if bUsed[bi] {
+						continue
+					}
+					shared = append(shared, constraintMatch{A: ea, B: b[bi]})
+					bUsed[bi] = true
+					matched = true
+					break
+				}
+			}
+		} else {
+			key := ConstraintKey(ea)
+			for _, bi := range bByKey[key] {
 				if bUsed[bi] {
 					continue
 				}

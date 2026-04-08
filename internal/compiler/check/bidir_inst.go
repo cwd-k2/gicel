@@ -154,8 +154,8 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 		if !ok {
 			if ev, ok := ty.(*types.TyEvidence); ok {
 				for _, entry := range ev.Constraints.ConEntries() {
-					if entry.IsEquality {
-						ch.emitEq(entry.EqLhs, entry.EqRhs, entry.S, nil)
+					if eq, ok := entry.(*types.EqualityEntry); ok {
+						ch.emitEq(eq.Lhs, eq.Rhs, eq.S, nil)
 						continue
 					}
 					placeholder := ch.freshName(prefixDictDefer)

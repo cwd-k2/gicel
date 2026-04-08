@@ -406,37 +406,42 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		// If one side is a skolem, use InstallGivenEq so that the skolem
 		// is locally equal to the other side within this body.
 		// At the call site (bidir_lookup.go), this becomes a wanted CtEq.
-		if entry.IsEquality {
-			lhs := ch.unifier.Zonk(entry.EqLhs)
-			rhs := ch.unifier.Zonk(entry.EqRhs)
+		if eq, ok := entry.(*types.EqualityEntry); ok {
+			lhs := ch.unifier.Zonk(eq.Lhs)
+			rhs := ch.unifier.Zonk(eq.Rhs)
 			if sk, ok := lhs.(*types.TySkolem); ok {
 				ch.unifier.InstallGivenEq(sk.ID, rhs)
-				ch.emitGivenEq(lhs, rhs, entry.S)
+				ch.emitGivenEq(lhs, rhs, eq.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else if sk, ok := rhs.(*types.TySkolem); ok {
 				ch.unifier.InstallGivenEq(sk.ID, lhs)
-				ch.emitGivenEq(lhs, rhs, entry.S)
+				ch.emitGivenEq(lhs, rhs, eq.S)
 				givenEqSkolems = append(givenEqSkolems, sk.ID)
 			} else if types.ContainsSkolemOrFamily(lhs) || types.ContainsSkolemOrFamily(rhs) {
 				// Type family application or skolem present — emit as given.
 				// The equality is assumed to hold at the definition site;
 				// it becomes a wanted at the call site (bidir_lookup.go).
-				ch.emitGivenEq(lhs, rhs, entry.S)
+				ch.emitGivenEq(lhs, rhs, eq.S)
 			} else {
 				// Both sides are concrete or meta — emit wanted for checking.
-				ch.emitEq(lhs, rhs, entry.S, nil)
+				ch.emitEq(lhs, rhs, eq.S, nil)
 			}
 			continue
 		}
 		var dictTy types.Type
 		var className string
 		var args []types.Type
-		if entry.Quantified != nil {
-			dictTy = ch.buildQuantifiedDictType(entry.Quantified)
-			className = entry.ClassName
-			args = entry.Args
-		} else if entry.ConstraintVar != nil && entry.ClassName == "" {
-			cv := ch.unifier.Zonk(entry.ConstraintVar)
+		var quantified *types.QuantifiedConstraint
+		switch e := entry.(type) {
+		case *types.QuantifiedConstraint:
+			quantified = e
+			dictTy = ch.buildQuantifiedDictType(e)
+			if e.Head != nil {
+				className = e.Head.ClassName
+				args = e.Head.Args
+			}
+		case *types.VarEntry:
+			cv := ch.unifier.Zonk(e.Var)
 			if cn, cArgs, ok := types.DecomposeConstraintType(cv); ok {
 				className = cn
 				args = cArgs
@@ -445,10 +450,12 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 				className = "?"
 				dictTy = cv
 			}
-		} else {
-			className = entry.ClassName
-			args = entry.Args
-			dictTy = ch.buildDictType(entry.ClassName, entry.Args)
+		case *types.ClassEntry:
+			className = e.ClassName
+			args = e.Args
+			dictTy = ch.buildDictType(e.ClassName, e.Args)
+		default:
+			continue
 		}
 		dictParam := ch.freshDictName(className)
 		dicts = append(dicts, dictInfo{param: dictParam, ty: dictTy})
@@ -459,7 +466,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			Args:       args,
 			DictName:   dictParam,
 			DictType:   dictTy,
-			Quantified: entry.Quantified,
+			Quantified: quantified,
 		})
 		pushed++
 	}

@@ -210,44 +210,43 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 }
 
 func equalConstraintEntry(a, b ConstraintEntry, bindings []alphaBinding) bool {
-	if a.ClassName != b.ClassName {
-		return false
+	switch av := a.(type) {
+	case *ClassEntry:
+		bv, ok := b.(*ClassEntry)
+		if !ok {
+			return false
+		}
+		return equalClassEntry(av, bv, bindings)
+	case *EqualityEntry:
+		bv, ok := b.(*EqualityEntry)
+		if !ok {
+			return false
+		}
+		return equalAlpha(av.Lhs, bv.Lhs, bindings) && equalAlpha(av.Rhs, bv.Rhs, bindings)
+	case *VarEntry:
+		bv, ok := b.(*VarEntry)
+		if !ok {
+			return false
+		}
+		return equalAlpha(av.Var, bv.Var, bindings)
+	case *QuantifiedConstraint:
+		bv, ok := b.(*QuantifiedConstraint)
+		if !ok {
+			return false
+		}
+		return equalQuantifiedConstraint(av, bv, bindings)
 	}
-	if len(a.Args) != len(b.Args) {
+	return false
+}
+
+func equalClassEntry(a, b *ClassEntry, bindings []alphaBinding) bool {
+	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
 		return false
 	}
 	for j := range a.Args {
 		if !equalAlpha(a.Args[j], b.Args[j], bindings) {
 			return false
 		}
-	}
-	// Equality constraints: both must agree on IsEquality and sides.
-	if a.IsEquality != b.IsEquality {
-		return false
-	}
-	if a.IsEquality {
-		if !equalAlpha(a.EqLhs, b.EqLhs, bindings) {
-			return false
-		}
-		if !equalAlpha(a.EqRhs, b.EqRhs, bindings) {
-			return false
-		}
-	}
-	// ConstraintVar: both must match.
-	if (a.ConstraintVar == nil) != (b.ConstraintVar == nil) {
-		return false
-	}
-	if a.ConstraintVar != nil {
-		if !equalAlpha(a.ConstraintVar, b.ConstraintVar, bindings) {
-			return false
-		}
-	}
-	// Both must be quantified or both simple.
-	if (a.Quantified == nil) != (b.Quantified == nil) {
-		return false
-	}
-	if a.Quantified != nil {
-		return equalQuantifiedConstraint(a.Quantified, b.Quantified, bindings)
 	}
 	return true
 }
@@ -273,5 +272,11 @@ func equalQuantifiedConstraint(a, b *QuantifiedConstraint, bindings []alphaBindi
 			return false
 		}
 	}
-	return equalConstraintEntry(a.Head, b.Head, newBindings)
+	if (a.Head == nil) != (b.Head == nil) {
+		return false
+	}
+	if a.Head == nil {
+		return true
+	}
+	return equalClassEntry(a.Head, b.Head, newBindings)
 }

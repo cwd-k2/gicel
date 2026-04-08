@@ -39,8 +39,8 @@ func TestStressUnifyLargeConRows(t *testing.T) {
 	entries2 := make([]types.ConstraintEntry, N)
 	for i := range N {
 		cn := fmt.Sprintf("C%03d", i)
-		entries1[i] = types.ConstraintEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
-		entries2[N-1-i] = types.ConstraintEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
+		entries1[i] = &types.ClassEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
+		entries2[N-1-i] = &types.ClassEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
 	}
 	r1 := &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries1}}
 	r2 := &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries2}}

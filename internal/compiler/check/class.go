@@ -221,7 +221,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 	for j, p := range cls.TyParams {
 		tyParamVars[j] = &types.TyVar{Name: p}
 	}
-	entry := types.ConstraintEntry{ClassName: cls.Name, Args: tyParamVars, S: s}
+	entry := &types.ClassEntry{ClassName: cls.Name, Args: tyParamVars, S: s}
 	var selectorTy types.Type = types.MkEvidence([]types.ConstraintEntry{entry}, m.Type)
 	for j := len(cls.TyParams) - 1; j >= 0; j-- {
 		selectorTy = types.MkForall(cls.TyParams[j], cls.TyParamKinds[j], selectorTy)
@@ -371,12 +371,20 @@ func (ch *Checker) validateSuperclassGraph() bool {
 
 // buildQuantifiedDictType constructs the evidence type for a quantified constraint.
 // \ a. Eq a => Eq (f a) → \ a. Eq$Dict a -> Eq$Dict (f a)
+//
+// Only class-headed context entries yield runtime dictionaries; equality or
+// other non-class premises in a quantified constraint do not contribute
+// arguments to the dict function type, so they are skipped here.
 func (ch *Checker) buildQuantifiedDictType(qc *types.QuantifiedConstraint) types.Type {
 	headDictTy := ch.buildDictType(qc.Head.ClassName, qc.Head.Args)
 	// Build function type from context dicts to head dict.
 	var ty types.Type = headDictTy
 	for i := len(qc.Context) - 1; i >= 0; i-- {
-		ctxDictTy := ch.buildDictType(qc.Context[i].ClassName, qc.Context[i].Args)
+		ctxCls, ok := qc.Context[i].(*types.ClassEntry)
+		if !ok {
+			continue
+		}
+		ctxDictTy := ch.buildDictType(ctxCls.ClassName, ctxCls.Args)
 		ty = types.MkArrow(ctxDictTy, ty)
 	}
 	// Wrap in foralls.

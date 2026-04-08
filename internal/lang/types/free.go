@@ -171,39 +171,43 @@ func occursInConstraintEntry(name string, e ConstraintEntry, bound map[string]bo
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
-	for _, a := range e.Args {
-		if occursIn(name, a, bound, depth+1) {
-			return true
+	switch e := e.(type) {
+	case *ClassEntry:
+		for _, a := range e.Args {
+			if occursIn(name, a, bound, depth+1) {
+				return true
+			}
 		}
-	}
-	if e.IsEquality {
-		if occursIn(name, e.EqLhs, bound, depth+1) || occursIn(name, e.EqRhs, bound, depth+1) {
-			return true
-		}
-	}
-	if e.ConstraintVar != nil && occursIn(name, e.ConstraintVar, bound, depth+1) {
-		return true
-	}
-	if e.Quantified != nil {
+		return false
+	case *EqualityEntry:
+		return occursIn(name, e.Lhs, bound, depth+1) || occursIn(name, e.Rhs, bound, depth+1)
+	case *VarEntry:
+		return occursIn(name, e.Var, bound, depth+1)
+	case *QuantifiedConstraint:
 		if bound == nil {
-			bound = make(map[string]bool, len(e.Quantified.Vars))
+			bound = make(map[string]bool, len(e.Vars))
 		}
-		prevs := make([]bool, len(e.Quantified.Vars))
-		for i, v := range e.Quantified.Vars {
+		prevs := make([]bool, len(e.Vars))
+		for i, v := range e.Vars {
 			prevs[i] = bound[v.Name]
 			bound[v.Name] = true
 		}
 		found := false
-		for _, c := range e.Quantified.Context {
+		for _, c := range e.Context {
 			if occursInConstraintEntry(name, c, bound, depth+1) {
 				found = true
 				break
 			}
 		}
-		if !found {
-			found = occursInConstraintEntry(name, e.Quantified.Head, bound, depth+1)
+		if !found && e.Head != nil {
+			for _, a := range e.Head.Args {
+				if occursIn(name, a, bound, depth+1) {
+					found = true
+					break
+				}
+			}
 		}
-		for i, v := range e.Quantified.Vars {
+		for i, v := range e.Vars {
 			if prevs[i] {
 				bound[v.Name] = true
 			} else {
@@ -221,32 +225,36 @@ func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[st
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
-	for _, a := range e.Args {
-		freeVarsRec(a, bound, fv, depth+1)
-	}
-	if e.IsEquality {
-		freeVarsRec(e.EqLhs, bound, fv, depth+1)
-		freeVarsRec(e.EqRhs, bound, fv, depth+1)
-	}
-	if e.ConstraintVar != nil {
-		freeVarsRec(e.ConstraintVar, bound, fv, depth+1)
-	}
-	if e.Quantified != nil {
+	switch e := e.(type) {
+	case *ClassEntry:
+		for _, a := range e.Args {
+			freeVarsRec(a, bound, fv, depth+1)
+		}
+	case *EqualityEntry:
+		freeVarsRec(e.Lhs, bound, fv, depth+1)
+		freeVarsRec(e.Rhs, bound, fv, depth+1)
+	case *VarEntry:
+		freeVarsRec(e.Var, bound, fv, depth+1)
+	case *QuantifiedConstraint:
 		if bound == nil {
-			bound = make(map[string]bool, len(e.Quantified.Vars))
+			bound = make(map[string]bool, len(e.Vars))
 		}
 		// Push quantified variables.
-		prevs := make([]bool, len(e.Quantified.Vars))
-		for i, v := range e.Quantified.Vars {
+		prevs := make([]bool, len(e.Vars))
+		for i, v := range e.Vars {
 			prevs[i] = bound[v.Name]
 			bound[v.Name] = true
 		}
-		for _, c := range e.Quantified.Context {
+		for _, c := range e.Context {
 			freeVarsConstraintEntry(c, bound, fv, depth+1)
 		}
-		freeVarsConstraintEntry(e.Quantified.Head, bound, fv, depth+1)
+		if e.Head != nil {
+			for _, a := range e.Head.Args {
+				freeVarsRec(a, bound, fv, depth+1)
+			}
+		}
 		// Pop quantified variables.
-		for i, v := range e.Quantified.Vars {
+		for i, v := range e.Vars {
 			if prevs[i] {
 				bound[v.Name] = true
 			} else {

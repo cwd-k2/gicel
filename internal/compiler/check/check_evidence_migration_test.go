@@ -221,8 +221,8 @@ f := \x. True`
 			if len(ev.Constraints.ConEntries()) == 0 {
 				t.Fatal("expected at least one constraint entry")
 			}
-			if ev.Constraints.ConEntries()[0].ClassName != "Eq" {
-				t.Errorf("expected Eq constraint, got %s", ev.Constraints.ConEntries()[0].ClassName)
+			if types.HeadClassName(ev.Constraints.ConEntries()[0]) != "Eq" {
+				t.Errorf("expected Eq constraint, got %s", types.HeadClassName(ev.Constraints.ConEntries()[0]))
 			}
 			return
 		}

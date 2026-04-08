@@ -177,8 +177,8 @@ func EvidenceRowFlags(entries EvidenceEntries, tail Type) uint8 {
 			}
 		}
 	case *ConstraintEntries:
-		for i := range e.Entries {
-			flags = constraintEntryFlags(&e.Entries[i], flags)
+		for _, entry := range e.Entries {
+			flags = constraintEntryFlags(entry, flags)
 			if flags == 0 {
 				return 0
 			}
@@ -190,39 +190,43 @@ func EvidenceRowFlags(entries EvidenceEntries, tail Type) uint8 {
 // constraintEntryFlags folds nodeFlags over each child of a ConstraintEntry,
 // short-circuiting as soon as the accumulated flag set becomes empty. Mirrors
 // forEachConstraintEntryChild without the callback indirection.
-func constraintEntryFlags(e *ConstraintEntry, flags uint8) uint8 {
-	for _, a := range e.Args {
-		flags &= nodeFlags(a)
-		if flags == 0 {
-			return 0
-		}
-	}
-	if e.IsEquality {
-		flags &= nodeFlags(e.EqLhs)
-		if flags == 0 {
-			return 0
-		}
-		flags &= nodeFlags(e.EqRhs)
-		if flags == 0 {
-			return 0
-		}
-	}
-	if e.ConstraintVar != nil {
-		flags &= nodeFlags(e.ConstraintVar)
-		if flags == 0 {
-			return 0
-		}
-	}
-	if e.Quantified != nil {
-		for i := range e.Quantified.Context {
-			flags = constraintEntryFlags(&e.Quantified.Context[i], flags)
+func constraintEntryFlags(e ConstraintEntry, flags uint8) uint8 {
+	switch e := e.(type) {
+	case *ClassEntry:
+		for _, a := range e.Args {
+			flags &= nodeFlags(a)
 			if flags == 0 {
 				return 0
 			}
 		}
-		flags = constraintEntryFlags(&e.Quantified.Head, flags)
+	case *EqualityEntry:
+		flags &= nodeFlags(e.Lhs)
 		if flags == 0 {
 			return 0
+		}
+		flags &= nodeFlags(e.Rhs)
+		if flags == 0 {
+			return 0
+		}
+	case *VarEntry:
+		flags &= nodeFlags(e.Var)
+		if flags == 0 {
+			return 0
+		}
+	case *QuantifiedConstraint:
+		for _, c := range e.Context {
+			flags = constraintEntryFlags(c, flags)
+			if flags == 0 {
+				return 0
+			}
+		}
+		if e.Head != nil {
+			for _, a := range e.Head.Args {
+				flags &= nodeFlags(a)
+				if flags == 0 {
+					return 0
+				}
+			}
 		}
 	}
 	return flags

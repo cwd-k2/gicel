@@ -11,16 +11,29 @@ import (
 
 // EmitClassConstraint records a class constraint by pushing it to the worklist.
 // The entry carries the constraint's class, args, and optional quantifier/variable;
-// placeholder is the deferred dictionary name and s is the source span for errors.
+// placeholder is the deferred dictionary name and sp is the source span for errors.
+//
+// Equality entries are not routed through this path — the checker emits them
+// directly as CtEq constraints. Passing a non-class variant here is a checker
+// bug, so it panics to surface the issue loudly during development.
 func (s *Solver) EmitClassConstraint(placeholder string, entry types.ConstraintEntry, sp span.Span) {
-	s.Emit(&CtClass{
-		Placeholder:   placeholder,
-		ClassName:     entry.ClassName,
-		Args:          entry.Args,
-		S:             sp,
-		Quantified:    entry.Quantified,
-		ConstraintVar: entry.ConstraintVar,
-	})
+	ct := &CtClass{Placeholder: placeholder, S: sp}
+	switch e := entry.(type) {
+	case *types.ClassEntry:
+		ct.ClassName = e.ClassName
+		ct.Args = e.Args
+	case *types.VarEntry:
+		ct.ConstraintVar = e.Var
+	case *types.QuantifiedConstraint:
+		ct.Quantified = e
+		if e.Head != nil {
+			ct.ClassName = e.Head.ClassName
+			ct.Args = e.Head.Args
+		}
+	default:
+		panic("EmitClassConstraint: unexpected entry variant")
+	}
+	s.Emit(ct)
 }
 
 // ResolveDeferredConstraints discharges all worklist constraints eagerly.

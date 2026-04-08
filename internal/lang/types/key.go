@@ -189,24 +189,39 @@ func writeEvidenceRowKey(b *strings.Builder, row *TyEvidenceRow) {
 	}
 }
 
-// writeConstraintEntryKey writes a canonical key for a single constraint entry,
-// including all distinguishing fields: ClassName, Args, IsEquality/EqLhs/EqRhs,
-// and ConstraintVar.
+// writeConstraintEntryKey writes a canonical key for a single constraint entry.
+// The leading byte discriminates variants so keys of distinct variants can
+// never collide:
+//
+//	C  ClassEntry          "C<name>:<arg>:<arg>..."
+//	E  EqualityEntry       "E<lhs>:<rhs>"
+//	V  VarEntry            "V<var>"
+//	Q  QuantifiedConstraint "Q<head>"  (full quantifier encoding deferred)
 func writeConstraintEntryKey(b *strings.Builder, e ConstraintEntry) {
-	if e.IsEquality {
-		b.WriteString("~")
-		WriteTypeKey(b, e.EqLhs)
+	switch e := e.(type) {
+	case *ClassEntry:
+		b.WriteByte('C')
+		b.WriteString(e.ClassName)
+		for _, a := range e.Args {
+			b.WriteByte(':')
+			WriteTypeKey(b, a)
+		}
+	case *EqualityEntry:
+		b.WriteByte('E')
+		WriteTypeKey(b, e.Lhs)
 		b.WriteByte(':')
-		WriteTypeKey(b, e.EqRhs)
-		return
-	}
-	b.WriteString(e.ClassName)
-	for _, a := range e.Args {
-		b.WriteByte(':')
-		WriteTypeKey(b, a)
-	}
-	if e.ConstraintVar != nil {
-		b.WriteString("$")
-		WriteTypeKey(b, e.ConstraintVar)
+		WriteTypeKey(b, e.Rhs)
+	case *VarEntry:
+		b.WriteByte('V')
+		WriteTypeKey(b, e.Var)
+	case *QuantifiedConstraint:
+		b.WriteByte('Q')
+		if e.Head != nil {
+			b.WriteString(e.Head.ClassName)
+			for _, a := range e.Head.Args {
+				b.WriteByte(':')
+				WriteTypeKey(b, a)
+			}
+		}
 	}
 }

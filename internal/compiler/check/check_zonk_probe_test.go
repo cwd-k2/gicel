@@ -130,7 +130,7 @@ func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 		Constraints: &types.TyEvidenceRow{
 			Entries: &types.ConstraintEntries{
 				Entries: []types.ConstraintEntry{
-					{ClassName: "Eq", Args: []types.Type{meta}},
+					&types.ClassEntry{ClassName: "Eq", Args: []types.Type{meta}},
 				},
 			},
 		},

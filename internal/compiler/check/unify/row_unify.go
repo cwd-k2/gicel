@@ -149,11 +149,23 @@ func (u *Unifier) unifyEvConRows(
 	shared, onlyLeft, onlyRight := types.ClassifyConstraints(aN.ConEntries(), bN.ConEntries())
 
 	for _, m := range shared {
-		if len(m.A.Args) != len(m.B.Args) {
-			return &ClassArgCountError{ClassName: m.A.ClassName, CountA: len(m.A.Args), CountB: len(m.B.Args)}
+		// ClassifyConstraints pairs entries by head class name; in the
+		// class/class case we unify the class args pairwise. For other
+		// variant pairs (equality ~ equality, etc.) fall back on a
+		// catch-all: compare structurally via head args if both carry a
+		// class head, otherwise skip — such pairings only arise from
+		// injection at tests and are not produced by the checker.
+		aArgs := types.HeadClassArgs(m.A)
+		bArgs := types.HeadClassArgs(m.B)
+		if len(aArgs) != len(bArgs) {
+			return &ClassArgCountError{
+				ClassName: types.HeadClassName(m.A),
+				CountA:    len(aArgs),
+				CountB:    len(bArgs),
+			}
 		}
-		for i := range m.A.Args {
-			if err := u.Unify(m.A.Args[i], m.B.Args[i]); err != nil {
+		for i := range aArgs {
+			if err := u.Unify(aArgs[i], bArgs[i]); err != nil {
 				return err
 			}
 		}

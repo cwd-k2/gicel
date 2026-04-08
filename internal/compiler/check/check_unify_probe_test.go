@@ -822,7 +822,7 @@ func TestProbeE_Row_ConstraintRowMismatch(t *testing.T) {
 		}
 		conRow2 := &types.TyEvidenceRow{
 			Entries: &types.ConstraintEntries{
-				Entries: []types.ConstraintEntry{{ClassName: "Eq", Args: []types.Type{types.Con("Int")}}},
+				Entries: []types.ConstraintEntry{&types.ClassEntry{ClassName: "Eq", Args: []types.Type{types.Con("Int")}}},
 			},
 		}
 		err = u.Unify(capRow2, conRow2)

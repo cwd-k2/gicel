@@ -47,13 +47,20 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 			tyArg := s.env.Zonk(freshSubst[v.Name])
 			dictExpr = &ir.TyApp{Expr: dictExpr, TyArg: tyArg, S: sp}
 		}
-		// Resolve and apply context (premise) dictionaries.
+		// Resolve and apply context (premise) dictionaries. Only class
+		// constraints contribute runtime dictionaries; other variants
+		// would have been rejected at checker time so this iteration
+		// skips them defensively.
 		for _, ctx := range qc.Context {
-			ctxArgs := make([]types.Type, len(ctx.Args))
-			for j, a := range ctx.Args {
+			ctxCls, ok := ctx.(*types.ClassEntry)
+			if !ok {
+				continue
+			}
+			ctxArgs := make([]types.Type, len(ctxCls.Args))
+			for j, a := range ctxCls.Args {
 				ctxArgs[j] = s.env.Zonk(ps.Apply(a))
 			}
-			ctxDict := s.resolveInstance(ctx.ClassName, ctxArgs, sp)
+			ctxDict := s.resolveInstance(ctxCls.ClassName, ctxArgs, sp)
 			dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
 		}
 		// If context resolution emitted errors, treat as failure.
@@ -104,10 +111,10 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 			}
 			for i, ic := range inst.Context {
 				qcc := qc.Context[i]
-				if ic.ClassName != qcc.ClassName {
+				if ic.ClassName != types.HeadClassName(qcc) {
 					return false
 				}
-				if len(ic.Args) != len(qcc.Args) {
+				if len(ic.Args) != len(types.HeadClassArgs(qcc)) {
 					return false
 				}
 			}
@@ -157,10 +164,10 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 			}
 			for i, ec := range eq.Context {
 				qcc := qc.Context[i]
-				if ec.ClassName != qcc.ClassName {
+				if types.HeadClassName(ec) != types.HeadClassName(qcc) {
 					return false
 				}
-				if len(ec.Args) != len(qcc.Args) {
+				if len(types.HeadClassArgs(ec)) != len(types.HeadClassArgs(qcc)) {
 					return false
 				}
 			}

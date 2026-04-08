@@ -110,32 +110,27 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return types.OpenRow(fields, tail)
 	case *syntax.TyExprQual:
 		// Equality constraint: a ~ T => Body
-		// Embedded in TyEvidence as ConstraintEntry with IsEquality=true.
-		// No evidence dictionary is generated; the CtEq is emitted when
-		// the constraint is instantiated (forall variables → metas).
+		// Embedded in TyEvidence as an EqualityEntry variant. No evidence
+		// dictionary is generated; the CtEq is emitted when the constraint
+		// is instantiated (forall variables → metas).
 		if eq, ok := t.Constraint.(*syntax.TyExprEq); ok {
 			body := r.resolveTypeExpr(t.Body)
 			lhs := r.resolveTypeExpr(eq.Lhs)
 			rhs := r.resolveTypeExpr(eq.Rhs)
-			entry := types.ConstraintEntry{IsEquality: true, EqLhs: lhs, EqRhs: rhs, S: eq.S}
+			entry := &types.EqualityEntry{Lhs: lhs, Rhs: rhs, S: eq.S}
 			return qualifyBody(entry, body, t.S)
 		}
 		body := r.resolveTypeExpr(t.Body)
 		constraint := r.resolveTypeExpr(t.Constraint)
 		// Quantified constraint: (\ a. C1 a => C2 (f a)) => T
 		if qc := r.decomposeQuantifiedConstraint(constraint); qc != nil {
-			entry := types.ConstraintEntry{
-				ClassName:  qc.Head.ClassName,
-				Args:       qc.Head.Args,
-				Quantified: qc,
-				S:          t.S,
-			}
-			return qualifyBody(entry, body, t.S)
+			qc.S = t.S
+			return qualifyBody(qc, body, t.S)
 		}
 		// Simple constraint: C a => T
 		head, args := types.UnwindApp(constraint)
 		if con, ok := head.(*types.TyCon); ok {
-			entry := types.ConstraintEntry{ClassName: con.Name, Args: args, S: t.S}
+			entry := &types.ClassEntry{ClassName: con.Name, Args: args, S: t.S}
 			return qualifyBody(entry, body, t.S)
 		}
 		r.addCodedError(diagnostic.ErrNoInstance, t.S, "invalid constraint: "+types.Pretty(constraint))
@@ -223,7 +218,7 @@ func (r *typeResolver) decomposeQuantifiedConstraint(ty types.Type) *types.Quant
 	if !ok {
 		return nil // head is not a class constraint
 	}
-	head := types.ConstraintEntry{ClassName: headCon.Name, Args: headArgs}
+	head := &types.ClassEntry{ClassName: headCon.Name, Args: headArgs}
 	// All entries in the evidence are context (premise) constraints.
 	return &types.QuantifiedConstraint{
 		Vars:    vars,
