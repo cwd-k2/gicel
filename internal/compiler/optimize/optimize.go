@@ -252,12 +252,12 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 			if len(reduced) == 0 {
 				return n
 			}
-			return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: substMany(n.Body, reduced, subsFV), FV: n.FV, Generated: n.Generated, S: n.S}
+			return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: substMany(n.Body, reduced, subsFV), Generated: n.Generated, S: n.S}
 		}
 		if _, captured := subsFV[n.Param]; captured {
 			return n // would capture — bail out to preserve correctness
 		}
-		return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: substMany(n.Body, subs, subsFV), FV: n.FV, Generated: n.Generated, S: n.S}
+		return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: substMany(n.Body, subs, subsFV), Generated: n.Generated, S: n.S}
 	case *ir.App:
 		return &ir.App{Fun: substMany(n.Fun, subs, subsFV), Arg: substMany(n.Arg, subs, subsFV), S: n.S}
 	case *ir.TyApp:
@@ -314,7 +314,7 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		}
 		return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: substMany(n.Body, active, subsFV), Generated: n.Generated, S: n.S}
 	case *ir.Thunk:
-		return &ir.Thunk{Comp: substMany(n.Comp, subs, subsFV), FV: n.FV, S: n.S}
+		return &ir.Thunk{Comp: substMany(n.Comp, subs, subsFV), S: n.S}
 	case *ir.Force:
 		return &ir.Force{Expr: substMany(n.Expr, subs, subsFV), S: n.S}
 	case *ir.Merge:

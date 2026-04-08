@@ -164,7 +164,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		if newBody == n.Body {
 			return f(n)
 		}
-		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: newBody, FV: n.FV, Generated: n.Generated, S: n.S})
+		return f(&Lam{Param: n.Param, ParamType: n.ParamType, Body: newBody, Generated: n.Generated, S: n.S})
 	case *App:
 		return transformLeftSpine(c, f)
 	case *TyApp:
