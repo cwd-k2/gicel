@@ -153,12 +153,12 @@ func (u *Unifier) VisitSolnWritesSince(pos int, fn func(metaID int)) {
 // invariant violation means the compiler is in an unrecoverable
 // state regardless.
 type IsolationToken struct {
-	snap     Snapshot
-	level    int
-	onSolve  func(int)
-	family   FamilyReducer
-	alias    AliasExpander
-	flexSks  bool
+	snap    Snapshot
+	level   int
+	onSolve func(int)
+	family  FamilyReducer
+	alias   AliasExpander
+	flexSks bool
 }
 
 // BeginProbeIsolated enters an isolated probe scope on the unifier.
