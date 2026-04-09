@@ -359,6 +359,44 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 	return v, capEnv, nil
 }
 
+// forceEffectfulForPrim is the Applier callback that drives a deferred
+// effectful value to completion. Unlike forceEffectful (which runs inside
+// the execute loop with a frame for span attribution), this operates in the
+// host-callback context where no frame is available.
+//
+// Handles the same two cases as forceEffectful:
+//   - Auto-force thunks (rec thunks): force via runCallee
+//   - Saturated effectful PrimVals: execute the prim directly
+//
+// Values that are neither are returned as-is.
+func (vm *VM) forceEffectfulForPrim(v eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+	if thv, ok := v.(*eval.VMThunkVal); ok && thv.AutoForce {
+		if err := vm.budget.Step(); err != nil {
+			return nil, capEnv, err
+		}
+		proto := thv.Proto.(*Proto)
+		result, err := vm.runCallee(capEnv, func(b *Frame) error {
+			return vm.callThunk(proto, thv.Captured, b)
+		})
+		if err != nil {
+			return nil, capEnv, err
+		}
+		return result.Value, result.CapEnv, nil
+	}
+	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
+		impl, err := vm.resolvePrimImplBare(pv)
+		if err != nil {
+			return nil, capEnv, err
+		}
+		val, newCap, callErr := vm.callPrim(impl, capEnv.MarkShared(), pv.Args, pv.S)
+		if callErr != nil {
+			return nil, capEnv, callErr
+		}
+		return val, newCap, nil
+	}
+	return v, capEnv, nil
+}
+
 // forceMergeChild executes a thunk (merge child proto) with a specific CapEnv
 // using the barrier-frame approach. Returns the result value and final CapEnv.
 func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
@@ -1102,15 +1140,20 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value, _ span.Span) (eval.Value, eval.CapEnv, error) {
 	val, newCap, err := impl(vm.ctx, capEnv, args, vm.cachedApplier)
 	if err != nil {
-		// Use the current frame's instruction span for the call site,
+		// Use a nearby frame's instruction span for the call site,
 		// not the PrimVal definition span. This ensures errors point
 		// at the user's code, not at the stdlib definition.
+		// Guard against barrier frames (nil proto) that appear in
+		// runCallee nesting — walk down until we find a real frame.
 		var callSpan span.Span
 		var source *span.Source
-		if vm.fp > 0 {
-			f := &vm.frames[vm.fp-1]
-			callSpan = f.proto.SpanAt(f.ip)
-			source = f.source
+		for i := vm.fp; i >= 0; i-- {
+			f := &vm.frames[i]
+			if f.proto != nil {
+				callSpan = f.proto.SpanAt(f.ip)
+				source = f.source
+				break
+			}
 		}
 		return nil, capEnv, wrapPrimError(err, callSpan, source)
 	}

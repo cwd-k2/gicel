@@ -95,8 +95,9 @@ func NewVM(cfg VMConfig) *VM {
 		source:      cfg.Source,
 	}
 	vm.cachedApplier = eval.Applier{
-		Apply:  vm.applyForPrim,
-		ApplyN: vm.applyNForPrim,
+		Apply:          vm.applyForPrim,
+		ApplyN:         vm.applyNForPrim,
+		ForceEffectful: vm.forceEffectfulForPrim,
 	}
 	return vm
 }

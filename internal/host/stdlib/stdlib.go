@@ -92,19 +92,22 @@ func ordVal(cmp int) eval.Value {
 var unitVal = eval.UnitVal
 
 // driveEffectful forces a suspended computation (thunk) and then drives
-// any resulting deferred effectful PrimVal to completion. This is the
+// any resulting deferred effectful value to completion. This is the
 // Go-side equivalent of GICEL's `bind comp pure` wrapping pattern.
 // Used by handler primitives (tryAt, runStateAt, etc.) that receive a
 // raw Suspended argument without the GICEL wrapper's bind+pure layer.
+//
+// The thunk body may contain OpBind chains that the VM's execute loop
+// drives internally; only the final expression returns as a deferred
+// effectful PrimVal. ForceEffectful executes that final step without
+// adding spurious arguments.
 func driveEffectful(thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	val, newCe, err := apply.Apply(thunk, unitVal, ce)
 	if err != nil {
 		return nil, ce, err
 	}
-	// If the result is a deferred effectful prim (not yet forced),
-	// drive it by applying unitVal again.
-	if pv, ok := val.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
-		return apply.Apply(pv, unitVal, newCe)
+	if apply.ForceEffectful != nil {
+		return apply.ForceEffectful(val, newCe)
 	}
 	return val, newCe, nil
 }

@@ -10,9 +10,14 @@ import (
 // Apply handles single-argument application (the common case).
 // ApplyN handles multi-argument application, eliminating intermediate
 // partial application values and reducing VM boundary crossings.
+// ForceEffectful drives a deferred effectful value (saturated effectful
+// PrimVal or auto-force thunk) to completion without adding arguments.
+// Required by handler primitives that receive raw suspended computations
+// and need to execute the final deferred effectful step.
 type Applier struct {
-	Apply  func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error)
-	ApplyN func(fn Value, args []Value, capEnv CapEnv) (Value, CapEnv, error)
+	Apply          func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, error)
+	ApplyN         func(fn Value, args []Value, capEnv CapEnv) (Value, CapEnv, error)
+	ForceEffectful func(v Value, capEnv CapEnv) (Value, CapEnv, error)
 }
 
 // ApplierFrom constructs an Applier from a single-argument function.
