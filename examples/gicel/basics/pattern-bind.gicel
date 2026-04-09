@@ -26,21 +26,23 @@ getName := \person. { ({ name: n }) := person; n }
 compute := { (a, b) := (10, 20); (c, d) := (a * 2, b + 1); c + d }
 
 -- Pattern bind in do-block (pure bind)
-purePatBind := thunk do {
+-- The checker auto-thunks this non-entry computation at top level, so
+-- no explicit `thunk` is needed; `<- purePatBind` in main auto-forces.
+purePatBind := do {
   (x, y) := (3, 4);
   pure (x + y)
 }
 
 -- Pattern bind in do-block (monadic bind)
-monadicPatBind := thunk do {
+monadicPatBind := do {
   (a, b) <- pure (5, 6);
   (c, d) <- pure (a + 1, b + 1);
   pure (c * d)
 }
 
 main := do {
-  p <- force purePatBind;
-  m <- force monadicPatBind;
+  p <- purePatBind;
+  m <- monadicPatBind;
   putLine $ "swap (1,2):   " <> show (swap (1, 2));
   (a, b, c) := flatten ((1, 2), 3);
   putLine $ "flatten:      (" <> show a <> ", " <> show b <> ", " <> show c <> ")";

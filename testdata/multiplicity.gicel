@@ -33,11 +33,11 @@ close := assumption
 --   use:   { handle: () @Linear } → { handle: () @Linear }
 --   close: { handle: () @Linear } → {}
 lifecycle :: Thunk { handle: () @Linear } {} ()
-lifecycle := thunk do { open; use; close }
+lifecycle := do { open; use; close }
 
 -- Multiple uses before closing is also valid:
 multiUse :: Thunk { handle: () @Linear } {} ()
-multiUse := thunk do { open; use; use; use; close }
+multiUse := do { open; use; use; use; close }
 
 -- The LUB (least upper bound) of multiplicities is definable as a type family:
 type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {

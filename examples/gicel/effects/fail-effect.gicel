@@ -12,34 +12,38 @@ import Prelude
 import Effect.Fail
 import Console
 
+-- Non-entry top-level computations are auto-thunked by the checker,
+-- so each helper's body can be a plain do-block. The <- bindings in
+-- main auto-force the resulting Thunks back into Computations.
+
 -- fromMaybe with Just: extracts the value
-extractJust := thunk do {
+extractJust := do {
   x <- fromMaybe $ Just 42;
   pure x
 }
 
 -- fromResult with Ok: extracts the value
-extractOk := thunk do {
+extractOk := do {
   x <- fromResult $ Ok 100;
   pure x
 }
 
 -- Chaining successful extractions
-chainSuccess := thunk do {
+chainSuccess := do {
   x <- fromMaybe $ Just 10;
   y <- fromMaybe $ Just 20;
   pure $ x + y
 }
 
 -- fromResult chaining
-chainResults := thunk do {
+chainResults := do {
   a <- fromResult $ Ok 5;
   b <- fromResult $ Ok 10;
   pure $ a + b
 }
 
 -- Mix fromMaybe and fromResult
-mixed := thunk do {
+mixed := do {
   x <- fromMaybe $ Just 30;
   y <- fromResult $ Ok 20;
   pure $ x + y

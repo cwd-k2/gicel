@@ -10,21 +10,25 @@
 import Prelude
 import Console
 
+-- Non-entry top-level do-blocks are auto-thunked by the checker.
+-- The <- bindings in main auto-force them back into Computations.
+-- No explicit `thunk` / `force` is required anywhere.
+
 -- Simple: bind a pure value and return it
-simple := thunk do {
+simple := do {
   x <- pure 42;
   pure x
 }
 
 -- Chain: use the result of one computation in the next
-chain := thunk do {
+chain := do {
   x <- pure 10;
   y <- pure 20;
   pure $ x + y
 }
 
 -- Let binding: `:=` binds a pure expression, no `<-` needed
-withLet := thunk do {
+withLet := do {
   x <- pure 6;
   y <- pure 7;
   product := x * y;   -- let binding, not a computation
@@ -32,7 +36,7 @@ withLet := thunk do {
 }
 
 -- Nested computations: earlier results feed into later ones
-nested := thunk do {
+nested := do {
   a <- pure 100;
   b <- pure 50;
   sum := a + b;
@@ -41,7 +45,7 @@ nested := thunk do {
 }
 
 -- Compound: mix let bindings and monadic bindings freely
-compound := thunk do {
+compound := do {
   base <- pure 10;
   scale := 3;
   offset <- pure 7;
@@ -50,11 +54,11 @@ compound := thunk do {
 }
 
 main := do {
-  s <- force simple;
-  c <- force chain;
-  w <- force withLet;
-  n <- force nested;
-  d <- force compound;
+  s <- simple;
+  c <- chain;
+  w <- withLet;
+  n <- nested;
+  d <- compound;
   putLine $ "simple:   " <> show s;
   putLine $ "chain:    " <> show c;
   putLine $ "withLet:  " <> show w;

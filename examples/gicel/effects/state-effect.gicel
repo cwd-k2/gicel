@@ -12,50 +12,49 @@ import Console
 -- runState introduces state capability with an initial value.
 -- No need to put before get — the handler provides the initial state.
 
--- Each helper is Suspended (thunk-wrapped) because top-level bindings
--- cannot have bare Computation type. The inner computations passed to
--- evalState / runState do not need explicit thunks — the checker's
--- CBPV auto-coercion wraps them silently where a Thunk is expected.
--- Similarly, the top-level `force` on each helper in main is implicit:
--- `<-` in a do block coerces Thunks to Computations automatically.
+-- Each helper is Suspended (Thunk) at non-entry top level; the checker's
+-- CBPV auto-coercion silently thunks the Computation RHS and auto-
+-- forces each `<-` binding in main. No explicit `thunk` / `force`
+-- ceremony is needed anywhere — the type annotations document the
+-- intent, and the checker inserts the bridging IR nodes.
 
 -- Basic: read initial value directly
 basic :: \(r: Row). Suspended r Int
-basic := thunk (evalState 42 get)
+basic := evalState 42 get
 
 -- Modify: increment state three times
 counter :: \(r: Row). Suspended r Int
-counter := thunk (evalState 0 do {
+counter := evalState 0 do {
   modify (+ 1);
   modify (+ 1);
   modify (+ 1);
   get
-})
+}
 
 -- Accumulate: read-modify-write cycle (start 5, square it)
 accumulate :: \(r: Row). Suspended r Int
-accumulate := thunk (evalState 5 do {
+accumulate := evalState 5 do {
   n <- get;
   put (n * n);
   get
-})
+}
 
 -- Multi-step pipeline (start 2, *5 = 10, *10 = 100)
 pipeline :: \(r: Row). Suspended r Int
-pipeline := thunk (evalState 2 do {
+pipeline := evalState 2 do {
   modify (* 5);
   modify (* 10);
   get
-})
+}
 
 -- runState returns (finalState, result) — useful when you need both
 processOrder :: \(r: Row). Suspended r (Int, Int)
-processOrder := thunk (runState 50 do {
+processOrder := runState 50 do {
   modify (* 3);
   modify (+ 12);
   x <- get;
   pure (x - 10)
-})
+}
 
 main := do {
   b <- basic;
