@@ -126,6 +126,32 @@ const (
 	// Operand: u8 arity.
 	OpTailApplyN
 
+	// OpRecurseSelf is the specialized dispatch for a saturated self-call
+	// inside a fix body. The compiler emits this opcode when an App
+	// spine's head is a local Var that resolves to the current frame's
+	// FixSelfSlot AND the argument count matches the frame's param arity.
+	//
+	// Operand: u8 arity. Pops arity args from the operand stack (no fn
+	// pushed — the target proto is `frame.proto`, known statically).
+	// Pushes a fresh frame whose captures region is cloned from the
+	// current frame's captures region (they share the same closure),
+	// whose param slots receive the operand-stack args, and whose ip
+	// starts at 0.
+	//
+	// Why it's a distinct opcode: the general OpApplyN path goes through
+	// applyN → type switch → proto extract → arity check → enterClosureMulti.
+	// For a saturated self-call, every one of those runtime checks has a
+	// static answer. Emitting a dedicated opcode eliminates them from the
+	// hot dispatch loop without introducing any divergent semantics — the
+	// observable behavior is identical to OpApplyN on the same (self, args).
+	OpRecurseSelf
+	// OpTailRecurseSelf is the tail-call variant of OpRecurseSelf. Instead
+	// of pushing a new frame it reuses the current frame: clears body
+	// locals from the previous iteration, rewrites the param slots with
+	// the new args, and resets ip to 0. Budget depth is unchanged (same
+	// physical frame). Operand: u8 arity.
+	OpTailRecurseSelf
+
 	// OpEffectPrim constructs a saturated effectful PrimVal in one step.
 	// Operand: u16 name (string pool), u8 arity. Pops arity args, pushes
 	// a deferred PrimVal ready for OpBind/OpForceEffectful.
@@ -183,7 +209,7 @@ func InstructionSize(op Opcode) int {
 	case OpCon, OpPrim, OpEffectPrim:
 		return 4 // opcode + u16 + u8
 
-	case OpApplyN, OpTailApplyN:
+	case OpApplyN, OpTailApplyN, OpRecurseSelf, OpTailRecurseSelf:
 		return 2 // opcode + u8
 
 	case OpMatchCon, OpMatchRecord:
@@ -212,41 +238,43 @@ func InstructionSize(op Opcode) int {
 
 // opNames maps opcodes to their string representations.
 var opNames = [opcodeCount]string{
-	OpLoadLocal:      "LOAD_LOCAL",
-	OpLoadGlobal:     "LOAD_GLOBAL",
-	OpStoreLocal:     "STORE_LOCAL",
-	OpConst:          "CONST",
-	OpConstUnit:      "CONST_UNIT",
-	OpClosure:        "CLOSURE",
-	OpApply:          "APPLY",
-	OpTailApply:      "TAIL_APPLY",
-	OpReturn:         "RETURN",
-	OpThunk:          "THUNK",
-	OpForce:          "FORCE",
-	OpForceTail:      "FORCE_TAIL",
-	OpForceEffectful: "FORCE_EFFECTFUL",
-	OpBind:           "BIND",
-	OpCon:            "CON",
-	OpRecord:         "RECORD",
-	OpRecordProj:     "RECORD_PROJ",
-	OpRecordUpdate:   "RECORD_UPDATE",
-	OpMatchCon:       "MATCH_CON",
-	OpMatchLit:       "MATCH_LIT",
-	OpMatchRecord:    "MATCH_RECORD",
-	OpMatchWild:      "MATCH_WILD",
-	OpMatchFail:      "MATCH_FAIL",
-	OpJump:           "JUMP",
-	OpPop:            "POP",
-	OpFixClosure:     "FIX_CLOSURE",
-	OpFixThunk:       "FIX_THUNK",
-	OpPrim:           "PRIM",
-	OpPrimPartial:    "PRIM_PARTIAL",
-	OpMerge:          "MERGE",
-	OpApplyN:         "APPLY_N",
-	OpTailApplyN:     "TAIL_APPLY_N",
-	OpEffectPrim:     "EFFECT_PRIM",
-	OpRaise:          "RAISE",
-	OpStep:           "STEP",
+	OpLoadLocal:       "LOAD_LOCAL",
+	OpLoadGlobal:      "LOAD_GLOBAL",
+	OpStoreLocal:      "STORE_LOCAL",
+	OpConst:           "CONST",
+	OpConstUnit:       "CONST_UNIT",
+	OpClosure:         "CLOSURE",
+	OpApply:           "APPLY",
+	OpTailApply:       "TAIL_APPLY",
+	OpReturn:          "RETURN",
+	OpThunk:           "THUNK",
+	OpForce:           "FORCE",
+	OpForceTail:       "FORCE_TAIL",
+	OpForceEffectful:  "FORCE_EFFECTFUL",
+	OpBind:            "BIND",
+	OpCon:             "CON",
+	OpRecord:          "RECORD",
+	OpRecordProj:      "RECORD_PROJ",
+	OpRecordUpdate:    "RECORD_UPDATE",
+	OpMatchCon:        "MATCH_CON",
+	OpMatchLit:        "MATCH_LIT",
+	OpMatchRecord:     "MATCH_RECORD",
+	OpMatchWild:       "MATCH_WILD",
+	OpMatchFail:       "MATCH_FAIL",
+	OpJump:            "JUMP",
+	OpPop:             "POP",
+	OpFixClosure:      "FIX_CLOSURE",
+	OpFixThunk:        "FIX_THUNK",
+	OpPrim:            "PRIM",
+	OpPrimPartial:     "PRIM_PARTIAL",
+	OpMerge:           "MERGE",
+	OpApplyN:          "APPLY_N",
+	OpTailApplyN:      "TAIL_APPLY_N",
+	OpRecurseSelf:     "RECURSE_SELF",
+	OpTailRecurseSelf: "TAIL_RECURSE_SELF",
+	OpEffectPrim:      "EFFECT_PRIM",
+	OpRaise:           "RAISE",
+	OpStep:            "STEP",
 }
 
 func (op Opcode) String() string {

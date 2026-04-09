@@ -221,8 +221,11 @@ func TestCompilePrimOp(t *testing.T) {
 
 func TestCompileAppKnownArity(t *testing.T) {
 	// fix \self. \x. \y. self x y
-	// Inside the fix body, self has known arity 2. The call `self x y`
-	// has spine length 2 matching arity → OpTailApplyN 2 should be emitted.
+	// Inside the fix body, self has known arity 2 and the call is in
+	// tail position with matching spine length. The saturated self-call
+	// specialization fires, emitting OpTailRecurseSelf in place of the
+	// general OpTailApplyN path. Either way, the compiler must not fall
+	// back to a sequential OpApply chain.
 	selfCall := &ir.App{
 		Fun: &ir.App{Fun: &ir.Var{Name: "self", Index: 0}, Arg: &ir.Var{Name: "x", Index: 0}},
 		Arg: &ir.Var{Name: "y", Index: 0},
@@ -234,25 +237,32 @@ func TestCompileAppKnownArity(t *testing.T) {
 	annotate(c, fix)
 	proto := c.CompileExpr(fix)
 
-	// Check the fix body proto (nested) for OpTailApplyN.
-	found := false
-	var checkProto func(p *Proto)
-	checkProto = func(p *Proto) {
+	// Walk every nested proto looking for a batched self-call dispatch
+	// (the saturated-self specialization, or the general multi-arg path).
+	batchedFound := false
+	sequentialApplyOffsets := []int{}
+	var walk func(p *Proto)
+	walk = func(p *Proto) {
 		for i := 0; i < len(p.Code); {
 			op := Opcode(p.Code[i])
-			if op == OpApplyN || op == OpTailApplyN {
-				found = true
-				return
+			switch op {
+			case OpTailRecurseSelf, OpRecurseSelf, OpApplyN, OpTailApplyN:
+				batchedFound = true
+			case OpApply, OpTailApply:
+				sequentialApplyOffsets = append(sequentialApplyOffsets, i)
 			}
 			i += InstructionSize(op)
 		}
 		for _, child := range p.Protos {
-			checkProto(child)
+			walk(child)
 		}
 	}
-	checkProto(proto)
-	if !found {
-		t.Error("expected OpApplyN or OpTailApplyN in fix body bytecode, but not found")
+	walk(proto)
+	if !batchedFound {
+		t.Error("expected batched self-call dispatch in fix body bytecode, but none found")
+	}
+	if len(sequentialApplyOffsets) > 0 {
+		t.Errorf("unexpected sequential OpApply at offsets %v — the compiler should batch saturated self-calls", sequentialApplyOffsets)
 	}
 }
 

@@ -366,6 +366,57 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				return eval.EvalResult{}, err
 			}
 
+		case OpRecurseSelf:
+			// Saturated self-call inside a fix body: target proto is
+			// frame.proto, captures + self slot live at the current
+			// frame's bp..bp+FixSelfSlot+1. Skip type dispatch / arity
+			// check / observer (fix closures have no name) and enter
+			// the new frame directly.
+			arity := int(frame.proto.Code[frame.ip])
+			frame.ip++
+			proto := frame.proto
+			if err := vm.budget.Enter(); err != nil {
+				return eval.EvalResult{}, err
+			}
+			numCaptured := proto.FixSelfSlot + 1
+			oldBp := frame.bp
+			newBp := len(vm.locals)
+			argsBase := vm.sp - arity
+			vm.ensureLocals(newBp + proto.NumLocals)
+			// Both regions now live in the same backing slice; copy the
+			// captures + self slot from the caller's frame verbatim.
+			copy(vm.locals[newBp:newBp+numCaptured], vm.locals[oldBp:oldBp+numCaptured])
+			// Copy args from the operand stack into the new frame's
+			// param slots (paramBase == numCaptured for a fix frame).
+			copy(vm.locals[newBp+numCaptured:newBp+numCaptured+arity], vm.stack[argsBase:vm.sp])
+			clear(vm.stack[argsBase:vm.sp])
+			vm.sp = argsBase
+			vm.pushFrame(proto, newBp, frame.capEnv, proto.Source)
+			// frame pointer is now stale; the execute loop re-fetches
+			// via currentFrame on the next iteration.
+
+		case OpTailRecurseSelf:
+			// Tail variant: reuse the current frame. Captures + self
+			// slot are already in place (same proto), so only body
+			// locals need clearing and the param slots need rewriting.
+			arity := int(frame.proto.Code[frame.ip])
+			frame.ip++
+			proto := frame.proto
+			paramBase := proto.FixSelfSlot + 1
+			writtenUpTo := paramBase + arity
+			numLocals := proto.NumLocals
+			bp := frame.bp
+			// Clear body locals carried over from the previous iteration
+			// so GC can reclaim values no longer reachable.
+			if writtenUpTo < numLocals {
+				clear(vm.locals[bp+writtenUpTo : bp+numLocals])
+			}
+			argsBase := vm.sp - arity
+			copy(vm.locals[bp+paramBase:bp+writtenUpTo], vm.stack[argsBase:vm.sp])
+			clear(vm.stack[argsBase:vm.sp])
+			vm.sp = argsBase
+			frame.ip = 0
+
 		case OpReturn:
 			result := vm.pop()
 			// Force auto-force thunks before returning (mirrors tree-walker's

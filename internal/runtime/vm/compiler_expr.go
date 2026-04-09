@@ -189,6 +189,35 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 		}
 	}
 
+	// Specialized self-recursion: a saturated call to the current fix
+	// frame's self slot can skip OpApplyN's type dispatch entirely —
+	// the target proto is known to be `frame.proto`, and the arity is
+	// known to match by construction of this branch.
+	//
+	// Detection is structural: (a) the fn position is a local Var
+	// (Index >= 0), (b) the current frame is a fix body (fixSelfSlot
+	// allocated), (c) the Var resolves to that slot in *this* frame
+	// (not via a capture from a nested lambda), (d) len(args) matches
+	// the frame's declared params. Conditions (c) and (d) together
+	// ensure the general OpApplyN path would have dispatched to the
+	// same proto with the same arity.
+	if v, ok := fn.(*ir.Var); ok && v.Index >= 0 && len(args) > 0 && len(args) <= 255 {
+		f := c.top()
+		if f.fixSelfSlot >= 0 && len(args) == len(f.params) {
+			if slot, ok := c.resolveLocal(v.Name); ok && slot == f.fixSelfSlot {
+				for _, arg := range args {
+					c.compileExpr(arg, false)
+				}
+				op := OpRecurseSelf
+				if tail {
+					op = OpTailRecurseSelf
+				}
+				c.emitU8(op, uint8(len(args)))
+				return
+			}
+		}
+	}
+
 	// Single-arg call: OpApply is cheapest (the dispatch loop pops fn
 	// and arg directly without allocating an args slice).
 	if len(args) == 1 {
