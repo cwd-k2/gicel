@@ -18,6 +18,8 @@ const (
 	ErrUnterminatedLit Code = 4 // unterminated literal
 	ErrEmptyRuneLit    Code = 5 // empty rune literal
 	ErrReservedInOp    Code = 6 // reserved symbol inside operator
+	ErrMultiCharRune   Code = 7 // rune literal contains more than one character
+	ErrMalformedNumber Code = 8 // malformed numeric literal (e.g., extra dot)
 )
 
 // Parse errors (E0100–E0199)

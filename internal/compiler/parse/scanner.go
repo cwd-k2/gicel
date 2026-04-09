@@ -483,15 +483,40 @@ func (s *Scanner) scanRune(start int) syn.Token {
 		s.pos += size
 	}
 
-	if s.pos >= len(s.source.Text) || s.source.Text[s.pos] != '\'' {
+	if s.pos >= len(s.source.Text) {
 		s.errors.Add(&diagnostic.Error{
 			Code:    diagnostic.ErrUnterminatedLit,
 			Phase:   diagnostic.PhaseLex,
 			Span:    span.Span{Start: span.Pos(start), End: span.Pos(s.pos)},
 			Message: "unterminated rune literal",
 		})
-	} else {
+	} else if s.source.Text[s.pos] == '\'' {
 		s.pos++ // skip closing '\''
+	} else {
+		// Extra characters before closing quote: scan forward to recover.
+		for s.pos < len(s.source.Text) && s.source.Text[s.pos] != '\'' && s.source.Text[s.pos] != '\n' {
+			if s.source.Text[s.pos] == '\\' && s.pos+1 < len(s.source.Text) {
+				s.pos += 2 // skip escape pair
+			} else {
+				s.pos++
+			}
+		}
+		if s.pos < len(s.source.Text) && s.source.Text[s.pos] == '\'' {
+			s.pos++ // consume closing quote for recovery
+			s.errors.Add(&diagnostic.Error{
+				Code:    diagnostic.ErrMultiCharRune,
+				Phase:   diagnostic.PhaseLex,
+				Span:    span.Span{Start: span.Pos(start), End: span.Pos(s.pos)},
+				Message: "rune literal must contain exactly one character",
+			})
+		} else {
+			s.errors.Add(&diagnostic.Error{
+				Code:    diagnostic.ErrUnterminatedLit,
+				Phase:   diagnostic.PhaseLex,
+				Span:    span.Span{Start: span.Pos(start), End: span.Pos(s.pos)},
+				Message: "unterminated rune literal",
+			})
+		}
 	}
 	return syn.Token{
 		Kind: syn.TokRuneLit,
@@ -560,6 +585,16 @@ func (s *Scanner) scanNumeric(start int) syn.Token {
 				s.scanDigits()
 			}
 		}
+	}
+	// Detect malformed numeric like 3.14.15 (second dot after double).
+	if isDouble && s.pos < len(s.source.Text) && s.source.Text[s.pos] == '.' &&
+		s.pos+1 < len(s.source.Text) && s.source.Text[s.pos+1] >= '0' && s.source.Text[s.pos+1] <= '9' {
+		s.errors.Add(&diagnostic.Error{
+			Code:    diagnostic.ErrMalformedNumber,
+			Phase:   diagnostic.PhaseLex,
+			Span:    span.Span{Start: span.Pos(start), End: span.Pos(s.pos)},
+			Message: "malformed numeric literal: extra '.' in floating-point number",
+		})
 	}
 	if isDouble {
 		return s.tok(syn.TokDoubleLit, start)
