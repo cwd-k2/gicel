@@ -31,6 +31,7 @@ Provides mutable fixed-size arrays with O(1) read/write, gated by the `{ array: 
 - `size` is pure (no effect annotation needed).
 - Out-of-bounds reads return `Nothing`; out-of-bounds writes are no-ops.
 - Named variants require `@#label` (e.g., `newAt @#buf 3 0`).
+- `toSlice` / `fromSlice` return/accept `Slice a` — use `import Data.Slice` to operate on the result.
 
 **Example:**
 
