@@ -127,6 +127,21 @@ _mapFoldrWithKey := assumption
 foldrWithKey :: \k v b. (k -> v -> b -> b) -> b -> Map k v -> b
 foldrWithKey := _mapFoldrWithKey
 
+adjust :: \k v. Ord k => k -> (v -> v) -> Map k v -> Map k v
+adjust := \k f m. case lookup k m {
+  Just v => insert k (f v) m;
+  Nothing => m
+}
+
+union :: \k v. Map k v -> Map k v -> Map k v
+union := unionWith (\_ b. b)
+
+intersection :: \k v. Map k v -> Map k v -> Map k v
+intersection := intersectionWith (\_ b. b)
+
+difference :: \k v. Ord k => Map k v -> Map k v -> Map k v
+difference := \m1 m2. foldlWithKey (\acc k _. delete k acc) m1 m2
+
 impl (Ord k, Show k, Show v) => Show (Map k v) := {
   show := \m. "Map.fromList " <> show (toList m)
 }

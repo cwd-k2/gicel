@@ -64,6 +64,12 @@ difference := _setDifference compare
 fold :: \k b. (b -> k -> b) -> b -> Set k -> b
 fold := \f z s. foldl f z (_setToList s)
 
+_setFoldr :: \k b. (k -> b -> b) -> b -> Set k -> b
+_setFoldr := \f z s. foldr f z (_setToList s)
+
+setFoldr :: \k b. (k -> b -> b) -> b -> Set k -> b
+setFoldr := _setFoldr
+
 filter :: \k. Ord k => (k -> Bool) -> Set k -> Set k
 filter := \p s. fold (\acc k.
   if p k
