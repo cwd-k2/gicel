@@ -29,11 +29,12 @@ var packMap = map[string]gicel.Pack{
 	"mset":    gicel.EffectSet,
 	"ref":     gicel.EffectRef,
 	"json":    gicel.DataJSON,
+	"session": gicel.EffectSession,
 	"console": consolePack,
 }
 
 // allPackOrder ensures deterministic pack loading.
-var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "ref", "mmap", "mset", "json", "console"}
+var allPackOrder = []string{"prelude", "fail", "state", "io", "stream", "slice", "map", "set", "array", "ref", "mmap", "mset", "json", "session", "console"}
 
 func setupEngine(packs string) (*gicel.Engine, error) {
 	eng := gicel.NewEngine()

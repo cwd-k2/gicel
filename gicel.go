@@ -276,3 +276,6 @@ var EffectRef Pack = stdlib.Ref
 
 // DataJSON provides ToJSON/FromJSON type classes for JSON encoding/decoding.
 var DataJSON Pack = stdlib.JSON
+
+// EffectSession provides session type handler primitives.
+var EffectSession Pack = stdlib.Session

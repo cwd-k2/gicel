@@ -204,7 +204,7 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 	// type information (e.g. state type from put) propagates to
 	// variables bound by get in subsequent statements.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
-	return restTy, &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
+	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
 }
 
 func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
@@ -231,7 +231,30 @@ func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS
 
 	// Thread post-state: see inferBind comment.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
-	return restTy, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
+	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
+}
+
+// withFirstPre returns restTy with its Pre replaced by compTy's Pre.
+// In infer-mode do-blocks, each statement returns the rest's type, which
+// has the rest's own Pre (= comp's Post after unification). For session
+// types where pre ≠ post, the overall do-block type must carry the FIRST
+// statement's Pre, not the rest's. For state effects (pre == post), the
+// replacement is a no-op because comp's Pre == comp's Post == rest's Pre.
+func (d *doElaborator) withFirstPre(compTy, restTy types.Type) types.Type {
+	comp, ok1 := compTy.(*types.TyCBPV)
+	rest, ok2 := restTy.(*types.TyCBPV)
+	if !ok1 || !ok2 || comp.Tag != types.TagComp || rest.Tag != types.TagComp {
+		return restTy
+	}
+	return &types.TyCBPV{
+		Tag:    types.TagComp,
+		Pre:    comp.Pre,
+		Post:   rest.Post,
+		Result: rest.Result,
+		Grade:  rest.Grade,
+		Flags:  types.MetaFreeFlags(comp.Pre, rest.Post, rest.Result),
+		S:      rest.S,
+	}
 }
 
 // unifyCompPostPre unifies the post-state of compTy with the pre-state of
