@@ -6,6 +6,13 @@ import "github.com/cwd-k2/gicel/internal/lang/ir"
 // an inline candidate.
 const maxInlineSize = 20
 
+// maxEvidenceInlineSize is the maximum node count for evidence bindings
+// (instance dictionaries and class method selectors). Evidence is larger
+// than typical inline candidates because dictionary constructors carry
+// all method implementations, but inlining them exposes case-of-known-
+// constructor reductions that dissolve the dictionary entirely.
+const maxEvidenceInlineSize = 60
+
 // inlineCandidate holds a binding eligible for inlining.
 type inlineCandidate struct {
 	body ir.Core
@@ -22,15 +29,35 @@ type ExternalBinding struct {
 }
 
 // collectInlineCandidates scans program bindings (and optionally
-// imported-module bindings) for small, non-recursive lambda definitions
+// imported-module bindings) for small, non-recursive definitions
 // that can be safely inlined at call sites. Candidates are keyed by
 // ir.VarKey so the inliner matches references regardless of whether
 // they are local (`Name`) or module-qualified (`Module\x00Name`).
+//
+// Three categories of candidates:
+//   - User bindings: small lambdas (existing behavior)
+//   - External bindings: small lambdas from imported modules
+//   - Evidence bindings: Generated instance dictionaries and class
+//     method selectors. Inlining these exposes case-of-known-constructor
+//     (R1) which dissolves dictionary dispatch at compile time.
 func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, external []ExternalBinding) map[string]*inlineCandidate {
-	if len(userBindings) == 0 && len(external) == 0 {
-		return nil
-	}
 	candidates := make(map[string]*inlineCandidate)
+
+	// Evidence bindings: always scan, regardless of userBindings.
+	// Instance dictionaries (Con applications) and method selectors
+	// (TyLam/Lam/Case) are compile-time constants whose inlining
+	// enables algebraic simplification.
+	for _, b := range prog.Bindings {
+		if !b.Generated {
+			continue
+		}
+		if !eligibleEvidenceBody(b.Expr, b.Name) {
+			continue
+		}
+		candidates[b.Name] = &inlineCandidate{body: b.Expr}
+	}
+
+	// User bindings: small lambdas.
 	if userBindings != nil {
 		for _, b := range prog.Bindings {
 			if !userBindings[b.Name] {
@@ -45,6 +72,8 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 			candidates[b.Name] = &inlineCandidate{body: b.Expr}
 		}
 	}
+
+	// External bindings: small lambdas from imported modules.
 	for _, eb := range external {
 		key := ir.QualifiedKey(eb.Module, eb.Name)
 		if _, exists := candidates[key]; exists {
@@ -55,6 +84,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 		}
 		candidates[key] = &inlineCandidate{body: eb.Expr}
 	}
+
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -86,6 +116,48 @@ func eligibleInlineBody(expr ir.Core, name string) bool {
 		return false
 	}
 	return true
+}
+
+// eligibleEvidenceBody checks whether a Generated binding is an evidence
+// candidate (instance dictionary or method selector) eligible for inlining.
+//
+// Evidence takes two forms:
+//   - Dictionary: Con(DictName, args...) optionally wrapped in Lam/TyLam
+//     for context parameters. Inlining exposes case-of-known-constructor.
+//   - Selector: TyLam* → Lam $d → Case $d { DictCon ... → field }
+//     Inlining exposes beta-reduction then case-of-known-constructor.
+//
+// Unlike user bindings, evidence need not start with *ir.Lam — it may
+// start with *ir.TyLam, *ir.Con, or *ir.App. The size limit is larger
+// (maxEvidenceInlineSize) because dictionaries carry all fields but
+// simplify away after R1 fires.
+func eligibleEvidenceBody(expr ir.Core, name string) bool {
+	if nodeSize(expr, maxEvidenceInlineSize+1) > maxEvidenceInlineSize {
+		return false
+	}
+	fv := ir.FreeVars(expr)
+	if _, recursive := fv[name]; recursive {
+		return false
+	}
+	// Must have evidence structure: peel TyLam/Lam wrappers and check
+	// that the core is a Con application (dictionary) or Case (selector).
+	core := expr
+	for {
+		switch n := core.(type) {
+		case *ir.TyLam:
+			core = n.Body
+			continue
+		case *ir.Lam:
+			core = n.Body
+			continue
+		}
+		break
+	}
+	switch core.(type) {
+	case *ir.Con, *ir.App, *ir.Case:
+		return true
+	}
+	return false
 }
 
 // inlineRule returns a rewrite rule that replaces variable references
