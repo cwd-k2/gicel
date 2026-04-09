@@ -151,7 +151,7 @@ main := ...
 
 ### Literals
 
-- **Integer:** Unsigned decimal digits `[0-9]+`. Underscore separators allowed: `100_000`. Available with `import Prelude`. Negative values via `negate 5`, not `-5`.
+- **Integer:** Unsigned decimal digits `[0-9]+`. Underscore separators allowed: `100_000`. Available with `import Prelude`. Negative values: `-5` desugars to `negate 5` at parse time.
 - **Double:** Decimal point or exponent: `3.14`, `1e10`, `1.05e+10`. Available with `import Prelude`.
 - **String:** Double-quoted `"hello\nworld"`. Escape sequences: `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\0`.
 - **Rune:** Single-quoted single character `'a'`, `'\n'`. Same escapes as strings.

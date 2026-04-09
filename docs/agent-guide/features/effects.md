@@ -142,6 +142,15 @@ As a consequence, typical effectful code uses neither `thunk` nor
 around as normal values. The explicit forms remain available for
 documentation and disambiguation.
 
+**Why the distinction exists** — CBPV separates _values_ (data at
+rest) from _computations_ (effects in progress). A `do { ... }` block
+is a `Computation` — it describes work to be done. A top-level binding
+must store a value, not a running computation, so the checker wraps it
+in `Thunk` (the suspension). When you later write `x <- helper` in a
+do-block, the checker unwraps the thunk back into a computation. This
+round-trip is invisible: you write `do`-blocks, call helpers, and the
+type system ensures the CBPV discipline is maintained.
+
 ### Named Capabilities
 
 > **⚠ Runtime gap**: `*At` variants **type-check correctly** but their runtime

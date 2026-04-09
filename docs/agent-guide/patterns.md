@@ -157,7 +157,7 @@ main := suspended
 
 - **Lambda uses `.` not `->`.** `\x. e`, not `\x -> e`. Multi-parameter: `\x y. e` (desugars to `\x. \y. e`)
 - **Arithmetic operators require Prelude.** Without `import Prelude`, `+`, `-`, `*`, etc. are unbound. Literals like `42` work without Prelude.
-- **No negative literals.** Use `negate 5`, not `-5`.
+- **Negative literals desugar.** `-5` is parsed as `negate 5`. Works for any atom: `-x`, `-3.14`.
 - **Type annotation is a declaration.** `f :: T` then `f := expr`, not `f := expr :: T`.
 - **case uses braces, not "of".** `case x { ... }`, not `case x of { ... }`.
 - **No string interpolation.** Use `"count: " <> showInt n`.

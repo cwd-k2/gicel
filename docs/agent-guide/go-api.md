@@ -97,6 +97,22 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 | `gicel.FromList(v) ([]any, bool)`   | Destructure Cons/Nil chain to Go slice                  |
 | `gicel.FromRecord(v) (map, bool)`   | Extract record fields as `map[string]Value` (via AsMap) |
 
+### Type Correspondence
+
+| GICEL Type   | Go Native            | Wrapper     | Extract                          |
+| ------------ | -------------------- | ----------- | -------------------------------- |
+| `Int`        | `int64`              | `HostVal`   | `MustHost[int64]`, `FromHost`    |
+| `Double`     | `float64`            | `HostVal`   | `MustHost[float64]`, `FromHost`  |
+| `String`     | `string`             | `HostVal`   | `MustHost[string]`, `FromHost`   |
+| `Rune`       | `rune`               | `HostVal`   | `MustHost[rune]`, `FromHost`     |
+| `Bool`       | `True` / `False`     | `ConVal`    | `FromBool`                       |
+| `()`         | `nil` unit           | `RecordVal` | `FromRecord` (empty map)         |
+| `(a, b)`     | pair                 | `RecordVal` | `FromRecord` (fields `_1`, `_2`) |
+| `List a`     | `Cons`/`Nil` chain   | `ConVal`    | `FromList`, `ToList`             |
+| `Maybe a`    | `Just a` / `Nothing` | `ConVal`    | `FromCon`                        |
+| `{l: T ...}` | record               | `RecordVal` | `FromRecord`                     |
+| `Con a b`    | ADT constructor      | `ConVal`    | `FromCon`                        |
+
 ### Type Construction Helpers
 
 | Function                                  | Description                           |
