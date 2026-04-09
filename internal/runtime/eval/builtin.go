@@ -23,10 +23,16 @@ func BindBody() *ir.Lam {
 	}
 }
 
-// ForceBody returns the IR for the force builtin: \thk. force thk
-func ForceBody() *ir.Lam {
-	return &ir.Lam{Param: "_thk", Body: &ir.Force{Expr: &ir.Var{Name: "_thk"}}}
-}
+// Note: force has no first-class Prelude value. In CBV it would be
+// expressible as `\thk. force thk`, but the checker deliberately treats
+// `force` as a pure syntactic form (symmetric with `thunk`, which in CBV
+// cannot be a function at all). See bidir.go's dispatch on ExprVar and
+// the CBPV auto-coercion path in subsCheck / doElaborator / decl.go —
+// the applied form `force e` elaborates directly to ir.Force without
+// going through a Prelude value, and all indirect uses (do bindings,
+// case arms, entry points, function arguments) are handled by the
+// type-directed coercion. A bare `force` reference therefore has no
+// runtime representation and the checker raises a syntactic error.
 
 // FixBody returns the Fix IR node for the fix builtin.
 func FixBody() *ir.Fix { return fixBody() }

@@ -127,12 +127,13 @@ func (r *Runtime) annotateError(err error) error {
 }
 
 // initBuiltinGlobals registers builtin names and data constructors in the
-// globals map. Builtin values (pure, bind, force, fix, rec) are placeholder
-// nils here; precompileVM replaces them with VMClosures.
+// globals map. Builtin values (pure, bind, fix, rec) are placeholder
+// nils here; precompileVM replaces them with VMClosures. `thunk` and
+// `force` are syntactic special forms with no runtime value.
 func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
 	globals := make(map[string]eval.Value, 8)
 	// Register builtin names (values are set by precompileVM).
-	for _, name := range []string{"pure", "bind", "force"} {
+	for _, name := range []string{"pure", "bind"} {
 		globals[name] = nil
 	}
 	if gatedBuiltins["fix"] {

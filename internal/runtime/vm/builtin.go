@@ -7,14 +7,17 @@ import (
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
-// CompileBuiltinGlobals compiles the built-in globals (pure, bind, force,
-// and optionally fix/rec) into VMClosure values.
+// CompileBuiltinGlobals compiles the built-in globals (pure, bind, and
+// optionally fix/rec) into VMClosure values. `thunk` and `force` are
+// deliberately absent: they are pure syntactic special forms without
+// first-class runtime representation. Applied uses elaborate directly
+// to ir.Thunk / ir.Force, and indirect uses are covered by the CBPV
+// auto-coercion in the type checker.
 func CompileBuiltinGlobals(compiler *Compiler, enableFix, enableRec bool) map[string]eval.Value {
 	globals := make(map[string]eval.Value, 8)
 
 	globals["pure"] = compileBuiltinLam(compiler, "pure", eval.PureBody())
 	globals["bind"] = compileBuiltinLam(compiler, "bind", eval.BindBody())
-	globals["force"] = compileBuiltinLam(compiler, "force", eval.ForceBody())
 
 	if enableFix {
 		globals["fix"] = compileBuiltinLam(compiler, "fix",
