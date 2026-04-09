@@ -25,7 +25,7 @@ form Expr := \a. {
 
 renderExpr :: \a. Expr a -> String
 renderExpr := fix (\self expr. case expr {
-  IntLit n     => showInt n;
+  IntLit n     => show n;
   BoolLit b    => case b { True => "t"; False => "f" };
   AddInt lhs rhs => self lhs <> "+" <> self rhs
 })

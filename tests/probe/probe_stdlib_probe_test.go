@@ -163,7 +163,7 @@ main := show 0
 func TestProbeC_Stdlib_ShowNegativeInt(t *testing.T) {
 	v, err := probeRun(t, `
 import Prelude
-main := showInt (negate 42)
+main := show (negate 42)
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatal(err)

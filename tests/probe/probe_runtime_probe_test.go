@@ -858,7 +858,7 @@ main := foldl (\acc x. acc + x) 0 (replicate 100000 1)
 func TestProbeD_ShowNegativeInt(t *testing.T) {
 	v, err := pdRun(t, `
 import Prelude
-main := showInt (negate 42)
+main := show (negate 42)
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -869,7 +869,9 @@ main := showInt (negate 42)
 func TestProbeD_ReadIntValid(t *testing.T) {
 	v, err := pdRun(t, `
 import Prelude
-main := readInt "123"
+r :: Maybe Int
+r := read "123"
+main := r
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -884,7 +886,9 @@ main := readInt "123"
 func TestProbeD_ReadIntInvalid(t *testing.T) {
 	v, err := pdRun(t, `
 import Prelude
-main := readInt "abc"
+r :: Maybe Int
+r := read "abc"
+main := r
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -895,7 +899,9 @@ main := readInt "abc"
 func TestProbeD_ReadIntEmpty(t *testing.T) {
 	v, err := pdRun(t, `
 import Prelude
-main := readInt ""
+r :: Maybe Int
+r := read ""
+main := r
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -76,18 +76,18 @@ func TestStrJoin(t *testing.T) {
 }
 
 func TestStrShowInt(t *testing.T) {
-	v := runWithPacks(t, "import Prelude\nmain := showInt 42", stdlib.Prelude)
+	v := runWithPacks(t, "import Prelude\nmain := show 42", stdlib.Prelude)
 	assertHostString(t, v, "42")
 }
 
 func TestStrShowBool(t *testing.T) {
-	v := runWithPacks(t, "import Prelude\nmain := showBool True", stdlib.Prelude)
+	v := runWithPacks(t, "import Prelude\nmain := show True", stdlib.Prelude)
 	assertHostString(t, v, "True")
 }
 
 func TestStrReadInt(t *testing.T) {
-	// readInt returns Maybe Int
-	v := runWithPacks(t, "import Prelude\nmain := readInt \"42\"", stdlib.Prelude)
+	// read returns Maybe Int (type annotation selects the instance)
+	v := runWithPacks(t, "import Prelude\nr :: Maybe Int\nr := read \"42\"\nmain := r", stdlib.Prelude)
 	con, ok := v.(*eval.ConVal)
 	if !ok || con.Con != "Just" {
 		t.Fatalf("expected Just, got %v", v)
@@ -102,7 +102,7 @@ func TestStrReadInt(t *testing.T) {
 }
 
 func TestStrReadIntFail(t *testing.T) {
-	v := runWithPacks(t, "import Prelude\nmain := readInt \"abc\"", stdlib.Prelude)
+	v := runWithPacks(t, "import Prelude\nr :: Maybe Int\nr := read \"abc\"\nmain := r", stdlib.Prelude)
 	assertConVal(t, v, "Nothing")
 }
 

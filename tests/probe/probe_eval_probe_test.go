@@ -1043,7 +1043,7 @@ main := mod 42 0
 func TestProbeE_Eval_ShowInt(t *testing.T) {
 	v, err := peRun(t, `
 import Prelude
-main := showInt 42
+main := show 42
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatal(err)
@@ -1057,7 +1057,7 @@ main := showInt 42
 func TestProbeE_Eval_ShowNegativeInt(t *testing.T) {
 	v, err := peRun(t, `
 import Prelude
-main := showInt (negate 42)
+main := show (negate 42)
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatal(err)

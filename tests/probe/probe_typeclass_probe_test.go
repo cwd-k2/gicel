@@ -16,7 +16,7 @@ import (
 func TestProbeD_TypeClass_ShowInt(t *testing.T) {
 	v, err := pdRun(t, `
 import Prelude
-main := showInt 42
+main := show 42
 `, gicel.Prelude)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

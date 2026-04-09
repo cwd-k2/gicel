@@ -169,7 +169,7 @@ main := myPrim 42
 }
 
 func TestSandboxRunAllPacks(t *testing.T) {
-	result, err := RunSandbox("import Prelude\nmain := showInt (foldl (\\acc x. acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &SandboxConfig{
+	result, err := RunSandbox("import Prelude\nmain := show (foldl (\\acc x. acc + x) 0 (Cons 1 (Cons 2 (Cons 3 Nil))))", &SandboxConfig{
 		Packs: []registry.Pack{stdlib.Prelude},
 	})
 	if err != nil {

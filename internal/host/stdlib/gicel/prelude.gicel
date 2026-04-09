@@ -1023,17 +1023,6 @@ split := _split
 join :: String -> List String -> String
 join := _join
 
-showInt :: Int -> String
-showInt := show
-
-showBool :: Bool -> String
-showBool := \b. case b { True => "True"; False => "False" }
-
-readInt :: String -> Maybe Int
-readInt := _readInt
-
-readDouble :: String -> Maybe Double
-readDouble := _readDouble
 
 words :: String -> List String
 words := _words
