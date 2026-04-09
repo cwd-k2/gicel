@@ -388,6 +388,22 @@ expect_output "tryAt do-block failure" 'Err "boom"' \
 expect_output "nested named handlers" "33" \
   "$GICEL" run -e 'import Prelude; import Effect.State; main := evalStateAt @#x 10 do { evalStateAt @#y 20 do { modifyAt @#x (+ 1); modifyAt @#y (+ 2); a <- getAt @#x; b <- getAt @#y; pure (a + b) } }'
 
+# --- Label-scoped fail effects (H13 soundness fix) ---
+expect_output "tryAt catches matching label" 'Err "x"' \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := tryAt @#a do { failWithAt @#a "x" }'
+
+expect_fail "tryAt does NOT catch mismatched label" \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := tryAt @#a do { failWithAt @#b "y" }'
+
+expect_output "anonymous try catches anonymous fail" 'Err "z"' \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := try do { failWith "z" }'
+
+expect_fail "anonymous try does NOT catch named fail" \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := try do { failWithAt @#x "w" }'
+
+expect_output "nested tryAt: outer catches inner miss" 'Err "outer"' \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := tryAt @#b do { tryAt @#a do { failWithAt @#b "outer" } }'
+
 echo ""
 
 # === CLI UX ===

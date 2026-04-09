@@ -8,12 +8,13 @@ import (
 
 // RuntimeError represents an error during evaluation.
 type RuntimeError struct {
-	Message string
-	Detail  Value        // the original value passed to fail (nil if unavailable)
-	Span    span.Span    // internal: byte offsets
-	Source  *span.Source // originating source (populated by evaluator)
-	Line    int          // 1-based line number (populated by Runtime)
-	Col     int          // 1-based column number (populated by Runtime)
+	Message   string
+	Detail    Value        // the original value passed to fail (nil if unavailable)
+	FailLabel string       // label for named fail effects ("" = anonymous failWith)
+	Span      span.Span    // internal: byte offsets
+	Source    *span.Source // originating source (populated by evaluator)
+	Line      int          // 1-based line number (populated by Runtime)
+	Col       int          // 1-based column number (populated by Runtime)
 }
 
 func (e *RuntimeError) Error() string {

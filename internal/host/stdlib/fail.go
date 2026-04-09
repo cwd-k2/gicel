@@ -9,7 +9,7 @@ import (
 // Fail provides the fail effect capability.
 var Fail Pack = func(e Registrar) error {
 	e.RegisterPrim("failWith", failImpl)
-	e.RegisterPrim("failWithAt", withLabel(failImpl))
+	e.RegisterPrim("failWithAt", failAtImpl)
 	e.RegisterPrim("_try", tryImpl)
 	e.RegisterPrim("tryAt", tryAtImpl)
 	return e.RegisterModule("Effect.Fail", failSource)
@@ -17,30 +17,28 @@ var Fail Pack = func(e Registrar) error {
 
 var failSource = mustReadSource("fail")
 
-// tryImpl forces a suspended computation and catches fail effects.
-// Success → Ok(value) with updated CapEnv. Failure → Err(detail) with original CapEnv (rollback).
+// tryImpl forces a suspended computation and catches anonymous fail effects.
+// Only catches RuntimeErrors with Detail != nil and FailLabel == "" (anonymous).
+// Named fail effects (FailLabel != "") propagate to outer handlers.
 func tryImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	val, newCe, err := apply.Apply(args[0], unitVal, ce)
 	if err != nil {
-		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil {
+		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil && re.FailLabel == "" {
 			return &eval.ConVal{Con: "Err", Args: []eval.Value{re.Detail}}, ce, nil
 		}
-		// Non-fail errors (budget, depth, etc.) propagate unchanged.
 		return nil, ce, err
 	}
 	return &eval.ConVal{Con: "Ok", Args: []eval.Value{val}}, newCe, nil
 }
 
-// tryAtImpl handles the named fail effect: same as try but with a label
-// argument from label erasure. args: [label, suspendedComp]
-// Currently label-agnostic (catches all fail effects regardless of label).
-// The suspended computation must be driven to completion by applying unitVal
-// and then driving the resulting effectful value (see driveEffectful).
+// tryAtImpl handles a named fail effect. Only catches RuntimeErrors whose
+// FailLabel matches the handler's label. Non-matching labeled errors and
+// anonymous errors propagate unchanged.
 func tryAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	// args[0] = label, args[1] = suspended computation
+	label := args[0].(*eval.HostVal).Inner.(string)
 	val, newCe, err := driveEffectful(args[1], ce, apply)
 	if err != nil {
-		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil {
+		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil && re.FailLabel == label {
 			return &eval.ConVal{Con: "Err", Args: []eval.Value{re.Detail}}, ce, nil
 		}
 		return nil, ce, err
@@ -56,4 +54,21 @@ func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appli
 		msg = "fail: " + eval.PrettyValue(detail)
 	}
 	return nil, ce, &eval.RuntimeError{Message: msg, Detail: detail}
+}
+
+// failAtImpl is the named variant. args: [label, detail].
+// Tags the RuntimeError with FailLabel so only the matching tryAt handler
+// catches it; other handlers and anonymous try let it propagate.
+func failAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	if err := validateLabelArg(args); err != nil {
+		return nil, ce, err
+	}
+	label := args[0].(*eval.HostVal).Inner.(string)
+	msg := "fail"
+	var detail eval.Value
+	if len(args) > 1 && args[1] != nil {
+		detail = args[1]
+		msg = "fail: " + eval.PrettyValue(detail)
+	}
+	return nil, ce, &eval.RuntimeError{Message: msg, Detail: detail, FailLabel: label}
 }
