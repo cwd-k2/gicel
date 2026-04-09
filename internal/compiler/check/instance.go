@@ -119,7 +119,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 			continue
 		}
 		if ch.instancesOverlap(existing, inst) {
-			ch.addCodedError(diagnostic.ErrOverlap, impl.S,
+			ch.addCodedError(diagnostic.ErrOverlap, impl.Ann.Span(),
 				"overlapping instances for class "+className+": "+existing.DictBindName+" and "+dictName)
 			return nil, nil
 		}

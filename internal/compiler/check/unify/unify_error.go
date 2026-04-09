@@ -164,16 +164,28 @@ func (e *RowMismatchError) Error() string {
 // conflating it with the class name used by ClassArgCountError.
 type SkolemRigidError struct {
 	SkolemName   string
+	SkolemID     int
 	Other        types.Type
 	SkolemOnLeft bool
 }
 
 func (e *SkolemRigidError) Kind() UnifyErrorKind { return UnifySkolemRigid }
 func (e *SkolemRigidError) Error() string {
-	if e.SkolemOnLeft {
-		return "cannot unify rigid type variable #" + e.SkolemName + " with " + types.Pretty(e.Other)
+	skolemStr := "#" + e.SkolemName
+	// Disambiguate when the other side is also a skolem with the same name
+	// (e.g. nested forall scopes binding the same variable name).
+	if other, ok := e.Other.(*types.TySkolem); ok && other.Name == e.SkolemName {
+		skolemStr += "_" + strconv.Itoa(e.SkolemID)
+		otherStr := "#" + other.Name + "_" + strconv.Itoa(other.ID)
+		if e.SkolemOnLeft {
+			return "cannot unify rigid type variable " + skolemStr + " with " + otherStr
+		}
+		return "cannot unify " + otherStr + " with rigid type variable " + skolemStr
 	}
-	return "cannot unify " + types.Pretty(e.Other) + " with rigid type variable #" + e.SkolemName
+	if e.SkolemOnLeft {
+		return "cannot unify rigid type variable " + skolemStr + " with " + types.Pretty(e.Other)
+	}
+	return "cannot unify " + types.Pretty(e.Other) + " with rigid type variable " + skolemStr
 }
 
 // UntouchableMetaError reports an attempt to solve a metavariable from a

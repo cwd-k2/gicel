@@ -235,7 +235,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			u.skolemSoln[as.ID] = b
 			return nil
 		}
-		return &SkolemRigidError{SkolemName: as.Name, Other: b, SkolemOnLeft: true}
+		return &SkolemRigidError{SkolemName: as.Name, SkolemID: as.ID, Other: b, SkolemOnLeft: true}
 	}
 	if bs, ok := b.(*types.TySkolem); ok {
 		if u.skolemSoln != nil {
@@ -251,7 +251,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			u.skolemSoln[bs.ID] = a
 			return nil
 		}
-		return &SkolemRigidError{SkolemName: bs.Name, Other: a, SkolemOnLeft: false}
+		return &SkolemRigidError{SkolemName: bs.Name, SkolemID: bs.ID, Other: a, SkolemOnLeft: false}
 	}
 
 	switch at := a.(type) {
