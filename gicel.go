@@ -73,6 +73,14 @@ type InternalPanicError = engine.InternalPanicError
 // RowBuilder constructs row types incrementally.
 type RowBuilder = engine.RowBuilder
 
+// CacheStore is a thread-safe cache for compiled modules and Runtimes.
+// Use NewCacheStore to create an isolated store; pass to Engine.SetCacheStore.
+type CacheStore = engine.CacheStore
+
+// NewCacheStore creates a CacheStore with per-sub-cache capacity limit.
+// Pass 0 for unlimited (suitable for CLI one-shot processes).
+var NewCacheStore = engine.NewCacheStore
+
 // CoreProgram is an opaque compiled Core IR for inspection.
 type CoreProgram = engine.CoreProgram
 

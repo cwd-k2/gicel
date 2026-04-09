@@ -182,6 +182,12 @@ func (e *Engine) EnableVerifyIR() {
 	e.invalidateRuntimeFingerprint()
 }
 
+// SetCacheStore sets a custom CacheStore. Defaults to the process-global store.
+// Use NewCacheStore to create an isolated store for testing or multi-tenant use.
+func (e *Engine) SetCacheStore(cs *CacheStore) {
+	e.cacheStore = cs
+}
+
 // SetWarnFunc sets the warning callback. Defaults to os.Stderr output.
 func (e *Engine) SetWarnFunc(f func(string)) {
 	e.warnFunc = f
