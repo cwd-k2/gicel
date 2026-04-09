@@ -99,8 +99,14 @@ func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Sp
 		return dict
 	}
 
-	s.env.AddCodedError(diagnostic.ErrNoInstance, sp,
-		"no instance for "+className+" "+s.prettyTypeArgs(args))
+	// Suppress derived "no instance" errors when a structural equality
+	// error has already been reported and the failing constraint involves
+	// a skolem variable. The skolem was supposed to be unified but failed;
+	// "no instance for Num #a" is noise derived from that root cause.
+	if !s.hasStructuralEqError || !typesMentionAnySkolem(args) {
+		s.env.AddCodedError(diagnostic.ErrNoInstance, sp,
+			"no instance for "+className+" "+s.prettyTypeArgs(args))
+	}
 	return &ir.Var{Name: "<no-instance>", S: sp}
 }
 

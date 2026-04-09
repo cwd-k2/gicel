@@ -28,6 +28,12 @@ type Solver struct {
 	// vacuously well-typed: remaining wanteds are skipped.
 	inaccessible bool
 
+	// hasStructuralEqError is set when a wanted equality produces a
+	// structural failure (skolem rigid, occurs check). Subsequent
+	// "no instance" errors involving skolem variables are suppressed
+	// to avoid cascading diagnostics from a single root cause.
+	hasStructuralEqError bool
+
 	env Env
 }
 
@@ -357,6 +363,7 @@ func headIsMeta(t types.Type) bool {
 // reportEqError reports a type equality error using the constraint's Origin
 // context when available, falling back to a generic message.
 func (s *Solver) reportEqError(ct *CtEq, lhs, rhs types.Type) {
+	s.hasStructuralEqError = true
 	if ct.Origin != nil && ct.Origin.Code != 0 {
 		s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.GetContext())
 	} else if ct.Origin != nil && ct.Origin.GetContext() != "" {

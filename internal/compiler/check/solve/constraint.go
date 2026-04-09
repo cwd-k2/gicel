@@ -229,6 +229,22 @@ func collectMetaIDs(tys []types.Type) []int {
 	return ids
 }
 
+// typesMentionAnySkolem reports whether any type in the slice contains
+// any TySkolem. Used for cascade suppression: "no instance" errors on
+// skolem-containing types are suppressed when a structural eq error
+// has already been reported.
+func typesMentionAnySkolem(tys []types.Type) bool {
+	for _, t := range tys {
+		if types.AnyType(t, func(ty types.Type) bool {
+			_, ok := ty.(*types.TySkolem)
+			return ok
+		}) {
+			return true
+		}
+	}
+	return false
+}
+
 // typeMentionsSkolem reports whether a type tree contains a TySkolem
 // with the given ID. Used by given-equality kick-out to detect which
 // inert constraints are affected by a newly installed skolem solution.
