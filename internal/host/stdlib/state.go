@@ -18,6 +18,9 @@ var State Pack = func(e Registrar) error {
 	e.RegisterPrim("putAt", putAtImpl)
 	e.RegisterPrim("modifyAt", modifyAtImpl)
 	e.RegisterPrim("_runState", runStateImpl)
+	e.RegisterPrim("runStateAt", runStateAtImpl)
+	e.RegisterPrim("evalStateAt", evalStateAtImpl)
+	e.RegisterPrim("execStateAt", execStateAtImpl)
 	return e.RegisterModule("Effect.State", stateSource)
 }
 
@@ -99,6 +102,76 @@ func doRunState(label string, initVal eval.Value, thunk eval.Value, ce eval.CapE
 	stateVal, ok := raw.(eval.Value)
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "runState: state capability is not a Value"}
+	}
+	cleanCe := finalCe.Delete(label)
+	tuple := eval.NewRecordFromMap(map[string]eval.Value{
+		ir.TupleLabel(1): stateVal,
+		ir.TupleLabel(2): val,
+	})
+	return tuple, cleanCe, nil
+}
+
+// runStateAtImpl handles the named state effect: same as runState but with
+// a label argument from label erasure. args: [label, initialState, suspendedComp]
+func runStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	label, ok := args[0].(*eval.HostVal)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "runStateAt: label argument is not a string"}
+	}
+	name, ok := label.Inner.(string)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "runStateAt: label argument is not a string"}
+	}
+	return doRunStateDrive(name, args[1], args[2], ce, apply)
+}
+
+func evalStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	label, ok := args[0].(*eval.HostVal)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "evalStateAt: label argument is not a string"}
+	}
+	name := label.Inner.(string)
+	tuple, newCe, err := doRunStateDrive(name, args[1], args[2], ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	rv := tuple.(*eval.RecordVal)
+	val, _ := rv.Get(ir.TupleLabel(2))
+	return val, newCe, nil
+}
+
+func execStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	label, ok := args[0].(*eval.HostVal)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "execStateAt: label argument is not a string"}
+	}
+	name := label.Inner.(string)
+	tuple, newCe, err := doRunState(name, args[1], args[2], ce, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	rv := tuple.(*eval.RecordVal)
+	state, _ := rv.Get(ir.TupleLabel(1))
+	return state, newCe, nil
+}
+
+// doRunStateDrive is like doRunState but drives the thunk via driveEffectful
+// instead of relying on apply.Apply to fully execute the computation. This
+// handles the case where the thunk body evaluates to a deferred effectful
+// PrimVal (common with named capability primitives after label erasure).
+func doRunStateDrive(label string, initVal eval.Value, thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	innerCe := ce.Set(label, initVal)
+	val, finalCe, err := driveEffectful(thunk, innerCe, apply)
+	if err != nil {
+		return nil, ce, err
+	}
+	raw, ok := finalCe.Get(label)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "runStateAt: state capability lost during execution"}
+	}
+	stateVal, ok := raw.(eval.Value)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "runStateAt: state capability is not a Value"}
 	}
 	cleanCe := finalCe.Delete(label)
 	tuple := eval.NewRecordFromMap(map[string]eval.Value{

@@ -91,6 +91,24 @@ func ordVal(cmp int) eval.Value {
 // unitVal is the shared unit value (empty record).
 var unitVal = eval.UnitVal
 
+// driveEffectful forces a suspended computation (thunk) and then drives
+// any resulting deferred effectful PrimVal to completion. This is the
+// Go-side equivalent of GICEL's `bind comp pure` wrapping pattern.
+// Used by handler primitives (tryAt, runStateAt, etc.) that receive a
+// raw Suspended argument without the GICEL wrapper's bind+pure layer.
+func driveEffectful(thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	val, newCe, err := apply.Apply(thunk, unitVal, ce)
+	if err != nil {
+		return nil, ce, err
+	}
+	// If the result is a deferred effectful prim (not yet forced),
+	// drive it by applying unitVal again.
+	if pv, ok := val.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
+		return apply.Apply(pv, unitVal, newCe)
+	}
+	return val, newCe, nil
+}
+
 // withLabel wraps a PrimImpl to skip the first argument (label literal from
 // label erasure). Used to create named capability variants: the label is a
 // type-level parameter that flows through as a runtime string argument via

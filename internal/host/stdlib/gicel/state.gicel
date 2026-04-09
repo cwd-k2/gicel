@@ -40,7 +40,17 @@ execState := \s comp. do {
   pure s'
 }
 
--- Named capability handler variants: pending.
--- Label erasure TyLam→Lam conversion causes the VM to thunk-wrap arguments,
--- preventing correct initVal propagation. Requires primArity + VM interaction fix.
--- Tracked separately; use runState (anonymous) in the meantime.
+-- Named capability handler variants.
+-- These are direct primitives. The computation argument must be
+-- explicitly thunked: `evalStateAt @#x 10 (thunk do { ... })`.
+-- Auto-thunk coercion for do-blocks at the handler argument position
+-- is not yet supported (tracked separately).
+
+runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
+runStateAt := assumption
+
+evalStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r a
+evalStateAt := assumption
+
+execStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r s
+execStateAt := assumption

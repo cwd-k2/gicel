@@ -179,6 +179,12 @@ func typeArity(ty types.Type) int {
 	for {
 		switch t := ty.(type) {
 		case *types.TyForall:
+			// Label-kinded foralls become value-level parameters after label
+			// erasure (TyLam → Lam at call sites). Count them in PrimOp arity
+			// so the VM collects the label string as an arg.
+			if types.Equal(t.Kind, types.TypeOfLabels) {
+				return 1 + typeArity(t.Body)
+			}
 			ty = t.Body
 		case *types.TyArrow:
 			return 1 + typeArity(t.To)
