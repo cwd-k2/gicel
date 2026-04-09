@@ -899,6 +899,9 @@ iterateN := _listIterateN
 zipWith :: \a b c. (a -> b -> c) -> List a -> List b -> List c
 zipWith := \f xs ys. map (uncurry f) (zip xs ys)
 
+zipWithIndex :: \a. List a -> List (Int, a)
+zipWithIndex := \xs. zip (range 0 (length xs)) xs
+
 intercalate :: \a. List a -> List (List a) -> List a
 intercalate := \sep xss. flatten (intersperse sep xss)
 
