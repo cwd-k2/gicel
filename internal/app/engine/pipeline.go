@@ -167,7 +167,8 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 			panic("IR verification failed: " + errs[0].Error())
 		}
 	}
-	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings)
+	externalInline := pc.collectExternalInlineBindings()
+	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings, externalInline)
 	annots := ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog, annots)
 	if pc.verifyIR {
@@ -252,6 +253,70 @@ func collectUserBindings(prog *ir.Program) map[string]bool {
 		}
 	}
 	return m
+}
+
+// transparentInlineWhitelist names the Prelude bindings whose bodies
+// are pure syntactic wrappers with no semantic content beyond their
+// application shape. Inlining these lets the optimizer reduce every
+// call site to the corresponding IR primitive (`$`/`&` to a direct
+// `App`, `fix`/`rec` to `ir.Fix`, `force` to `ir.Force`, `pure`/`bind`
+// to their respective Core nodes via betaReduce/bindPureElim) so that
+// user code written against the first-class values compiles to the
+// same bytecode as the syntactic special forms.
+//
+// The list is intentionally small and closed: arbitrary module bindings
+// are NOT inlined across module boundaries because that would destroy
+// source-attribution invariants that explain/diagnostic code relies on.
+// Wider inlining is a separate design trade-off and is out of scope
+// for the CBPV coercion work.
+var transparentInlineWhitelist = map[string]bool{
+	"$":     true,
+	"&":     true,
+	"fix":   true,
+	"rec":   true,
+	"force": true,
+	"pure":  true,
+	"bind":  true,
+}
+
+// collectExternalInlineBindings gathers the whitelisted transparent
+// wrappers from imported modules so the optimizer can reduce their
+// applied forms at call sites in the main program. The inliner applies
+// its own size / non-recursive / lambda-body filters as a secondary
+// guard, but the whitelist is the primary mechanism that keeps the
+// scope of cross-module inlining narrow and predictable.
+//
+// Each ExternalBinding is keyed by (moduleName, bindingName) so the
+// inliner's VarKey lookup matches qualified references emitted by the
+// checker for imported identifiers.
+func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBinding {
+	if pc.noInline {
+		return nil
+	}
+	entries := pc.store.Entries()
+	if len(entries) == 0 {
+		return nil
+	}
+	var out []optimize.ExternalBinding
+	for _, e := range entries {
+		if e.prog == nil {
+			continue
+		}
+		for _, b := range e.prog.Bindings {
+			if b.Generated {
+				continue
+			}
+			if !transparentInlineWhitelist[b.Name] {
+				continue
+			}
+			out = append(out, optimize.ExternalBinding{
+				Module: e.name,
+				Name:   b.Name,
+				Expr:   b.Expr,
+			})
+		}
+	}
+	return out
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.

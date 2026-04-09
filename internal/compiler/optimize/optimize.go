@@ -29,9 +29,12 @@ func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 }
 
 // OptimizeProgram optimizes all bindings in a program.
-// userBindings limits selective inlining to the given names (nil = no inlining).
-func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool) {
-	candidates := collectInlineCandidates(prog, userBindings)
+// userBindings limits selective inlining of local bindings to the given
+// names (nil = no local inlining). externalBindings supplies bindings
+// from imported modules (e.g., Prelude transparent wrappers like $,
+// fix, force) that are eligible for inlining at qualified call sites.
+func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding) {
+	candidates := collectInlineCandidates(prog, userBindings, externalBindings)
 	allRules := rules
 	if len(candidates) > 0 {
 		allRules = append([]func(ir.Core) ir.Core{inlineRule(candidates)}, rules...)

@@ -11,39 +11,76 @@ type inlineCandidate struct {
 	body ir.Core
 }
 
-// collectInlineCandidates scans program bindings for small, non-recursive
-// definitions that can be safely inlined at call sites.
-func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool) map[string]*inlineCandidate {
-	if len(userBindings) == 0 {
+// ExternalBinding names a binding from an imported module that should
+// be considered as an inline candidate. The module name is used to
+// construct the qualified lookup key (via ir.QualifiedKey) so that
+// only references from the same origin receive the inlined body.
+type ExternalBinding struct {
+	Module string
+	Name   string
+	Expr   ir.Core
+}
+
+// collectInlineCandidates scans program bindings (and optionally
+// imported-module bindings) for small, non-recursive lambda definitions
+// that can be safely inlined at call sites. Candidates are keyed by
+// ir.VarKey so the inliner matches references regardless of whether
+// they are local (`Name`) or module-qualified (`Module\x00Name`).
+func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, external []ExternalBinding) map[string]*inlineCandidate {
+	if len(userBindings) == 0 && len(external) == 0 {
 		return nil
 	}
 	candidates := make(map[string]*inlineCandidate)
-	for _, b := range prog.Bindings {
-		// Only inline user-defined bindings.
-		if !userBindings[b.Name] {
+	if userBindings != nil {
+		for _, b := range prog.Bindings {
+			if !userBindings[b.Name] {
+				continue
+			}
+			if b.Generated {
+				continue
+			}
+			if !eligibleInlineBody(b.Expr, b.Name) {
+				continue
+			}
+			candidates[b.Name] = &inlineCandidate{body: b.Expr}
+		}
+	}
+	for _, eb := range external {
+		key := ir.QualifiedKey(eb.Module, eb.Name)
+		if _, exists := candidates[key]; exists {
 			continue
 		}
-		if b.Generated {
+		if !eligibleInlineBody(eb.Expr, eb.Name) {
 			continue
 		}
-		if _, ok := b.Expr.(*ir.Lam); !ok {
-			continue
-		}
-		size := nodeSize(b.Expr, maxInlineSize+1)
-		if size > maxInlineSize {
-			continue
-		}
-		fv := ir.FreeVars(b.Expr)
-		if _, recursive := fv[b.Name]; recursive {
-			continue
-		}
-		candidates[b.Name] = &inlineCandidate{body: b.Expr}
+		candidates[key] = &inlineCandidate{body: eb.Expr}
+	}
+	if len(candidates) == 0 {
+		return nil
 	}
 	return candidates
 }
 
+// eligibleInlineBody applies the shared filters: the body must be a
+// lambda (so beta-reduction can fire at the call site), small enough
+// to avoid code bloat, and non-recursive in the self-name sense.
+func eligibleInlineBody(expr ir.Core, name string) bool {
+	if _, ok := expr.(*ir.Lam); !ok {
+		return false
+	}
+	if nodeSize(expr, maxInlineSize+1) > maxInlineSize {
+		return false
+	}
+	fv := ir.FreeVars(expr)
+	if _, recursive := fv[name]; recursive {
+		return false
+	}
+	return true
+}
+
 // inlineRule returns a rewrite rule that replaces variable references
-// with their inlined bodies.
+// with their inlined bodies. Candidates are matched by VarKey so the
+// rule fires for both local and module-qualified references.
 func inlineRule(candidates map[string]*inlineCandidate) func(ir.Core) ir.Core {
 	if len(candidates) == 0 {
 		return func(c ir.Core) ir.Core { return c }
@@ -53,7 +90,7 @@ func inlineRule(candidates map[string]*inlineCandidate) func(ir.Core) ir.Core {
 		if !ok {
 			return c
 		}
-		cand, ok := candidates[v.Name]
+		cand, ok := candidates[ir.VarKey(v)]
 		if !ok {
 			return c
 		}
