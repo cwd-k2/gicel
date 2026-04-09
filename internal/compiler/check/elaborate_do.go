@@ -175,6 +175,16 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 
 	resultTy := ch.extractCompResult(compTy, stmtS)
 
+	// If the binding's type could not be decomposed as a Computation,
+	// skip post-state threading — cascading unification errors would
+	// be noise derived from the primary error already reported.
+	if _, isErr := resultTy.(*types.TyError); isErr {
+		ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
+		restTy, restCore := d.elaborate(rest, doS)
+		ch.ctx.Pop()
+		return restTy, &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
+	}
+
 	// Track post-state for the next statement.
 	var savedPost types.Type
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
