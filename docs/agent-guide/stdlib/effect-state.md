@@ -36,12 +36,14 @@ Handlers introduce the state capability with an initial value, run a suspended c
 import Prelude
 import Effect.State
 
--- evalState introduces state with initial value — no Caps needed
-main := evalState 0 (thunk do {
+-- evalState introduces state with initial value — no Caps needed.
+-- The inner computation is auto-thunked at the handler argument
+-- position, so no explicit `thunk` wrapper is required.
+main := evalState 0 do {
   modify (+ 5);
   modify (* 2);
   get              -- 10
-})
+}
 ```
 
 **Handler example — returning both state and result:**
@@ -51,11 +53,11 @@ import Prelude
 import Effect.State
 
 main := do {
-  (finalState, result) <- runState 100 (thunk do {
+  (finalState, result) <- runState 100 do {
     modify (+ 50);
     x <- get;
     pure (x * 2)
-  });
+  };
   pure finalState  -- 150
 }
 ```

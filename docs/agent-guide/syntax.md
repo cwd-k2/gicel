@@ -22,16 +22,26 @@
 
 ### Built-in Identifiers
 
-| Identifier | Role                                            |
-| ---------- | ----------------------------------------------- |
-| `pure`     | Lift a value into a Computation (the F of CBPV) |
-| `bind`     | Monadic sequencing                              |
-| `thunk`    | Suspend a Computation into a value (U of CBPV)  |
-| `force`    | Eliminate a thunk, resuming the computation     |
-| `rec`      | Recursive combinator (gated, must be enabled)   |
-| `fix`      | Value-level fixpoint (gated, must be enabled)   |
+| Identifier | Role                                            | Kind                                      |
+| ---------- | ----------------------------------------------- | ----------------------------------------- |
+| `pure`     | Lift a value into a Computation (the F of CBPV) | First-class value                         |
+| `bind`     | Monadic sequencing                              | First-class value                         |
+| `thunk`    | Suspend a Computation into a value (U of CBPV)  | Syntactic special form (no runtime value) |
+| `force`    | Eliminate a thunk, resuming the computation     | Syntactic special form (no runtime value) |
+| `rec`      | Recursive combinator (gated, must be enabled)   | First-class value                         |
+| `fix`      | Value-level fixpoint (gated, must be enabled)   | First-class value                         |
 
 `pure` and `bind` are always available without any import.
+
+`thunk` and `force` are kept as syntactic forms rather than
+first-class functions because CBPV cannot express `thunk` as a
+CBV-callable function (the argument would be evaluated before the
+suspension, defeating the purpose) and because the type-directed
+CBPV auto-coercion (see [features.effects](features.effects))
+already inserts them wherever the type context is unambiguous. A
+bare `thunk` or `force` reference is a compile-time error; write
+them applied (`thunk e`, `force e`) or let the auto-coercion handle
+the boundary.
 
 #### Recursive Combinators (`--recursion`)
 
@@ -58,20 +68,28 @@ Both `fix` and `rec` require the `--recursion` flag. Use `fix` for pure recursiv
 
 ### Entry Point
 
-The `main` binding (or the name set via `--entry`) is the program's entry point.
-It must be either a **plain value** (`main := 42`) or a **Computation** (`main := do { ... }`).
+The `main` binding (or the name set via `--entry`) is the program's
+entry point. It may be a plain value (`main := 42`), a `Computation`
+(`main := do { ... }`), or even a `Thunk` of a Computation
+(`main := someSuspended`) — the checker auto-forces a Thunk-typed
+entry point so the runtime can drive it as the program.
 
-Do **not** wrap `main` in `thunk` — a `Thunk` is a suspended computation and will print `<thunk>` instead of executing. Use `thunk` only for helper bindings that are `force`d elsewhere.
+Other top-level bindings are stored as values. A `Computation`-typed
+RHS at a non-entry binding is silently auto-thunked by the checker
+(see [features.effects](features.effects) for the full CBPV coercion
+table), so helper definitions like `basic := do { ... }` end up with
+type `Suspended`, and `<- basic` in main auto-forces them.
 
 ```
--- OK: value
+-- OK: plain value
 main := 42
 
--- OK: computation
+-- OK: computation (runs at program start)
 main := do { putLine "hello" }
 
--- WRONG: produces <thunk>, not executed
--- main := thunk do { putLine "hello" }
+-- OK: the helper is auto-thunked, main auto-forces at <-
+basic := do { putLine "hello"; pure 42 }
+main := do { v <- basic; putLine ("got " <> show v) }
 ```
 
 ### Shebang

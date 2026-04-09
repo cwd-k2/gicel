@@ -22,8 +22,10 @@ Provides failure/error effects via the `fail` capability. Load with `eng.Use(gic
 import Prelude
 import Effect.Fail
 
+-- The return type annotation (Suspended) lets the CBPV auto-thunk
+-- coercion wrap the if-else body silently at the subsumption check.
 safeDivide :: \(r: Row). Int -> Int -> Suspended { fail: String | r } Int
-safeDivide := \a b. thunk
+safeDivide := \a b.
   if b == 0
     then failWith "division by zero"
     else pure (a / b)

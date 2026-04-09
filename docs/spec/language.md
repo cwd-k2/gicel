@@ -80,16 +80,20 @@ This split follows Call-By-Push-Value (Levy 1999). The two directions of the adj
 
 `bind` provides computation sequencing.
 
-**Top-level binding rule.** Because a computation is not a value, a non-entry top-level binding cannot have bare `Computation` type (error E0291). The designated entry point (default `main`) is exempt — it is the single site where the host triggers execution. All other top-level computations must be either suspended with `thunk` or deferred behind a lambda:
+**Top-level binding rule.** Because a computation is not a value, a non-entry top-level binding cannot _terminate_ with bare `Computation` type. The designated entry point (default `main`) is exempt — it is the single site where the host triggers execution. For all other top-level bindings the checker applies the CBPV auto-thunk coercion: an unannotated `Computation` RHS is silently wrapped in `ir.Thunk`, and the binding's external type becomes `Suspended` / `Thunk`. An explicit `:: Computation ...` annotation at non-entry position is still rejected (E0291) because the annotation expresses deliberate intent the checker refuses to rewrite.
 
 ```
--- OK: thunk suspends the computation as a value
+-- OK: the checker auto-thunks this; helper : Suspended { ... } a
+helper := do { ... }
+
+-- OK: explicit thunk has the same effect (useful for documentation)
 helper := thunk do { ... }
 
 -- OK: lambda is a value; the body runs when called
 step := \x. do { ... }
 
--- ERROR (E0291): bare Computation at top level
+-- ERROR (E0291): explicit Computation annotation at non-entry position
+helper :: Computation {} {} Int
 helper := do { ... }
 ```
 
@@ -166,25 +170,37 @@ force (thunk c) = c                 -- thunk/force cancellation
 
 Semantics: `thunk` does not evaluate its argument — it captures the computation as a value. `force` triggers evaluation. Thunks are not memoized: forcing the same thunk multiple times executes the computation each time.
 
-**When to use `thunk`.** A `Computation` is an action, not a piece of form — it cannot sit at the top level as a bare binding (see §2.1.1). To define a named computation that runs later, suspend it with `thunk` and `force` it at the call site:
+**When to write `thunk` / `force` explicitly.** The checker inserts both silently at every type boundary where a `Computation` and a `Thunk` meet:
+
+| position                            | coercion              |
+| ----------------------------------- | --------------------- |
+| function argument                   | `Computation → Thunk` |
+| do binding `x <- e` (monadic)       | `Thunk → Computation` |
+| do statement `e` (discarded)        | `Thunk → Computation` |
+| case arm in Computation context     | `Thunk → Computation` |
+| entry-point binding                 | `Thunk → Computation` |
+| non-entry top-level (no annotation) | `Computation → Thunk` |
+| general subsumption                 | both directions       |
+
+Typical effectful code therefore contains zero explicit `thunk` or `force` keywords:
 
 ```
 helper :: Suspended { state: Int } Int
-helper := thunk do {
+helper := do {                   -- auto-thunked at non-entry top level
   n <- get;
   put (n + 1);
   get
 }
 
 main := do {
-  result <- force helper;
+  result <- helper;              -- auto-forced at do binding
   pure result
 }
 ```
 
-`thunk do { ... }` is the idiomatic form — the parser accepts `do { ... }` as a direct argument to `thunk` without parentheses.
+The explicit forms remain available for disambiguation and teaching-oriented examples. `thunk do { ... }` stays the idiomatic direct form — the parser accepts `do { ... }` as a direct argument to `thunk` without parentheses.
 
-`thunk` and `force` are **term formers** (like `\` or `case`), not functions. They cannot be partially applied. They elaborate to `Core.Thunk` and `Core.Force` respectively.
+`thunk` and `force` are **term formers** (like `\` or `case`), not functions. They cannot be partially applied. They have no first-class runtime representation: a bare reference (`thunk`, `force` without an argument) is a compile-time error. They elaborate to `Core.Thunk` and `Core.Force` respectively.
 
 `thunk`/`force` are part of the evaluation model (the CBPV adjunction), not the computation algebra. They remain term formers regardless of type class design.
 

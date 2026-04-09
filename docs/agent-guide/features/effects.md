@@ -61,21 +61,23 @@ increment := \(). do {
 }
 ```
 
-A `Computation` is an action awaiting execution — it cannot be a bare top-level binding (only the entry point `main` is exempt). To name a standalone computation, suspend it with `thunk` and `force` it at the call site:
+A `Computation` is an action awaiting execution. Only the entry point `main` is driven by the runtime — other top-level bindings are stored as values. When the RHS of a non-entry binding would be a bare `Computation`, the checker silently wraps it in a `Thunk` (CBPV's value-level suspension). The resulting binding has type `Suspended` / `Thunk`, and using it in a `Computation`-expecting position (do binding, handler argument, etc.) auto-forces it. In practice you almost never write `thunk` or `force` explicitly:
 
 ```
 counter :: Suspended { state: Int } Int
-counter := thunk do {
+counter := do {              -- auto-thunked at non-entry top level
   n <- get;
   put (n + 1);
   pure n
 }
 
 main := do {
-  result <- force counter;
+  result <- counter;         -- auto-forced at do binding
   pure result
 }
 ```
+
+An explicit `:: Computation ...` annotation at non-entry position is still rejected (the annotation expresses deliberate intent that the checker refuses to rewrite). Drop the annotation to let the auto-thunk fire, annotate as `Thunk` / `Suspended`, or move the body into a function.
 
 This restriction applies only to `Computation`. Value-typed monads (`List`, `Maybe`, custom `Monad` instances) also support `do`-notation when the binding has a type annotation:
 
@@ -107,19 +109,38 @@ CapEnv is copy-on-write: effects thread through Computation indices. `put` does 
 
 ### thunk and force
 
-`thunk` suspends a computation into a first-class value (CBPV's U):
+`thunk` and `force` are **syntactic special forms**, not first-class
+functions. Both elaborate directly to IR nodes (`ir.Thunk` / `ir.Force`)
+and have no standalone runtime value. A bare reference (`thunk`,
+`force` without an argument) is a compile-time error; you almost
+always write them applied, or let the CBPV auto-coercion insert them
+silently.
 
 ```
-thunk :: Computation @g pre post a -> Thunk @g pre post a
+thunk e  -- CBPV U: suspend the computation e as a Thunk value
+force e  -- CBPV counit: run the suspended computation e
 ```
 
-`force` runs a suspended computation:
+The type alias `Suspended r a := Thunk Zero r r a` mirrors `Effect`
+for suspended computations that preserve their capability state with
+zero grade.
 
-```
-force :: Thunk @g pre post a -> Computation @g pre post a
-```
+**CBPV auto-coercion** — the checker inserts `ir.Thunk` / `ir.Force`
+silently at every type boundary where `Computation` and `Thunk` mix:
 
-The type alias `Suspended r a := Thunk Zero r r a` mirrors `Effect` for suspended computations that preserve their capability state with zero grade.
+| position                              | coercion                           |
+| ------------------------------------- | ---------------------------------- |
+| function argument (handler, etc.)     | `Computation → Thunk` (auto-thunk) |
+| do binding `x <- e`                   | `Thunk → Computation` (auto-force) |
+| case arm in Computation context       | `Thunk → Computation`              |
+| entry-point binding `main := e`       | `Thunk → Computation`              |
+| non-entry top-level (no annotation)   | `Computation → Thunk` (auto-thunk) |
+| subsumption against an annotated type | both directions                    |
+
+As a consequence, typical effectful code uses neither `thunk` nor
+`force` anywhere; you write plain `do`-blocks and pass helpers
+around as normal values. The explicit forms remain available for
+documentation and disambiguation.
 
 ### Named Capabilities
 

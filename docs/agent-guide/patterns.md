@@ -73,13 +73,14 @@ pipeline := foldl (+) 0 $ (\x. x * x) <$> filter (> 0) myList
 import Prelude
 import Effect.State
 
--- evalState introduces state capability with an initial value
-main := evalState 0 (thunk do {
+-- evalState introduces state capability with an initial value.
+-- The inner do-block is auto-thunked at the handler argument position.
+main := evalState 0 do {
   modify (+ 1);
   modify (+ 1);
   modify (+ 1);
   get              -- 3
-})
+}
 ```
 
 ### Error Handling
@@ -114,9 +115,10 @@ import Prelude
 import Effect.State
 import Effect.Fail
 
--- Guard with fail (pure-only), then perform stateful operations
+-- Guard with fail (pure-only), then perform stateful operations.
+-- Non-entry Computation is auto-thunked; `<- process` auto-forces.
 process :: Suspended { state: Int, fail: () } Int
-process := thunk do {
+process := do {
   put 5;
   n <- get;
   _ <- if n > 0 then pure n else fail;
@@ -124,19 +126,27 @@ process := thunk do {
   pure n
 }
 
-main := do { r <- force process; pure r }
+main := do { r <- process; pure r }
 ```
 
-### Thunk and Force
+### Thunk and Force (explicit forms)
+
+`thunk` and `force` are syntactic special forms without first-class
+runtime values. Typical code uses neither — the CBPV auto-coercion
+pass inserts them silently at handler arguments, do bindings, case
+arms, entry-point bindings, and non-entry top-level bindings (see
+[features.effects](features.effects)). Write them explicitly only
+when you want disambiguation or teaching-oriented clarity:
 
 ```
 import Prelude
 
 suspended :: Suspended {} Bool
-suspended := thunk (pure True)
+suspended := pure True       -- auto-thunked at the non-entry binding
 
--- force returns a Computation — use inside do or as entry point
-main := force suspended
+-- main uses the stored Thunk directly; the auto-force coercion
+-- unwraps it at the entry-point binding site.
+main := suspended
 ```
 
 ---

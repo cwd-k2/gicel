@@ -24,14 +24,22 @@
 
 ### Built-in Identifiers
 
-| Identifier | Role                              | Status         |
-| ---------- | --------------------------------- | -------------- |
-| `pure`     | Value → Computation (F)           | first-class fn |
-| `bind`     | Monadic sequencing                | first-class fn |
-| `thunk`    | Computation → suspended value (U) | term former    |
-| `force`    | Elimination of U                  | term former    |
-| `rec`      | Recursive combinator (gated)      | first-class fn |
-| `fix`      | Value-level fixpoint (gated)      | first-class fn |
+| Identifier | Role                              | Status                         |
+| ---------- | --------------------------------- | ------------------------------ |
+| `pure`     | Value → Computation (F)           | first-class fn                 |
+| `bind`     | Monadic sequencing                | first-class fn                 |
+| `thunk`    | Computation → suspended value (U) | term former (no runtime value) |
+| `force`    | Elimination of U                  | term former (no runtime value) |
+| `rec`      | Recursive combinator (gated)      | first-class fn                 |
+| `fix`      | Value-level fixpoint (gated)      | first-class fn                 |
+
+`thunk` and `force` have no first-class runtime representation; a
+bare reference is a compile-time error. Typical code omits them
+entirely — the CBPV auto-coercion pass inserts them silently
+wherever the type context determines a unique direction (function
+arguments, do bindings, case arms, entry-point bindings, non-entry
+top-level bindings). See [effects.md](agent-guide/features/effects.md)
+for the full coercion table.
 
 ### Punctuation & Operators
 
