@@ -85,14 +85,22 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 
 	switch e := expr.(type) {
 	case *syntax.ExprVar:
-		switch e.Name {
-		case "thunk":
-			ch.addCodedError(diagnostic.ErrSpecialForm, e.S, "thunk is a special form; use 'thunk <expr>'")
-			return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}
-		case "force":
-			ch.addCodedError(diagnostic.ErrSpecialForm, e.S, "force is a special form; use 'force <expr>'")
+		// `thunk` has no first-class runtime representation: wrapping a
+		// computation as a value in CBV requires capturing the argument
+		// unevaluated, which a normal function call cannot do. The
+		// syntactic intercept `thunk <expr>` elaborates to ir.Thunk; a
+		// bare reference is therefore an error.
+		if e.Name == "thunk" {
+			ch.addCodedError(diagnostic.ErrSpecialForm, e.S,
+				"thunk requires an argument; in CBV a bare `thunk` has no runtime representation, write `thunk <expr>` or rely on auto-coercion at a Thunk-expecting position")
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}
 		}
+		// `force` DOES have a first-class Prelude value
+		// (eval.ForceBody) — the historical "special form" error was a
+		// discipline check rather than a semantic requirement. The
+		// CBPV auto-force coercion now handles the common applied
+		// case silently, and bare `force` as a value is valid so it
+		// can be composed with higher-order functions.
 		ty, coreExpr, ok := ch.lookupVar(e)
 		if !ok {
 			return ty, coreExpr
@@ -181,13 +189,15 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 
 	case *syntax.ExprInfix:
 		// Transparent rewrite: `f $ x` is pure forward application
-		// (`($) := \f x. f x`). Unwrapping to the direct App shape at
-		// the checker level aligns the compiler's view with the
-		// operator's semantic definition — `fix $ lam` and `fix (lam)`
-		// reach the same special-form detection path, and any future
-		// intercept that dispatches on App head sees a consistent
-		// shape. Mirrors the merge/*** transparency pattern below and
-		// honors user shadowing in the current module.
+		// (`($) := \f x. f x` in Prelude). Unwrapping to the direct App
+		// shape at the checker level aligns the compiler's view with
+		// the operator's semantic definition — `fix $ lam` reaches the
+		// same special-form detection path as `fix (lam)`, and the
+		// checkFix / inferFix intercept fires identically. The inliner
+		// cannot recover this flattening after the fact because `fix`
+		// is a runtime builtin with no compile-time IR body. Mirrors
+		// the merge/*** transparency pattern below and honors user
+		// shadowing in the current module.
 		if isDollarOp(e.Op) {
 			if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
 				return ch.infer(&syntax.ExprApp{Fun: e.Left, Arg: e.Right, S: e.S})
@@ -494,6 +504,14 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 				}
 				inferred = ev.Body
 				continue
+			}
+			// CBPV adjunction coercion: a Computation value reaching a
+			// Thunk-expecting position (or vice versa) is wrapped in the
+			// dual IR node silently. The structural Pre/Post/Result/Grade
+			// must match; if any fails the unifier is rolled back and
+			// the default unify path reports the real mismatch.
+			if coerced, ok := ch.tryCBPVCoercion(inferred, expected, expr, s); ok {
+				return coerced
 			}
 			// Default: unify eagerly. subsCheck is on the critical path for type
 			// information flow — metas must be solved immediately for downstream code.

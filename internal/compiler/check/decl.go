@@ -382,6 +382,15 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty = annTy
 	} else {
 		ty, coreExpr = ch.infer(d.Expr)
+		// CBPV auto-force at the entry point: a Thunk-typed entry
+		// binding (e.g. `main := pipeline` where pipeline is Thunk)
+		// is silently unfolded into the underlying Computation so the
+		// runtime can drive it as the program. Non-entry bindings stay
+		// as Thunks because the existing bare-Computation rejection
+		// below enforces the "non-entry bindings are values" discipline.
+		if ch.config.EntryPoint != "" && d.Name == ch.config.EntryPoint {
+			ty, coreExpr = ch.autoForceIfThunk(ty, coreExpr, d.S)
+		}
 	}
 
 	// Resolve deferred constraints now that metas are solved.

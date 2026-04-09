@@ -55,6 +55,12 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 // bind c (\x. e) : Computation r1 r3 b, elaborated to Core.Bind.
 func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types.Type, ir.Core) {
 	compTy, compCore := ch.infer(compExpr)
+	// Auto-force: if the inferred type is a Thunk, wrap in ir.Force so
+	// bind's first argument is always a Computation. Mirrors the CBPV
+	// coercion in subsCheck, which does not fire here because inferBind
+	// constructs its expected Computation type from fresh metas rather
+	// than going through the subsCheck entry path.
+	compTy, compCore = ch.autoForceIfThunk(compTy, compCore, compExpr.Span())
 
 	g1 := ch.freshMeta(types.TypeOfTypes)
 	r1 := ch.freshMeta(types.TypeOfRows)
@@ -250,4 +256,94 @@ func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, ir.Core) {
 		func(p, q, r, g types.Type) types.Type { return types.MkCompGraded(p, q, r, g) },
 		func(c ir.Core) ir.Core { return &ir.Force{Expr: c, S: e.S} },
 	)
+}
+
+// autoForceIfThunk applies the Thunk → Computation direction of the
+// CBPV coercion: if inferred is a Thunk, wrap core in ir.Force and
+// return the corresponding Computation view of the structural parts.
+// Otherwise returns the inputs unchanged. Used by inferBind (and other
+// entry points that construct a Computation expectation from fresh
+// metas) to align with the subsCheck-based coercion.
+func (ch *Checker) autoForceIfThunk(inferred types.Type, core ir.Core, s span.Span) (types.Type, ir.Core) {
+	zonked := ch.unifier.Zonk(inferred)
+	thunk, ok := zonked.(*types.TyCBPV)
+	if !ok || thunk.Tag != types.TagThunk {
+		return inferred, core
+	}
+	asComp := &types.TyCBPV{
+		Tag:    types.TagComp,
+		Pre:    thunk.Pre,
+		Post:   thunk.Post,
+		Result: thunk.Result,
+		Grade:  thunk.Grade,
+		Flags:  thunk.Flags,
+	}
+	return asComp, &ir.Force{Expr: core, S: s}
+}
+
+// tryCBPVCoercion attempts an implicit Computation ↔ Thunk coercion when
+// the inferred and expected types are both CBPV but carry opposite tags.
+// This witnesses the CBPV adjunction (thunk ⊣ force) at the type level:
+// whenever a Computation value reaches a Thunk-expecting position (or
+// vice versa), the checker silently inserts the matching ir.Thunk or
+// ir.Force node, leaving the rest of the CBPV structure (Pre, Post,
+// Result, Grade) unified exactly as a direct match would require.
+//
+// Returns (coercedExpr, true) when a coercion was applied, or
+// (nil, false) when no coercion is warranted — in which case the caller
+// falls through to the normal unification path so the existing type
+// error surfaces unchanged.
+//
+// The structural unification is attempted eagerly; if any part fails,
+// the unifier state is rolled back via saveState/restoreState so the
+// caller's subsequent unification attempt sees a clean slate.
+func (ch *Checker) tryCBPVCoercion(inferred, expected types.Type, expr ir.Core, s span.Span) (ir.Core, bool) {
+	iCBPV, ok1 := inferred.(*types.TyCBPV)
+	if !ok1 {
+		return nil, false
+	}
+	expected = ch.unifier.Zonk(expected)
+	eCBPV, ok2 := expected.(*types.TyCBPV)
+	if !ok2 {
+		return nil, false
+	}
+	if iCBPV.Tag == eCBPV.Tag {
+		return nil, false
+	}
+
+	// Save state: if any structural unification fails we must roll back
+	// so the caller's normal unify path reports the real mismatch on
+	// untouched types.
+	saved := ch.saveState()
+
+	if err := ch.unifier.Unify(iCBPV.Pre, eCBPV.Pre); err != nil {
+		ch.restoreState(saved)
+		return nil, false
+	}
+	if err := ch.unifier.Unify(iCBPV.Post, eCBPV.Post); err != nil {
+		ch.restoreState(saved)
+		return nil, false
+	}
+	if err := ch.unifier.Unify(iCBPV.Result, eCBPV.Result); err != nil {
+		ch.restoreState(saved)
+		return nil, false
+	}
+	// Grade: ungraded sides are compatible with any grade (see the
+	// CBPV grade duality notes in the types package).
+	if iCBPV.Grade != nil && eCBPV.Grade != nil {
+		if err := ch.unifier.Unify(iCBPV.Grade, eCBPV.Grade); err != nil {
+			ch.restoreState(saved)
+			return nil, false
+		}
+	}
+
+	switch {
+	case iCBPV.Tag == types.TagComp && eCBPV.Tag == types.TagThunk:
+		return &ir.Thunk{Comp: expr, S: s}, true
+	case iCBPV.Tag == types.TagThunk && eCBPV.Tag == types.TagComp:
+		return &ir.Force{Expr: expr, S: s}, true
+	}
+	// Unreachable: tags differ (asserted above) and only two tags exist.
+	ch.restoreState(saved)
+	return nil, false
 }

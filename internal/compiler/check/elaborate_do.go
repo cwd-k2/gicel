@@ -156,6 +156,11 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 	ch := d.ch
 	compTy, compCore := ch.infer(comp)
 	compTy = ch.unifier.Zonk(compTy)
+	// CBPV auto-force: if the inferred comp is a Thunk, wrap in ir.Force
+	// so the do-block binding always sees a Computation. Mirrors the
+	// subsCheck-based coercion; do-block elaboration builds its own
+	// CBPV expectation from fresh metas and bypasses that entry point.
+	compTy, compCore = ch.autoForceIfThunk(compTy, compCore, comp.Span())
 
 	// Pre-resolve: if the preceding statement's post-state is known,
 	// unify it with this comp's pre-state BEFORE elaborating rest.
@@ -196,6 +201,10 @@ func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS
 	ch := d.ch
 	compTy, compCore := ch.infer(expr)
 	compTy = ch.unifier.Zonk(compTy)
+	// CBPV auto-force: expression statements are executed for their
+	// effect, so a Thunk in statement position is auto-forced to the
+	// underlying computation. Same rationale as inferBind above.
+	compTy, compCore = ch.autoForceIfThunk(compTy, compCore, expr.Span())
 
 	// Track post-state for the next statement's pre-resolve.
 	var savedPost types.Type
