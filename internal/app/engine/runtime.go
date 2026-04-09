@@ -60,6 +60,7 @@ type Runtime struct {
 	nestingLimit       int
 	allocLimit         int64
 	source             *span.Source
+	warnFunc           func(string)
 	bindings           map[string]types.Type
 	moduleEntries      []moduleEntry         // ALL module programs in registration order
 	builtinGlobals     map[string]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
@@ -236,7 +237,12 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	for name := range hostBindings {
 		if _, isDeclared := r.bindings[name]; !isDeclared {
 			if _, isBuiltin := r.builtinGlobals[name]; !isBuiltin {
-				fmt.Fprintf(os.Stderr, "gicel: warning: host binding %q was provided but not declared (possible typo)\n", name)
+				msg := fmt.Sprintf("gicel: warning: host binding %q was provided but not declared (possible typo)\n", name)
+				if r.warnFunc != nil {
+					r.warnFunc(msg)
+				} else {
+					fmt.Fprint(os.Stderr, msg)
+				}
 			}
 		}
 	}

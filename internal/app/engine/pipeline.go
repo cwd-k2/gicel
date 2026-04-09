@@ -107,7 +107,7 @@ func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
 // Results are cached at the process level keyed by (source hash, env fingerprint).
 func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, error) {
 	cacheKey := pc.computeModuleCacheKey(source)
-	if cached, ok := moduleCacheGet(cacheKey); ok {
+	if cached, ok := pc.engine.cacheStore.GetModule(cacheKey); ok {
 		return cached, nil
 	}
 
@@ -151,7 +151,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		sortedBindings: ir.SortBindings(prog.Bindings),
 		source:         src,
 	}
-	moduleCachePut(cacheKey, mod)
+	pc.engine.cacheStore.PutModule(cacheKey, mod)
 	return mod, nil
 }
 
@@ -307,7 +307,7 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 			if b.Generated {
 				continue
 			}
-			if !transparentInlineWhitelist[b.Name] && !isTransparentAlias(b.Expr) && !isMethodSelector(b.Expr) {
+			if !transparentInlineWhitelist[b.Name] && !optimize.IsTransparentAlias(b.Expr) && !optimize.IsMethodSelector(b.Expr) {
 				continue
 			}
 			out = append(out, optimize.ExternalBinding{
@@ -318,31 +318,6 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 		}
 	}
 	return out
-}
-
-// isMethodSelector reports whether an expression is a class method
-// selector: TyLam* → Lam → Case with a single alt. These are small,
-// non-recursive, and safe to inline. The Case pattern-matches on the
-// dictionary constructor to extract a single method.
-func isMethodSelector(expr ir.Core) bool {
-	core := expr
-	for {
-		switch n := core.(type) {
-		case *ir.TyLam:
-			core = n.Body
-			continue
-		case *ir.Lam:
-			core = n.Body
-			continue
-		}
-		break
-	}
-	cs, ok := core.(*ir.Case)
-	if !ok {
-		return false
-	}
-	// Single-alt Case with a constructor pattern = selector.
-	return len(cs.Alts) == 1
 }
 
 // collectExternalDictionaries gathers instance dictionaries from imported
@@ -387,12 +362,6 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 	return dicts
 }
 
-// isTransparentAlias delegates to optimize.IsTransparentAlias.
-// See that function for the full specification.
-func isTransparentAlias(expr ir.Core) bool {
-	return optimize.IsTransparentAlias(expr)
-}
-
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.
 // Returns a CompileError if precompileVM detects a structural compile-time
 // limit (e.g. bytecode pool overflow); other panics from the bytecode
@@ -419,6 +388,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 		nestingLimit:       pc.limits.nestingLimit,
 		allocLimit:         pc.limits.allocLimit,
 		source:             src,
+		warnFunc:           pc.engine.warnFunc,
 		bindings:           maps.Clone(pc.host.bindings),
 		moduleEntries:      entries,
 		sortedMainBindings: sortedMain,

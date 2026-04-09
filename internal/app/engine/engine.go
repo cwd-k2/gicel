@@ -45,6 +45,7 @@ type Engine struct {
 	verifyIR        bool                 // when true, run structural IR verification in post-check
 	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
 	typeRecorder    bool                 // when true, Analyze populates TypeIndex
+	warnFunc        func(string)         // warning callback (default: stderr)
 
 	// Cached cache-key fingerprints. Computing these is the dominant
 	// alloc source on the warm NewRuntime path (profiled at ~94% of
@@ -74,13 +75,17 @@ type Engine struct {
 	runtimeFp        [32]byte
 	fpScratch        bytes.Buffer
 
-	// pipelineCtxCache is the embedded pipelineCtx returned by pipeline().
-	// Since the Engine is single-goroutine and pipeline() callers use
-	// the returned *pipelineCtx synchronously within one Engine method
-	// (no nesting, no escaping), we can reuse a single embedded value
-	// across all calls and skip the per-call allocation. The fields are
-	// re-populated on every pipeline() invocation.
-	pipelineCtxCache pipelineCtx
+	// cacheStore holds the process-level compilation cache. Defaults to
+	// the global defaultCacheStore. Set via SetCacheStore for testing or
+	// multi-tenant isolation.
+	cacheStore *CacheStore
+
+	// primSeq is a monotonic counter incremented on every RegisterPrim
+	// call. Used in the runtime fingerprint to invalidate cached Runtimes
+	// when prim implementations change, without relying on
+	// reflect.ValueOf(impl).Pointer() which cannot distinguish closures
+	// with different captured state.
+	primSeq uint64
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -89,6 +94,7 @@ func NewEngine() *Engine {
 		host:       newHostEnv(),
 		store:      newModuleStore(),
 		compileCtx: context.Background(),
+		cacheStore: defaultCacheStore,
 		limits: Limits{
 			stepLimit:  1_000_000,
 			depthLimit: 1_000,
@@ -141,6 +147,7 @@ func (e *Engine) RegisterType(name string, kind types.Type) {
 // RegisterPrim registers a primitive implementation for an assumption.
 func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 	e.host.prims.Register(name, impl)
+	e.primSeq++
 	e.invalidateRuntimeFingerprint()
 }
 
@@ -173,6 +180,20 @@ func (e *Engine) DenyAssumptions() {
 func (e *Engine) EnableVerifyIR() {
 	e.verifyIR = true
 	e.invalidateRuntimeFingerprint()
+}
+
+// SetWarnFunc sets the warning callback. Defaults to os.Stderr output.
+func (e *Engine) SetWarnFunc(f func(string)) {
+	e.warnFunc = f
+}
+
+// warn emits a warning through the configured callback.
+func (e *Engine) warn(msg string) {
+	if e.warnFunc != nil {
+		e.warnFunc(msg)
+	} else {
+		fmt.Fprint(os.Stderr, msg)
+	}
 }
 
 // RegisterRewriteRule adds a fusion rule to the optimization pipeline.
@@ -291,28 +312,24 @@ func (e *Engine) RegisterModuleFile(path string) error {
 // pipeline returns the Engine's reusable pipelineCtx, populating its
 // fields from the current Engine state. The returned *pipelineCtx
 // MUST be used synchronously within the calling Engine method and
-// MUST NOT escape (subsequent pipeline() calls overwrite the same
-// struct in place). This is sound under the documented Engine
-// single-goroutine invariant — pipeline() invocations never nest and
-// never run concurrently.
 func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 	ep := e.entryPoint
 	if ep == "" {
 		ep = DefaultEntryPoint
 	}
-	pc := &e.pipelineCtxCache
-	pc.engine = e
-	pc.ctx = ctx
-	pc.host = &e.host
-	pc.store = &e.store
-	pc.limits = &e.limits
-	pc.traceHook = e.checkTraceHook
-	pc.entryPoint = ep
-	pc.denyAssumptions = e.denyAssumptions
-	pc.noInline = e.noInline
-	pc.verifyIR = e.verifyIR
-	pc.typeRecorder = e.typeRecorder
-	return pc
+	return &pipelineCtx{
+		engine:          e,
+		ctx:             ctx,
+		host:            &e.host,
+		store:           &e.store,
+		limits:          &e.limits,
+		traceHook:       e.checkTraceHook,
+		entryPoint:      ep,
+		denyAssumptions: e.denyAssumptions,
+		noInline:        e.noInline,
+		verifyIR:        e.verifyIR,
+		typeRecorder:    e.typeRecorder,
+	}
 }
 
 // ValidateModuleName checks that name is a valid module identifier.
@@ -506,7 +523,7 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	}
 	pc := e.pipeline(ctx)
 	key := pc.computeRuntimeCacheKey(source)
-	if cached, ok := runtimeCacheGet(key); ok {
+	if cached, ok := e.cacheStore.GetRuntime(key); ok {
 		return cached, nil
 	}
 	prog, annots, src, err := pc.compileMain(source)
@@ -517,6 +534,6 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	if err != nil {
 		return nil, err
 	}
-	runtimeCachePut(key, rt)
+	e.cacheStore.PutRuntime(key, rt)
 	return rt, nil
 }

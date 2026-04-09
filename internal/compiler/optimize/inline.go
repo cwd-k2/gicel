@@ -167,6 +167,30 @@ func IsTransparentAlias(expr ir.Core) bool {
 	return isVar
 }
 
+// IsMethodSelector reports whether an expression is a class method
+// selector: TyLam* → Lam* → single-alt Case. These are safe to
+// inline cross-module so the optimizer can perform case-of-known-
+// constructor on the dictionaries they destructure.
+func IsMethodSelector(expr ir.Core) bool {
+	core := expr
+	for {
+		switch n := core.(type) {
+		case *ir.TyLam:
+			core = n.Body
+			continue
+		case *ir.Lam:
+			core = n.Body
+			continue
+		}
+		break
+	}
+	cs, ok := core.(*ir.Case)
+	if !ok {
+		return false
+	}
+	return len(cs.Alts) == 1
+}
+
 // eligibleEvidenceBody checks whether a Generated binding is an evidence
 // candidate (instance dictionary or method selector) eligible for inlining.
 //
