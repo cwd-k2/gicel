@@ -158,6 +158,11 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	if m, isMeta := argKind.(*types.TyMeta); isMeta && types.Equal(m.Kind, types.SortZero) {
 		return
 	}
+	// Skip when the expected parameter kind is a type variable (kind-polymorphic).
+	// The parametric kind will be checked during forall instantiation at check time.
+	if _, isVar := ka.From.(*types.TyVar); isVar {
+		return
+	}
 	r.emitEq(ka.From, argKind, s, solve.WithLazyContext(diagnostic.ErrKindMismatch, func() string {
 		return "kind mismatch in type application: expected kind " + types.PrettyTypeAsKind(ka.From) + ", got " + types.PrettyTypeAsKind(argKind)
 	}))
@@ -185,6 +190,18 @@ func (r *typeResolver) hasDeterministicKind(ty types.Type) bool {
 		return true
 	case *types.TySkolem:
 		return true
+	case *types.TyVar:
+		// Check forall-bound kind (populated during forall body resolution).
+		if r.forallKinds != nil {
+			if _, ok := r.forallKinds[t.Name]; ok {
+				return true
+			}
+		}
+		// Check checker context (populated during check phase).
+		if k, ok := r.lookupTyVar(t.Name); ok && k != nil {
+			return true
+		}
+		return false
 	default:
 		return false
 	}
@@ -288,6 +305,13 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 	case *types.TySkolem:
 		return t.Kind
 	case *types.TyVar:
+		// Forall-bound kind (available during type resolution phase).
+		if r.forallKinds != nil {
+			if k, ok := r.forallKinds[t.Name]; ok {
+				return k
+			}
+		}
+		// Checker context (available during check phase).
 		if k, ok := r.lookupTyVar(t.Name); ok {
 			return k
 		}

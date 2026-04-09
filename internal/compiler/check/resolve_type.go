@@ -65,6 +65,18 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 				}
 			}
 		}
+		// Register explicitly-kinded binder kinds so that checkTypeAppKind
+		// can determine the kind of forall-bound type variables during body
+		// resolution. Implicit binders (Kind == nil) are skipped — their kind
+		// defaults to Type, which checkTypeAppKind handles conservatively.
+		for _, b := range t.Binders {
+			if b.Kind != nil {
+				if r.forallKinds == nil {
+					r.forallKinds = make(map[string]types.Type, 4)
+				}
+				r.forallKinds[b.Name] = r.resolveKindExpr(b.Kind)
+			}
+		}
 		ty := r.resolveTypeExpr(t.Body)
 		for i := len(t.Binders) - 1; i >= 0; i-- {
 			kind := r.resolveKindExpr(t.Binders[i].Kind)
@@ -78,6 +90,9 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		for _, name := range labelVarNames {
 			delete(r.labelVars, name)
+		}
+		for _, b := range t.Binders {
+			delete(r.forallKinds, b.Name)
 		}
 		return ty
 	case *syntax.TyExprRow:

@@ -52,6 +52,11 @@ type typeResolver struct {
 	// labelVars tracks forall-bound label-kinded variables currently in scope.
 	// Used by row field resolution to mark IsLabelVar on RowField.
 	labelVars map[string]bool
+
+	// forallKinds tracks forall-bound type variable kinds during body resolution.
+	// Populated by resolveTypeExpr(TyExprForall), consumed by hasDeterministicKind
+	// and kindOfType to enable kind checking inside quantified type annotations.
+	forallKinds map[string]types.Type
 }
 
 // typeResolver returns the cached typeResolver, constructing it on first use.
