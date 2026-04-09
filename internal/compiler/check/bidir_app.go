@@ -105,6 +105,15 @@ func (ch *Checker) checkApp(e *syntax.ExprApp, expected types.Type) ir.Core {
 // checkInfix handles infix expressions in check mode.
 // Pre-unifies the final return type with expected before checking arguments.
 func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core {
+	// Transparent rewrite: `f $ x` → `App(f, x)`. Mirrors the infer-mode
+	// rewrite so both directions expose the underlying App shape to
+	// special-form detection and downstream optimizations. See bidir.go
+	// ExprInfix for the full rationale.
+	if isDollarOp(e.Op) {
+		if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+			return ch.check(&syntax.ExprApp{Fun: e.Left, Arg: e.Right, S: e.S}, expected)
+		}
+	}
 	// Special form: merge / *** as infix operator.
 	if isMergeOp(e.Op) {
 		if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
@@ -138,6 +147,14 @@ func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core 
 // Desugars to a lambda and delegates to check (checkLam propagates expected).
 func (ch *Checker) checkSection(e *syntax.ExprSection, expected types.Type) ir.Core {
 	return ch.check(desugarSection(e), expected)
+}
+
+// isDollarOp reports whether name refers to Prelude's forward-application
+// operator `$`. Both the infix form and the parenthesized alias are
+// recognized so the rewrite fires regardless of how the operator was
+// spelled at the call site.
+func isDollarOp(name string) bool {
+	return name == "$" || name == "($)"
 }
 
 // desugarSection rewrites an operator section to a lambda expression:

@@ -180,6 +180,19 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		panic("internal: unresolved ExprInfixSpine reached type checker")
 
 	case *syntax.ExprInfix:
+		// Transparent rewrite: `f $ x` is pure forward application
+		// (`($) := \f x. f x`). Unwrapping to the direct App shape at
+		// the checker level aligns the compiler's view with the
+		// operator's semantic definition — `fix $ lam` and `fix (lam)`
+		// reach the same special-form detection path, and any future
+		// intercept that dispatches on App head sees a consistent
+		// shape. Mirrors the merge/*** transparency pattern below and
+		// honors user shadowing in the current module.
+		if isDollarOp(e.Op) {
+			if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+				return ch.infer(&syntax.ExprApp{Fun: e.Left, Arg: e.Right, S: e.S})
+			}
+		}
 		// Special form: merge / *** as infix operator.
 		if isMergeOp(e.Op) {
 			if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
