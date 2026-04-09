@@ -95,6 +95,9 @@ func isModuleDefinedType(exports *ModuleExports, name string) bool {
 var builtinTypeNames = map[string]bool{
 	types.TyConComputation: true,
 	types.TyConThunk:       true,
+	// Universe sort constants — used as explicit kind/type arguments (@Type, @Kind, etc.).
+	"Type": true, "Kind": true, "Row": true,
+	"Constraint": true, "Label": true, "Level": true,
 }
 
 // isKnownTypeName returns true if name refers to a known type: registered type,
