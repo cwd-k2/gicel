@@ -99,9 +99,9 @@ type OccursError struct {
 func (e *OccursError) Kind() UnifyErrorKind { return UnifyOccursCheck }
 func (e *OccursError) Error() string {
 	if e.IsLevel {
-		return "infinite level: ?l" + strconv.Itoa(e.MetaID)
+		return "infinite level: level variable occurs in itself"
 	}
-	return "infinite type: ?" + strconv.Itoa(e.MetaID) + " occurs in " + types.Pretty(e.Type)
+	return "infinite type: inferred type occurs in " + types.Pretty(e.Type)
 }
 
 // DupLabelError reports a duplicate label in a row.

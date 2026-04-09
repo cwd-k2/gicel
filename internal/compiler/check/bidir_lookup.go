@@ -15,14 +15,19 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 	if !ok {
 		msg := "unbound variable: " + e.Name
 		if gatedBuiltins[e.Name] {
+			// Gated builtin: the --recursion hint is the correct guidance.
+			// Don't suggest unrelated names — they would be misleading.
 			msg += " (requires --recursion flag)"
-		} else if ch.currentBinding != "" && e.Name == ch.currentBinding {
-			msg += " (self-reference requires a type annotation or use of fix with --recursion)"
-		}
-		if hints := ch.suggestVar(e.Name); len(hints) > 0 {
-			ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
-		} else {
 			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+		} else {
+			if ch.currentBinding != "" && e.Name == ch.currentBinding {
+				msg += " (self-reference requires a type annotation or use of fix with --recursion)"
+			}
+			if hints := ch.suggestVar(e.Name); len(hints) > 0 {
+				ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
+			} else {
+				ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+			}
 		}
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
@@ -54,8 +59,18 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bo
 	}
 	ty, ok := qs.Exports.Values[e.Name]
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S,
-			"module "+qs.ModuleName+" does not export value: "+e.Name)
+		msg := "module " + qs.ModuleName + " does not export value: " + e.Name
+		// Check if the name is a class method — these are resolved via
+		// evidence, not as qualified values.
+		for className, ci := range qs.Exports.Classes {
+			for _, m := range ci.Methods {
+				if m.Name == e.Name {
+					msg += " ('" + e.Name + "' is a method of class " + className + "; use it unqualified)"
+					break
+				}
+			}
+		}
+		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Var{Name: e.Name, Module: qs.ModuleName, S: e.S}, true
