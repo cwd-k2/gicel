@@ -343,7 +343,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 			return nil, capEnv, err
 		}
 		capForImpl := capEnv.MarkShared()
-		val, newCap, callErr := vm.callPrim(impl, capForImpl, pv.Args)
+		val, newCap, callErr := vm.callPrim(impl, capForImpl, pv.Args, pv.S)
 		if callErr != nil {
 			return nil, capEnv, callErr
 		}
@@ -463,7 +463,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 		args := vm.primScratch[:newLen]
 		copy(args, pv.Args)
 		args[len(pv.Args)] = arg
-		val, newCap, callErr := vm.callPrim(impl, frame.capEnv, args)
+		val, newCap, callErr := vm.callPrim(impl, frame.capEnv, args, pv.S)
 		clear(vm.primScratch[:newLen])
 		if callErr != nil {
 			return callErr
@@ -492,7 +492,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	if err != nil {
 		return err
 	}
-	val, newCap, callErr := vm.callPrim(impl, frame.capEnv, args)
+	val, newCap, callErr := vm.callPrim(impl, frame.capEnv, args, pv.S)
 	if callErr != nil {
 		return callErr
 	}
@@ -681,7 +681,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			copy(scratch[len(f.Args):], args)
-			val, newCap, callErr := vm.callPrim(impl, frame.capEnv, scratch)
+			val, newCap, callErr := vm.callPrim(impl, frame.capEnv, scratch, f.S)
 			clear(vm.primScratch[:newLen])
 			if callErr != nil {
 				return nil, callErr
@@ -705,7 +705,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			if err != nil {
 				return nil, err
 			}
-			val, newCap, callErr := vm.callPrim(impl, frame.capEnv, combined)
+			val, newCap, callErr := vm.callPrim(impl, frame.capEnv, combined, f.S)
 			if callErr != nil {
 				return nil, callErr
 			}
@@ -724,7 +724,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 			if err != nil {
 				return nil, err
 			}
-			val, newCap, callErr := vm.callPrim(impl, callerCapEnv, combined[:f.Arity])
+			val, newCap, callErr := vm.callPrim(impl, callerCapEnv, combined[:f.Arity], f.S)
 			if callErr != nil {
 				return nil, callErr
 			}
@@ -904,7 +904,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			scratch[len(f.Args)] = arg
-			val, newCap, callErr := vm.callPrim(impl, capEnv, scratch)
+			val, newCap, callErr := vm.callPrim(impl, capEnv, scratch, f.S)
 			clear(vm.primScratch[:newLen])
 			if callErr != nil {
 				return nil, capEnv, callErr
@@ -924,7 +924,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		if err != nil {
 			return nil, capEnv, err
 		}
-		val, newCap, callErr := vm.callPrim(impl, capEnv, args)
+		val, newCap, callErr := vm.callPrim(impl, capEnv, args, f.S)
 		if callErr != nil {
 			return nil, capEnv, callErr
 		}
@@ -1032,7 +1032,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 			scratch := vm.primScratch[:newLen]
 			copy(scratch, f.Args)
 			copy(scratch[len(f.Args):], args)
-			val, newCap, callErr := vm.callPrim(impl, capEnv, scratch)
+			val, newCap, callErr := vm.callPrim(impl, capEnv, scratch, f.S)
 			clear(vm.primScratch[:newLen])
 			if callErr != nil {
 				return nil, capEnv, callErr
@@ -1055,14 +1055,14 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 			return nil, capEnv, err
 		}
 		if newLen == f.Arity {
-			val, newCap, callErr := vm.callPrim(impl, capEnv, combined)
+			val, newCap, callErr := vm.callPrim(impl, capEnv, combined, f.S)
 			if callErr != nil {
 				return nil, capEnv, callErr
 			}
 			return val, newCap, nil
 		}
 		// Over-saturated: invoke with arity args, then apply rest.
-		val, newCap, err := vm.callPrim(impl, capEnv, combined[:f.Arity])
+		val, newCap, err := vm.callPrim(impl, capEnv, combined[:f.Arity], f.S)
 		if err != nil {
 			return nil, capEnv, err
 		}
@@ -1099,26 +1099,43 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 // Errors from the impl pass through wrapPrimError, which preserves
 // structured errors (RuntimeError, ctx cancellation, budget limits) and
 // wraps plain errors as RuntimeError so the runtime error path is uniform.
-func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value) (eval.Value, eval.CapEnv, error) {
+func (vm *VM) callPrim(impl eval.PrimImpl, capEnv eval.CapEnv, args []eval.Value, _ span.Span) (eval.Value, eval.CapEnv, error) {
 	val, newCap, err := impl(vm.ctx, capEnv, args, vm.cachedApplier)
 	if err != nil {
-		return nil, capEnv, wrapPrimError(err)
+		// Use the current frame's instruction span for the call site,
+		// not the PrimVal definition span. This ensures errors point
+		// at the user's code, not at the stdlib definition.
+		var callSpan span.Span
+		var source *span.Source
+		if vm.fp > 0 {
+			f := &vm.frames[vm.fp-1]
+			callSpan = f.proto.SpanAt(f.ip)
+			source = f.source
+		}
+		return nil, capEnv, wrapPrimError(err, callSpan, source)
 	}
 	return val, newCap, nil
 }
 
-// wrapPrimError wraps plain errors from stdlib primitives into RuntimeError.
-// Errors that already carry structured information (RuntimeError, context
-// cancellation, budget limits) pass through unchanged.
-func wrapPrimError(err error) error {
-	switch {
-	case errors.As(err, new(*eval.RuntimeError)):
+// wrapPrimError wraps plain errors from stdlib primitives into RuntimeError,
+// attaching source location from the call site when available.
+// Errors that already carry structured information (RuntimeError with Span,
+// context cancellation, budget limits) pass through unchanged.
+func wrapPrimError(err error, s span.Span, source *span.Source) error {
+	var re *eval.RuntimeError
+	if errors.As(err, &re) {
+		// Attach location if the RuntimeError doesn't already have one.
+		if re.Span == (span.Span{}) && s != (span.Span{}) {
+			re.Span = s
+			re.Source = source
+		}
 		return err
-	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return err
-	case budget.IsLimitError(err):
-		return err
-	default:
-		return &eval.RuntimeError{Message: err.Error()}
 	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	if budget.IsLimitError(err) {
+		return err
+	}
+	return &eval.RuntimeError{Message: err.Error(), Span: s, Source: source}
 }

@@ -791,7 +791,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			// is emitted only for non-effectful saturated primitives,
 			// which do not call the Applier (no re-entrant stack mutation).
 			base := vm.sp - arity
-			val, newCap, err := vm.callPrim(impl, frame.capEnv, vm.stack[base:vm.sp])
+			val, newCap, err := vm.callPrim(impl, frame.capEnv, vm.stack[base:vm.sp], frame.proto.SpanAt(frame.ip))
 			for i := base; i < vm.sp; i++ {
 				vm.stack[i] = nil
 			}
