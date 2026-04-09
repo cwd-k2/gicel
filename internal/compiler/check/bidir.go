@@ -85,22 +85,23 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 
 	switch e := expr.(type) {
 	case *syntax.ExprVar:
-		// `thunk` has no first-class runtime representation: wrapping a
-		// computation as a value in CBV requires capturing the argument
-		// unevaluated, which a normal function call cannot do. The
-		// syntactic intercept `thunk <expr>` elaborates to ir.Thunk; a
-		// bare reference is therefore an error.
-		if e.Name == "thunk" {
+		// `thunk` and `force` are pure syntactic special forms with
+		// no first-class runtime representation. `thunk e` elaborates
+		// to ir.Thunk, `force e` elaborates to ir.Force, and all
+		// indirect uses (do bindings, case arms, handler arguments,
+		// entry-point bindings) are covered by the type-directed
+		// CBPV auto-coercion. A bare reference is therefore a
+		// surface-level mistake — `thunk` can never be a function in
+		// CBV (it would capture its argument evaluated), and `force`
+		// is kept symmetric for conceptual uniformity even though a
+		// `\thk. force thk` lambda would be semantically valid. The
+		// error message points at the applied form and at the
+		// coercion path so users understand both options.
+		if e.Name == "thunk" || e.Name == "force" {
 			ch.addCodedError(diagnostic.ErrSpecialForm, e.S,
-				"thunk requires an argument; in CBV a bare `thunk` has no runtime representation, write `thunk <expr>` or rely on auto-coercion at a Thunk-expecting position")
+				e.Name+" requires an argument: use `"+e.Name+" <expr>` or let the CBPV auto-coercion insert it at a Thunk/Computation mismatch")
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}
 		}
-		// `force` DOES have a first-class Prelude value
-		// (eval.ForceBody) — the historical "special form" error was a
-		// discipline check rather than a semantic requirement. The
-		// CBPV auto-force coercion now handles the common applied
-		// case silently, and bare `force` as a value is valid so it
-		// can be composed with higher-order functions.
 		ty, coreExpr, ok := ch.lookupVar(e)
 		if !ok {
 			return ty, coreExpr
