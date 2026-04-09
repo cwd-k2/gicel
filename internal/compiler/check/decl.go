@@ -413,13 +413,20 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		ty, coreExpr = ch.generalizeConstrained(ty, coreExpr, unresolvedConstraints, 0)
 	}
 
-	// Reject bare Computation types in non-entry top-level bindings.
-	// In CBPV, top-level bindings should be values; computations must be
-	// wrapped with 'thunk' to suspend them.
+	// Non-entry top-level bindings can only be values. A Computation
+	// RHS at that position is only meaningful when suspended as a
+	// Thunk, so the checker auto-thunks it silently — matching the
+	// CBPV coercion that fires at function arguments, do bindings,
+	// and the entry-point binding. An explicit `Computation` type
+	// annotation still errors, because the annotation expresses
+	// deliberate intent that the checker should not silently rewrite.
 	if ch.config.EntryPoint != "" && d.Name != ch.config.EntryPoint && isBareComputationType(ty) {
-		ch.addCodedError(diagnostic.ErrEffectfulBinding, d.S,
-			"top-level binding "+d.Name+" has bare Computation type; "+
-				"wrap with 'thunk' to suspend, or make it a function parameter")
+		if hasAnn {
+			ch.addCodedError(diagnostic.ErrEffectfulBinding, d.S,
+				"top-level binding "+d.Name+" is annotated as bare Computation; non-entry bindings must be values — annotate as Thunk, drop the annotation to let the checker auto-thunk, or move the body into a function")
+		} else {
+			ty, coreExpr = ch.autoThunkComputation(ty, coreExpr, d.S)
+		}
 	}
 
 	// Annotated bindings were pre-registered in preregisterBindings (phase 7.5).

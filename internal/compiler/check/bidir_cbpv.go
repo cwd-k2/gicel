@@ -281,6 +281,61 @@ func (ch *Checker) autoForceIfThunk(inferred types.Type, core ir.Core, s span.Sp
 	return asComp, &ir.Force{Expr: core, S: s}
 }
 
+// autoThunkComputation applies the Computation → Thunk direction of
+// the CBPV coercion, descending through forall / evidence layers to
+// reach the underlying TyCBPV. At non-entry top-level bindings a bare
+// Computation cannot be run directly (only the entry point is driven
+// by the runtime), so the only semantically meaningful form is a
+// stored Thunk — the checker inserts the wrap silently when no
+// annotation pins the binding as Computation. Dual of
+// autoForceIfThunk, used by decl.go's binding elaboration.
+//
+// For polymorphic bindings (type ∀a. Computation r r a), the inferred
+// core already carries matching ir.TyLam layers after generalization;
+// the helper descends under each pair in lock-step and wraps the
+// innermost computation node in ir.Thunk. For bindings with evidence
+// (type C => Computation r r a), the core has a generated dict lambda
+// that we walk through analogously.
+func (ch *Checker) autoThunkComputation(inferred types.Type, core ir.Core, s span.Span) (types.Type, ir.Core) {
+	return thunkIfBareComputation(ch.unifier.Zonk(inferred), core, s)
+}
+
+func thunkIfBareComputation(ty types.Type, core ir.Core, s span.Span) (types.Type, ir.Core) {
+	switch t := ty.(type) {
+	case *types.TyForall:
+		if tl, ok := core.(*ir.TyLam); ok {
+			innerTy, innerCore := thunkIfBareComputation(t.Body, tl.Body, s)
+			newTy := &types.TyForall{Var: t.Var, Kind: t.Kind, Body: innerTy, S: t.S}
+			newCore := &ir.TyLam{TyParam: tl.TyParam, Kind: tl.Kind, Body: innerCore, S: tl.S}
+			return newTy, newCore
+		}
+	case *types.TyEvidence:
+		if lam, ok := core.(*ir.Lam); ok && lam.Generated {
+			innerTy, innerCore := thunkIfBareComputation(t.Body, lam.Body, s)
+			newTy := &types.TyEvidence{Constraints: t.Constraints, Body: innerTy, S: t.S}
+			newCore := &ir.Lam{
+				Param: lam.Param, ParamType: lam.ParamType,
+				Body: innerCore, Generated: lam.Generated, S: lam.S,
+			}
+			return newTy, newCore
+		}
+	case *types.TyCBPV:
+		if t.Tag == types.TagComp {
+			asThunk := &types.TyCBPV{
+				Tag:    types.TagThunk,
+				Pre:    t.Pre,
+				Post:   t.Post,
+				Result: t.Result,
+				Grade:  t.Grade,
+				Flags:  t.Flags,
+				S:      t.S,
+			}
+			return asThunk, &ir.Thunk{Comp: core, S: s}
+		}
+	}
+	return ty, core
+}
+
 // tryCBPVCoercion attempts an implicit Computation ↔ Thunk coercion when
 // the inferred and expected types are both CBPV but carry opposite tags.
 // This witnesses the CBPV adjunction (thunk ⊣ force) at the type level:
