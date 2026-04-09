@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -229,6 +230,14 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		return nil, fmt.Errorf("missing host binding(s): %s (declared with DeclareBinding but not provided in RunOptions.Bindings)", strings.Join(missing, ", "))
+	}
+	// Warn about undeclared bindings (typos in the Bindings map).
+	for name := range hostBindings {
+		if _, isDeclared := r.bindings[name]; !isDeclared {
+			if _, isBuiltin := r.builtinGlobals[name]; !isBuiltin {
+				fmt.Fprintf(os.Stderr, "gicel: warning: host binding %q was provided but not declared (possible typo)\n", name)
+			}
+		}
 	}
 	return arr, nil
 }

@@ -106,6 +106,37 @@ func FromRecord(v eval.Value) (map[string]eval.Value, bool) {
 	return rv.AsMap(), true
 }
 
+// AsString extracts a string from a HostVal. Returns ("", false) if the value
+// is not a HostVal containing a string.
+func AsString(v eval.Value) (string, bool) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return "", false
+	}
+	s, ok := hv.Inner.(string)
+	return s, ok
+}
+
+// AsInt64 extracts an int64 from a HostVal.
+func AsInt64(v eval.Value) (int64, bool) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return 0, false
+	}
+	n, ok := hv.Inner.(int64)
+	return n, ok
+}
+
+// AsFloat64 extracts a float64 from a HostVal.
+func AsFloat64(v eval.Value) (float64, bool) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		return 0, false
+	}
+	f, ok := hv.Inner.(float64)
+	return f, ok
+}
+
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
 func MustHost[T any](v eval.Value) T {
 	hv, ok := v.(*eval.HostVal)

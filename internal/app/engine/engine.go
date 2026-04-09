@@ -105,6 +105,16 @@ func NewEngine() *Engine {
 	return e
 }
 
+// NewEngineWithDefaults creates an Engine with Prelude loaded. This is the
+// common case for embedders — use NewEngine() for a minimal (Core-only) engine.
+func NewEngineWithDefaults() *Engine {
+	e := NewEngine()
+	if err := e.Use(stdlib.Prelude); err != nil {
+		panic("internal: prelude pack: " + err.Error())
+	}
+	return e
+}
+
 // Use applies a Pack to the Engine.
 func (e *Engine) Use(p registry.Pack) error {
 	return p(e)
@@ -132,6 +142,14 @@ func (e *Engine) RegisterType(name string, kind types.Type) {
 func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 	e.host.prims.Register(name, impl)
 	e.invalidateRuntimeFingerprint()
+}
+
+// RegisterTypedPrim registers a primitive with both its type declaration
+// and implementation in a single call. Equivalent to DeclareAssumption +
+// RegisterPrim.
+func (e *Engine) RegisterTypedPrim(name string, ty types.Type, impl eval.PrimImpl) {
+	e.DeclareAssumption(name, ty)
+	e.RegisterPrim(name, impl)
 }
 
 // EnableRecursion enables the rec and fix built-in identifiers for all
@@ -382,6 +400,16 @@ func (cr *CompileResult) PrettyBindingTypes() map[string]string {
 		m[b.Name] = types.Pretty(b.Type)
 	}
 	return m
+}
+
+// BindingType returns the inferred type of a specific binding.
+func (cr *CompileResult) BindingType(name string) (types.Type, bool) {
+	for _, b := range cr.prog.Bindings {
+		if b.Name == name {
+			return b.Type, true
+		}
+	}
+	return nil, false
 }
 
 // CoreProgram returns the compiled Core IR for inspection.
