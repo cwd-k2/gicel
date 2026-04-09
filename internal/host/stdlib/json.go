@@ -35,6 +35,12 @@ var JSON Pack = func(e Registrar) error {
 	e.RegisterPrim("_fromJSONPair", fromJSONPairImpl)
 	e.RegisterPrim("_fromJSONResult", fromJSONResultImpl)
 
+	// Map/Set JSON primitives
+	e.RegisterPrim("_toJSONMap", toJSONMapImpl)
+	e.RegisterPrim("_toJSONSet", toJSONSetImpl)
+	e.RegisterPrim("_fromJSONMap", fromJSONMapImpl)
+	e.RegisterPrim("_fromJSONSet", fromJSONSetImpl)
+
 	// Generic encoder
 	e.RegisterPrim("_jsonEncode", jsonEncodeImpl)
 
@@ -605,4 +611,167 @@ func fromJSONResultImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 	default:
 		return jsonNothing, ce, nil
 	}
+}
+
+// --- Map/Set JSON support ---
+
+// _toJSONMap :: (k -> String) -> (v -> String) -> Map k v -> String
+// Serializes as array of [key, value] pairs: [[k1,v1],[k2,v2],...]
+func toJSONMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	encK := args[0]
+	encV := args[1]
+	m, err := asMapVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	var parts []string
+	ce, err = avlFoldInOrder(m.root, ce, func(n *avlNode, ce eval.CapEnv) (eval.CapEnv, error) {
+		sk, newCe, err := apply.Apply(encK, n.key, ce)
+		if err != nil {
+			return ce, err
+		}
+		sv, newCe, err := apply.Apply(encV, n.value, newCe)
+		if err != nil {
+			return ce, err
+		}
+		sK, err := asString(sk)
+		if err != nil {
+			return ce, err
+		}
+		sV, err := asString(sv)
+		if err != nil {
+			return ce, err
+		}
+		parts = append(parts, "["+sK+","+sV+"]")
+		return newCe, nil
+	})
+	if err != nil {
+		return nil, ce, err
+	}
+	out := "[" + strings.Join(parts, ",") + "]"
+	if err := budget.ChargeAlloc(ctx, int64(len(out))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return jsonStrVal(out), ce, nil
+}
+
+// _toJSONSet :: (k -> String) -> Set k -> String
+// Serializes as array of values: [v1,v2,v3,...]
+func toJSONSetImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	enc := args[0]
+	m, err := asMapVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	var parts []string
+	ce, err = avlFoldInOrder(m.root, ce, func(n *avlNode, ce eval.CapEnv) (eval.CapEnv, error) {
+		sv, newCe, err := apply.Apply(enc, n.key, ce)
+		if err != nil {
+			return ce, err
+		}
+		s, err := asString(sv)
+		if err != nil {
+			return ce, err
+		}
+		parts = append(parts, s)
+		return newCe, nil
+	})
+	if err != nil {
+		return nil, ce, err
+	}
+	out := "[" + strings.Join(parts, ",") + "]"
+	if err := budget.ChargeAlloc(ctx, int64(len(out))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return jsonStrVal(out), ce, nil
+}
+
+// _fromJSONMap :: (k -> k -> Ordering) -> (String -> Maybe k) -> (String -> Maybe v) -> String -> Maybe (Map k v)
+func fromJSONMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmpFn := args[0]
+	decK := args[1]
+	decV := args[2]
+	s, err := asString(args[3])
+	if err != nil {
+		return nil, ce, err
+	}
+	var raw []json.RawMessage
+	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+		return jsonNothing, ce, nil
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(raw))*costAVLNode); err != nil {
+		return nil, ce, err
+	}
+	m := &mapVal{cmp: cmpFn}
+	for _, elem := range raw {
+		var pair [2]json.RawMessage
+		if err := json.Unmarshal(elem, &pair); err != nil {
+			return jsonNothing, ce, nil
+		}
+		rk, newCe, err := apply.Apply(decK, jsonStrVal(string(pair[0])), ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		conK, ok := rk.(*eval.ConVal)
+		if !ok || conK.Con == "Nothing" {
+			return jsonNothing, ce, nil
+		}
+		rv, newCe, err := apply.Apply(decV, jsonStrVal(string(pair[1])), ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		conV, ok := rv.(*eval.ConVal)
+		if !ok || conV.Con == "Nothing" {
+			return jsonNothing, ce, nil
+		}
+		var inserted bool
+		m.root, inserted, ce, err = avlInsert(m.root, conK.Args[0], conV.Args[0], cmpFn, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		if inserted {
+			m.size++
+		}
+	}
+	return jsonJust(&eval.HostVal{Inner: m}), ce, nil
+}
+
+// _fromJSONSet :: (k -> k -> Ordering) -> (String -> Maybe k) -> String -> Maybe (Set k)
+func fromJSONSetImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmpFn := args[0]
+	decK := args[1]
+	s, err := asString(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	var raw []json.RawMessage
+	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+		return jsonNothing, ce, nil
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(raw))*costAVLNode); err != nil {
+		return nil, ce, err
+	}
+	m := &mapVal{cmp: cmpFn}
+	for _, elem := range raw {
+		rk, newCe, err := apply.Apply(decK, jsonStrVal(string(elem)), ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		conK, ok := rk.(*eval.ConVal)
+		if !ok || conK.Con == "Nothing" {
+			return jsonNothing, ce, nil
+		}
+		var inserted bool
+		m.root, inserted, ce, err = avlInsert(m.root, conK.Args[0], unitVal, cmpFn, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		if inserted {
+			m.size++
+		}
+	}
+	return jsonJust(&eval.HostVal{Inner: m}), ce, nil
 }

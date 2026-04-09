@@ -201,6 +201,24 @@ func avlDelete(n *avlNode, key, cmp eval.Value, ce eval.CapEnv, apply eval.Appli
 	return avlRebalance(node), true, newCe, nil
 }
 
+// avlFoldInOrder visits each node in-order, threading CapEnv through the
+// visitor function. Returns on first error. Used by JSON serialization to
+// apply encoder functions that may update CapEnv.
+func avlFoldInOrder(n *avlNode, ce eval.CapEnv, visit func(*avlNode, eval.CapEnv) (eval.CapEnv, error)) (eval.CapEnv, error) {
+	if n == nil {
+		return ce, nil
+	}
+	ce, err := avlFoldInOrder(n.left, ce, visit)
+	if err != nil {
+		return ce, err
+	}
+	ce, err = visit(n, ce)
+	if err != nil {
+		return ce, err
+	}
+	return avlFoldInOrder(n.right, ce, visit)
+}
+
 // avlToConsList builds an in-order ConVal list from the AVL tree.
 func avlToConsList(n *avlNode) eval.Value {
 	var acc eval.Value = &eval.ConVal{Con: "Nil"}

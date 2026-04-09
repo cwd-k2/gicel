@@ -99,6 +99,38 @@ impl (FromJSON e, FromJSON a) => FromJSON (Result e a) := {
   fromJSON := _fromJSONResult fromJSON fromJSON
 }
 
+-- ─── Map / Set instances ────────────────────────────────────────────────────
+
+-- Map serializes as array of [key, value] pairs: [[k1,v1],[k2,v2],...]
+_toJSONMap :: \k v. (k -> String) -> (v -> String) -> Map k v -> String
+_toJSONMap := assumption
+
+_fromJSONMap :: \k v. (k -> k -> Ordering) -> (String -> Maybe k) -> (String -> Maybe v) -> String -> Maybe (Map k v)
+_fromJSONMap := assumption
+
+impl (ToJSON k, ToJSON v) => ToJSON (Map k v) := {
+  toJSON := _toJSONMap toJSON toJSON
+}
+
+impl (Ord k, FromJSON k, FromJSON v) => FromJSON (Map k v) := {
+  fromJSON := _fromJSONMap compare fromJSON fromJSON
+}
+
+-- Set serializes as array of values: [v1,v2,v3,...]
+_toJSONSet :: \k. (k -> String) -> Set k -> String
+_toJSONSet := assumption
+
+_fromJSONSet :: \k. (k -> k -> Ordering) -> (String -> Maybe k) -> String -> Maybe (Set k)
+_fromJSONSet := assumption
+
+impl ToJSON k => ToJSON (Set k) := {
+  toJSON := _toJSONSet toJSON
+}
+
+impl (Ord k, FromJSON k) => FromJSON (Set k) := {
+  fromJSON := _fromJSONSet compare fromJSON
+}
+
 -- ─── Generic encoder ────────────────────────────────────────────────────────
 
 -- jsonEncode serializes any value to a JSON string using runtime introspection.
