@@ -163,18 +163,14 @@ type Checker struct {
 	// Cached type resolver (lazy, constructed on first use).
 	cachedTypeResolver *typeResolver
 
-	// currentBinding is the name of the binding currently being checked.
-	// Used for diagnostic hints (e.g., self-reference without annotation).
-	currentBinding string
-
 	// pendingMergeLabels records the pre-state row types of every Merge
-	// node emitted by inferMerge, keyed by the node pointer. The labels
-	// extracted at inferMerge time can be tentative (the row metas may
-	// still be unsolved); refineMergeLabels drains this table after
-	// constraint resolution and rewrites the labels in place. Keeping
-	// the transient state here rather than on ir.Merge means the IR node
-	// has no observable phase distinction once the checker returns.
+	// node emitted by inferMerge. Initialized by declPipeline.run(),
+	// drained by refineMergeLabels after constraint resolution.
 	pendingMergeLabels map[*ir.Merge]pendingMergePre
+
+	// currentBinding is the name being type-checked. Set/cleared by
+	// declPipeline.processValueDef for diagnostic hints.
+	currentBinding string
 }
 
 // pendingMergePre carries the unresolved capability row types whose

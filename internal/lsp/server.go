@@ -29,9 +29,10 @@ type Server struct {
 	// Debounce state (guarded by mu).
 	mu             sync.Mutex
 	debounceTimers map[protocol.DocumentURI]*time.Timer
+	diagCancels    map[protocol.DocumentURI]context.CancelFunc // per-URI in-flight cancel
 
 	debounceDelay time.Duration
-	cancel        context.CancelFunc // cancels pending diagnose goroutines
+	cancel        context.CancelFunc // cancels all pending diagnose goroutines (shutdown)
 
 	// Lifecycle state (accessed only from the main goroutine).
 	initialized       bool
@@ -65,6 +66,7 @@ func NewServer(cfg ServerConfig) *Server {
 		logger:         logger,
 		engineSetup:    cfg.EngineSetup,
 		debounceTimers: make(map[protocol.DocumentURI]*time.Timer),
+		diagCancels:    make(map[protocol.DocumentURI]context.CancelFunc),
 		debounceDelay:  time.Duration(delay) * time.Millisecond,
 		exitCode:       1, // default: no shutdown received
 		exitCh:         make(chan struct{}),
@@ -274,15 +276,24 @@ func (s *Server) handleDidSave(ctx context.Context, msg *jsonrpc.Message) {
 func (s *Server) scheduleDiagnose(ctx context.Context, uri protocol.DocumentURI) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Stop pending debounce timer.
 	if timer, ok := s.debounceTimers[uri]; ok {
 		timer.Stop()
 	}
+	// Cancel any in-flight diagnose goroutine for this URI.
+	if cancel, ok := s.diagCancels[uri]; ok {
+		cancel()
+	}
+	// Create a dedicated context for the new diagnose goroutine.
+	diagCtx, diagCancel := context.WithCancel(ctx)
+	s.diagCancels[uri] = diagCancel
 	s.debounceTimers[uri] = time.AfterFunc(s.debounceDelay, func() {
-		s.diagnose(ctx, uri)
+		s.diagnose(diagCtx, uri)
 	})
 }
 
-// drainTimers stops all pending debounce timers.
+// drainTimers stops all pending debounce timers and cancels in-flight
+// diagnose goroutines.
 func (s *Server) drainTimers() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -290,17 +301,23 @@ func (s *Server) drainTimers() {
 		timer.Stop()
 		delete(s.debounceTimers, uri)
 	}
+	for uri, cancel := range s.diagCancels {
+		cancel()
+		delete(s.diagCancels, uri)
+	}
 }
 
 func (s *Server) diagnose(ctx context.Context, uri protocol.DocumentURI) {
 	if ctx.Err() != nil {
-		return // server shutting down
+		return // cancelled or server shutting down
 	}
 
 	doc, ok := s.docs.get(uri)
 	if !ok {
 		return
 	}
+	// Capture document version at launch time for stale-check after analysis.
+	capturedVersion := doc.Version
 
 	eng := s.engineSetup()
 	if eng == nil {
@@ -331,6 +348,14 @@ func (s *Server) diagnose(ctx context.Context, uri protocol.DocumentURI) {
 	defer cancel()
 
 	ar := eng.Analyze(analyzeCtx, doc.Text)
+
+	// Check if the document was edited while analysis was running.
+	// If the version has advanced, discard this stale result — a newer
+	// diagnose goroutine will produce fresh diagnostics.
+	if current, ok := s.docs.get(uri); ok && current.Version != capturedVersion {
+		return
+	}
+
 	s.docs.setAnalysis(uri, ar)
 
 	diags := convertDiagnostics(ar)
