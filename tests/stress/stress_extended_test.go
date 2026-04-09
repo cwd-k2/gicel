@@ -648,23 +648,23 @@ main := id (id (id (id (id True))))
 	assertCon(t, result.Value, "True")
 	usedSteps := result.Stats.Steps
 
-	// Exact steps — should succeed.
+	// Exact steps + 1 — should succeed (limit is exclusive: >= fires at limit).
 	result, err = gicel.RunSandbox(source, &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Prelude},
-		MaxSteps: usedSteps,
+		MaxSteps: usedSteps + 1,
 	})
 	if err != nil {
-		t.Fatalf("should succeed with exact steps (%d): %v", usedSteps, err)
+		t.Fatalf("should succeed with steps+1 (%d): %v", usedSteps+1, err)
 	}
 	assertCon(t, result.Value, "True")
 
-	// One step fewer — should fail.
+	// Exact steps — should fail (steps >= max fires at boundary).
 	_, err = gicel.RunSandbox(source, &gicel.SandboxConfig{
 		Packs:    []gicel.Pack{gicel.Prelude},
-		MaxSteps: usedSteps - 1,
+		MaxSteps: usedSteps,
 	})
 	if err == nil {
-		t.Fatal("expected step limit error with steps-1")
+		t.Fatal("expected step limit error with exact steps")
 	}
 }
 

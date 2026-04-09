@@ -1,4 +1,4 @@
-// Budget overhead benchmarks — per-call cost of Step/Nest/Alloc on hot paths.
+// Budget overhead benchmarks — per-call cost of Step/Enter+Leave/Alloc on hot paths.
 // Does NOT cover: correctness (budget_test.go).
 
 package budget
@@ -28,15 +28,6 @@ func BenchmarkBudgetEnterLeave(b *testing.B) {
 	for b.Loop() {
 		_ = bg.Enter()
 		bg.Leave()
-	}
-}
-
-func BenchmarkBudgetNestUnnest(b *testing.B) {
-	bg := New(context.Background(), 0, 0)
-	bg.SetNestingLimit(0) // unlimited
-	for b.Loop() {
-		_ = bg.Nest()
-		bg.Unnest()
 	}
 }
 

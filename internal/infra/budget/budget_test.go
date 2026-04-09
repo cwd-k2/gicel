@@ -1,4 +1,4 @@
-// Budget tests — nesting limit (runtime) and compiler dimensions (CheckBudget).
+// Budget tests — unified check amortization, compiler dimensions (CheckBudget).
 // Does NOT cover: step, depth, alloc limits (tested via eval integration tests).
 package budget
 
@@ -6,61 +6,6 @@ import (
 	"context"
 	"testing"
 )
-
-func TestNestUnest(t *testing.T) {
-	b := New(context.Background(), 0, 0)
-	b.SetNestingLimit(3)
-
-	// Should succeed up to limit.
-	for i := range 3 {
-		if err := b.Nest(); err != nil {
-			t.Fatalf("Nest() #%d: unexpected error: %v", i+1, err)
-		}
-	}
-	if b.Nesting() != 3 {
-		t.Fatalf("expected nesting=3, got %d", b.Nesting())
-	}
-
-	// Exceeding limit should error.
-	err := b.Nest()
-	if err == nil {
-		t.Fatal("expected NestingLimitError")
-	}
-	if _, ok := err.(*NestingLimitError); !ok {
-		t.Fatalf("expected *NestingLimitError, got %T: %v", err, err)
-	}
-
-	// Exceeding Nest still incremented counter (consistent with Enter).
-	// Unnest twice to get back within limit.
-	b.Unnest()
-	b.Unnest()
-	if b.Nesting() != 2 {
-		t.Fatalf("expected nesting=2 after two Unnest, got %d", b.Nesting())
-	}
-
-	// After unnest, Nest should succeed again.
-	if err := b.Nest(); err != nil {
-		t.Fatalf("Nest() after Unnest: unexpected error: %v", err)
-	}
-}
-
-func TestNestingLimitZeroDisabled(t *testing.T) {
-	b := New(context.Background(), 0, 0)
-	// maxNesting=0 means disabled.
-	for i := range 10000 {
-		if err := b.Nest(); err != nil {
-			t.Fatalf("Nest() #%d: unexpected error with disabled limit: %v", i+1, err)
-		}
-	}
-}
-
-func TestNestingLimitNegativeClamped(t *testing.T) {
-	b := New(context.Background(), 0, 0)
-	b.SetNestingLimit(-5)
-	if b.MaxNesting() != 0 {
-		t.Fatalf("expected maxNesting=0 after negative input, got %d", b.MaxNesting())
-	}
-}
 
 func TestCheckBudgetCompilerDimensions(t *testing.T) {
 	b := NewCheck(context.Background())
@@ -167,4 +112,94 @@ func TestCheckBudgetContextCancellation(t *testing.T) {
 	if err := b.SolverStep(); err == nil {
 		t.Fatal("expected context error from SolverStep after cancel")
 	}
+}
+
+// TestBudgetUnifiedCheck verifies that the amortized check fires within
+// the expected window and catches limit violations across all dimensions.
+func TestBudgetUnifiedCheck(t *testing.T) {
+	t.Run("StepLimit", func(t *testing.T) {
+		b := New(context.Background(), 10, 0)
+		// Exceed step limit, then pump ops until check fires.
+		var hitErr bool
+		for range 200 {
+			if err := b.Step(); err != nil {
+				if _, ok := err.(*StepLimitError); !ok {
+					t.Fatalf("expected *StepLimitError, got %T: %v", err, err)
+				}
+				hitErr = true
+				break
+			}
+		}
+		if !hitErr {
+			t.Fatal("expected StepLimitError within amortization window")
+		}
+	})
+
+	t.Run("DepthLimit", func(t *testing.T) {
+		b := New(context.Background(), 0, 5)
+		var hitErr bool
+		for range 200 {
+			if err := b.Enter(); err != nil {
+				if _, ok := err.(*DepthLimitError); !ok {
+					t.Fatalf("expected *DepthLimitError, got %T: %v", err, err)
+				}
+				hitErr = true
+				break
+			}
+		}
+		if !hitErr {
+			t.Fatal("expected DepthLimitError within amortization window")
+		}
+	})
+
+	t.Run("AllocLimit", func(t *testing.T) {
+		b := New(context.Background(), 0, 0)
+		b.SetAllocLimit(100)
+		var hitErr bool
+		for range 200 {
+			if err := b.Alloc(10); err != nil {
+				if _, ok := err.(*AllocLimitError); !ok {
+					t.Fatalf("expected *AllocLimitError, got %T: %v", err, err)
+				}
+				hitErr = true
+				break
+			}
+		}
+		if !hitErr {
+			t.Fatal("expected AllocLimitError within amortization window")
+		}
+	})
+
+	t.Run("PeakDepthTracked", func(t *testing.T) {
+		b := New(context.Background(), 0, 0)
+		// Enter 128 times to guarantee at least one check fires at
+		// depth >= 64 (check fires every 64 ops).
+		for range 128 {
+			_ = b.Enter()
+		}
+		// PeakDepth is updated when check fires during Enter; the
+		// exact value depends on which ops hit the 64-boundary.
+		if b.PeakDepth() == 0 {
+			t.Fatal("expected PeakDepth > 0 after 128 Enter calls")
+		}
+		if b.PeakDepth() > 128 {
+			t.Fatalf("PeakDepth %d exceeds 128 Enter calls", b.PeakDepth())
+		}
+	})
+
+	t.Run("ContextCancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		b := New(ctx, 0, 0)
+		var hitErr bool
+		for range 200 {
+			if err := b.Step(); err != nil {
+				hitErr = true
+				break
+			}
+		}
+		if !hitErr {
+			t.Fatal("expected context error within amortization window")
+		}
+	})
 }

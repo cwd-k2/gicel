@@ -245,7 +245,6 @@ func runExprFull(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globalSlo
 	annotate(c, expr)
 	proto := c.CompileExpr(expr)
 	b := budget.New(context.Background(), 100000, 1000)
-	b.SetNestingLimit(512)
 	b.SetAllocLimit(100 * 1024 * 1024)
 	if globalArray == nil {
 		globalArray = make([]eval.Value, len(globalSlots))

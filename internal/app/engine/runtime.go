@@ -265,9 +265,6 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 	}
 
 	b := budget.New(ctx, r.stepLimit, r.depthLimit)
-	if r.nestingLimit > 0 {
-		b.SetNestingLimit(r.nestingLimit)
-	}
 	if r.allocLimit > 0 {
 		b.SetAllocLimit(r.allocLimit)
 	}

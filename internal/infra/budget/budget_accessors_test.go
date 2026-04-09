@@ -13,7 +13,6 @@ import (
 func TestBudgetAccessors(t *testing.T) {
 	b := New(context.Background(), 1000, 50)
 	b.SetAllocLimit(1 << 20) // 1 MiB
-	b.SetNestingLimit(16)
 
 	if got := b.Max(); got != 1000 {
 		t.Errorf("Max() = %d, want 1000", got)
@@ -24,17 +23,11 @@ func TestBudgetAccessors(t *testing.T) {
 	if got := b.MaxAlloc(); got != 1<<20 {
 		t.Errorf("MaxAlloc() = %d, want %d", got, 1<<20)
 	}
-	if got := b.MaxNesting(); got != 16 {
-		t.Errorf("MaxNesting() = %d, want 16", got)
-	}
 	if got := b.Steps(); got != 0 {
 		t.Errorf("Steps() = %d, want 0", got)
 	}
 	if got := b.Depth(); got != 0 {
 		t.Errorf("Depth() = %d, want 0", got)
-	}
-	if got := b.Nesting(); got != 0 {
-		t.Errorf("Nesting() = %d, want 0", got)
 	}
 	if got := b.Allocated(); got != 0 {
 		t.Errorf("Allocated() = %d, want 0", got)
