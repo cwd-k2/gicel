@@ -41,10 +41,9 @@ execState := \s comp. do {
 }
 
 -- Named capability handler variants.
--- These are direct primitives. The computation argument must be
--- explicitly thunked: `evalStateAt @#x 10 (thunk do { ... })`.
--- Auto-thunk coercion for do-blocks at the handler argument position
--- is not yet supported (tracked separately).
+-- Direct primitives that accept do-blocks or explicit thunks:
+--   evalStateAt @#x 10 do { modifyAt @#x (+ 1); getAt @#x }
+--   evalStateAt @#x 10 (thunk do { modifyAt @#x (+ 1); getAt @#x })
 
 runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
 runStateAt := assumption

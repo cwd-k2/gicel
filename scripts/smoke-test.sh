@@ -369,6 +369,25 @@ expect_ok "kind cumulativity: KData ≤ Kind" \
 expect_ok "user-defined grade algebra (Level)" \
   "$GICEL" check --packs prelude -e 'import Prelude; form Level := { Public: Level; Secret: Level }; type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) { (Secret, _) => Secret; (_, Secret) => Secret; (x, _) => x }; impl GradeAlgebra Level := { type GradeJoin := LevelJoin; type GradeDrop := Public }; main := 42'
 
+# --- Named capability handlers (do-block driving) ---
+expect_output "evalStateAt do-block" "11" \
+  "$GICEL" run -e 'import Prelude; import Effect.State; main := evalStateAt @#x 10 do { modifyAt @#x (+ 1); getAt @#x }'
+
+expect_output "runStateAt do-block" "(15, 15)" \
+  "$GICEL" run -e 'import Prelude; import Effect.State; main := runStateAt @#x 10 do { modifyAt @#x (+ 5); getAt @#x }'
+
+expect_output "execStateAt do-block" "15" \
+  "$GICEL" run -e 'import Prelude; import Effect.State; main := execStateAt @#x 10 do { modifyAt @#x (+ 5); getAt @#x }'
+
+expect_output "tryAt do-block success" "Ok 42" \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := tryAt @#e do { pure 42 }'
+
+expect_output "tryAt do-block failure" 'Err "boom"' \
+  "$GICEL" run -e 'import Prelude; import Effect.Fail; main := tryAt @#e do { failWithAt @#e "boom" }'
+
+expect_output "nested named handlers" "33" \
+  "$GICEL" run -e 'import Prelude; import Effect.State; main := evalStateAt @#x 10 do { evalStateAt @#y 20 do { modifyAt @#x (+ 1); modifyAt @#y (+ 2); a <- getAt @#x; b <- getAt @#y; pure (a + b) } }'
+
 echo ""
 
 # === CLI UX ===

@@ -34,7 +34,8 @@ _try := assumption
 try :: \e a r. Suspended { fail: e | r } a -> Effect r (Result e a)
 try := \comp. _try (bind comp pure)
 
--- Named capability variant of try. The computation argument must be
--- explicitly thunked: `tryAt @#err (thunk do { ... })`.
+-- Named capability variant of try. Accepts do-blocks or explicit thunks:
+--   tryAt @#err do { ... }
+--   tryAt @#err (thunk do { ... })
 tryAt :: \(l: Label) e a r. Suspended { l: e | r } a -> Effect r (Result e a)
 tryAt := assumption
