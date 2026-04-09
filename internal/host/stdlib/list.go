@@ -338,6 +338,31 @@ func listMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 	return buildList(mapped), ce, nil
 }
 
+// listFilterImpl filters a Cons/Nil list by a predicate, returning a new list.
+// _listFilter :: (a -> Bool) -> List a -> List a
+func listFilterImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	items, ok := listToSlice(args[1])
+	if !ok {
+		return nil, ce, errExpected("listFilter", "List", args[1])
+	}
+	var result []eval.Value
+	for _, item := range items {
+		b, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := b.(*eval.ConVal); ok && con.Con == "True" {
+			result = append(result, item)
+		}
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costConsNode); err != nil {
+		return nil, ce, err
+	}
+	return buildList(result), ce, nil
+}
+
 // listFoldrImpl is a right fold over a Cons/Nil list.
 // _listFoldr :: (a -> b -> b) -> b -> List a -> b
 func listFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
