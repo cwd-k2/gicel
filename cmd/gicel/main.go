@@ -23,7 +23,7 @@ var version = "dev"
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	switch os.Args[1] {
