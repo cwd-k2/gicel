@@ -168,7 +168,8 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 		}
 	}
 	externalInline := pc.collectExternalInlineBindings()
-	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings, externalInline)
+	externalDicts := pc.collectExternalDictionaries()
+	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings, externalInline, externalDicts)
 	annots := ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog, annots)
 	if pc.verifyIR {
@@ -306,7 +307,7 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 			if b.Generated {
 				continue
 			}
-			if !transparentInlineWhitelist[b.Name] {
+			if !transparentInlineWhitelist[b.Name] && !isTransparentAlias(b.Expr) && !isMethodSelector(b.Expr) {
 				continue
 			}
 			out = append(out, optimize.ExternalBinding{
@@ -317,6 +318,103 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 		}
 	}
 	return out
+}
+
+// isMethodSelector reports whether an expression is a class method
+// selector: TyLam* → Lam → Case with a single alt. These are small,
+// non-recursive, and safe to inline. The Case pattern-matches on the
+// dictionary constructor to extract a single method.
+func isMethodSelector(expr ir.Core) bool {
+	core := expr
+	for {
+		switch n := core.(type) {
+		case *ir.TyLam:
+			core = n.Body
+			continue
+		case *ir.Lam:
+			core = n.Body
+			continue
+		}
+		break
+	}
+	cs, ok := core.(*ir.Case)
+	if !ok {
+		return false
+	}
+	// Single-alt Case with a constructor pattern = selector.
+	return len(cs.Alts) == 1
+}
+
+// collectExternalDictionaries gathers instance dictionaries from imported
+// modules for demand-driven inlining at Case scrutinee sites.
+func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.ExternalBinding {
+	if pc.noInline {
+		return nil
+	}
+	entries := pc.store.Entries()
+	dicts := make(map[string]optimize.ExternalBinding)
+	for _, e := range entries {
+		if e.prog == nil {
+			continue
+		}
+		for _, b := range e.prog.Bindings {
+			if !b.Generated {
+				continue
+			}
+			core := b.Expr
+			for {
+				switch n := core.(type) {
+				case *ir.TyLam:
+					core = n.Body
+					continue
+				case *ir.Lam:
+					core = n.Body
+					continue
+				}
+				break
+			}
+			switch core.(type) {
+			case *ir.Con, *ir.App:
+				key := ir.QualifiedKey(e.name, b.Name)
+				dicts[key] = optimize.ExternalBinding{
+					Module: e.name,
+					Name:   b.Name,
+					Expr:   b.Expr,
+				}
+			}
+		}
+	}
+	return dicts
+}
+
+// isTransparentAlias reports whether an expression is a pure forwarding
+// reference that can be safely inlined across module boundaries.
+//
+// Transparent aliases are bindings whose core (after peeling TyLam
+// wrappers from polymorphic instantiation) is a single Var, a
+// zero-arg PrimOp, or a small application chain. These are zero-cost
+// to inline and enable downstream optimization (evidence inlining,
+// TyApp beta, fusion rules).
+func isTransparentAlias(expr ir.Core) bool {
+	// Peel TyLam wrappers (polymorphic quantification from elaboration).
+	core := expr
+	for {
+		if tl, ok := core.(*ir.TyLam); ok {
+			core = tl.Body
+			continue
+		}
+		break
+	}
+	switch n := core.(type) {
+	case *ir.Var:
+		return true
+	case *ir.PrimOp:
+		// Zero-arg, non-effectful PrimOps (prim assumptions like
+		// _listMap, _listFoldr) are safe to inline. Effectful PrimOps
+		// are excluded because they interact with CBPV thunk/force.
+		return len(n.Args) == 0 && !n.Effectful
+	}
+	return false
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.

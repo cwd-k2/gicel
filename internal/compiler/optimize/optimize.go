@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // optimize applies algebraic simplifications and registered rewrite rules.
@@ -33,14 +34,85 @@ func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 // names (nil = no local inlining). externalBindings supplies bindings
 // from imported modules (e.g., Prelude transparent wrappers like $,
 // fix, force) that are eligible for inlining at qualified call sites.
-func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding) {
+func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, externalDicts ...map[string]ExternalBinding) {
 	candidates := collectInlineCandidates(prog, userBindings, externalBindings)
 	allRules := rules
 	if len(candidates) > 0 {
 		allRules = append([]func(ir.Core) ir.Core{inlineRule(candidates)}, rules...)
 	}
+	// caseOfKnownDict: demand-driven dictionary inlining at Case sites.
+	var dicts map[string]ExternalBinding
+	if len(externalDicts) > 0 {
+		dicts = externalDicts[0]
+	}
+	if len(dicts) > 0 || hasLocalDicts(prog) {
+		allRules = append([]func(ir.Core) ir.Core{caseOfKnownDict(dicts, prog)}, allRules...)
+	}
 	for i, b := range prog.Bindings {
 		prog.Bindings[i].Expr = optimize(b.Expr, allRules)
+	}
+}
+
+func hasLocalDicts(prog *ir.Program) bool {
+	for _, b := range prog.Bindings {
+		if b.Generated {
+			return true
+		}
+	}
+	return false
+}
+
+// caseOfKnownDict returns a rewrite rule that resolves Case expressions
+// whose scrutinee is a known dictionary variable. The dictionary is
+// inlined ONLY at the case site and immediately dissolved by
+// caseOfKnownCtor, preventing the cascade bloat that would occur from
+// general-purpose dictionary inlining.
+func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func(ir.Core) ir.Core {
+	// Collect local dictionaries from the main program.
+	localDicts := make(map[string]ir.Core)
+	for _, b := range prog.Bindings {
+		if !b.Generated {
+			continue
+		}
+		core := b.Expr
+		for {
+			switch n := core.(type) {
+			case *ir.TyLam:
+				core = n.Body
+				continue
+			case *ir.Lam:
+				core = n.Body
+				continue
+			}
+			break
+		}
+		switch core.(type) {
+		case *ir.Con, *ir.App:
+			localDicts[b.Name] = b.Expr
+		}
+	}
+
+	return func(c ir.Core) ir.Core {
+		cs, ok := c.(*ir.Case)
+		if !ok {
+			return c
+		}
+		v, ok := cs.Scrutinee.(*ir.Var)
+		if !ok {
+			return c
+		}
+		key := ir.VarKey(v)
+		var dictExpr ir.Core
+		if eb, ok := external[key]; ok {
+			dictExpr = eb.Expr
+		} else if expr, ok := localDicts[key]; ok {
+			dictExpr = expr
+		}
+		if dictExpr == nil {
+			return c
+		}
+		resolved := &ir.Case{Scrutinee: ir.Clone(dictExpr), Alts: cs.Alts, S: cs.S}
+		return caseOfKnownCtor(resolved)
 	}
 }
 
@@ -56,12 +128,15 @@ func (rw *rewriter) apply(c ir.Core) ir.Core {
 	orig := c
 	// Phase 1: algebraic simplifications (always active).
 	c = betaReduce(c)
+	c = tyAppBeta(c)
+	c = appTyLamFloat(c)
 	c = caseOfKnownCtor(c)
 	c = caseOfKnownLit(c)
 	c = bindPureElim(c)
 	c = forceThunkElim(c)
 	c = recordProjKnown(c)
 	c = recordUpdateChain(c)
+	c = primOpAbsorb(c)
 	// Phase 3: case-of-case and bind-of-case (expose more simplification opportunities).
 	c = caseOfCase(c)
 	c = bindOfCase(c)
@@ -348,6 +423,160 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		return &ir.RecordUpdate{Record: substMany(n.Record, subs, subsFV), Updates: updates, S: n.S}
 	}
 	panic(fmt.Sprintf("substMany: unhandled Core node %T", expr))
+}
+
+// tyAppBeta reduces type-level beta redexes:
+//
+//	TyApp (TyLam @a body) ty  →  body[@a := ty]
+//
+// This is the type-level analogue of betaReduce (R2). It enables
+// evidence specialization by peeling polymorphic wrappers off class
+// method selectors, exposing the Lam/Case structure that R1 and R2
+// can then reduce.
+//
+// Does NOT introduce new TyApp nodes (satisfies package INVARIANT).
+func tyAppBeta(c ir.Core) ir.Core {
+	ta, ok := c.(*ir.TyApp)
+	if !ok {
+		return c
+	}
+	tl, ok := ta.Expr.(*ir.TyLam)
+	if !ok {
+		return c
+	}
+	return substTyVarInCore(tl.Body, tl.TyParam, ta.TyArg)
+}
+
+// appTyLamFloat floats a value argument past a TyLam wrapper:
+//
+//	App (TyLam @a body) arg  →  TyLam @a (App body arg)
+//
+// This arises when a polymorphic class method selector receives its
+// dictionary argument before all type arguments have been applied.
+// The float pushes the value inward so that subsequent TyApp beta
+// reductions can peel the TyLam layers.
+func appTyLamFloat(c ir.Core) ir.Core {
+	app, ok := c.(*ir.App)
+	if !ok {
+		return c
+	}
+	tl, ok := app.Fun.(*ir.TyLam)
+	if !ok {
+		return c
+	}
+	return &ir.TyLam{
+		TyParam: tl.TyParam,
+		Kind:    tl.Kind,
+		Body:    &ir.App{Fun: tl.Body, Arg: app.Arg, S: app.S},
+		S:       tl.S,
+	}
+}
+
+// substTyVarInCore replaces all occurrences of a type variable in
+// type-carrying positions (TyApp.TyArg, Lam.ParamType, TyLam.Kind)
+// throughout a Core IR tree. This is the IR-level counterpart of
+// types.Subst for type annotations embedded in Core.
+func substTyVarInCore(c ir.Core, tyVar string, ty types.Type) ir.Core {
+	st := func(t types.Type) types.Type {
+		if t == nil {
+			return nil
+		}
+		return types.Subst(t, tyVar, ty)
+	}
+	var walk func(ir.Core) ir.Core
+	walk = func(c ir.Core) ir.Core {
+		switch n := c.(type) {
+		case *ir.TyApp:
+			return &ir.TyApp{Expr: walk(n.Expr), TyArg: st(n.TyArg), S: n.S}
+		case *ir.TyLam:
+			if n.TyParam == tyVar {
+				return c // shadowed — stop substituting
+			}
+			return &ir.TyLam{TyParam: n.TyParam, Kind: st(n.Kind), Body: walk(n.Body), S: n.S}
+		case *ir.Lam:
+			return &ir.Lam{Param: n.Param, ParamType: st(n.ParamType), Body: walk(n.Body), Generated: n.Generated, S: n.S}
+		case *ir.App:
+			return &ir.App{Fun: walk(n.Fun), Arg: walk(n.Arg), S: n.S}
+		case *ir.Con:
+			if len(n.Args) == 0 {
+				return c
+			}
+			args := make([]ir.Core, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = walk(a)
+			}
+			return &ir.Con{Name: n.Name, Module: n.Module, Args: args, S: n.S}
+		case *ir.Case:
+			alts := make([]ir.Alt, len(n.Alts))
+			for i, a := range n.Alts {
+				alts[i] = ir.Alt{Pattern: a.Pattern, Body: walk(a.Body), Generated: a.Generated, S: a.S}
+			}
+			return &ir.Case{Scrutinee: walk(n.Scrutinee), Alts: alts, S: n.S}
+		case *ir.PrimOp:
+			if len(n.Args) == 0 {
+				return c
+			}
+			args := make([]ir.Core, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = walk(a)
+			}
+			return &ir.PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S}
+		case *ir.Fix:
+			return &ir.Fix{Name: n.Name, Body: walk(n.Body), S: n.S}
+		case *ir.Bind:
+			return &ir.Bind{Comp: walk(n.Comp), Var: n.Var, Discard: n.Discard, Body: walk(n.Body), Generated: n.Generated, S: n.S}
+		case *ir.Pure:
+			return &ir.Pure{Expr: walk(n.Expr), S: n.S}
+		case *ir.Thunk:
+			return &ir.Thunk{Comp: walk(n.Comp), S: n.S}
+		case *ir.Force:
+			return &ir.Force{Expr: walk(n.Expr), S: n.S}
+		case *ir.Merge:
+			return &ir.Merge{Left: walk(n.Left), Right: walk(n.Right), LeftLabels: n.LeftLabels, RightLabels: n.RightLabels, S: n.S}
+		case *ir.Var, *ir.Lit, *ir.Error:
+			return c
+		case *ir.RecordLit:
+			fields := make([]ir.Field, len(n.Fields))
+			for i, f := range n.Fields {
+				fields[i] = ir.Field{Label: f.Label, Value: walk(f.Value)}
+			}
+			return &ir.RecordLit{Fields: fields, S: n.S}
+		case *ir.RecordProj:
+			return &ir.RecordProj{Record: walk(n.Record), Label: n.Label, S: n.S}
+		case *ir.RecordUpdate:
+			updates := make([]ir.Field, len(n.Updates))
+			for i, f := range n.Updates {
+				updates[i] = ir.Field{Label: f.Label, Value: walk(f.Value)}
+			}
+			return &ir.RecordUpdate{Record: walk(n.Record), Updates: updates, S: n.S}
+		}
+		return c
+	}
+	return walk(c)
+}
+
+// primOpAbsorb collects App-applied arguments into a PrimOp's Args:
+//
+//	App (PrimOp name arity [a₁..aₙ]) arg  →  PrimOp name arity [a₁..aₙ, arg]
+//
+// when n < arity. This normalizes the IR so that fusion rules, which
+// pattern-match on fully-saturated PrimOp nodes, can fire.
+func primOpAbsorb(c ir.Core) ir.Core {
+	app, ok := c.(*ir.App)
+	if !ok {
+		return c
+	}
+	po, ok := app.Fun.(*ir.PrimOp)
+	if !ok {
+		return c
+	}
+	if len(po.Args) >= po.Arity {
+		return c // already saturated or over-saturated
+	}
+	args := make([]ir.Core, len(po.Args)+1)
+	copy(args, po.Args)
+	args[len(po.Args)] = app.Arg
+	return &ir.PrimOp{Name: po.Name, Arity: po.Arity, Effectful: po.Effectful, Args: args, S: po.S}
 }
 
 // withoutKey returns a copy of m without the given key.

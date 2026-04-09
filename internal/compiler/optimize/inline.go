@@ -73,13 +73,14 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 		}
 	}
 
-	// External bindings: small lambdas from imported modules.
+	// External bindings: small lambdas and transparent aliases from
+	// imported modules.
 	for _, eb := range external {
 		key := ir.QualifiedKey(eb.Module, eb.Name)
 		if _, exists := candidates[key]; exists {
 			continue
 		}
-		if !eligibleInlineBody(eb.Expr, eb.Name) {
+		if !eligibleInlineBody(eb.Expr, eb.Name) && !eligibleTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, eb.Name) {
 			continue
 		}
 		candidates[key] = &inlineCandidate{body: eb.Expr}
@@ -116,6 +117,29 @@ func eligibleInlineBody(expr ir.Core, name string) bool {
 		return false
 	}
 	return true
+}
+
+// eligibleTransparentAlias reports whether an expression is a pure
+// forwarding reference that can always be inlined. Peels TyLam
+// wrappers (from polymorphic elaboration) and checks that the core
+// is a single Var. These have minimal code bloat (the TyLam/TyApp
+// pairs are eliminated by tyAppBeta after inlining).
+func eligibleTransparentAlias(expr ir.Core) bool {
+	core := expr
+	for {
+		if tl, ok := core.(*ir.TyLam); ok {
+			core = tl.Body
+			continue
+		}
+		break
+	}
+	switch n := core.(type) {
+	case *ir.Var:
+		return true
+	case *ir.PrimOp:
+		return len(n.Args) == 0 && !n.Effectful
+	}
+	return false
 }
 
 // eligibleEvidenceBody checks whether a Generated binding is an evidence
