@@ -210,3 +210,73 @@ main := foldr (\x acc. x + acc) 0 (map (\n. n + 1) xs)
 		}
 	}
 }
+
+// BenchmarkExecListMapFilter exercises R19 (map×filter fusion):
+// map f (filter p xs) → foldr with fused kernel, eliminating both
+// the intermediate filtered list and the intermediate mapped list.
+func BenchmarkExecListMapFilter(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	source := `import Prelude
+xs := replicate 100 (1 :: Int)
+main := map (\n. n + 10) (filter (\n. n > 0) xs)
+`
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkExecListFoldrFilter exercises R17 (foldr×filter fusion):
+// foldr k z (filter p xs) → single-pass foldr with predicate guard,
+// eliminating the intermediate filtered list.
+func BenchmarkExecListFoldrFilter(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	source := `import Prelude
+xs := replicate 100 (1 :: Int)
+main := foldr (\x acc. x + acc) 0 (filter (\n. n > 0) xs)
+`
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkExecListChain exercises multi-rule fusion composition:
+// foldr k z (map f (filter p xs)) should fire R19 (map×filter → foldr)
+// then the outer foldr composes with the inner. Tests that the
+// optimizer's fixed-point iteration composes multiple fusion rules.
+func BenchmarkExecListChain(b *testing.B) {
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	source := `import Prelude
+xs := replicate 100 (1 :: Int)
+main := foldr (\x acc. x + acc) 0 (map (\n. n * 2) (filter (\n. n > 0) xs))
+`
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := rt.RunWith(context.Background(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
