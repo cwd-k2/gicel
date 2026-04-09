@@ -167,14 +167,30 @@ func (c *ConstraintEntries) SubstEntries(varName string, replacement Type, depth
 }
 
 // SubstEntriesMany applies a parallel substitution to a constraint fiber.
-// The constraint fiber has no label-variable concept, so this delegates to
-// MapChildren with a substManyOpt closure — preserving the prior behavior
-// of substManyEvidenceRow exactly. Multi-var capture avoidance for
-// QuantifiedConstraint bound variables is not performed in this path
-// (matching the prior MapChildren-based traversal); single-var Subst via
-// substConstraintEntry is the path with full QC capture avoidance.
+// Each entry is dispatched through substManyConstraintEntry, which mirrors
+// the single-var substConstraintEntry — QuantifiedConstraint shadowing and
+// capture avoidance are handled by substManyQuantifiedConstraint, keeping
+// the two paths semantically equivalent.
+//
+// Prior to this method the parallel path delegated to MapChildren with a
+// substManyOpt closure, which walked QuantifiedConstraint children
+// unconditionally and silently dropped both shadowing and capture
+// avoidance. Pinning that the two paths now agree:
+// TestSubstManyQuantifiedConstraint*.
 func (c *ConstraintEntries) SubstEntriesMany(subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
-	return c.MapChildren(func(child Type) Type {
-		return substManyOpt(child, subs, levelSubs, fvUnion, depth)
-	})
+	var entries []ConstraintEntry // nil until first change (lazy alloc)
+	for i, e := range c.Entries {
+		newE, entryChanged := substManyConstraintEntry(e, subs, levelSubs, fvUnion, depth)
+		if entryChanged && entries == nil {
+			entries = make([]ConstraintEntry, len(c.Entries))
+			copy(entries[:i], c.Entries[:i])
+		}
+		if entries != nil {
+			entries[i] = newE
+		}
+	}
+	if entries == nil {
+		return c, false
+	}
+	return &ConstraintEntries{Entries: entries}, true
 }

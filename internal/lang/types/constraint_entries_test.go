@@ -483,6 +483,226 @@ func TestEvidenceSubstIdentity(t *testing.T) {
 }
 
 // =============================================================================
+// SubstMany — QuantifiedConstraint shadowing and capture avoidance.
+//
+// Before ConstraintEntries.SubstEntriesMany was rewritten to dispatch through
+// substManyConstraintEntry, the parallel path delegated to MapChildren which
+// walked QuantifiedConstraint children unconditionally. That variant silently
+// dropped shadowing (substituting into binder-matching keys) and capture
+// avoidance (free vars in replacements being captured by binders). The
+// following tests pin that the two paths — single-var Subst (sequential) and
+// batch-var SubstMany (parallel) — now produce semantically equal results.
+// =============================================================================
+
+func TestSubstManyQuantifiedConstraintShadowing(t *testing.T) {
+	// forall a. Eq a => Show a   [a := Int]
+	// The only binder shadows the only sub key, so the QC is untouched.
+	entry := &QuantifiedConstraint{
+		Vars:    []ForallBinder{{Name: "a", Kind: TypeOfTypes}},
+		Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+		Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("a")}},
+	}
+	cr := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{entry}}}
+	result := SubstMany(cr, map[string]Type{"a": Con("Int")}, nil)
+	if result != cr {
+		t.Errorf("fully shadowed substitution should return the same row pointer, got %s", Pretty(result))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintPartialShadowing(t *testing.T) {
+	// forall a b. Eq a => Show b   [a := Int, b := Bool, c := Char]
+	// Both a and b are shadowed; c does not occur anywhere. Net: unchanged.
+	entry := &QuantifiedConstraint{
+		Vars: []ForallBinder{
+			{Name: "a", Kind: TypeOfTypes},
+			{Name: "b", Kind: TypeOfTypes},
+		},
+		Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+		Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("b")}},
+	}
+	cr := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{entry}}}
+	result := SubstMany(cr, map[string]Type{
+		"a": Con("Int"),
+		"b": Con("Bool"),
+		"c": Con("Char"),
+	}, nil)
+	rc := result.(*TyEvidenceRow)
+	qc := rc.ConEntries()[0].(*QuantifiedConstraint)
+	if qc.Vars[0].Name != "a" || qc.Vars[1].Name != "b" {
+		t.Errorf("binders should be untouched, got %v", qc.Vars)
+	}
+	ctxCls := qc.Context[0].(*ClassEntry)
+	if !Equal(ctxCls.Args[0], Var("a")) {
+		t.Errorf("context arg should still be Var(a), got %s", Pretty(ctxCls.Args[0]))
+	}
+	if !Equal(qc.Head.Args[0], Var("b")) {
+		t.Errorf("head arg should still be Var(b), got %s", Pretty(qc.Head.Args[0]))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintCaptureAvoidance(t *testing.T) {
+	// forall b. Eq a => Show b   [a := b]
+	// Naive parallel substitution captures the replacement `b`; the fix
+	// must rename the bound b first, matching the single-var path.
+	entry := &QuantifiedConstraint{
+		Vars:    []ForallBinder{{Name: "b", Kind: TypeOfTypes}},
+		Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+		Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("b")}},
+	}
+	cr := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{entry}}}
+	result := SubstMany(cr, map[string]Type{"a": Var("b")}, nil)
+	rc, ok := result.(*TyEvidenceRow)
+	if !ok {
+		t.Fatalf("expected TyEvidenceRow, got %T", result)
+	}
+	qc, ok := rc.ConEntries()[0].(*QuantifiedConstraint)
+	if !ok {
+		t.Fatal("expected quantified constraint to be preserved")
+	}
+	if qc.Vars[0].Name == "b" {
+		t.Error("bound variable should have been renamed away from 'b' to avoid capture")
+	}
+	freshName := qc.Vars[0].Name
+	// Context Eq a becomes Eq b (the replacement).
+	ctxCls := qc.Context[0].(*ClassEntry)
+	if !Equal(ctxCls.Args[0], Var("b")) {
+		t.Errorf("context should hold the replacement Var(\"b\"), got %s", Pretty(ctxCls.Args[0]))
+	}
+	// Head Show b becomes Show b' (the renamed bound var).
+	if !Equal(qc.Head.Args[0], Var(freshName)) {
+		t.Errorf("head should reference renamed var %q, got %s", freshName, Pretty(qc.Head.Args[0]))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintEquivalence(t *testing.T) {
+	// Single-var sequential Subst vs parallel SubstMany must produce
+	// semantically equal results on QCs that exercise capture avoidance.
+	// Extends the SubstMany equivalence contract (already checked for
+	// TyForall and label vars) to quantified constraints.
+	mkRow := func() *TyEvidenceRow {
+		return &TyEvidenceRow{
+			Entries: &ConstraintEntries{Entries: []ConstraintEntry{
+				&QuantifiedConstraint{
+					Vars:    []ForallBinder{{Name: "b", Kind: TypeOfTypes}},
+					Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+					Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("b")}},
+				},
+			}},
+		}
+	}
+	seq := Subst(mkRow(), "a", Var("b"))
+	many := SubstMany(mkRow(), map[string]Type{"a": Var("b")}, nil)
+	if !Equal(seq, many) {
+		t.Errorf("SubstMany != sequential Subst on QC:\n  seq:  %s\n  many: %s",
+			Pretty(seq), Pretty(many))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintMultiBinderCapture(t *testing.T) {
+	// forall b c. Eq a => Show x   [a := b, x := c]
+	// Both binders appear free in replacements and must be renamed.
+	// After rename: forall b' c'. Eq a => Show x
+	// After substitute: forall b' c'. Eq b => Show c
+	entry := &QuantifiedConstraint{
+		Vars: []ForallBinder{
+			{Name: "b", Kind: TypeOfTypes},
+			{Name: "c", Kind: TypeOfTypes},
+		},
+		Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+		Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("x")}},
+	}
+	cr := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{entry}}}
+	result := SubstMany(cr, map[string]Type{
+		"a": Var("b"),
+		"x": Var("c"),
+	}, nil)
+	rc := result.(*TyEvidenceRow)
+	qc := rc.ConEntries()[0].(*QuantifiedConstraint)
+	if qc.Vars[0].Name == "b" {
+		t.Error("first binder should have been renamed to avoid capture with free 'b'")
+	}
+	if qc.Vars[1].Name == "c" {
+		t.Error("second binder should have been renamed to avoid capture with free 'c'")
+	}
+	ctxCls := qc.Context[0].(*ClassEntry)
+	if !Equal(ctxCls.Args[0], Var("b")) {
+		t.Errorf("context should hold the free replacement Var(\"b\"), got %s", Pretty(ctxCls.Args[0]))
+	}
+	if !Equal(qc.Head.Args[0], Var("c")) {
+		t.Errorf("head should hold the free replacement Var(\"c\"), got %s", Pretty(qc.Head.Args[0]))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintMultiBinderCaptureEquivalence(t *testing.T) {
+	// Same multi-binder capture case — verify sequential and parallel agree.
+	mkRow := func() *TyEvidenceRow {
+		return &TyEvidenceRow{
+			Entries: &ConstraintEntries{Entries: []ConstraintEntry{
+				&QuantifiedConstraint{
+					Vars: []ForallBinder{
+						{Name: "b", Kind: TypeOfTypes},
+						{Name: "c", Kind: TypeOfTypes},
+					},
+					Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+					Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("x")}},
+				},
+			}},
+		}
+	}
+	seq := Subst(mkRow(), "a", Var("b"))
+	seq = Subst(seq, "x", Var("c"))
+	many := SubstMany(mkRow(), map[string]Type{
+		"a": Var("b"),
+		"x": Var("c"),
+	}, nil)
+	if !Equal(seq, many) {
+		t.Errorf("SubstMany != sequential Subst on multi-binder QC capture:\n  seq:  %s\n  many: %s",
+			Pretty(seq), Pretty(many))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintDescendWithoutCapture(t *testing.T) {
+	// forall a. Eq b => Show c   [b := Int, c := Bool]
+	// No shadowing, no capture. Substitution descends into context and head.
+	entry := &QuantifiedConstraint{
+		Vars:    []ForallBinder{{Name: "a", Kind: TypeOfTypes}},
+		Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("b")}}},
+		Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("c")}},
+	}
+	cr := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{entry}}}
+	result := SubstMany(cr, map[string]Type{
+		"b": Con("Int"),
+		"c": Con("Bool"),
+	}, nil)
+	rc := result.(*TyEvidenceRow)
+	qc := rc.ConEntries()[0].(*QuantifiedConstraint)
+	if qc.Vars[0].Name != "a" {
+		t.Errorf("binder 'a' should be preserved (not in replacement fv), got %q", qc.Vars[0].Name)
+	}
+	ctxCls := qc.Context[0].(*ClassEntry)
+	if !Equal(ctxCls.Args[0], Con("Int")) {
+		t.Errorf("context should be Eq Int, got %s", Pretty(ctxCls.Args[0]))
+	}
+	if !Equal(qc.Head.Args[0], Con("Bool")) {
+		t.Errorf("head should be Show Bool, got %s", Pretty(qc.Head.Args[0]))
+	}
+}
+
+func TestSubstManyQuantifiedConstraintIdentity(t *testing.T) {
+	// No key in subs touches the QC — pointer should come back unchanged.
+	entry := &QuantifiedConstraint{
+		Vars:    []ForallBinder{{Name: "a", Kind: TypeOfTypes}},
+		Context: []ConstraintEntry{&ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}},
+		Head:    &ClassEntry{ClassName: "Show", Args: []Type{Var("a")}},
+	}
+	cr := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{entry}}}
+	result := SubstMany(cr, map[string]Type{"z": Con("String")}, nil)
+	if result != cr {
+		t.Errorf("non-occurring SubstMany should return the same row pointer, got %s", Pretty(result))
+	}
+}
+
+// =============================================================================
 // FreeVars
 // =============================================================================
 
