@@ -64,6 +64,16 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 // eligibleInlineBody applies the shared filters: the body must be a
 // lambda (so beta-reduction can fire at the call site), small enough
 // to avoid code bloat, and non-recursive in the self-name sense.
+//
+// NOTE: polymorphic Prelude wrappers like `($) :: \a b. ...` elaborate
+// into `TyLam @a. TyLam @b. Lam f. Lam x. App f x`, which is NOT a
+// direct `*ir.Lam`, so they currently do not qualify for inlining
+// through this rule. Peeling the TyLam layers at candidate time and
+// reducing the call-site TyApps would require type-level beta
+// reduction (to keep ParamType annotations well-formed), which is a
+// separate design concern. `$` reaches the checkFix fast path via
+// the dedicated transparent-rewrite at the checker level
+// (bidir.go:isDollarOp) instead.
 func eligibleInlineBody(expr ir.Core, name string) bool {
 	if _, ok := expr.(*ir.Lam); !ok {
 		return false

@@ -24,6 +24,15 @@ negateDouble := negate . double         -- \x. negate (x * 2)
 
 pipeline := show $ negate $ double $ add3 7   -- "negate (double (add3 7))"
 
+-- ── Reverse pipelines with (&) ───────────────────────────────
+
+-- `x & f` is reverse application (`(&) := \x f. f x`). Reads left-to-
+-- right: "start with 7, add3, double, negate, show".
+pipelineFwd := 7 & add3 & double & negate & show    -- same as `show . negate . double . add3 $ 7`
+
+-- Works with list operations: take a list, transform through stages.
+listPipeline := [1, 2, 3, 4, 5] & filter isPositive & map double & foldl (+) 0
+
 -- ── Point-free list processing ───────────────────────────────
 
 -- filter-map-fold without naming the list
@@ -78,6 +87,8 @@ main := do {
 
   -- pipeline
   putLine $ "pipeline:      " <> pipeline;
+  putLine $ "pipelineFwd:   " <> pipelineFwd;
+  putLine $ "listPipeline:  " <> show listPipeline;
 
   -- point-free list ops
   putLine $ "sumPosDbl:     " <> show (sumPositiveDoubles nums);

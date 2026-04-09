@@ -191,6 +191,33 @@ main := pure 0`
 	}
 }
 
+// TestReverseApplicationOperatorPipeline pins that the `&` reverse-
+// application operator is whitelisted in the optimizer's transparent
+// inline set and reduces through a pipeline correctly. This is both a
+// regression guard (so `&` doesn't silently drop out of the whitelist)
+// and an end-to-end verification that the inline + betaReduce pass
+// collapses `x & f` to `f x` at compile time.
+func TestReverseApplicationOperatorPipeline(t *testing.T) {
+	eng := NewEngine()
+	eng.Use(stdlib.Prelude)
+	src := `import Prelude
+
+-- Classic forward pipeline: 7 → +3 → *2 → negate. 7 & add3 & double
+-- & negate = negate (double (add3 7)) = negate 20 = -20.
+result := 7 & (+ 3) & (* 2) & negate
+
+main := result`
+	rt, err := eng.NewRuntime(context.Background(), src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertVMInt(t, res, -20)
+}
+
 // Helper: fetch the inner int64 from a host value, matching the style
 // of assertVMInt from engine_vm_test.go so this file doesn't introduce
 // a new assertion primitive.
