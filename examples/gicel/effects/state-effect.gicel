@@ -13,52 +13,56 @@ import Console
 -- No need to put before get — the handler provides the initial state.
 
 -- Each helper is Suspended (thunk-wrapped) because top-level bindings
--- cannot have bare Computation type.
+-- cannot have bare Computation type. The inner computations passed to
+-- evalState / runState do not need explicit thunks — the checker's
+-- CBPV auto-coercion wraps them silently where a Thunk is expected.
+-- Similarly, the top-level `force` on each helper in main is implicit:
+-- `<-` in a do block coerces Thunks to Computations automatically.
 
 -- Basic: read initial value directly
 basic :: \(r: Row). Suspended r Int
-basic := thunk (evalState 42 (thunk get))
+basic := thunk (evalState 42 get)
 
 -- Modify: increment state three times
 counter :: \(r: Row). Suspended r Int
-counter := thunk (evalState 0 (thunk do {
+counter := thunk (evalState 0 do {
   modify (+ 1);
   modify (+ 1);
   modify (+ 1);
   get
-}))
+})
 
 -- Accumulate: read-modify-write cycle (start 5, square it)
 accumulate :: \(r: Row). Suspended r Int
-accumulate := thunk (evalState 5 (thunk do {
+accumulate := thunk (evalState 5 do {
   n <- get;
   put (n * n);
   get
-}))
+})
 
 -- Multi-step pipeline (start 2, *5 = 10, *10 = 100)
 pipeline :: \(r: Row). Suspended r Int
-pipeline := thunk (evalState 2 (thunk do {
+pipeline := thunk (evalState 2 do {
   modify (* 5);
   modify (* 10);
   get
-}))
+})
 
 -- runState returns (finalState, result) — useful when you need both
 processOrder :: \(r: Row). Suspended r (Int, Int)
-processOrder := thunk (runState 50 (thunk do {
+processOrder := thunk (runState 50 do {
   modify (* 3);
   modify (+ 12);
   x <- get;
   pure (x - 10)
-}))
+})
 
 main := do {
-  b <- force basic;
-  c <- force counter;
-  a <- force accumulate;
-  p <- force pipeline;
-  (finalState, result) <- force processOrder;
+  b <- basic;
+  c <- counter;
+  a <- accumulate;
+  p <- pipeline;
+  (finalState, result) <- processOrder;
   putLine $ "basic (init 42):       " <> show b;
   putLine $ "counter (3x inc):      " <> show c;
   putLine $ "accumulate (5^2):      " <> show a;

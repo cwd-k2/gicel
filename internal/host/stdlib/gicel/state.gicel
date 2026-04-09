@@ -26,7 +26,7 @@ _runState :: \s a r. s -> Suspended { state: s | r } a -> Effect r (s, a)
 _runState := assumption
 
 runState :: \s a r. s -> Suspended { state: s | r } a -> Effect r (s, a)
-runState := \s comp. _runState s (thunk (bind (force comp) pure))
+runState := \s comp. _runState s (bind comp pure)
 
 evalState :: \s a r. s -> Suspended { state: s | r } a -> Effect r a
 evalState := \s comp. do {

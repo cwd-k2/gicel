@@ -56,11 +56,13 @@ safeResult := safeLookup $ Just 99     -- 99
 safeDefault := safeLookup Nothing      -- 0
 
 main := do {
-  ej <- force extractJust;
-  eo <- force extractOk;
-  cs <- force chainSuccess;
-  cr <- force chainResults;
-  mx <- force mixed;
+  -- Auto-force: the checker inserts ir.Force silently when a Thunk
+  -- binding appears where a Computation is expected.
+  ej <- extractJust;
+  eo <- extractOk;
+  cs <- chainSuccess;
+  cr <- chainResults;
+  mx <- mixed;
   putLine $ "fromMaybe Just: " <> show ej;
   putLine $ "fromResult Ok:  " <> show eo;
   putLine $ "chain Maybe:    " <> show cs;
