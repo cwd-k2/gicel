@@ -95,13 +95,23 @@ func (p *Parser) parseApp() syn.Expr {
 	f := p.parseAtom()
 	if f == nil {
 		tok := p.peek()
+		// Desugar unary minus: -e → negate e (at atom boundary only).
 		if tok.Kind == syn.TokOp && tok.Text == "-" {
-			p.addErrorCode(diagnostic.ErrMissingBody,
-				"expected expression (note: negative literals are not supported; use `negate` instead, e.g., `negate 5`)")
+			p.advance() // consume -
+			arg := p.parseAtom()
+			if arg == nil {
+				p.addErrorCode(diagnostic.ErrMissingBody, "expected expression after '-'")
+				return &syn.ExprError{S: span.Span{Start: tok.S.Start, End: tok.S.Start}}
+			}
+			f = &syn.ExprApp{
+				Fun: &syn.ExprVar{Name: "negate", S: tok.S},
+				Arg: arg,
+				S:   span.Span{Start: tok.S.Start, End: p.prevEnd()},
+			}
 		} else {
 			p.addErrorCode(diagnostic.ErrMissingBody, "expected expression")
+			return &syn.ExprError{S: span.Span{Start: tok.S.Start, End: tok.S.Start}}
 		}
-		return &syn.ExprError{S: span.Span{Start: tok.S.Start, End: tok.S.Start}}
 	}
 	pg := p.newProgressGuard("application chain")
 	for (p.isAtomStart() || p.peek().Kind == syn.TokAt) && !p.atStmtBoundary() {
@@ -373,8 +383,19 @@ func (p *Parser) parseIf() syn.Expr {
 	start := p.peek().S.Start
 	p.expect(syn.TokIf)
 	cond := p.parseExpr()
-	p.expect(syn.TokThen)
-	thenExpr := p.parseExpr()
+	var thenExpr, elseExpr syn.Expr
+	if p.peek().Kind == syn.TokThen {
+		p.advance()
+		thenExpr = p.parseExpr()
+	} else if p.peek().Kind == syn.TokElse {
+		// Missing 'then' but 'else' present — the condition parse consumed
+		// the then-expression as part of the condition. Report a single error.
+		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected 'then' keyword in if-expression")
+		thenExpr = &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}}
+	} else {
+		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected 'then' keyword in if-expression")
+		thenExpr = p.parseExpr()
+	}
 	if p.peek().Kind != syn.TokElse {
 		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected 'else' after 'then' branch")
 		if p.peek().Kind != syn.TokEOF {
@@ -383,7 +404,7 @@ func (p *Parser) parseIf() syn.Expr {
 	} else {
 		p.advance()
 	}
-	elseExpr := p.parseExpr()
+	elseExpr = p.parseExpr()
 	end := p.prevEnd()
 	s := span.Span{Start: start, End: end}
 	return &syn.ExprCase{
