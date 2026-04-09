@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -80,7 +81,7 @@ type Runtime struct {
 	// Pure module bindings are referentially transparent — their results
 	// depend only on other module bindings and builtins, all fixed at
 	// NewRuntime time.
-	cachedGlobals     []eval.Value
+	cachedGlobals     atomic.Pointer[[]eval.Value]
 	cachedGlobalsOnce sync.Once
 }
 
@@ -391,10 +392,10 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 		Source:      r.source,
 	})
 
-	if r.cachedGlobals != nil {
+	if cached := r.cachedGlobals.Load(); cached != nil {
 		// Fast path: clone cached template. Module bindings are pure
 		// and referentially transparent — their results never change.
-		copy(globalArray, r.cachedGlobals)
+		copy(globalArray, *cached)
 		// Re-install host bindings which may differ across RunWith calls.
 		// buildGlobalArray already validated and set them in globalArray,
 		// but copy() overwrote those slots with the cached (first-run) values.
@@ -428,9 +429,12 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 		}
 
 		// Cache the evaluated global array for subsequent RunWith calls.
+		// Store via atomic.Pointer so concurrent readers at the fast path
+		// observe a fully published slice header (Go memory model compliance).
 		r.cachedGlobalsOnce.Do(func() {
-			r.cachedGlobals = make([]eval.Value, len(globalArray))
-			copy(r.cachedGlobals, globalArray)
+			template := make([]eval.Value, len(globalArray))
+			copy(template, globalArray)
+			r.cachedGlobals.Store(&template)
 		})
 	}
 

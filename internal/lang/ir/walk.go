@@ -184,7 +184,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		if !changed {
 			return f(n)
 		}
-		return f(&Con{Name: n.Name, Args: args, S: n.S})
+		return f(&Con{Name: n.Name, Module: n.Module, Args: args, S: n.S})
 	case *Case:
 		newScrutinee := transformRec(n.Scrutinee, f, depth+1)
 		changed := newScrutinee != n.Scrutinee

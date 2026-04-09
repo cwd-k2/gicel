@@ -1,6 +1,8 @@
 package check
 
 import (
+	"fmt"
+
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -49,9 +51,14 @@ func hasLabelForall(ty types.Type) bool {
 
 // walkValidateLabel recursively walks Core IR, tracking the number of
 // enclosing TyLam nodes with Label kind.
+// All 19 Core node types are handled; default panics on unrecognized nodes
+// to catch omissions when new formers are added.
 func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLamDepth int) {
 	if c == nil {
 		return
+	}
+	w := func(child ir.Core) {
+		ch.walkValidateLabel(child, bindingType, labelLamDepth)
 	}
 	switch n := c.(type) {
 	case *ir.TyLam:
@@ -73,29 +80,55 @@ func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLam
 				}
 			}
 		}
-		ch.walkValidateLabel(n.Expr, bindingType, labelLamDepth)
+		w(n.Expr)
 
+	case *ir.Var, *ir.Lit, *ir.Error:
+		// leaf — no children
 	case *ir.Lam:
-		ch.walkValidateLabel(n.Body, bindingType, labelLamDepth)
+		w(n.Body)
 	case *ir.App:
-		ch.walkValidateLabel(n.Fun, bindingType, labelLamDepth)
-		ch.walkValidateLabel(n.Arg, bindingType, labelLamDepth)
-	case *ir.Case:
-		ch.walkValidateLabel(n.Scrutinee, bindingType, labelLamDepth)
-		for _, a := range n.Alts {
-			ch.walkValidateLabel(a.Body, bindingType, labelLamDepth)
+		w(n.Fun)
+		w(n.Arg)
+	case *ir.Con:
+		for _, arg := range n.Args {
+			w(arg)
 		}
-	case *ir.Bind:
-		ch.walkValidateLabel(n.Comp, bindingType, labelLamDepth)
-		ch.walkValidateLabel(n.Body, bindingType, labelLamDepth)
-	case *ir.Pure:
-		ch.walkValidateLabel(n.Expr, bindingType, labelLamDepth)
-	case *ir.Thunk:
-		ch.walkValidateLabel(n.Comp, bindingType, labelLamDepth)
-	case *ir.Force:
-		ch.walkValidateLabel(n.Expr, bindingType, labelLamDepth)
+	case *ir.Case:
+		w(n.Scrutinee)
+		for _, a := range n.Alts {
+			w(a.Body)
+		}
 	case *ir.Fix:
-		ch.walkValidateLabel(n.Body, bindingType, labelLamDepth)
+		w(n.Body)
+	case *ir.Pure:
+		w(n.Expr)
+	case *ir.Bind:
+		w(n.Comp)
+		w(n.Body)
+	case *ir.Thunk:
+		w(n.Comp)
+	case *ir.Force:
+		w(n.Expr)
+	case *ir.Merge:
+		w(n.Left)
+		w(n.Right)
+	case *ir.PrimOp:
+		for _, arg := range n.Args {
+			w(arg)
+		}
+	case *ir.RecordLit:
+		for _, f := range n.Fields {
+			w(f.Value)
+		}
+	case *ir.RecordProj:
+		w(n.Record)
+	case *ir.RecordUpdate:
+		w(n.Record)
+		for _, f := range n.Updates {
+			w(f.Value)
+		}
+	default:
+		panic(fmt.Sprintf("walkValidateLabel: unhandled Core node %T", c))
 	}
 }
 

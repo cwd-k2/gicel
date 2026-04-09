@@ -276,7 +276,7 @@ func caseOfKnownCtor(c ir.Core) ir.Core {
 		if !ok {
 			continue
 		}
-		if pcon.Con != con.Name {
+		if pcon.Con != con.Name || pcon.Module != con.Module {
 			continue
 		}
 		// Simultaneous substitution: collect all pattern→arg mappings,

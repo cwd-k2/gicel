@@ -29,15 +29,12 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 	}
 	switch n := c.(type) {
 	case *Var:
-		// Cache the qualified key on the Var node so subsequent walks
-		// (index assignment, traverseFV, evaluator) reuse the same string
-		// without re-concatenating module + name. Cold-path profile showed
-		// varKey allocating ~240K objects from this single line; caching
-		// drops it to one alloc per unique Var.
+		// Use the cached key if available; otherwise compute locally.
+		// Key is populated later by AnnotateFreeVars / AssignIndices.
+		// FreeVars is a read-only traversal and must not mutate IR nodes.
 		key := n.Key
 		if key == "" {
 			key = varKey(n)
-			n.Key = key
 		}
 		if bound[key] == 0 {
 			fv[key] = struct{}{}

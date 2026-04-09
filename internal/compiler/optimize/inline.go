@@ -80,7 +80,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 		if _, exists := candidates[key]; exists {
 			continue
 		}
-		if !eligibleInlineBody(eb.Expr, eb.Name) && !IsTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, eb.Name) {
+		if !eligibleInlineBody(eb.Expr, key) && !IsTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, key) {
 			continue
 		}
 		candidates[key] = &inlineCandidate{body: eb.Expr}
@@ -105,7 +105,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 // separate design concern. `$` reaches the checkFix fast path via
 // the dedicated transparent-rewrite at the checker level
 // (bidir.go:isDollarOp) instead.
-func eligibleInlineBody(expr ir.Core, name string) bool {
+func eligibleInlineBody(expr ir.Core, selfKey string) bool {
 	if _, ok := expr.(*ir.Lam); !ok {
 		return false
 	}
@@ -113,7 +113,7 @@ func eligibleInlineBody(expr ir.Core, name string) bool {
 		return false
 	}
 	fv := ir.FreeVars(expr)
-	if _, recursive := fv[name]; recursive {
+	if _, recursive := fv[selfKey]; recursive {
 		return false
 	}
 	return true
@@ -180,12 +180,12 @@ func IsTransparentAlias(expr ir.Core) bool {
 // start with *ir.TyLam, *ir.Con, or *ir.App. The size limit is larger
 // (maxEvidenceInlineSize) because dictionaries carry all fields but
 // simplify away after R1 fires.
-func eligibleEvidenceBody(expr ir.Core, name string) bool {
+func eligibleEvidenceBody(expr ir.Core, selfKey string) bool {
 	if nodeSize(expr, maxEvidenceInlineSize+1) > maxEvidenceInlineSize {
 		return false
 	}
 	fv := ir.FreeVars(expr)
-	if _, recursive := fv[name]; recursive {
+	if _, recursive := fv[selfKey]; recursive {
 		return false
 	}
 	// Must have evidence structure: peel TyLam/Lam wrappers and check
