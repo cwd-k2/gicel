@@ -9,10 +9,21 @@ package optimize
 
 import (
 	"fmt"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
+
+// freshCounter provides globally unique suffixes for capture-avoiding
+// renaming in substMany. Atomic to support concurrent optimization.
+var freshCounter atomic.Uint64
+
+func freshName(base string) string {
+	n := freshCounter.Add(1)
+	return base + "$r" + strconv.FormatUint(n, 10)
+}
 
 // optimize applies algebraic simplifications and registered rewrite rules.
 // Runs up to maxPasses bottom-up passes, stopping early when a pass
@@ -111,8 +122,94 @@ func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func
 		if dictExpr == nil {
 			return c
 		}
-		resolved := &ir.Case{Scrutinee: ir.Clone(dictExpr), Alts: cs.Alts, S: cs.S}
-		return caseOfKnownCtor(resolved)
+		scrutinee := ir.Clone(dictExpr)
+		resolved := &ir.Case{Scrutinee: scrutinee, Alts: cs.Alts, S: cs.S}
+		if result := caseOfKnownCtor(resolved); result != resolved {
+			return result
+		}
+		// The checker emits constructor applications as zero-arg Con
+		// wrapped in App/TyApp chains (Shape A), but caseOfKnownCtor
+		// requires a saturated Con with Args (Shape B). Normalize
+		// Shape A → Shape B by collecting App arguments into Con.Args.
+		if con := normalizeConApp(scrutinee); con != nil {
+			return caseOfKnownCtor(&ir.Case{Scrutinee: con, Alts: cs.Alts, S: cs.S})
+		}
+		return resolved
+	}
+}
+
+// normalizeConApp converts an App/TyApp chain rooted at a zero-arg Con
+// into a saturated Con with Args populated. This bridges the checker's
+// constructor representation (Shape A) with what caseOfKnownCtor expects
+// (Shape B).
+//
+//	App(TyApp(Con{C, Args:[]}, ty), a1) → Con{C, Args:[a1]}
+func normalizeConApp(expr ir.Core) *ir.Con {
+	var valueArgs []ir.Core
+	cur := expr
+	for {
+		switch n := cur.(type) {
+		case *ir.App:
+			valueArgs = append(valueArgs, n.Arg)
+			cur = n.Fun
+			continue
+		case *ir.TyApp:
+			cur = n.Expr
+			continue
+		}
+		break
+	}
+	con, ok := cur.(*ir.Con)
+	if !ok || len(valueArgs) == 0 {
+		return nil
+	}
+	// Reverse: spine was peeled outermost-first, but Con.Args is left-to-right.
+	args := make([]ir.Core, len(valueArgs))
+	for i, a := range valueArgs {
+		args[len(valueArgs)-1-i] = a
+	}
+	return &ir.Con{Name: con.Name, Module: con.Module, Args: args, S: con.S}
+}
+
+// renamePatternVar returns a pattern with all occurrences of oldName
+// replaced by newName. Patterns are structurally simple (PVar, PCon with
+// nested args, PRecord, PWild, PLit) so a direct recursive copy suffices.
+func renamePatternVar(p ir.Pattern, oldName, newName string) ir.Pattern {
+	switch pat := p.(type) {
+	case *ir.PVar:
+		if pat.Name == oldName {
+			return &ir.PVar{Name: newName, Generated: pat.Generated, S: pat.S}
+		}
+		return pat
+	case *ir.PCon:
+		args := make([]ir.Pattern, len(pat.Args))
+		changed := false
+		for i, a := range pat.Args {
+			args[i] = renamePatternVar(a, oldName, newName)
+			if args[i] != a {
+				changed = true
+			}
+		}
+		if !changed {
+			return pat
+		}
+		return &ir.PCon{Con: pat.Con, Module: pat.Module, Args: args, S: pat.S}
+	case *ir.PRecord:
+		fields := make([]ir.PRecordField, len(pat.Fields))
+		changed := false
+		for i, f := range pat.Fields {
+			rp := renamePatternVar(f.Pattern, oldName, newName)
+			fields[i] = ir.PRecordField{Label: f.Label, Pattern: rp}
+			if rp != f.Pattern {
+				changed = true
+			}
+		}
+		if !changed {
+			return pat
+		}
+		return &ir.PRecord{Fields: fields, S: pat.S}
+	default:
+		return p
 	}
 }
 
@@ -319,23 +416,26 @@ func substFV(expr ir.Core, name string, replacement ir.Core, replFV map[string]s
 func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}) ir.Core {
 	switch n := expr.(type) {
 	case *ir.Var:
-		if repl, ok := subs[n.Name]; ok {
+		if repl, ok := subs[ir.VarKey(n)]; ok {
 			return ir.Clone(repl)
 		}
 		return n
 	case *ir.Lam:
 		if _, shadowed := subs[n.Param]; shadowed {
-			// Remove shadowed name from subs for the body.
 			reduced := withoutKey(subs, n.Param)
 			if len(reduced) == 0 {
 				return n
 			}
 			return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: substMany(n.Body, reduced, subsFV), Generated: n.Generated, S: n.S}
 		}
-		if _, captured := subsFV[n.Param]; captured {
-			return n // would capture — bail out to preserve correctness
+		param := n.Param
+		body := n.Body
+		if _, captured := subsFV[param]; captured {
+			fresh := freshName(param)
+			body = substMany(body, map[string]ir.Core{param: &ir.Var{Name: fresh}}, map[string]struct{}{fresh: {}})
+			param = fresh
 		}
-		return &ir.Lam{Param: n.Param, ParamType: n.ParamType, Body: substMany(n.Body, subs, subsFV), Generated: n.Generated, S: n.S}
+		return &ir.Lam{Param: param, ParamType: n.ParamType, Body: substMany(body, subs, subsFV), Generated: n.Generated, S: n.S}
 	case *ir.App:
 		return &ir.App{Fun: substMany(n.Fun, subs, subsFV), Arg: substMany(n.Arg, subs, subsFV), S: n.S}
 	case *ir.TyApp:
@@ -347,21 +447,45 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		for i, a := range n.Args {
 			args[i] = substMany(a, subs, subsFV)
 		}
-		return &ir.Con{Name: n.Name, Args: args, S: n.S}
+		return &ir.Con{Name: n.Name, Module: n.Module, Args: args, S: n.S}
 	case *ir.Case:
 		alts := make([]ir.Alt, len(n.Alts))
 		for i, alt := range n.Alts {
-			// Check if any substitution name is bound by this pattern.
 			active := subs
-			for _, b := range alt.Pattern.Bindings() {
+			pat := alt.Pattern
+			for _, b := range pat.Bindings() {
 				if _, ok := active[b]; ok {
 					active = withoutKey(active, b)
 				}
 			}
-			if len(active) == 0 {
+			// Capture-avoiding: if a pattern binding collides with a
+			// free variable in the substitution values, rename it to
+			// prevent the pattern from capturing the outer reference.
+			var rename map[string]ir.Core
+			for _, b := range pat.Bindings() {
+				if _, captured := subsFV[b]; captured {
+					fresh := freshName(b)
+					if rename == nil {
+						rename = make(map[string]ir.Core)
+					}
+					rename[b] = &ir.Var{Name: fresh}
+					pat = renamePatternVar(pat, b, fresh)
+				}
+			}
+			body := alt.Body
+			if rename != nil {
+				renameFV := make(map[string]struct{})
+				for _, v := range rename {
+					renameFV[v.(*ir.Var).Name] = struct{}{}
+				}
+				body = substMany(body, rename, renameFV)
+			}
+			if len(active) == 0 && rename == nil {
 				alts[i] = alt
+			} else if len(active) == 0 {
+				alts[i] = ir.Alt{Pattern: pat, Body: body, Generated: alt.Generated, S: alt.S}
 			} else {
-				alts[i] = ir.Alt{Pattern: alt.Pattern, Body: substMany(alt.Body, active, subsFV), Generated: alt.Generated, S: alt.S}
+				alts[i] = ir.Alt{Pattern: pat, Body: substMany(body, active, subsFV), Generated: alt.Generated, S: alt.S}
 			}
 		}
 		return &ir.Case{Scrutinee: substMany(n.Scrutinee, subs, subsFV), Alts: alts, S: n.S}
@@ -373,10 +497,14 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 			}
 			return &ir.Fix{Name: n.Name, Body: substMany(n.Body, reduced, subsFV), S: n.S}
 		}
-		if _, captured := subsFV[n.Name]; captured {
-			return n
+		name := n.Name
+		body := n.Body
+		if _, captured := subsFV[name]; captured {
+			fresh := freshName(name)
+			body = substMany(body, map[string]ir.Core{name: &ir.Var{Name: fresh}}, map[string]struct{}{fresh: {}})
+			name = fresh
 		}
-		return &ir.Fix{Name: n.Name, Body: substMany(n.Body, subs, subsFV), S: n.S}
+		return &ir.Fix{Name: name, Body: substMany(body, subs, subsFV), S: n.S}
 	case *ir.Pure:
 		return &ir.Pure{Expr: substMany(n.Expr, subs, subsFV), S: n.S}
 	case *ir.Bind:
@@ -384,13 +512,18 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		active := subs
 		if _, shadowed := active[n.Var]; shadowed {
 			active = withoutKey(active, n.Var)
-		} else if _, captured := subsFV[n.Var]; captured {
-			return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: n.Body, Generated: n.Generated, S: n.S}
+		}
+		bvar := n.Var
+		body := n.Body
+		if _, captured := subsFV[bvar]; captured {
+			fresh := freshName(bvar)
+			body = substMany(body, map[string]ir.Core{bvar: &ir.Var{Name: fresh}}, map[string]struct{}{fresh: {}})
+			bvar = fresh
 		}
 		if len(active) == 0 {
-			return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: n.Body, Generated: n.Generated, S: n.S}
+			return &ir.Bind{Comp: comp, Var: bvar, Discard: n.Discard, Body: body, Generated: n.Generated, S: n.S}
 		}
-		return &ir.Bind{Comp: comp, Var: n.Var, Discard: n.Discard, Body: substMany(n.Body, active, subsFV), Generated: n.Generated, S: n.S}
+		return &ir.Bind{Comp: comp, Var: bvar, Discard: n.Discard, Body: substMany(body, active, subsFV), Generated: n.Generated, S: n.S}
 	case *ir.Thunk:
 		return &ir.Thunk{Comp: substMany(n.Comp, subs, subsFV), S: n.S}
 	case *ir.Force:
@@ -566,7 +699,18 @@ func primOpAbsorb(c ir.Core) ir.Core {
 	if !ok {
 		return c
 	}
-	po, ok := app.Fun.(*ir.PrimOp)
+	// Peel TyApp wrappers around the PrimOp. After dictionary method
+	// extraction, the checker's type annotations produce TyApp(PrimOp, ty)
+	// chains that are erased at runtime but block PrimOp saturation.
+	fun := app.Fun
+	for {
+		if ta, ok := fun.(*ir.TyApp); ok {
+			fun = ta.Expr
+			continue
+		}
+		break
+	}
+	po, ok := fun.(*ir.PrimOp)
 	if !ok {
 		return c
 	}

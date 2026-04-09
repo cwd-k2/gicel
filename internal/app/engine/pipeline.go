@@ -387,34 +387,10 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 	return dicts
 }
 
-// isTransparentAlias reports whether an expression is a pure forwarding
-// reference that can be safely inlined across module boundaries.
-//
-// Transparent aliases are bindings whose core (after peeling TyLam
-// wrappers from polymorphic instantiation) is a single Var, a
-// zero-arg PrimOp, or a small application chain. These are zero-cost
-// to inline and enable downstream optimization (evidence inlining,
-// TyApp beta, fusion rules).
+// isTransparentAlias delegates to optimize.IsTransparentAlias.
+// See that function for the full specification.
 func isTransparentAlias(expr ir.Core) bool {
-	// Peel TyLam wrappers (polymorphic quantification from elaboration).
-	core := expr
-	for {
-		if tl, ok := core.(*ir.TyLam); ok {
-			core = tl.Body
-			continue
-		}
-		break
-	}
-	switch n := core.(type) {
-	case *ir.Var:
-		return true
-	case *ir.PrimOp:
-		// Zero-arg, non-effectful PrimOps (prim assumptions like
-		// _listMap, _listFoldr) are safe to inline. Effectful PrimOps
-		// are excluded because they interact with CBPV thunk/force.
-		return len(n.Args) == 0 && !n.Effectful
-	}
-	return false
+	return optimize.IsTransparentAlias(expr)
 }
 
 // assembleRuntime constructs an immutable Runtime from compiled artifacts.

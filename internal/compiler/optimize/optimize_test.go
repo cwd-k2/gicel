@@ -579,31 +579,50 @@ func TestSubst_CasePatternShadowing(t *testing.T) {
 
 func TestSubst_LamCaptureAvoidance(t *testing.T) {
 	// subst (Lam "y" (App (Var "x") (Var "y"))) "x" (Var "y")
-	// Without capture guard, this would produce: Lam "y" (App (Var "y") (Var "y"))
-	// which captures the free "y" in the replacement. With the guard, we bail out.
+	// Without capture avoidance: Lam "y" (App (Var "y") (Var "y")) — captures "y".
+	// With capture avoidance: Lam "y$rN" (App (Var "y") (Var "y$rN")) — alpha-renamed.
 	expr := lam("y", app(v("x"), v("y")))
 	replacement := v("y")
 	result := substFV(expr, "x", replacement, ir.FreeVars(replacement))
-	// The guard should detect that "y" is free in replacement and Lam binds "y",
-	// so subst bails out, returning the original expression unchanged.
-	if !coreEq(result, expr) {
-		t.Fatalf("Lam capture: expected unchanged expr, got %v", result)
+	l, ok := result.(*ir.Lam)
+	if !ok {
+		t.Fatalf("expected Lam, got %T", result)
+	}
+	// Param must have been renamed to avoid capture.
+	if l.Param == "y" {
+		t.Fatal("Lam param should have been renamed to avoid capture")
+	}
+	// Body: App(Var("y"), Var(fresh)) — "x" replaced by "y", original "y" renamed.
+	a, ok := l.Body.(*ir.App)
+	if !ok {
+		t.Fatalf("expected App body, got %T", l.Body)
+	}
+	funVar, _ := a.Fun.(*ir.Var)
+	argVar, _ := a.Arg.(*ir.Var)
+	if funVar == nil || funVar.Name != "y" {
+		t.Fatalf("App.Fun should be Var(y) [from replacement], got %v", a.Fun)
+	}
+	if argVar == nil || argVar.Name != l.Param {
+		t.Fatalf("App.Arg should be Var(%s) [renamed param], got %v", l.Param, a.Arg)
 	}
 }
 
 func TestSubst_FixCaptureAvoidance(t *testing.T) {
-	// fix f in (App (Var "f") (Var "x"))
+	// fix f in Lam z. App (Var "f") (Var "x")
 	// subst "x" (Var "f") — "f" is free in replacement and bound by fix
 	expr := &ir.Fix{Name: "f", Body: lam("z", app(v("f"), v("x")))}
 	replacement := v("f")
-	// Verify free var detection.
 	if _, free := ir.FreeVars(replacement)["f"]; !free {
 		t.Fatalf("FreeVars should detect 'f' free in Var{f}")
 	}
 	result := substFV(expr, "x", replacement, ir.FreeVars(replacement))
-	// Guard should bail out — result should be the exact same pointer.
-	if result != expr {
-		t.Fatalf("Fix capture: expected same pointer (bail out), got different object")
+	fix, ok := result.(*ir.Fix)
+	if !ok {
+		t.Fatalf("expected Fix, got %T", result)
+	}
+	// Fix name must be renamed to avoid capture.
+	if fix.Name == "f" {
+		t.Fatal("Fix name should have been renamed to avoid capture")
 	}
 }
 
@@ -617,19 +636,29 @@ func TestSubst_BindCaptureAvoidance(t *testing.T) {
 	}
 	replacement := v("y")
 	result := substFV(expr, "x", replacement, ir.FreeVars(replacement))
-	// Comp should still be substituted (it's not under the binder),
-	// but body should be left unchanged due to capture risk.
 	bind, ok := result.(*ir.Bind)
 	if !ok {
 		t.Fatalf("expected Bind, got %T", result)
 	}
-	// Comp is substituted: Pure (Var "a") → Pure (Var "a") (no "x" in comp, so unchanged)
 	if !coreEq(bind.Comp, &ir.Pure{Expr: v("a")}) {
 		t.Fatalf("Bind capture: comp changed unexpectedly")
 	}
-	// Body should be unchanged due to capture guard
-	if !coreEq(bind.Body, app(v("x"), v("y"))) {
-		t.Fatalf("Bind capture: body should be unchanged, got %v", bind.Body)
+	// Bind var must be renamed, body gets both rename and substitution.
+	if bind.Var == "y" {
+		t.Fatal("Bind var should have been renamed to avoid capture")
+	}
+	a, ok := bind.Body.(*ir.App)
+	if !ok {
+		t.Fatalf("expected App body, got %T", bind.Body)
+	}
+	// App.Fun = Var("y") [from substitution of "x"], App.Arg = Var(fresh) [renamed]
+	funVar, _ := a.Fun.(*ir.Var)
+	argVar, _ := a.Arg.(*ir.Var)
+	if funVar == nil || funVar.Name != "y" {
+		t.Fatalf("App.Fun should be Var(y), got %v", a.Fun)
+	}
+	if argVar == nil || argVar.Name != bind.Var {
+		t.Fatalf("App.Arg should be Var(%s), got %v", bind.Var, a.Arg)
 	}
 }
 

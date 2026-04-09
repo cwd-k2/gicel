@@ -80,7 +80,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 		if _, exists := candidates[key]; exists {
 			continue
 		}
-		if !eligibleInlineBody(eb.Expr, eb.Name) && !eligibleTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, eb.Name) {
+		if !eligibleInlineBody(eb.Expr, eb.Name) && !IsTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, eb.Name) {
 			continue
 		}
 		candidates[key] = &inlineCandidate{body: eb.Expr}
@@ -119,12 +119,16 @@ func eligibleInlineBody(expr ir.Core, name string) bool {
 	return true
 }
 
-// eligibleTransparentAlias reports whether an expression is a pure
-// forwarding reference that can always be inlined. Peels TyLam
-// wrappers (from polymorphic elaboration) and checks that the core
-// is a single Var. These have minimal code bloat (the TyLam/TyApp
-// pairs are eliminated by tyAppBeta after inlining).
-func eligibleTransparentAlias(expr ir.Core) bool {
+// IsTransparentAlias reports whether an expression is a pure forwarding
+// reference suitable for cross-module inlining.
+//
+// Two forms are recognized (after peeling TyLam wrappers):
+//  1. Direct: core is Var or zero-arg non-effectful PrimOp.
+//  2. Specialization: core is an App/TyApp chain rooted at a Var,
+//     with all value arguments (App.Arg) being simple (Var or Lit).
+//     Arises from checker elaboration of aliases like `map := fmap`
+//     where the class method receives type arguments and evidence.
+func IsTransparentAlias(expr ir.Core) bool {
 	core := expr
 	for {
 		if tl, ok := core.(*ir.TyLam); ok {
@@ -133,13 +137,34 @@ func eligibleTransparentAlias(expr ir.Core) bool {
 		}
 		break
 	}
+	// Direct alias.
 	switch n := core.(type) {
 	case *ir.Var:
 		return true
 	case *ir.PrimOp:
 		return len(n.Args) == 0 && !n.Effectful
 	}
-	return false
+	// Specialization alias: peel App/TyApp spine, checking that all
+	// value arguments are simple (Var or Lit).
+	root := core
+	for {
+		switch n := root.(type) {
+		case *ir.App:
+			switch n.Arg.(type) {
+			case *ir.Var, *ir.Lit:
+			default:
+				return false
+			}
+			root = n.Fun
+			continue
+		case *ir.TyApp:
+			root = n.Expr
+			continue
+		}
+		break
+	}
+	_, isVar := root.(*ir.Var)
+	return isVar
 }
 
 // eligibleEvidenceBody checks whether a Generated binding is an evidence
