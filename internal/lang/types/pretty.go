@@ -210,11 +210,12 @@ func prettyConstraintEntries(entries []ConstraintEntry, tail Type) string {
 }
 
 func prettyEvidenceRow(r *TyEvidenceRow) string {
-	switch entries := r.Entries.(type) {
+	switch r.Entries.(type) {
 	case *CapabilityEntries:
-		return prettyCapFields(entries.Fields, r.Tail)
+		fields, tail, _ := flattenTupleRow(r)
+		return prettyCapFields(fields, tail)
 	case *ConstraintEntries:
-		return prettyConstraintEntries(entries.Entries, r.Tail)
+		return prettyConstraintEntries(r.Entries.(*ConstraintEntries).Entries, r.Tail)
 	default:
 		// Generic fallback for future fiber types.
 		children := r.Entries.AllChildren()
