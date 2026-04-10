@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -21,6 +22,7 @@ func benchCheck(b *testing.B, source string) {
 	es := &diagnostic.Errors{Source: src}
 	p := parse.NewParser(context.Background(), src, es)
 	ast := p.ParseProgram()
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, nil)
 	if checkErrs.HasErrors() {
 		b.Fatalf("check failed: %v", checkErrs)

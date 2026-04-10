@@ -95,7 +95,7 @@ func (p *Parser) parseApp() syn.Expr {
 	f := p.parseAtom()
 	if f == nil {
 		tok := p.peek()
-		// Desugar unary minus: -e → negate e (at atom boundary only).
+		// Unary minus: -e. Desugar pass converts to negate application.
 		if tok.Kind == syn.TokOp && tok.Text == "-" {
 			p.advance() // consume -
 			arg := p.parseAtom()
@@ -103,10 +103,9 @@ func (p *Parser) parseApp() syn.Expr {
 				p.addErrorCode(diagnostic.ErrMissingBody, "expected expression after '-'")
 				return &syn.ExprError{S: span.Span{Start: tok.S.Start, End: tok.S.Start}}
 			}
-			f = &syn.ExprApp{
-				Fun: &syn.ExprVar{Name: "negate", S: tok.S},
-				Arg: arg,
-				S:   span.Span{Start: tok.S.Start, End: p.prevEnd()},
+			f = &syn.ExprNegate{
+				Expr: arg,
+				S:    span.Span{Start: tok.S.Start, End: p.prevEnd()},
 			}
 		} else {
 			p.addErrorCode(diagnostic.ErrMissingBody, "expected expression")
@@ -309,7 +308,7 @@ func (p *Parser) parseParen() syn.Expr {
 		return &syn.ExprParen{Inner: e, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
-	// (e1, e2, ...) → tuple (desugars to record with _1, _2, ...)
+	// (e1, e2, ...) → tuple. Desugar pass converts to record with _1, _2, ...
 	if p.peek().Kind == syn.TokComma {
 		elems := []syn.Expr{e}
 		for p.peek().Kind == syn.TokComma {
@@ -317,15 +316,7 @@ func (p *Parser) parseParen() syn.Expr {
 			elems = append(elems, p.parseExpr())
 		}
 		p.expectClosing(syn.TokRParen, openTok.S)
-		fields := make([]syn.RecordField, len(elems))
-		for i, el := range elems {
-			fields[i] = syn.RecordField{
-				Label: syn.TupleLabel(i + 1),
-				Value: el,
-				S:     el.Span(),
-			}
-		}
-		return &syn.ExprRecord{Fields: fields, S: span.Span{Start: start, End: p.prevEnd()}}
+		return &syn.ExprTuple{Elems: elems, S: span.Span{Start: start, End: p.prevEnd()}}
 	}
 
 	p.expectClosing(syn.TokRParen, openTok.S)
@@ -406,15 +397,11 @@ func (p *Parser) parseIf() syn.Expr {
 	}
 	elseExpr = p.parseExpr()
 	end := p.prevEnd()
-	s := span.Span{Start: start, End: end}
-	return &syn.ExprCase{
-		Scrutinee: cond,
-		Alts: []syn.AstAlt{
-			{Pattern: &syn.PatCon{Con: "True", S: s}, Body: thenExpr, S: s},
-			{Pattern: &syn.PatCon{Con: "False", S: s}, Body: elseExpr, S: s},
-		},
-		S:         s,
-		IfDesugar: true,
+	return &syn.ExprIf{
+		Cond: cond,
+		Then: thenExpr,
+		Else: elseExpr,
+		S:    span.Span{Start: start, End: end},
 	}
 }
 

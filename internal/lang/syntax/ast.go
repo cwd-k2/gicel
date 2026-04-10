@@ -171,6 +171,30 @@ type ExprEvidence struct {
 	S    span.Span
 }
 
+// ExprIf is a surface-level if-then-else. Desugared to ExprCase
+// over True/False by the desugar pass. Preserves the original syntax
+// for error messages and LSP hover.
+type ExprIf struct {
+	Cond Expr
+	Then Expr
+	Else Expr
+	S    span.Span
+}
+
+// ExprNegate is a surface-level unary minus: -e. Desugared to
+// ExprApp(ExprVar("negate"), e) by the desugar pass.
+type ExprNegate struct {
+	Expr Expr
+	S    span.Span
+}
+
+// ExprTuple is a surface-level tuple: (a, b, c). Desugared to
+// ExprRecord with _1, _2, ... labels by the desugar pass.
+type ExprTuple struct {
+	Elems []Expr
+	S     span.Span
+}
+
 // ExprError represents a parse error placeholder.
 // The checker should skip type checking and return an error type/core immediately.
 type ExprError struct {
@@ -201,6 +225,9 @@ func (*ExprRecordUpdate) exprNode() {}
 func (*ExprProject) exprNode()      {}
 func (*ExprSection) exprNode()      {}
 func (*ExprEvidence) exprNode()     {}
+func (*ExprIf) exprNode()           {}
+func (*ExprNegate) exprNode()       {}
+func (*ExprTuple) exprNode()        {}
 func (*ExprError) exprNode()        {}
 
 func (e *ExprVar) Span() span.Span          { return e.S }
@@ -227,6 +254,9 @@ func (e *ExprRecordUpdate) Span() span.Span { return e.S }
 func (e *ExprProject) Span() span.Span      { return e.S }
 func (e *ExprSection) Span() span.Span      { return e.S }
 func (e *ExprEvidence) Span() span.Span     { return e.S }
+func (e *ExprIf) Span() span.Span           { return e.S }
+func (e *ExprNegate) Span() span.Span       { return e.S }
+func (e *ExprTuple) Span() span.Span        { return e.S }
 func (e *ExprError) Span() span.Span        { return e.S }
 
 // ---- Statements (in do blocks) ----

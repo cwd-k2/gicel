@@ -184,6 +184,19 @@ func (r *resolver) resolveExpr(e syn.Expr) syn.Expr {
 		e.Dict = r.resolveExpr(e.Dict)
 		e.Body = r.resolveExpr(e.Body)
 		return e
+	case *syn.ExprIf:
+		e.Cond = r.resolveExpr(e.Cond)
+		e.Then = r.resolveExpr(e.Then)
+		e.Else = r.resolveExpr(e.Else)
+		return e
+	case *syn.ExprNegate:
+		e.Expr = r.resolveExpr(e.Expr)
+		return e
+	case *syn.ExprTuple:
+		for i := range e.Elems {
+			e.Elems[i] = r.resolveExpr(e.Elems[i])
+		}
+		return e
 	// Leaf nodes: no sub-expressions to resolve.
 	case *syn.ExprVar, *syn.ExprCon, *syn.ExprQualVar, *syn.ExprQualCon,
 		*syn.ExprIntLit, *syn.ExprDoubleLit, *syn.ExprStrLit, *syn.ExprRuneLit,

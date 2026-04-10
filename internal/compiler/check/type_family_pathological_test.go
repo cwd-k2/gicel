@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -635,6 +636,7 @@ func parse_and_check(t *testing.T, source string, config *CheckConfig) (*diagnos
 	if es.HasErrors() {
 		return es, nil
 	}
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, config)
 	return nil, checkErrs
 }

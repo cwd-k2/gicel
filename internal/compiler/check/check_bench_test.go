@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -28,6 +29,7 @@ main := eq True False`
 		es := &diagnostic.Errors{Source: src}
 		p := parse.NewParser(context.Background(), src, es)
 		ast := p.ParseProgram()
+		desugar.Program(ast)
 		Check(ast, src, nil)
 	}
 }

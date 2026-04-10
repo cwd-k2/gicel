@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -176,6 +177,7 @@ main := f True`
 		return
 	}
 	// If it parses, it should fail at check time.
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, nil)
 	if !checkErrs.HasErrors() {
 		t.Fatal("expected check error for () in constraint position, got none")

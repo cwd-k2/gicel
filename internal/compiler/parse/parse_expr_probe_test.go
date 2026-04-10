@@ -4,7 +4,6 @@
 package parse
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/cwd-k2/gicel/internal/lang/syntax" //nolint:revive // dot import for tightly-coupled subpackage
@@ -89,18 +88,12 @@ func TestProbeB_UnitExpr(t *testing.T) {
 func TestProbeB_TupleExpr(t *testing.T) {
 	prog := parseMustSucceed(t, "main := (1, 2, 3)")
 	d := prog.Decls[0].(*DeclValueDef)
-	r, ok := d.Expr.(*ExprRecord)
+	tup, ok := d.Expr.(*ExprTuple)
 	if !ok {
-		t.Fatalf("expected ExprRecord for tuple, got %T", d.Expr)
+		t.Fatalf("expected ExprTuple for tuple, got %T", d.Expr)
 	}
-	if len(r.Fields) != 3 {
-		t.Errorf("expected 3 fields, got %d", len(r.Fields))
-	}
-	for i, f := range r.Fields {
-		expected := fmt.Sprintf("_%d", i+1)
-		if f.Label != expected {
-			t.Errorf("field %d: expected label %q, got %q", i, expected, f.Label)
-		}
+	if len(tup.Elems) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(tup.Elems))
 	}
 }
 
@@ -294,20 +287,17 @@ func TestProbeE_TupleSingleton(t *testing.T) {
 	}
 }
 
-// TestProbeE_TuplePair verifies (x, y) is a record with _1, _2.
+// TestProbeE_TuplePair verifies (x, y) produces ExprTuple with 2 elements.
 func TestProbeE_TuplePair(t *testing.T) {
 	source := `main := (1, 2)`
 	prog := parseMustSucceed(t, source)
 	d := prog.Decls[0].(*DeclValueDef)
-	rec, ok := d.Expr.(*ExprRecord)
+	tup, ok := d.Expr.(*ExprTuple)
 	if !ok {
-		t.Fatalf("expected ExprRecord for (1, 2), got %T", d.Expr)
+		t.Fatalf("expected ExprTuple for (1, 2), got %T", d.Expr)
 	}
-	if len(rec.Fields) != 2 {
-		t.Fatalf("expected 2 fields, got %d", len(rec.Fields))
-	}
-	if rec.Fields[0].Label != "_1" || rec.Fields[1].Label != "_2" {
-		t.Errorf("expected _1, _2; got %q, %q", rec.Fields[0].Label, rec.Fields[1].Label)
+	if len(tup.Elems) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(tup.Elems))
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/optimize"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -58,6 +59,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	decls := p.ParseDecls()
 	ast := &syntax.AstProgram{Imports: imports, Decls: decls}
 	p.ResolveInfix(ast)
+	desugar.Program(ast)
 
 	if p.LexErrors().HasErrors() {
 		return nil, nil, &CompileError{Errors: p.LexErrors()}

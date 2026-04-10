@@ -9,6 +9,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -30,6 +31,7 @@ func checkSource(t *testing.T, source string, config *CheckConfig) *ir.Program {
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
+	desugar.Program(ast)
 	prog, checkErrs := Check(ast, src, config)
 	if checkErrs.HasErrors() {
 		t.Fatal("check errors:", checkErrs.Format())
@@ -51,6 +53,7 @@ func checkSourceExpectError(t *testing.T, source string, config *CheckConfig) st
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, config)
 	if !checkErrs.HasErrors() {
 		t.Fatal("expected check errors, got none")
@@ -72,6 +75,7 @@ func checkSourceExpectCode(t *testing.T, source string, config *CheckConfig, cod
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, config)
 	if !checkErrs.HasErrors() {
 		t.Fatal("expected check errors, got none")
@@ -103,6 +107,7 @@ func checkSourceTryBoth(t *testing.T, source string, config *CheckConfig) string
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, config)
 	if checkErrs.HasErrors() {
 		return checkErrs.Format()
@@ -132,6 +137,7 @@ func checkSourceNoPanic(t *testing.T, source string, config *CheckConfig) {
 	if es.HasErrors() {
 		return // parse error is fine, not a bug
 	}
+	desugar.Program(ast)
 	Check(ast, src, config)
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -32,6 +33,7 @@ func parseAndCheck(t *testing.T, source string, cfg *CheckConfig) (*diagnostic.E
 	if es.HasErrors() {
 		t.Fatal("parse errors:", es.Format())
 	}
+	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, cfg)
 	return checkErrs, count
 }

@@ -629,22 +629,16 @@ func TestProbeD_LambdaNoParams(t *testing.T) {
 	}
 }
 
-// TestProbeD_TupleExpr verifies tuple expression `(1, 2, 3)`.
+// TestProbeD_TupleExpr verifies tuple expression `(1, 2, 3)` produces ExprTuple.
 func TestProbeD_TupleExpr(t *testing.T) {
 	prog := parseMustSucceed(t, "main := (1, 2, 3)")
 	d := prog.Decls[0].(*DeclValueDef)
-	rec, ok := d.Expr.(*ExprRecord)
+	tup, ok := d.Expr.(*ExprTuple)
 	if !ok {
-		t.Fatalf("expected ExprRecord for tuple, got %T", d.Expr)
+		t.Fatalf("expected ExprTuple for tuple, got %T", d.Expr)
 	}
-	if len(rec.Fields) != 3 {
-		t.Errorf("expected 3 fields for 3-tuple, got %d", len(rec.Fields))
-	}
-	for i, f := range rec.Fields {
-		expected := fmt.Sprintf("_%d", i+1)
-		if f.Label != expected {
-			t.Errorf("field %d: expected label %q, got %q", i, expected, f.Label)
-		}
+	if len(tup.Elems) != 3 {
+		t.Errorf("expected 3 elements for 3-tuple, got %d", len(tup.Elems))
 	}
 }
 
