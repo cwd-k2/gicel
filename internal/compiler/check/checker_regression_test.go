@@ -186,7 +186,8 @@ impl Container (List a) := {
 // TestRegressionDataFamilyConstructorNoCollision verifies that distinct
 // constructor names in data family instances do not produce errors.
 func TestRegressionDataFamilyConstructorNoCollision(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	// Formerly skipped: "form family constructor registration: type mismatch
+	// in mangled name". Resolved by kindOfType universe stratification (S-1).
 	source := `
 form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 form Unit := { Unit: Unit; }

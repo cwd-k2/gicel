@@ -45,7 +45,7 @@ impl Collection (List a) := {
 // --- Constructor registration ---
 
 func TestDataFamilyConstructorType(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	// t.Skip("form family constructor registration: type mismatch in mangled name")
 	// The mangled constructor should be usable as a value
 	source := `
 form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
@@ -68,7 +68,8 @@ x := ListElem Unit
 }
 
 func TestDataFamilyMultipleInstances(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	// Formerly skipped: "form family constructor registration: type mismatch
+	// in mangled name". Resolved by kindOfType universe stratification (S-1).
 	// Different instances define different constructors for the same family
 	source := `
 form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
@@ -101,7 +102,8 @@ y := UnitElem
 // --- Pattern matching ---
 
 func TestDataFamilyPatternMatch(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	// Formerly skipped: "form family constructor registration: type mismatch
+	// in mangled name". Resolved by kindOfType universe stratification (S-1).
 	source := `
 form List := \a. { Nil: List a; Cons: a -> List a -> List a; }
 form Unit := { Unit: Unit; }
@@ -157,7 +159,8 @@ impl Collection Unit := {
 // --- Reduction: Elem as data family reduces like type family ---
 
 func TestDataFamilyTypeReduction(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	// Formerly skipped: "form family constructor registration: type mismatch
+	// in mangled name". Resolved by kindOfType universe stratification (S-1).
 	// Elem (List Unit) should be usable as a type that accepts ListElem
 	config := &CheckConfig{
 		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
@@ -188,7 +191,7 @@ id := \x. x
 // --- Data family with multiple constructors ---
 
 func TestDataFamilyMultipleConstructors(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	t.Skip("multi-constructor associated form families not yet supported by parser")
 	source := `
 form Unit := { Unit: Unit; }
 
@@ -214,7 +217,7 @@ f := \e. case e {
 // --- Exhaustiveness ---
 
 func TestDataFamilyExhaustiveness(t *testing.T) {
-	t.Skip("form family constructor registration: type mismatch in mangled name")
+	t.Skip("multi-constructor associated form families not yet supported by parser")
 	source := `
 form Unit := { Unit: Unit; }
 
