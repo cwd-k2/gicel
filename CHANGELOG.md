@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.29.0 — 2026-04-11
+
+LSP hover and completion overhaul: richer type display, doc comments on usage sites, exhaustive coverage.
+
+### LSP — Hover
+
+- **Operator hover** — Hovering an operator (`+`, `==`, `<>`, `$`, `merge`/`***`) now shows the operator's own type with module qualification and fixity: `(Prelude.+) :: Int -> Int -> Int` / `infixl 6`. Added `OpSpan` to `ExprInfix`/`ExprSection` AST nodes; `OperatorRecorder` callback in the checker.
+- **Lambda parameter hover** — Hovering a lambda parameter (`\x. ...`) shows the inferred argument type.
+- **Pattern variable hover** — Hovering a pattern variable in `case` alternatives shows the matched type.
+- **Doc comments on usage sites** — Hovering any variable reference (local or imported) shows the doc comment from its definition site. Stdlib doc comments are now visible when hovering `map`, `filter`, `eq`, etc.
+- **Tuple type sugar** — Types display as `(Int, String)` instead of `Record { _1: Int, _2: String }`. Unit displays as `()` instead of `Record {}`.
+
+### LSP — Completion
+
+- **Rich documentation** — Completion items now include type signatures as markdown code blocks in the `documentation` field (syntax-highlighted in VS Code). Imported bindings show module-qualified names (`Prelude.map :: ...`).
+
+### Stdlib
+
+- **Doc comments** — Concise one-line doc comments on every public API binding across all 15 stdlib modules. Visible in editor hover.
+
+### Internal
+
+- `Assoc.String()` method on `syntax.Assoc` — canonical fixity keyword rendering.
+- Hover coverage test suite: exhaustive per-token hover verification across all 67 examples (identifier 100%, operator 99.8%, literal 99.8%).
+
 ## v0.28.2 — 2026-04-11
 
 Second field-test follow-up: optimizer correctness, type checker soundness, error message cleanup.
