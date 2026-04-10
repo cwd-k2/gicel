@@ -32,18 +32,10 @@ const (
 // generation sites below; the unifier never names UnifyError as a struct.
 
 // AliasExpander is a callback for expanding type aliases during unification.
-
-// AliasExpander is a callback for expanding type aliases during unification.
 type AliasExpander func(types.Type) types.Type
 
 // FamilyReducer is a callback for reducing type family applications during unification.
-
-// FamilyReducer is a callback for reducing type family applications during unification.
 type FamilyReducer func(types.Type) types.Type
-
-// TryReduceFamily attempts to reduce a single saturated type family application.
-// Returns (result, true) if the family can be reduced, (nil, false) otherwise.
-// Unlike FamilyReducer, this does not walk the type tree or reset the step counter.
 
 // TryReduceFamily attempts to reduce a single saturated type family application.
 // Returns (result, true) if the family can be reduced, (nil, false) otherwise.
@@ -518,17 +510,9 @@ func (u *Unifier) collectMetaIDsRec(t types.Type, seen map[int]bool, ids *[]int)
 // occursIn checks whether a meta variable with the given ID appears in type t.
 // Zonks the entire type once at entry, then traverses the zonked tree without
 // further Zonk calls. This avoids O(N²) repeated traversals on deep types.
-
-// occursIn checks whether a meta variable with the given ID appears in type t.
-// Zonks the entire type once at entry, then traverses the zonked tree without
-// further Zonk calls. This avoids O(N²) repeated traversals on deep types.
 func (u *Unifier) occursIn(id int, t types.Type) bool {
 	return u.occursInZonked(id, u.Zonk(t))
 }
-
-// occursInZonked walks a pre-zonked type tree checking for meta variable id.
-// No budget check: recursion depth is bounded by the structural size of the
-// type, which is finite and bounded by the outer Unify/Zonk budget.
 
 // occursInZonked walks a pre-zonked type tree checking for meta variable id.
 // No budget check: recursion depth is bounded by the structural size of the

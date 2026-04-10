@@ -16,16 +16,16 @@ import (
 func CompileBuiltinGlobals(compiler *Compiler, enableFix, enableRec bool) map[string]eval.Value {
 	globals := make(map[string]eval.Value, 8)
 
-	globals["pure"] = compileBuiltinLam(compiler, "pure", eval.PureBody())
-	globals["bind"] = compileBuiltinLam(compiler, "bind", eval.BindBody())
+	globals["pure"] = compileBuiltinLam(compiler, "pure", ir.PureBody())
+	globals["bind"] = compileBuiltinLam(compiler, "bind", ir.BindBody())
 
 	if enableFix {
 		globals["fix"] = compileBuiltinLam(compiler, "fix",
-			&ir.Lam{Param: "_f", Body: eval.FixBody()})
+			&ir.Lam{Param: "_f", Body: ir.FixBody()})
 	}
 	if enableRec {
 		globals["rec"] = compileBuiltinLam(compiler, "rec",
-			&ir.Lam{Param: "_f", Body: eval.RecBody()})
+			&ir.Lam{Param: "_f", Body: ir.RecBody()})
 	}
 
 	return globals

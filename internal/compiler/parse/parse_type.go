@@ -2,7 +2,6 @@ package parse
 
 import (
 	syn "github.com/cwd-k2/gicel/internal/lang/syntax"
-	lty "github.com/cwd-k2/gicel/internal/lang/types"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -239,8 +238,9 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 		if p.peek().Kind == syn.TokRParen {
 			p.advance()
 			s := span.Span{Start: start, End: p.prevEnd()}
+			// "Record" matches types.TyConRecord
 			return &syn.TyExprApp{
-				Fun: &syn.TyExprCon{Name: lty.TyConRecord, S: s},
+				Fun: &syn.TyExprCon{Name: "Record", S: s},
 				Arg: &syn.TyExprRow{S: s},
 				S:   s,
 			}
@@ -263,8 +263,9 @@ func (p *Parser) parseTypeAtom() syn.TypeExpr {
 					S:     t.Span(),
 				}
 			}
+			// "Record" matches types.TyConRecord
 			return &syn.TyExprApp{
-				Fun: &syn.TyExprCon{Name: lty.TyConRecord, S: s},
+				Fun: &syn.TyExprCon{Name: "Record", S: s},
 				Arg: &syn.TyExprRow{Fields: fields, S: s},
 				S:   s,
 			}

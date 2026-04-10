@@ -407,7 +407,12 @@ func (s *CheckState) fresh() int {
 }
 
 // freshName generates a unique name with the given prefix.
-// Format: prefix_N where N is a monotonic counter.
+// Format: prefix_N where N is a per-checker monotonic counter.
+//
+// Namespace: "_" suffix. Other fresh-name generators use different
+// namespaces to avoid collisions:
+//   - types/subst.go: "$" suffix (type-level substitution, global)
+//   - optimize/subst.go: "$r" suffix (term-level Core IR substitution, global)
 func (s *CheckState) freshName(prefix string) string {
 	return prefix + "_" + strconv.Itoa(s.fresh())
 }

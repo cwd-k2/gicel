@@ -268,30 +268,11 @@ func freeVarsConstraintEntry(e ConstraintEntry, bound map[string]bool, fv map[st
 // or TyFamilyApp node. Used to determine whether an equality constraint
 // in evidence position should be treated as given (deferred) or wanted.
 func ContainsSkolemOrFamily(t Type) bool {
-	return containsSkolemOrFamily(t, 0)
-}
-
-func containsSkolemOrFamily(t Type, depth int) bool {
-	if depth > maxTraversalDepth {
-		depthExceeded()
-	}
-	switch ty := t.(type) {
-	case *TySkolem:
-		return true
-	case *TyFamilyApp:
-		return true
-	case *TyApp:
-		return containsSkolemOrFamily(ty.Fun, depth+1) || containsSkolemOrFamily(ty.Arg, depth+1)
-	case *TyArrow:
-		return containsSkolemOrFamily(ty.From, depth+1) || containsSkolemOrFamily(ty.To, depth+1)
-	case *TyForall:
-		return containsSkolemOrFamily(ty.Body, depth+1)
-	case *TyCBPV:
-		return containsSkolemOrFamily(ty.Pre, depth+1) || containsSkolemOrFamily(ty.Post, depth+1) || containsSkolemOrFamily(ty.Result, depth+1) ||
-			(ty.Grade != nil && containsSkolemOrFamily(ty.Grade, depth+1))
-	case *TyMeta:
+	return AnyType(t, func(t Type) bool {
+		switch t.(type) {
+		case *TySkolem, *TyFamilyApp:
+			return true
+		}
 		return false
-	default:
-		return false
-	}
+	})
 }

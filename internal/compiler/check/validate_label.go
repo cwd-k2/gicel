@@ -134,11 +134,8 @@ func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLam
 
 // typeContainsMeta reports whether a type contains TyMeta with the given ID.
 func typeContainsMeta(ty types.Type, metaID int) bool {
-	matches := types.CollectTypes(ty, func(t types.Type) (struct{}, bool) {
-		if m, ok := t.(*types.TyMeta); ok && m.ID == metaID {
-			return struct{}{}, true
-		}
-		return struct{}{}, false
+	return types.AnyType(ty, func(t types.Type) bool {
+		m, ok := t.(*types.TyMeta)
+		return ok && m.ID == metaID
 	})
-	return len(matches) > 0
 }
