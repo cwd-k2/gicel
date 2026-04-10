@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+### Structural Refactoring
+
+Systematic audit and decomposition pass across IR, checker, optimizer, and runtime. Driven by four-agent codebase audit (2026-04-10) that identified 27 items; 26 resolved, 1 deferred.
+
+#### IR Layer
+
+- **`Generated bool` → `GenKind` typed enum.** Six generation origins are now structurally distinguished: `UserWritten`, `GenDict`, `GenAutoForce`, `GenSection`, `GenDictExtract`, `GenAutoBind`. All consumers use `IsGenerated()` for binary checks; setter sites carry the specific origin.
+- **Iterative Bind chain handling.** `Transform` and `TransformMut` now handle right-leaning Bind chains (deep do-block sequences) iteratively via `transformBindChain`/`transformMutBindChain`, preventing silent skip on chains exceeding `maxTraversalDepth` (512).
+- **Clone resets `Var.Index` to -1.** Previously copied the stale de Bruijn index from the original tree. Callers must run `AssignIndices` after insertion, which was already the case for all call sites.
+- **Verify V2 uses structural pattern.** The `$lz` prefix check is removed; the invariant is now `Bind{Generated≠0, Comp: Force{Var{...}}}` — independent of naming conventions.
+- **`FVAnnotations.Lookup*` panic messages** now include span and parameter information for debugging.
+
+#### Checker
+
+- **`doElaborator` decomposed into `doStrategy` interface + 3 types.** `doInfer`, `doChecked`, `doGraded` each carry only their own state. Eliminates 4 switch-on-mode dispatch sites. Shared loop extracted as `doElaborate` standalone function.
+- **`doInfer.lastPost` save/restore** replaced with `pushPost` scope guard, eliminating fragile manual mutation pattern.
+- **Block elaboration extracted** to `elaborate_block.go` (`localLetGen`, `elaboratePureBind`, `inferBlock`), separating block-expression concerns from do-block elaboration.
+- **`unifyErrorCode`/`addUnifyError`/`addSemanticUnifyError`** moved from `bidir.go` to `diag.go` (divergent change elimination).
+- **`joinGrades`** moved from `bidir_case.go` to `grade.go` (feature stray elimination; removes `diagnostic` import from `bidir_case.go`).
+- **`checkWithEvidence`** constraint-entry type dispatch extracted to `constraintDictInfo` helper, separating mapping logic from push/pop protocol.
+- **`refineMergeLabels`** moved from caller convention (`Check`/`CheckModule`) to `declPipeline.run` (structural guarantee).
+
+#### Audit Debt
+
+- **`ConstraintKey` docstring** corrected to reflect bucketing usage in `ClassifyConstraints`.
+- **`IsPrivateName`** documented as compiler-controlled injective encoding (not a heuristic).
+- **`compileFix` OpRaise** documented as legitimate — `fix(\self. Con ...)` type-checks via `(a → a) → a`.
+- **Inline candidate key space** documented as intentionally disjoint (bare name vs `\x00`-qualified).
+- **`ConVal` bare name** documented as safe via checker invariant (name uniqueness guarantee).
+- Audit items D-1 (TyVar module), A-1 (inline keys), 1.3 (Bind rename), F10/F13/F14/F4/F15 closed after investigation confirmed resolution or non-issue status.
+
 ## v0.27.0 — 2026-04-08
 
 This release introduces the **GICEL Language Server**, **file header directives** for self-contained source files, and a major performance pass that reduces cold compile time by ~28%, warm compile time to **literal zero allocations**, and runtime dispatch by ~32% geomean. It also lands several structural refactors that finish removing hidden phase-state from the IR, and a handful of correctness fixes discovered in a 10-agent field test.
