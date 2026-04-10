@@ -178,3 +178,86 @@ main := isDoubleNeg (Not (Not (LitBool True)))
 		t.Errorf("expected True, got %s", result.Value)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Explicit equality constraints in GADT constructors
+// ---------------------------------------------------------------------------
+
+// TestGADTExplicitEqualityConstraint verifies that equality constraints
+// written as explicit `a ~ b =>` in constructor types are installed as
+// given equalities during pattern matching, enabling Refl-style proofs.
+func TestGADTExplicitEqualityConstraint(t *testing.T) {
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+
+	// castWith: the canonical use — match on MkRefl to coerce a to b.
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+
+form Refl := \a b. { MkRefl: a ~ b => Refl a b }
+
+castWith :: Refl a b -> a -> b
+castWith := \r x. case r { MkRefl => x }
+
+main := castWith (MkRefl :: Refl Int Int) 42
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := res.Value.(*eval.HostVal); !ok || v.Inner != int64(42) {
+		t.Fatalf("castWith: expected 42, got %v", eval.PrettyValue(res.Value))
+	}
+}
+
+func TestGADTReflSymmetry(t *testing.T) {
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+
+	// symm: reverse an equality proof — requires both sides of the
+	// equality to be available as givens.
+	_, err := eng.NewRuntime(context.Background(), `
+import Prelude
+
+form Refl := \a b. { MkRefl: a ~ b => Refl a b }
+
+symm :: Refl a b -> Refl b a
+symm := \r. case r { MkRefl => MkRefl }
+
+main := ()
+`)
+	if err != nil {
+		t.Fatalf("symm should type-check: %v", err)
+	}
+}
+
+func TestGADTEqualityWithClassConstraint(t *testing.T) {
+	eng := NewEngine()
+	_ = eng.Use(stdlib.Prelude)
+
+	// Equality constraint combined with a class constraint.
+	rt, err := eng.NewRuntime(context.Background(), `
+import Prelude
+
+form EqWitness := \a b. { MkEqW: (Eq a, a ~ b) => EqWitness a b }
+
+useWitness :: EqWitness a b -> a -> b -> Bool
+useWitness := \w x y. case w { MkEqW => x == y }
+
+main := useWitness (MkEqW :: EqWitness Int Int) 42 42
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := rt.RunWith(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	con, ok := res.Value.(*eval.ConVal)
+	if !ok || con.Con != "True" {
+		t.Fatalf("expected True, got %v", eval.PrettyValue(res.Value))
+	}
+}

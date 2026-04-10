@@ -164,7 +164,11 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 	// 4. Peel constraints — generate dict bindings and pattern args for existential constraints.
 	// For ConstraintVar entries, the concrete className/args are unknown until
 	// return type unification (step 6). Record them and resolve after unification.
+	// EqualityEntry constraints are also deferred: the metas are unsolved at
+	// this point, so we record them and install as givens after unification.
 	var pendingCVs []pendingCV
+	type pendingEq struct{ lhs, rhs types.Type }
+	var pendingEqs []pendingEq
 	for {
 		if ev, ok := currentTy.(*types.TyEvidence); ok {
 			for _, entry := range ev.Constraints.ConEntries() {
@@ -181,6 +185,8 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 					dictTy := ch.buildDictType(e.ClassName, e.Args)
 					bindings[dictParam] = dictTy
 					args = append(args, &ir.PVar{Name: dictParam, Generated: ir.GenDict, S: s})
+				case *types.EqualityEntry:
+					pendingEqs = append(pendingEqs, pendingEq{lhs: e.Lhs, rhs: e.Rhs})
 				}
 			}
 			currentTy = ev.Body
@@ -197,7 +203,7 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 			Bindings:    bindings,
 			SkolemIDs:   skolemIDs,
 			GivenEqs:    givenEqs,
-			HasEvidence: len(pendingCVs) > 0,
+			HasEvidence: len(pendingCVs) > 0 || len(pendingEqs) > 0,
 		}
 	}
 
@@ -240,6 +246,27 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 	if err := ch.unifier.Unify(currentTy, scrutTy); err != nil {
 		ch.addUnifyError(err, s, "constructor type mismatch")
 		return mkResult()
+	}
+	// 6b. Install explicit equality constraints as givens. Metas are now
+	// solved by unification, so zonk reveals the concrete (skolem) types.
+	for _, eq := range pendingEqs {
+		lhs := ch.unifier.Zonk(eq.lhs)
+		rhs := ch.unifier.Zonk(eq.rhs)
+		if sk, ok := lhs.(*types.TySkolem); ok {
+			if givenEqs == nil {
+				givenEqs = make(map[int]types.Type)
+			}
+			givenEqs[sk.ID] = rhs
+			ch.unifier.InstallGivenEq(sk.ID, rhs)
+			ch.emitGivenEq(lhs, rhs, s)
+		} else if sk, ok := rhs.(*types.TySkolem); ok {
+			if givenEqs == nil {
+				givenEqs = make(map[int]types.Type)
+			}
+			givenEqs[sk.ID] = lhs
+			ch.unifier.InstallGivenEq(sk.ID, lhs)
+			ch.emitGivenEq(rhs, lhs, s)
+		}
 	}
 	// 7. Resolve pending constraint variable entries now that metas are solved.
 	ch.resolvePendingCVs(pendingCVs, bindings)
