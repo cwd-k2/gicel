@@ -20,8 +20,10 @@ var failSource = mustReadSource("fail")
 // tryImpl forces a suspended computation and catches anonymous fail effects.
 // Only catches RuntimeErrors with Detail != nil and FailLabel == "" (anonymous).
 // Named fail effects (FailLabel != "") propagate to outer handlers.
+// Uses driveEffectful to force deferred effectful tails (e.g. function calls
+// in do-block tail position), matching tryAtImpl's behavior.
 func tryImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	val, newCe, err := apply.Apply(args[0], unitVal, ce)
+	val, newCe, err := driveEffectful(args[0], ce, apply)
 	if err != nil {
 		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil && re.FailLabel == "" {
 			return &eval.ConVal{Con: "Err", Args: []eval.Value{re.Detail}}, ce, nil

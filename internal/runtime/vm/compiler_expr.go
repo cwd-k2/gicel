@@ -383,27 +383,37 @@ func (c *Compiler) compilePrimOp(prim *ir.PrimOp) {
 		c.emitU16(OpPrimPartial, idx)
 		return
 	}
-	for _, arg := range prim.Args {
-		c.compileExpr(arg, false)
-	}
 	if !prim.Effectful && len(prim.Args) == prim.Arity {
-		// Saturated non-effectful: invoke directly.
+		// Saturated non-effectful: push args then invoke directly.
+		for _, arg := range prim.Args {
+			c.compileExpr(arg, false)
+		}
 		nameIdx := c.addString(prim.Name)
 		c.emitU16U8(OpPrim, nameIdx, uint8(prim.Arity))
 	} else if prim.Effectful && len(prim.Args) == prim.Arity {
-		// Saturated effectful: construct deferred PrimVal in one step.
+		// Saturated effectful: push args then construct deferred PrimVal.
+		for _, arg := range prim.Args {
+			c.compileExpr(arg, false)
+		}
 		nameIdx := c.addString(prim.Name)
 		c.emitU16U8(OpEffectPrim, nameIdx, uint8(prim.Arity))
 	} else {
-		// Genuinely partial: partial-application path.
+		// Genuinely partial: emit stub first, then args, then apply.
+		// The stub must be below the args on the stack so the apply
+		// instruction sees the correct fn/args layout.
 		stub := &eval.PrimVal{
 			Name: prim.Name, Arity: prim.Arity,
 			Effectful: prim.Effectful, S: prim.S,
 		}
 		idx := c.addConstant(stub)
 		c.emitU16(OpPrimPartial, idx)
-		for range prim.Args {
+		for _, arg := range prim.Args {
+			c.compileExpr(arg, false)
+		}
+		if len(prim.Args) == 1 {
 			c.emit(OpApply)
+		} else {
+			c.emitU8(OpApplyN, uint8(len(prim.Args)))
 		}
 	}
 }
