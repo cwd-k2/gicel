@@ -1,7 +1,6 @@
 package check
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -45,8 +44,8 @@ func (ch *Checker) validateAliasGraph() bool {
 				}
 			}
 			cycle := append(path[cycleStart:], name)
-			ch.addCodedError(diagnostic.ErrCyclicAlias, span.Span{}, fmt.Sprintf(
-				"cyclic type alias: %s", strings.Join(cycle, " -> ")))
+			ch.addDiag(diagnostic.ErrCyclicAlias, span.Span{},
+				diagMsg("cyclic type alias: "+strings.Join(cycle, " -> ")))
 			return true
 		}
 
@@ -143,8 +142,8 @@ func (ch *Checker) expandTypeAliases(ty types.Type) types.Type {
 
 func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
 	if depth > maxAliasExpansionDepth {
-		ch.addCodedError(diagnostic.ErrAliasExpansion, span.Span{},
-			"type alias expansion depth limit exceeded (possible cyclic or deeply nested alias)")
+		ch.addDiag(diagnostic.ErrAliasExpansion, span.Span{},
+			diagMsg("type alias expansion depth limit exceeded (possible cyclic or deeply nested alias)"))
 		return ty
 	}
 	app, ok := ty.(*types.TyApp)

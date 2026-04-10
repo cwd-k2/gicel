@@ -45,7 +45,7 @@ func (ch *Checker) LookupEvidence(className string) []*CtxEvidence {
 	return ch.ctx.LookupEvidence(className)
 }
 func (ch *Checker) AddCodedError(code diagnostic.Code, s span.Span, msg string) {
-	ch.addCodedError(code, s, msg)
+	ch.addDiag(code, s, diagMsg(msg))
 }
 func (ch *Checker) ErrorCount() int                      { return ch.errors.Len() }
 func (ch *Checker) TruncateErrors(n int)                 { ch.errors.Truncate(n) }

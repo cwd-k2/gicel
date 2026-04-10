@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -162,9 +160,9 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 
 			// Fast path: concrete grade, check immediately.
 			if !ch.gradeCanPreserveDynamic(grade, gk) {
-				ch.addCodedError(diagnostic.ErrMultiplicity, s,
-					fmt.Sprintf("@%s capability %q must be consumed (type unchanged across computation boundary)",
-						types.Pretty(grade), f.Label))
+				ch.addDiag(diagnostic.ErrMultiplicity, s,
+					diagFmt{Format: "@%s capability %q must be consumed (type unchanged across computation boundary)",
+						Args: []any{types.Pretty(grade), f.Label}})
 			}
 		}
 	}
@@ -206,8 +204,8 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		// find at least one meta. If not, the meta was zonked between the check
 		// and here. Fall back to the concrete fast path.
 		if !ch.gradeCanPreserveDynamic(ch.unifier.Zonk(grade), gradeKind) {
-			ch.addCodedError(diagnostic.ErrMultiplicity, s,
-				"@"+types.Pretty(grade)+" capability must be consumed (type unchanged across computation boundary)")
+			ch.addDiag(diagnostic.ErrMultiplicity, s,
+				diagFmt{Format: "@%s capability must be consumed (type unchanged across computation boundary)", Args: []any{types.Pretty(grade)}})
 		}
 		return
 	}
@@ -218,8 +216,8 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		ResultMeta: resultMeta,
 		BlockingOn: blocking,
 		OnFailure: func(errSpan span.Span, expected, actual types.Type) {
-			ch.addCodedError(diagnostic.ErrMultiplicity, errSpan,
-				"@"+types.Pretty(grade)+" capability must be consumed (grade preservation violation: expected "+types.Pretty(expected)+", got "+types.Pretty(actual)+")")
+			ch.addDiag(diagnostic.ErrMultiplicity, errSpan,
+				diagFmt{Format: "@%s capability must be consumed (grade preservation violation: expected %s, got %s)", Args: []any{types.Pretty(grade), types.Pretty(expected), types.Pretty(actual)}})
 		},
 		S: s,
 	}

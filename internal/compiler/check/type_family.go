@@ -48,13 +48,13 @@ func (ch *Checker) processTypeFamilyDecl(
 ) {
 	// Check for duplicate.
 	if _, dup := ch.reg.LookupFamily(name); dup {
-		ch.addCodedError(diagnostic.ErrDuplicateDecl, s,
-			"duplicate type family: "+name)
+		ch.addDiag(diagnostic.ErrDuplicateDecl, s,
+			diagFmt{Format: "duplicate type family: %s", Args: []any{name}})
 		return
 	}
 	if _, dup := ch.reg.LookupAlias(name); dup {
-		ch.addCodedError(diagnostic.ErrDuplicateDecl, s,
-			"type family "+name+" conflicts with type alias of the same name")
+		ch.addDiag(diagnostic.ErrDuplicateDecl, s,
+			diagFmt{Format: "type family %s conflicts with type alias of the same name", Args: []any{name}})
 		return
 	}
 
@@ -77,9 +77,9 @@ func (ch *Checker) processTypeFamilyDecl(
 		patterns := extractTFPatterns(alt.Pattern, patCount)
 
 		if len(patterns) != len(params) {
-			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, alt.S,
-				fmt.Sprintf("type family %s expects %d arguments, equation has %d",
-					name, len(params), len(patterns)))
+			ch.addDiag(diagnostic.ErrTypeFamilyEquation, alt.S,
+				diagFmt{Format: "type family %s expects %d arguments, equation has %d",
+					Args: []any{name, len(params), len(patterns)}})
 			continue
 		}
 		resolvedPats := make([]types.Type, len(patterns))
@@ -114,7 +114,9 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 			Budget:          ch.budget,
 			Unifier:         ch.unifier,
 			FreshMeta:       ch.freshMeta,
-			AddError:        ch.addCodedError,
+			AddError: func(code diagnostic.Code, s span.Span, msg string) {
+				ch.addDiag(code, s, diagMsg(msg))
+			},
 			TryUnify:        ch.tryUnify,
 			RegisterStuckFn: ch.registerStuckViaInert,
 		}

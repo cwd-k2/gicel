@@ -44,10 +44,10 @@ func (s *CheckState) addUnifyError(err error, sp span.Span, ctx string) {
 	// MismatchError variant carries both type sides; other UnifyMismatch-kind
 	// variants (Grade/Level/Message) need their detail message appended.
 	if _, ok := err.(*unify.MismatchError); ok {
-		s.addCodedError(unifyErrorCode(err), sp, ctx)
+		s.addDiag(unifyErrorCode(err), sp, diagMsg(ctx))
 		return
 	}
-	s.addCodedError(unifyErrorCode(err), sp, ctx+": "+err.Error())
+	s.addDiag(unifyErrorCode(err), sp, diagWithErr{Context: ctx, Err: err})
 }
 
 // addSemanticUnifyError reports a unification failure with a semantic error code.
@@ -57,10 +57,10 @@ func (s *CheckState) addUnifyError(err error, sp span.Span, ctx string) {
 func (s *CheckState) addSemanticUnifyError(semanticCode diagnostic.Code, err error, sp span.Span, ctx string) {
 	code := unifyErrorCode(err)
 	if code == diagnostic.ErrTypeMismatch {
-		s.addCodedError(semanticCode, sp, ctx)
+		s.addDiag(semanticCode, sp, diagMsg(ctx))
 		return
 	}
-	s.addCodedError(code, sp, ctx+": "+err.Error())
+	s.addDiag(code, sp, diagWithErr{Context: ctx, Err: err})
 }
 
 // recordType calls the TypeRecorder callback if configured.
@@ -78,7 +78,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	ch.depth++
 	defer func() { ch.depth-- }()
 	if err := ch.budget.Nest(); err != nil {
-		ch.addCodedError(diagnostic.ErrNestingLimit, expr.Span(), err.Error())
+		ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
 		return &types.TyError{S: expr.Span()}, &ir.Lit{Value: nil, S: expr.Span()}
 	}
 	defer ch.budget.Unnest()
@@ -98,8 +98,8 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		// error message points at the applied form and at the
 		// coercion path so users understand both options.
 		if e.Name == "thunk" || e.Name == "force" {
-			ch.addCodedError(diagnostic.ErrSpecialForm, e.S,
-				e.Name+" requires an argument: use `"+e.Name+" <expr>` or let the CBPV auto-coercion insert it at a Thunk/Computation mismatch")
+			ch.addDiag(diagnostic.ErrSpecialForm, e.S,
+				diagMsg(e.Name+" requires an argument: use `"+e.Name+" <expr>` or let the CBPV auto-coercion insert it at a Thunk/Computation mismatch"))
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}
 		}
 		ty, coreExpr, ok := ch.lookupVar(e)
@@ -213,11 +213,11 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 		if !ok {
-			msg := "unbound operator: " + e.Op
+			detail := diagUnknown{Kind: "operator", Name: e.Op}
 			if hints := ch.suggestVar(e.Op); len(hints) > 0 {
-				ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
+				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, detail, hints)
 			} else {
-				ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+				ch.addDiag(diagnostic.ErrUnboundVar, e.S, detail)
 			}
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Op, S: e.S}
 		}
@@ -250,7 +250,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	case *syntax.ExprIntLit:
 		val, err := strconv.ParseInt(strings.ReplaceAll(e.Value, "_", ""), 10, 64)
 		if err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, "invalid integer literal: "+e.Value)
+			ch.addDiag(diagnostic.ErrTypeMismatch, e.S, diagMsg("invalid integer literal: "+e.Value))
 			return ch.errorPair(e.S)
 		}
 		return types.Con("Int"), &ir.Lit{Value: val, S: e.S}
@@ -261,7 +261,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	case *syntax.ExprDoubleLit:
 		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
 		if err != nil {
-			ch.addCodedError(diagnostic.ErrTypeMismatch, e.S, "invalid double literal: "+e.Value)
+			ch.addDiag(diagnostic.ErrTypeMismatch, e.S, diagMsg("invalid double literal: "+e.Value))
 			return ch.errorPair(e.S)
 		}
 		return types.Con("Double"), &ir.Lit{Value: val, S: e.S}
@@ -288,7 +288,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		return ch.errorPair(e.S)
 
 	default:
-		ch.addCodedError(diagnostic.ErrTypeMismatch, expr.Span(), "cannot infer type of expression")
+		ch.addDiag(diagnostic.ErrTypeMismatch, expr.Span(), diagMsg("cannot infer type of expression"))
 		return ch.errorPair(expr.Span())
 	}
 }
@@ -298,7 +298,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	ch.depth++
 	defer func() { ch.depth-- }()
 	if err := ch.budget.Nest(); err != nil {
-		ch.addCodedError(diagnostic.ErrNestingLimit, expr.Span(), err.Error())
+		ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
 		return &ir.Lit{Value: nil, S: expr.Span()}
 	}
 	defer ch.budget.Unnest()

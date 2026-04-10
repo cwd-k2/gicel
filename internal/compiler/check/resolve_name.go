@@ -23,7 +23,7 @@ func (r *typeResolver) resolveUnqualifiedTypeCon(name string, s span.Span) types
 	}
 	// Strict mode: validate that the type constructor is known.
 	if *r.strictTypeNames && !r.isKnownTypeName(name) {
-		r.addCodedError(diagnostic.ErrUnboundCon, s, "unknown type: "+name)
+		r.addDiag(diagnostic.ErrUnboundCon, s, diagUnknown{Kind: "type", Name: name})
 		return &types.TyError{S: s}
 	}
 	return types.ConAt(name, s)
@@ -35,7 +35,7 @@ func (r *typeResolver) resolveUnqualifiedTypeCon(name string, s span.Span) types
 func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Span) types.Type {
 	qs, ok := r.scope.LookupQualified(qualifier)
 	if !ok {
-		r.addCodedError(diagnostic.ErrImport, s, "unknown qualifier: "+qualifier)
+		r.addDiag(diagnostic.ErrImport, s, diagUnknown{Kind: "qualifier", Name: qualifier})
 		return &types.TyError{S: s}
 	}
 	// Aliases: zero-arity → expand inline; parameterized → inject into scope.
@@ -72,8 +72,8 @@ func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Sp
 	if _, ok := r.reg.LookupTypeKind(name); ok {
 		return types.ConAt(name, s)
 	}
-	r.addCodedError(diagnostic.ErrImport, s,
-		"module "+qs.ModuleName+" does not export type: "+name)
+	r.addDiag(diagnostic.ErrImport, s,
+		diagMsg("module "+qs.ModuleName+" does not export type: "+name))
 	return &types.TyError{S: s}
 }
 

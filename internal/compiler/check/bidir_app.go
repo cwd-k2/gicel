@@ -123,7 +123,7 @@ func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core 
 	}
 	opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unbound operator: "+e.Op)
+		ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagUnknown{Kind: "operator", Name: e.Op})
 		return &ir.Var{Name: e.Op, S: e.S}
 	}
 	opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})

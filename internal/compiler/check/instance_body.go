@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -14,8 +12,8 @@ import (
 func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]syntax.Expr, prog *ir.Program) {
 	classInfo, ok := ch.reg.LookupClass(inst.ClassName)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrNoInstance, inst.S,
-			"class "+inst.ClassName+" not found for instance")
+		ch.addDiag(diagnostic.ErrNoInstance, inst.S,
+			diagFmt{Format: "class %s not found for instance", Args: []any{inst.ClassName}})
 		return
 	}
 
@@ -148,19 +146,19 @@ func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) str
 func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax.TypeExpr, className string, instSpan span.Span) {
 	fam, ok := ch.reg.LookupFamily(field.Name)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
-			"instance "+className+": associated form "+field.Name+" not declared in class "+className)
+		ch.addDiag(diagnostic.ErrBadInstance, instSpan,
+			diagFmt{Format: "instance %s: associated form %s not declared in class %s", Args: []any{className, field.Name, className}})
 		return
 	}
 	if !fam.IsAssoc || fam.ClassName != className {
-		ch.addCodedError(diagnostic.ErrBadInstance, instSpan,
-			"instance "+className+": "+field.Name+" is not an associated form of class "+className)
+		ch.addDiag(diagnostic.ErrBadInstance, instSpan,
+			diagFmt{Format: "instance %s: %s is not an associated form of class %s", Args: []any{className, field.Name, className}})
 		return
 	}
 	if len(patterns) != len(fam.Params) {
-		ch.addCodedError(diagnostic.ErrTypeFamilyEquation, field.S,
-			fmt.Sprintf("associated form %s expects %d argument(s), got %d",
-				field.Name, len(fam.Params), len(patterns)))
+		ch.addDiag(diagnostic.ErrTypeFamilyEquation, field.S,
+			diagFmt{Format: "associated form %s expects %d argument(s), got %d",
+				Args: []any{field.Name, len(fam.Params), len(patterns)}})
 		return
 	}
 
@@ -218,8 +216,8 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	}
 	// Guard against constructor name collision with existing constructors.
 	if existing, dup := ch.reg.LookupConType(conName); dup {
-		ch.addCodedError(diagnostic.ErrDuplicateDecl, field.S,
-			"form family instance "+field.Name+": constructor "+conName+" conflicts with existing constructor (type: "+types.Pretty(existing)+")")
+		ch.addDiag(diagnostic.ErrDuplicateDecl, field.S,
+			diagFmt{Format: "form family instance %s: constructor %s conflicts with existing constructor (type: %s)", Args: []any{field.Name, conName, types.Pretty(existing)}})
 		return
 	}
 	ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
@@ -300,8 +298,8 @@ func (ch *Checker) validateInstanceMethods(
 	hasMissing := false
 	for name := range classMethodSet {
 		if _, ok := methods[name]; !ok {
-			ch.addCodedError(diagnostic.ErrMissingMethod, s,
-				"instance "+className+": missing method "+name)
+			ch.addDiag(diagnostic.ErrMissingMethod, s,
+				diagFmt{Format: "instance %s: missing method %s", Args: []any{className, name}})
 			hasMissing = true
 		}
 	}
@@ -312,8 +310,8 @@ func (ch *Checker) validateInstanceMethods(
 	hasExtra := false
 	for name := range methods {
 		if !classMethodSet[name] {
-			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				"instance "+className+": extra method "+name+" not declared in class")
+			ch.addDiag(diagnostic.ErrBadInstance, s,
+				diagFmt{Format: "instance %s: extra method %s not declared in class", Args: []any{className, name}})
 			hasExtra = true
 		}
 	}

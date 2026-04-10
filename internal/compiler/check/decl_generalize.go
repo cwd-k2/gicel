@@ -68,8 +68,8 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 	if len(unresolved) > 0 {
 		for _, m := range unique {
 			if !typeMetaIDs[m.id] {
-				ch.addCodedError(diagnostic.ErrAmbiguousType, unresolved[0].S,
-					"ambiguous type variable in constraint-only position (does not appear in the result type)")
+				ch.addDiag(diagnostic.ErrAmbiguousType, unresolved[0].S,
+					diagMsg("ambiguous type variable in constraint-only position (does not appear in the result type)"))
 				break // report once
 			}
 		}

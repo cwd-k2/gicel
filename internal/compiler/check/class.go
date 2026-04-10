@@ -43,8 +43,8 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	// Reject default method implementations (not yet supported).
 	for _, f := range parts.Fields {
 		if f.Default != nil {
-			ch.addCodedError(diagnostic.ErrBadClass, f.S,
-				"default method implementations are not yet supported in unified syntax")
+			ch.addDiag(diagnostic.ErrBadClass, f.S,
+				diagMsg("default method implementations are not yet supported in unified syntax"))
 		}
 	}
 
@@ -182,7 +182,7 @@ func (ch *Checker) registerAssocTypes(parts formBodyParts, className string) []s
 			IsAssoc:    true,
 			ClassName:  className,
 		}); err != nil {
-			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, td.S, err.Error())
+			ch.addDiag(diagnostic.ErrTypeFamilyEquation, td.S, diagWithErr{Context: "associated type family registration", Err: err})
 		}
 	}
 	return assocTypeNames
@@ -317,8 +317,8 @@ func (ch *Checker) validateSuperclassGraph() bool {
 				}
 			}
 			cycle := append(path[cycleStart:], name)
-			ch.addCodedError(diagnostic.ErrCyclicSuperclass, span.Span{},
-				"cyclic superclass constraint: "+strings.Join(cycle, " -> "))
+			ch.addDiag(diagnostic.ErrCyclicSuperclass, span.Span{},
+				diagMsg("cyclic superclass constraint: "+strings.Join(cycle, " -> ")))
 			return true
 		}
 

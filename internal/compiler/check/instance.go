@@ -43,7 +43,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 
 	classInfo, ok := ch.reg.LookupClass(className)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrBadClass, impl.S, "unknown class: "+className)
+		ch.addDiag(diagnostic.ErrBadClass, impl.S, diagUnknown{Kind: "class", Name: className})
 		return nil, nil
 	}
 
@@ -67,9 +67,9 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 
 	// Arity check: number of type arguments must match class parameter count.
 	if len(typeArgs) != len(classInfo.TyParams) {
-		ch.addCodedError(diagnostic.ErrBadInstance, impl.S,
-			fmt.Sprintf("instance %s: expected %d type argument(s), got %d",
-				className, len(classInfo.TyParams), len(typeArgs)))
+		ch.addDiag(diagnostic.ErrBadInstance, impl.S,
+			diagFmt{Format: "instance %s: expected %d type argument(s), got %d",
+				Args: []any{className, len(classInfo.TyParams), len(typeArgs)}})
 		return nil, nil
 	}
 
@@ -119,8 +119,8 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 			continue
 		}
 		if ch.instancesOverlap(existing, inst) {
-			ch.addCodedError(diagnostic.ErrOverlap, impl.Ann.Span(),
-				"overlapping instances for class "+className+": "+existing.DictBindName+" and "+dictName)
+			ch.addDiag(diagnostic.ErrOverlap, impl.Ann.Span(),
+				diagFmt{Format: "overlapping instances for class %s: %s and %s", Args: []any{className, existing.DictBindName, dictName}})
 			return nil, nil
 		}
 	}
@@ -138,8 +138,8 @@ func (ch *Checker) validateInstanceContext(className string, typeArgs []types.Ty
 	// Context well-formedness: each constraint in the instance context must reference a known class.
 	for _, ctx := range context {
 		if _, ok := ch.reg.LookupClass(ctx.ClassName); !ok {
-			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				"instance "+className+": context references unknown class "+ctx.ClassName)
+			ch.addDiag(diagnostic.ErrBadInstance, s,
+				diagFmt{Format: "instance %s: context references unknown class %s", Args: []any{className, ctx.ClassName}})
 			return false
 		}
 	}
@@ -156,8 +156,8 @@ func (ch *Checker) validateInstanceContext(className string, typeArgs []types.Ty
 				}
 			}
 			if selfCycle {
-				ch.addCodedError(diagnostic.ErrBadInstance, s,
-					"instance "+className+": self-referential context (instance requires itself)")
+				ch.addDiag(diagnostic.ErrBadInstance, s,
+					diagFmt{Format: "instance %s: self-referential context (instance requires itself)", Args: []any{className}})
 				return false
 			}
 		}
@@ -176,20 +176,20 @@ func (ch *Checker) injectAssocTypes(typeDefs []syntax.ImplField, syntaxTypeArgs 
 		}
 		fam, ok := ch.reg.LookupFamily(td.Name)
 		if !ok {
-			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				"instance "+className+": associated type "+td.Name+" not declared in class "+className)
+			ch.addDiag(diagnostic.ErrBadInstance, s,
+				diagFmt{Format: "instance %s: associated type %s not declared in class %s", Args: []any{className, td.Name, className}})
 			continue
 		}
 		if !fam.IsAssoc || fam.ClassName != className {
-			ch.addCodedError(diagnostic.ErrBadInstance, s,
-				"instance "+className+": "+td.Name+" is not an associated type of class "+className)
+			ch.addDiag(diagnostic.ErrBadInstance, s,
+				diagFmt{Format: "instance %s: %s is not an associated type of class %s", Args: []any{className, td.Name, className}})
 			continue
 		}
 		// Arity check.
 		if len(syntaxTypeArgs) != len(fam.Params) {
-			ch.addCodedError(diagnostic.ErrTypeFamilyEquation, td.S,
-				fmt.Sprintf("associated type %s expects %d argument(s), got %d",
-					td.Name, len(fam.Params), len(syntaxTypeArgs)))
+			ch.addDiag(diagnostic.ErrTypeFamilyEquation, td.S,
+				diagFmt{Format: "associated type %s expects %d argument(s), got %d",
+					Args: []any{td.Name, len(fam.Params), len(syntaxTypeArgs)}})
 			continue
 		}
 		// Resolve patterns and RHS.

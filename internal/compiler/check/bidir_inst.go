@@ -99,7 +99,7 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, ir.Core) {
 		innerTy = ch.unifier.Zonk(innerTy)
 		f, ok := innerTy.(*types.TyForall)
 		if !ok {
-			ch.addCodedError(diagnostic.ErrBadTypeApp, e.S, "type application to non-polymorphic type")
+			ch.addDiag(diagnostic.ErrBadTypeApp, e.S, diagMsg("type application to non-polymorphic type"))
 			return &types.TyError{S: e.S}, innerCore
 		}
 		resultTy := types.Subst(f.Body, f.Var, ty)
@@ -169,7 +169,7 @@ func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	nilMod, nilOk := ch.reg.LookupConModule("Nil")
 	consMod, consOk := ch.reg.LookupConModule("Cons")
 	if !nilOk || !consOk {
-		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, "list literals require Prelude; add 'import Prelude'")
+		ch.addDiag(diagnostic.ErrUnboundCon, e.S, diagMsg("list literals require Prelude; add 'import Prelude'"))
 		return ch.errorPair(e.S)
 	}
 	var result ir.Core = &ir.Con{Name: "Nil", Module: nilMod, S: e.S}

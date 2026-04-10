@@ -583,7 +583,7 @@ func TestSelectiveImportTypeBare(t *testing.T) {
 	runExpectError(t, eng, `
 import Geometry (Point)
 main := MkPoint 1 2
-`, "unknown constructor: MkPoint")
+`, "constructor: MkPoint")
 }
 
 func TestSelectiveImportTypeWithAllSubs(t *testing.T) {
@@ -610,7 +610,7 @@ func TestSelectiveImportTypeRejectsUnlistedSub(t *testing.T) {
 	runExpectError(t, eng, `
 import Color (Color(Red))
 main := Green
-`, "unknown constructor: Green")
+`, "constructor: Green")
 }
 
 func TestSelectiveImportOperator(t *testing.T) {
@@ -690,7 +690,7 @@ func TestQualifiedUnknownQualifier(t *testing.T) {
 	runExpectError(t, eng, `
 import Prelude
 main := X.something
-`, "unknown qualifier: X")
+`, "qualifier: X")
 }
 
 func TestQualifiedNonExportedValue(t *testing.T) {

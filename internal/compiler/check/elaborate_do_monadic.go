@@ -14,7 +14,7 @@ import (
 // class dispatch via GIMonad for other indexed monad instances.
 func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	if len(e.Stmts) == 0 {
-		ch.addCodedError(diagnostic.ErrEmptyDo, e.S, "empty do block")
+		ch.addDiag(diagnostic.ErrEmptyDo, e.S, diagMsg("empty do block"))
 		return &ir.Error{S: e.S}
 	}
 
@@ -50,8 +50,8 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			desugared := ch.desugarDoToMonad(e.Stmts, e.S)
 			return ch.check(desugared, expected)
 		}
-		ch.addCodedError(diagnostic.ErrNoInstance, e.S,
-			"do notation for "+types.Pretty(expected)+" requires a GIMonad or Monad instance")
+		ch.addDiag(diagnostic.ErrNoInstance, e.S,
+			diagFmt{Format: "do notation for %s requires a GIMonad or Monad instance", Args: []any{types.Pretty(expected)}})
 		return &ir.Error{S: e.S}
 	}
 
@@ -147,7 +147,7 @@ func (ch *Checker) resolveGIMonadDict(monadHead types.Type, s span.Span) (ir.Cor
 func (ch *Checker) extractGIMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
 	dict, classInfo, ok := ch.resolveGIMonadDict(monadHead, s)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrNoInstance, s, "no GIMonad instance for "+types.Pretty(monadHead))
+		ch.addDiag(diagnostic.ErrNoInstance, s, diagWithType{Context: "no GIMonad instance for ", Type: monadHead})
 		return &ir.Error{S: s}
 	}
 	fieldIdx := len(classInfo.Supers) + methodIdx

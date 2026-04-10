@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -100,7 +98,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		var fields []types.RowField
 		for _, f := range t.Fields {
 			if seen[f.Label] {
-				r.addCodedError(diagnostic.ErrDuplicateLabel, f.S, fmt.Sprintf("duplicate label %q in record type", f.Label))
+				r.addDiag(diagnostic.ErrDuplicateLabel, f.S, diagLabel{Label: f.Label, Context: "duplicate label %q in record type"})
 				continue
 			}
 			seen[f.Label] = true
@@ -148,7 +146,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			entry := &types.ClassEntry{ClassName: con.Name, Args: args, S: t.S}
 			return qualifyBody(entry, body, t.S)
 		}
-		r.addCodedError(diagnostic.ErrNoInstance, t.S, "invalid constraint: "+types.Pretty(constraint))
+		r.addDiag(diagnostic.ErrNoInstance, t.S, diagWithType{Context: "invalid constraint: ", Type: constraint})
 		return body
 	case *syntax.TyExprEq:
 		// Equality constraint outside of a qualified type position.
@@ -167,7 +165,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 	case *syntax.TyExprError:
 		return &types.TyError{S: t.S}
 	default:
-		r.addCodedError(diagnostic.ErrTypeMismatch, texpr.Span(), fmt.Sprintf("unsupported type expression: %T", texpr))
+		r.addDiag(diagnostic.ErrTypeMismatch, texpr.Span(), diagFmt{Format: "unsupported type expression: %T", Args: []any{texpr}})
 		return &types.TyError{S: texpr.Span()}
 	}
 }

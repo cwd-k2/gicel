@@ -98,7 +98,7 @@ func (d *doElaborator) elaborate(stmts []syntax.Stmt, s span.Span) (types.Type, 
 		return d.elaborateExprStmt(st.Expr, stmts[1:], st.S, s)
 
 	default:
-		ch.addCodedError(diagnostic.ErrBadComputation, s, "unexpected statement in do block")
+		ch.addDiag(diagnostic.ErrBadComputation, s, diagMsg("unexpected statement in do block"))
 		return d.errPair(s)
 	}
 }
@@ -368,7 +368,7 @@ func (d *doElaborator) checkedDiscard(comp syntax.Expr, rest []syntax.Stmt, stmt
 
 func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, ir.Core) {
 	if len(e.Stmts) == 0 {
-		ch.addCodedError(diagnostic.ErrEmptyDo, e.S, "empty do block")
+		ch.addDiag(diagnostic.ErrEmptyDo, e.S, diagMsg("empty do block"))
 		return ch.errorPair(e.S)
 	}
 	d := &doElaborator{ch: ch, mode: doModeInfer}
@@ -382,7 +382,7 @@ func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, ir.Core) {
 func (ch *Checker) rejectDoEnding(st syntax.Stmt) bool {
 	switch st.(type) {
 	case *syntax.StmtBind, *syntax.StmtPureBind:
-		ch.addCodedError(diagnostic.ErrBadDoEnding, st.Span(), "do block must end with an expression")
+		ch.addDiag(diagnostic.ErrBadDoEnding, st.Span(), diagMsg("do block must end with an expression"))
 		return true
 	}
 	return false
@@ -523,7 +523,7 @@ func (ch *Checker) inferBlock(e *syntax.ExprBlock) (types.Type, ir.Core) {
 
 	// Infer body with all bindings in scope.
 	if e.Body == nil {
-		ch.addCodedError(diagnostic.ErrEmptyDo, e.S, "block must end with an expression")
+		ch.addDiag(diagnostic.ErrEmptyDo, e.S, diagMsg("block must end with an expression"))
 		for _, b := range binds {
 			if b.pr != nil {
 				for range b.pr.Bindings {

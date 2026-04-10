@@ -53,8 +53,8 @@ func (ch *Checker) checkSkolemEscape(ty types.Type, skolemIDs map[int]string, s 
 	zonked := ch.unifier.Zonk(ty)
 	if id, found := ch.containsSkolem(zonked, skolemIDs); found {
 		name := skolemIDs[id]
-		ch.addCodedError(diagnostic.ErrSkolemEscape, s,
-			"existential type variable '#"+name+"' escapes its scope")
+		ch.addDiag(diagnostic.ErrSkolemEscape, s,
+			diagFmt{Format: "existential type variable '#%s' escapes its scope", Args: []any{name}})
 	}
 }
 
@@ -107,8 +107,8 @@ func (ch *Checker) checkSkolemSetEscapeSince(skolemIDs map[int]string, preID int
 		}
 	})
 	if found {
-		ch.addCodedError(diagnostic.ErrSkolemEscape, s,
-			"type variable '"+skolemIDs[foundID]+"' would escape its scope")
+		ch.addDiag(diagnostic.ErrSkolemEscape, s,
+			diagFmt{Format: "type variable '%s' would escape its scope", Args: []any{skolemIDs[foundID]}})
 	}
 }
 

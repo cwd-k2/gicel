@@ -1,7 +1,6 @@
 package check
 
 import (
-	"fmt"
 	"maps"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
@@ -134,9 +133,9 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 
 	// Both annotated: grade counts must match.
 	if len(result.Grades) != len(other) {
-		ch.addCodedError(diagnostic.ErrTypeMismatch, s,
-			fmt.Sprintf("grade count mismatch for %s: %d vs %d",
-				result.Label, len(result.Grades), len(other)))
+		ch.addDiag(diagnostic.ErrTypeMismatch, s,
+			diagFmt{Format: "grade count mismatch for %s: %d vs %d",
+				Args: []any{result.Label, len(result.Grades), len(other)}})
 		return
 	}
 

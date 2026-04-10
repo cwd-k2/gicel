@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -37,8 +35,8 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 				return pk
 			}
 			// Uppercase names are constructors — unrecognized ones are likely typos.
-			r.addCodedError(diagnostic.ErrKindMismatch, ke.S,
-				fmt.Sprintf("unrecognized kind name %q", ke.Name))
+			r.addDiag(diagnostic.ErrKindMismatch, ke.S,
+				diagFmt{Format: "unrecognized kind name %q", Args: []any{ke.Name}})
 			return types.TypeOfTypes
 		}
 	case *syntax.TyExprVar:
@@ -68,7 +66,7 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 	case *syntax.TyExprError:
 		return types.TypeOfTypes
 	default:
-		r.addCodedError(diagnostic.ErrKindMismatch, k.Span(), fmt.Sprintf("unsupported kind expression: %T", k))
+		r.addDiag(diagnostic.ErrKindMismatch, k.Span(), diagFmt{Format: "unsupported kind expression: %T", Args: []any{k}})
 		return types.TypeOfTypes
 	}
 }
@@ -129,9 +127,9 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 	if !ok {
 		// F has a non-arrow kind — report error only when F's kind is reliably known.
 		if r.hasDeterministicKind(fun) {
-			r.addCodedError(diagnostic.ErrKindMismatch, s,
-				fmt.Sprintf("type %s has kind %s and cannot be applied to a type argument",
-					types.Pretty(fun), types.PrettyTypeAsKind(funKind)))
+			r.addDiag(diagnostic.ErrKindMismatch, s,
+				diagFmt{Format: "type %s has kind %s and cannot be applied to a type argument",
+					Args: []any{types.Pretty(fun), types.PrettyTypeAsKind(funKind)}})
 		}
 		return
 	}

@@ -44,7 +44,7 @@ type typeResolver struct {
 	emitEq func(types.Type, types.Type, span.Span, *solve.CtOrigin)
 
 	// Error reporting callback.
-	addCodedError func(diagnostic.Code, span.Span, string)
+	addDiag func(diagnostic.Code, span.Span, diagnostic.DetailFormatter)
 
 	// Strict type name validation (enabled after declaration processing).
 	strictTypeNames *bool
@@ -72,7 +72,7 @@ func (ch *Checker) typeResolver() *typeResolver {
 			lookupFamily:    ch.scopedLookupFamily,
 			lookupTyVar:     ch.ctx.LookupTyVar,
 			emitEq:          ch.emitEq,
-			addCodedError:   ch.addCodedError,
+			addDiag:         ch.addDiag,
 			strictTypeNames: &ch.CheckState.strictTypeNames,
 		}
 	}

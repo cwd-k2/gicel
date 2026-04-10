@@ -67,8 +67,8 @@ func TestMalformedOperators(t *testing.T) {
 		{"reserved :=", "import Prelude; main := 1 := 2", "expected declaration"},
 		{"reserved |", "import Prelude; main := 1 | 2", "expected declaration"},
 		{":: as binary op", "import Prelude; main := 1 :: 2", "expected type"},
-		{"unbound ++", "import Prelude; main := 1 ++ 2", "unbound operator"},
-		{"unbound ===", "import Prelude; main := 1 === 2", "unbound operator"},
+		{"unbound ++", "import Prelude; main := 1 ++ 2", "operator: ++"},
+		{"unbound ===", "import Prelude; main := 1 === 2", "operator: ==="},
 		{".. operator", "import Prelude; main := 1 .. 2", "expected expression"},
 	}
 	for _, tc := range cases {

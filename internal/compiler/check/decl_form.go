@@ -1,8 +1,6 @@
 package check
 
 import (
-	"fmt"
-
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -30,8 +28,8 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		annKind := ch.resolveKindExpr(d.KindAnn)
 		resultKind := types.ResultKind(annKind)
 		if isSortKind(resultKind) {
-			ch.addCodedError(diagnostic.ErrKindMismatch, d.S,
-				fmt.Sprintf("form %s has result kind %s, but form declarations must have result kind Type", d.Name, resultKind))
+			ch.addDiag(diagnostic.ErrKindMismatch, d.S,
+				diagFmt{Format: "form %s has result kind %s, but form declarations must have result kind Type", Args: []any{d.Name, resultKind}})
 			return // halt: do not register invalid form
 		}
 	}
@@ -58,8 +56,8 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	for _, field := range parts.Fields {
 		conName := field.Label
 		if seenCons[conName] {
-			ch.addCodedError(diagnostic.ErrDuplicateDecl, field.S,
-				fmt.Sprintf("duplicate constructor %q in form %s", conName, d.Name))
+			ch.addDiag(diagnostic.ErrDuplicateDecl, field.S,
+				diagFmt{Format: "duplicate constructor %q in form %s", Args: []any{conName, d.Name}})
 			continue
 		}
 		seenCons[conName] = true

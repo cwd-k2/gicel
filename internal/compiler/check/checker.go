@@ -358,7 +358,9 @@ func (ch *Checker) importModules(prog *syntax.AstProgram) {
 		SetConBinding:        ch.reg.SetConBinding,
 		SetConInfo:           ch.reg.SetConInfo,
 		ImportInstance:       ch.reg.ImportInstance,
-		AddError:             ch.addCodedError,
+		AddError: func(code diagnostic.Code, s span.Span, msg string) {
+			ch.addDiag(code, s, diagMsg(msg))
+		},
 		PushVar: func(name string, ty types.Type, module string) {
 			ch.ctx.Push(&CtxVar{Name: name, Type: ty, Module: module})
 		},

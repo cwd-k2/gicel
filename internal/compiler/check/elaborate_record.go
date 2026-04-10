@@ -19,8 +19,8 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 	var coreFields []ir.Field
 	for _, f := range e.Fields {
 		if seen[f.Label] {
-			ch.addCodedError(diagnostic.ErrDuplicateLabel, f.S,
-				fmt.Sprintf("duplicate label %q in record literal", f.Label))
+			ch.addDiag(diagnostic.ErrDuplicateLabel, f.S,
+				diagLabel{Label: f.Label, Context: "duplicate label %q in record literal"})
 			continue
 		}
 		seen[f.Label] = true
@@ -70,7 +70,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 				S:    s,
 			}
 			if err := ch.unifier.Unify(row, expectedRow); err != nil {
-				ch.addCodedError(diagnostic.ErrRowMismatch, s, recordFieldError(label, row, err))
+				ch.addDiag(diagnostic.ErrRowMismatch, s, diagMsg(recordFieldError(label, row, err)))
 				return ch.freshMeta(types.TypeOfTypes)
 			}
 			return ch.unifier.Zonk(fieldMeta)
@@ -88,7 +88,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 	}
 	expectedRecTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: expectedRow, S: s}
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
-		ch.addCodedError(diagnostic.ErrRowMismatch, s, "expected record with field "+label+", got "+types.Pretty(ty))
+		ch.addDiag(diagnostic.ErrRowMismatch, s, diagWithType{Context: "expected record with field " + label + ", got ", Type: ty})
 		return ch.freshMeta(types.TypeOfTypes)
 	}
 	return ch.unifier.Zonk(fieldMeta)
@@ -101,8 +101,8 @@ func (ch *Checker) inferRecordUpdate(e *syntax.ExprRecordUpdate) (types.Type, ir
 	seen := make(map[string]bool, len(e.Updates))
 	for _, upd := range e.Updates {
 		if seen[upd.Label] {
-			ch.addCodedError(diagnostic.ErrDuplicateLabel, upd.S,
-				fmt.Sprintf("duplicate label %q in record update", upd.Label))
+			ch.addDiag(diagnostic.ErrDuplicateLabel, upd.S,
+				diagLabel{Label: upd.Label, Context: "duplicate label %q in record update"})
 			continue
 		}
 		seen[upd.Label] = true
@@ -130,8 +130,8 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 	var rowFields []types.RowField
 	for _, f := range e.Fields {
 		if seen[f.Label] {
-			ch.addCodedError(diagnostic.ErrDuplicateLabel, f.S,
-				fmt.Sprintf("duplicate label %q in record literal", f.Label))
+			ch.addDiag(diagnostic.ErrDuplicateLabel, f.S,
+				diagLabel{Label: f.Label, Context: "duplicate label %q in record literal"})
 			continue
 		}
 		seen[f.Label] = true
@@ -186,8 +186,8 @@ func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) p
 	seen := make(map[string]bool, len(p.Fields))
 	for _, f := range p.Fields {
 		if seen[f.Label] {
-			ch.addCodedError(diagnostic.ErrDuplicateLabel, f.S,
-				fmt.Sprintf("duplicate label %q in record pattern", f.Label))
+			ch.addDiag(diagnostic.ErrDuplicateLabel, f.S,
+				diagLabel{Label: f.Label, Context: "duplicate label %q in record pattern"})
 			continue
 		}
 		seen[f.Label] = true

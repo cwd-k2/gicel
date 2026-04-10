@@ -18,15 +18,15 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 			// Gated builtin: the --recursion hint is the correct guidance.
 			// Don't suggest unrelated names — they would be misleading.
 			msg += " (requires --recursion flag)"
-			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+			ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagMsg(msg))
 		} else {
 			if ch.pipeState != nil && ch.pipeState.currentBinding != "" && e.Name == ch.pipeState.currentBinding {
 				msg += " (self-reference requires a type annotation or use of fix with --recursion)"
 			}
 			if hints := ch.suggestVar(e.Name); len(hints) > 0 {
-				ch.addCodedErrorWithHints(diagnostic.ErrUnboundVar, e.S, msg, hints)
+				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, diagMsg(msg), hints)
 			} else {
-				ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+				ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagMsg(msg))
 			}
 		}
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
@@ -38,11 +38,11 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 	ty, ok := ch.reg.LookupConType(e.Name)
 	if !ok {
-		msg := "unknown constructor: " + e.Name
+		detail := diagUnknown{Kind: "constructor", Name: e.Name}
 		if hints := ch.suggestCon(e.Name); len(hints) > 0 {
-			ch.addCodedErrorWithHints(diagnostic.ErrUnboundCon, e.S, msg, hints)
+			ch.addDiagHints(diagnostic.ErrUnboundCon, e.S, detail, hints)
 		} else {
-			ch.addCodedError(diagnostic.ErrUnboundCon, e.S, msg)
+			ch.addDiag(diagnostic.ErrUnboundCon, e.S, detail)
 		}
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
@@ -54,7 +54,7 @@ func (ch *Checker) lookupCon(e *syntax.ExprCon) (types.Type, ir.Core, bool) {
 func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bool) {
 	qs, ok := ch.scope.LookupQualified(e.Qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, "unknown qualifier: "+e.Qualifier)
+		ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagUnknown{Kind: "qualifier", Name: e.Qualifier})
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	ty, ok := qs.Exports.Values[e.Name]
@@ -70,7 +70,7 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bo
 				}
 			}
 		}
-		ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
+		ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagMsg(msg))
 		return &types.TyError{S: e.S}, &ir.Var{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Var{Name: e.Name, Module: qs.ModuleName, S: e.S}, true
@@ -80,13 +80,13 @@ func (ch *Checker) lookupQualVar(e *syntax.ExprQualVar) (types.Type, ir.Core, bo
 func (ch *Checker) lookupQualCon(e *syntax.ExprQualCon) (types.Type, ir.Core, bool) {
 	qs, ok := ch.scope.LookupQualified(e.Qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, e.S, "unknown qualifier: "+e.Qualifier)
+		ch.addDiag(diagnostic.ErrUnboundCon, e.S, diagUnknown{Kind: "qualifier", Name: e.Qualifier})
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
 	ty, ok := qs.Exports.ConTypes[e.Name]
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, e.S,
-			"module "+qs.ModuleName+" does not export constructor: "+e.Name)
+		ch.addDiag(diagnostic.ErrUnboundCon, e.S,
+			diagMsg("module "+qs.ModuleName+" does not export constructor: "+e.Name))
 		return &types.TyError{S: e.S}, &ir.Con{Name: e.Name, S: e.S}, false
 	}
 	return ty, &ir.Con{Name: e.Name, Module: qs.ModuleName, S: e.S}, true

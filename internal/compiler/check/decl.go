@@ -75,8 +75,8 @@ func (p *declPipeline) checkDuplicateBindings() {
 	for _, d := range p.decls {
 		if def, ok := d.(*syntax.DeclValueDef); ok {
 			if seen[def.Name] {
-				p.ch.addCodedError(diagnostic.ErrDuplicateDecl, def.S,
-					"duplicate binding: "+def.Name)
+				p.ch.addDiag(diagnostic.ErrDuplicateDecl, def.S,
+					diagFmt{Format: "duplicate binding: %s", Args: []any{def.Name}})
 			} else {
 				seen[def.Name] = true
 			}
@@ -352,7 +352,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	// Check if it's an assumption.
 	if isAssumptionDef(d) {
 		if ch.config.DenyAssumptions {
-			ch.addCodedError(diagnostic.ErrAssumption, d.S, "assumption declarations are not allowed (host-only feature)")
+			ch.addDiag(diagnostic.ErrAssumption, d.S, diagMsg("assumption declarations are not allowed (host-only feature)"))
 			return
 		}
 		// Try AST annotation first, then config assumptions.
@@ -363,7 +363,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 			}
 		}
 		if !hasAnn {
-			ch.addCodedError(diagnostic.ErrAssumption, d.S, "assumption "+d.Name+" requires a type annotation")
+			ch.addDiag(diagnostic.ErrAssumption, d.S, diagFmt{Format: "assumption %s requires a type annotation", Args: []any{d.Name}})
 			return
 		}
 		// Note: assumptions without a corresponding RegisterPrim are caught at
@@ -426,8 +426,8 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	// deliberate intent that the checker should not silently rewrite.
 	if ch.config.EntryPoint != "" && d.Name != ch.config.EntryPoint && isBareComputationType(ty) {
 		if hasAnn {
-			ch.addCodedError(diagnostic.ErrEffectfulBinding, d.S,
-				"top-level binding "+d.Name+" is annotated as bare Computation; non-entry bindings must be values — annotate as Thunk, drop the annotation to let the checker auto-thunk, or move the body into a function")
+			ch.addDiag(diagnostic.ErrEffectfulBinding, d.S,
+				diagFmt{Format: "top-level binding %s is annotated as bare Computation; non-entry bindings must be values — annotate as Thunk, drop the annotation to let the checker auto-thunk, or move the body into a function", Args: []any{d.Name}})
 		} else {
 			ty, coreExpr = ch.autoThunkComputation(ty, coreExpr, d.S)
 		}

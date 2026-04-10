@@ -3,6 +3,7 @@ package check
 import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/exhaust"
 	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -18,7 +19,9 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []ir.Alt, s span.Spa
 		Unifier:      ch.unifier,
 		ReduceFamily: ch.reduceFamilyInType,
 		CanUnifyWith: ch.canUnifyWith,
-		AddError:     ch.addCodedError,
+		AddError: func(code diagnostic.Code, s span.Span, msg string) {
+			ch.addDiag(code, s, diagMsg(msg))
+		},
 	}
 	env.CheckExhaustive(scrutTy, alts, s)
 }

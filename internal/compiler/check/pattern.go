@@ -33,8 +33,8 @@ type patternResult struct {
 func (ch *Checker) mergePatternBindings(parent map[string]types.Type, child map[string]types.Type, sp span.Span) {
 	for name, ty := range child {
 		if _, exists := parent[name]; exists {
-			ch.addCodedError(diagnostic.ErrDuplicateLabel, sp,
-				fmt.Sprintf("variable %q is bound more than once in the same pattern", name))
+			ch.addDiag(diagnostic.ErrDuplicateLabel, sp,
+				diagFmt{Format: "variable %q is bound more than once in the same pattern", Args: []any{name}})
 			continue
 		}
 		parent[name] = ty
@@ -63,7 +63,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 	case *syntax.PatList:
 		return ch.checkPattern(desugarListPattern(p), scrutTy)
 	default:
-		ch.addCodedError(diagnostic.ErrTypeMismatch, pat.Span(), fmt.Sprintf("unsupported pattern form: %T", pat))
+		ch.addDiag(diagnostic.ErrTypeMismatch, pat.Span(), diagFmt{Format: "unsupported pattern form: %T", Args: []any{pat}})
 		return patternResult{Pattern: &ir.PWild{S: pat.Span()}}
 	}
 }
@@ -71,7 +71,7 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 func (ch *Checker) checkLitPattern(p *syntax.PatLit, scrutTy types.Type) patternResult {
 	litTy, litVal, parseErr := parseLitValue(p.Kind, p.Value)
 	if parseErr != nil {
-		ch.addCodedError(diagnostic.ErrTypeMismatch, p.S, "invalid literal in pattern: "+p.Value)
+		ch.addDiag(diagnostic.ErrTypeMismatch, p.S, diagMsg("invalid literal in pattern: "+p.Value))
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	ch.emitEq(litTy, scrutTy, p.S, solve.WithContext(0, "literal pattern type mismatch"))
@@ -132,7 +132,7 @@ func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]
 func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) patternResult {
 	conTy, ok := ch.reg.LookupConType(p.Con)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, "unknown constructor in pattern: "+p.Con)
+		ch.addDiag(diagnostic.ErrUnboundCon, p.S, diagUnknown{Kind: "constructor", Name: p.Con})
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	return ch.checkConPatternWith(p.Con, "", conTy, p.Args, scrutTy, p.S)
@@ -141,13 +141,13 @@ func (ch *Checker) checkConPattern(p *syntax.PatCon, scrutTy types.Type) pattern
 func (ch *Checker) checkQualConPattern(p *syntax.PatQualCon, scrutTy types.Type) patternResult {
 	qs, ok := ch.scope.LookupQualified(p.Qualifier)
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, p.S, "unknown qualifier: "+p.Qualifier)
+		ch.addDiag(diagnostic.ErrUnboundCon, p.S, diagUnknown{Kind: "qualifier", Name: p.Qualifier})
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	conTy, ok := qs.Exports.ConTypes[p.Con]
 	if !ok {
-		ch.addCodedError(diagnostic.ErrUnboundCon, p.S,
-			"module "+qs.ModuleName+" does not export constructor: "+p.Con)
+		ch.addDiag(diagnostic.ErrUnboundCon, p.S,
+			diagFmt{Format: "module %s does not export constructor: %s", Args: []any{qs.ModuleName, p.Con}})
 		return patternResult{Pattern: &ir.PWild{S: p.S}}
 	}
 	return ch.checkConPatternWith(p.Con, qs.ModuleName, conTy, p.Args, scrutTy, p.S)
@@ -215,8 +215,8 @@ func (ch *Checker) checkConPatternWith(conName, moduleName string, conTy types.T
 			}
 		}
 		if len(patArgs) > arity {
-			ch.addCodedError(diagnostic.ErrBadApplication, s,
-				fmt.Sprintf("constructor %s expects %d field(s), but pattern has %d", conName, arity, len(patArgs)))
+			ch.addDiag(diagnostic.ErrBadApplication, s,
+				diagFmt{Format: "constructor %s expects %d field(s), but pattern has %d", Args: []any{conName, arity, len(patArgs)}})
 			return mkResult()
 		}
 	}

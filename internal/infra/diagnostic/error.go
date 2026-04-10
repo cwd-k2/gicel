@@ -108,12 +108,21 @@ func (p Phase) String() string {
 	}
 }
 
+// DetailFormatter is implemented by structured diagnostic details.
+// The checker creates typed detail values; DiagnosticMessage produces
+// the human-readable text. The Detail field on Error preserves the
+// structured data for programmatic access (LSP, tests).
+type DetailFormatter interface {
+	DiagnosticMessage() string
+}
+
 // Error is a structured diagnostic.
 type Error struct {
 	Code    Code
 	Phase   Phase
 	Span    span.Span
-	Message string
+	Message string          // human-readable text (set from Detail or directly)
+	Detail  DetailFormatter // structured data (nil for legacy string-only errors)
 	Hints   []Hint
 }
 
