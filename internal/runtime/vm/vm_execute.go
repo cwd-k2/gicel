@@ -123,7 +123,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			proto := frame.proto.Protos[idx]
-			if err := vm.budget.Alloc(eval.CostClosure); err != nil {
+			if err := vm.budget.Alloc(eval.CostClosure + int64(len(proto.Captures))*eval.CostPAPArg); err != nil {
 				return eval.EvalResult{}, err
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
@@ -268,7 +268,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			proto := frame.proto.Protos[idx]
-			if err := vm.budget.Alloc(eval.CostThunk); err != nil {
+			if err := vm.budget.Alloc(eval.CostThunk + int64(len(proto.Captures))*eval.CostPAPArg); err != nil {
 				return eval.EvalResult{}, err
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
@@ -404,6 +404,10 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			frame.ip += 2
 			desc := frame.proto.RecordDescs[descIdx]
 			n := len(desc.Labels)
+			// Charge for the temporary updates slice upfront.
+			if err := vm.budget.Alloc(int64(n) * eval.CostRecordField); err != nil {
+				return eval.EvalResult{}, err
+			}
 			updates := make([]eval.RecordField, n)
 			for i := n - 1; i >= 0; i-- {
 				updates[i] = eval.RecordField{Label: desc.Labels[i], Value: vm.pop()}
@@ -478,6 +482,9 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				frame.ip = int(failOffset)
 				continue
 			}
+			if err := vm.budget.Alloc(int64(len(desc.Labels)) * eval.CostPAPArg); err != nil {
+				return eval.EvalResult{}, err
+			}
 			matched := true
 			vals := make([]eval.Value, len(desc.Labels))
 			for i, label := range desc.Labels {
@@ -529,7 +536,9 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			proto := frame.proto.Protos[idx]
-			if err := vm.budget.Alloc(eval.CostFix); err != nil {
+			// Charge header + capture slice + full NumLocals environment.
+			fixCost := eval.CostFix + int64(len(proto.Captures))*eval.CostPAPArg + int64(proto.NumLocals)*eval.CostPAPArg
+			if err := vm.budget.Alloc(fixCost); err != nil {
 				return eval.EvalResult{}, err
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
@@ -547,7 +556,8 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			idx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
 			proto := frame.proto.Protos[idx]
-			if err := vm.budget.Alloc(eval.CostFix); err != nil {
+			fixCost := eval.CostFix + int64(len(proto.Captures))*eval.CostPAPArg + int64(proto.NumLocals)*eval.CostPAPArg
+			if err := vm.budget.Alloc(fixCost); err != nil {
 				return eval.EvalResult{}, err
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
@@ -614,6 +624,9 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			var impl eval.PrimImpl
 			if int(nameIdx) < len(frame.proto.ResolvedPrims) {
 				impl = frame.proto.ResolvedPrims[nameIdx]
+			}
+			if err := vm.budget.Alloc(eval.CostPAP + int64(arity)*eval.CostPAPArg); err != nil {
+				return eval.EvalResult{}, err
 			}
 			args := make([]eval.Value, arity)
 			for i := arity - 1; i >= 0; i-- {

@@ -118,6 +118,41 @@ func TestErrorAccumulationCap(t *testing.T) {
 	}
 }
 
+// Fix: Allocation limit must account for closure captures, fix environments,
+// effect prim args, and match temporaries — not just header costs.
+func TestAllocLimitCaptureCharging(t *testing.T) {
+	// Recursive function that creates fix closures with captured environments.
+	// With a tight alloc limit, the capture-proportional charges should trigger.
+	source := `
+import Prelude
+
+build :: Int -> Record { a: Int, b: Int, c: Int, d: Int, e: Int } -> Int
+build := fix (\self n r. case n == 0 { True => r.#a; False => self (n - 1) { r | a: n, b: n, c: n, d: n, e: n } })
+
+main := build 5000 { a: 0, b: 0, c: 0, d: 0, e: 0 }
+`
+	eng := gicel.NewEngine()
+	eng.EnableRecursion()
+	eng.SetStepLimit(10_000_000)
+	// Tight alloc limit: 32 KiB. The capture and record update charges
+	// should cause this to hit the limit well before 5000 iterations.
+	eng.SetAllocLimit(32 * 1024)
+	if err := eng.Use(gicel.Prelude); err != nil {
+		t.Fatal(err)
+	}
+	rt, err := eng.NewRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = rt.RunWith(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected allocation limit error, got nil")
+	}
+	if !strings.Contains(err.Error(), "allocation limit") {
+		t.Errorf("expected allocation limit error, got: %v", err)
+	}
+}
+
 // Fix 4: parseKindExpr must use enterRecurse() to prevent stack overflow
 // from deeply nested kind expressions.
 func TestParserKindExprDepthLimit(t *testing.T) {
