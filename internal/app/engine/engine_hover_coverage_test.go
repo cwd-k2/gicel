@@ -461,6 +461,42 @@ func TestHoverCoverage_Report(t *testing.T) {
 	t.Logf("%-45s  %8s  %8s  %8s", "TOTAL", fmtPct(totalID), fmtPct(totalOp), fmtPct(totalLit))
 }
 
+// TestHoverCoverage_ClassMethodAndDoc diagnoses class method and doc comment hover.
+func TestHoverCoverage_ClassMethodAndDoc(t *testing.T) {
+	source := `import Prelude
+
+-- Add two values.
+myAdd :: Int -> Int -> Int
+myAdd := \x y. x + y
+
+main := do {
+  a <- pure (eq 1 2);
+  b <- pure (myAdd 3 4);
+  pure (a, b)
+}`
+
+	eng := NewEngine()
+	allPacks(eng)
+	eng.EnableHoverIndex()
+
+	ar := eng.Analyze(context.Background(), source)
+	if ar.HoverIndex == nil {
+		t.Fatal("HoverIndex is nil")
+	}
+
+	tokens := tokenize(source)
+	for _, tok := range tokens {
+		if tok.Kind != syn.TokLower {
+			continue
+		}
+		mid := (tok.S.Start + tok.S.End) / 2
+		hover := ar.HoverIndex.HoverAt(span.Pos(mid))
+		if tok.Text == "eq" || tok.Text == "myAdd" || tok.Text == "pure" {
+			t.Logf("%-8s → %q", tok.Text, hover)
+		}
+	}
+}
+
 func fmtPct(s coverageStats) string {
 	if s.total == 0 {
 		return "-"

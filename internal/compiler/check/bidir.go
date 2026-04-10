@@ -36,6 +36,13 @@ func (ch *Checker) recordOperator(sp span.Span, name, module string, ty *types.T
 	}
 }
 
+// recordVarDoc calls the VarDocRecorder callback if configured.
+func (ch *Checker) recordVarDoc(sp span.Span, name string) {
+	if ch.config.VarDocRecorder != nil && sp != (span.Span{}) {
+		ch.config.VarDocRecorder(sp, name)
+	}
+}
+
 // infer produces a type for an expression and a Core IR node.
 func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	defer ch.recordType(expr.Span(), &ty)
@@ -70,6 +77,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
+		ch.recordVarDoc(e.S, e.Name)
 		if ch.config.Trace != nil {
 			ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
 		}

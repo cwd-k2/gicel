@@ -30,8 +30,9 @@ const (
 // Lifecycle: Record/RecordDecl → RezonkAll → Finalize → HoverAt.
 // Record after Finalize panics.
 type HoverIndex struct {
-	entries   []hoverEntry
-	finalized bool
+	entries     []hoverEntry
+	pendingDocs map[span.Pos]string // span.Start → doc (set by AttachDoc, applied at Finalize)
+	finalized   bool
 }
 
 // OperatorFixity holds the fixity information for an operator.
@@ -100,6 +101,18 @@ func (idx *HoverIndex) RecordOperator(sp span.Span, name, module string, ty type
 	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: HoverOperator, ty: ty, label: name, module: module, fixity: fixity})
 }
 
+// AttachDoc associates a doc comment with an expression span.
+// Applied during Finalize to the matching HoverExpr entry.
+func (idx *HoverIndex) AttachDoc(sp span.Span, doc string) {
+	if doc == "" || sp.Start >= sp.End {
+		return
+	}
+	if idx.pendingDocs == nil {
+		idx.pendingDocs = make(map[span.Pos]string)
+	}
+	idx.pendingDocs[sp.Start] = doc
+}
+
 // RezonkAll applies a final zonk function to all recorded types,
 // replacing unresolved metavariables with their solutions. Must be
 // called after type checking completes and before Finalize.
@@ -114,9 +127,19 @@ func (idx *HoverIndex) RezonkAll(zonk func(types.Type) types.Type) {
 	}
 }
 
-// Finalize sorts entries for positional queries. Must be called
-// exactly once after all Record/RecordDecl calls and before any queries.
+// Finalize applies pending doc comments and sorts entries for positional queries.
+// Must be called exactly once after all Record/RecordDecl calls and before any queries.
 func (idx *HoverIndex) Finalize() {
+	// Apply pending doc comments to matching expression entries.
+	for i := range idx.entries {
+		e := &idx.entries[i]
+		if e.kind == HoverExpr && e.doc == "" {
+			if doc, ok := idx.pendingDocs[e.span.Start]; ok {
+				e.doc = doc
+			}
+		}
+	}
+	idx.pendingDocs = nil
 	idx.finalized = true
 	sort.Slice(idx.entries, func(i, j int) bool {
 		a, b := idx.entries[i].span, idx.entries[j].span

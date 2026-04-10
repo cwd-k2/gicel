@@ -57,6 +57,7 @@ type CheckConfig struct {
 	MaxResolveDepth  int                                                    // instance resolution depth limit (0 = default 64)
 	TypeRecorder     func(span.Span, types.Type)                            // when non-nil, called for each inferred expression span→type
 	OperatorRecorder func(sp span.Span, name, module string, ty types.Type) // when non-nil, called for operator tokens with their own type
+	VarDocRecorder   func(sp span.Span, name string)                        // when non-nil, called for variable references (attaches doc to hover)
 	DeclRecorder     func(span.Span, string, string, types.Type)            // when non-nil, called for declaration hover: (span, declType, name, type/kind)
 	PostCheckHook    func(zonk func(types.Type) types.Type)                 // when non-nil, called after checking with the final zonk function
 	PostGeneralize   func(zonk func(types.Type) types.Type)                 // when non-nil, called during generalization while temp solutions are active

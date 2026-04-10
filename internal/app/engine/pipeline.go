@@ -219,6 +219,30 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 			}
 			idx.RecordOperator(sp, name, module, ty, fix)
 		}
+		// Build name→doc map for variable hover doc enrichment.
+		// Includes imported module bindings + local declarations.
+		varDocs := pc.collectVarDocs()
+		for _, d := range ast.Decls {
+			switch decl := d.(type) {
+			case *syntax.DeclValueDef:
+				if decl.S != (span.Span{}) {
+					if doc := ExtractDocComment(source, decl.S.Start); doc != "" {
+						varDocs[decl.Name] = doc
+					}
+				}
+			case *syntax.DeclTypeAnn:
+				if decl.S != (span.Span{}) {
+					if doc := ExtractDocComment(source, decl.S.Start); doc != "" {
+						varDocs[decl.Name] = doc
+					}
+				}
+			}
+		}
+		cfg.VarDocRecorder = func(sp span.Span, name string) {
+			if doc, ok := varDocs[name]; ok {
+				idx.AttachDoc(sp, doc)
+			}
+		}
 		cfg.PostGeneralize = func(zonk func(types.Type) types.Type) {
 			idx.RezonkAll(zonk)
 		}
@@ -516,6 +540,36 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 			idx.RecordDecl(imp.S, HoverImport, label, nil, "")
 		}
 	}
+}
+
+// collectVarDocs builds a name→doc map from all imported module bindings.
+func (pc *pipelineCtx) collectVarDocs() map[string]string {
+	docs := make(map[string]string)
+	for _, name := range pc.store.order {
+		mod, ok := pc.store.modules[name]
+		if !ok || mod.source == nil {
+			continue
+		}
+		for _, b := range mod.prog.Bindings {
+			if b.Generated.IsGenerated() || b.S == (span.Span{}) {
+				continue
+			}
+			if d := ExtractDocComment(mod.source.Text, b.S.Start); d != "" {
+				docs[b.Name] = d
+			}
+		}
+		// Form declarations (class methods have doc on the form, not individual fields).
+		for i := range mod.prog.DataDecls {
+			dd := &mod.prog.DataDecls[i]
+			if dd.S == (span.Span{}) {
+				continue
+			}
+			if d := ExtractDocComment(mod.source.Text, dd.S.Start); d != "" {
+				docs[dd.Name] = d
+			}
+		}
+	}
+	return docs
 }
 
 // fixityToHover converts a parse.Fixity to hover display information.
