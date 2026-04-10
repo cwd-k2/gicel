@@ -4,6 +4,7 @@
 package optimize
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -49,7 +50,7 @@ func BenchmarkOptimizeNoopSmall(b *testing.B) {
 	tree := buildDeepTree(50)
 	b.ResetTimer()
 	for b.Loop() {
-		optimize(tree, nil)
+		optimize(context.Background(), tree, nil)
 	}
 }
 
@@ -59,7 +60,7 @@ func BenchmarkOptimizeNoopLarge(b *testing.B) {
 	tree := buildDeepTree(500)
 	b.ResetTimer()
 	for b.Loop() {
-		optimize(tree, nil)
+		optimize(context.Background(), tree, nil)
 	}
 }
 
@@ -68,7 +69,7 @@ func BenchmarkOptimizeNoopLarge(b *testing.B) {
 func BenchmarkOptimizeBetaHeavy(b *testing.B) {
 	for b.Loop() {
 		tree := buildBetaChain(20)
-		optimize(tree, nil)
+		optimize(context.Background(), tree, nil)
 	}
 }
 
@@ -81,6 +82,6 @@ func BenchmarkOptimizeRewriteRules(b *testing.B) {
 	rules := []func(ir.Core) ir.Core{noop, noop, noop}
 	b.ResetTimer()
 	for b.Loop() {
-		optimize(tree, rules)
+		optimize(context.Background(), tree, rules)
 	}
 }

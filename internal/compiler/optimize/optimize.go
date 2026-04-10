@@ -7,15 +7,25 @@
 // bypass erasure and cause a runtime type-application error.
 package optimize
 
-import "github.com/cwd-k2/gicel/internal/lang/ir"
+import (
+	"context"
+
+	"github.com/cwd-k2/gicel/internal/lang/ir"
+)
 
 // optimize applies algebraic simplifications and registered rewrite rules.
 // Runs up to maxPasses bottom-up passes, stopping early when a pass
-// makes no changes (fixed-point detection).
-func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
+// makes no changes (fixed-point detection). Checks the context between
+// passes so that a timeout or cancellation aborts the optimization loop
+// before runaway IR growth (e.g. recursive dictionary inlining) exhausts
+// memory.
+func optimize(ctx context.Context, c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 	const maxPasses = 4
 	for range maxPasses {
-		rw := &rewriter{rules: rules}
+		if ctx.Err() != nil {
+			break
+		}
+		rw := &rewriter{ctx: ctx, rules: rules}
 		c = ir.TransformMut(c, rw.apply)
 		if !rw.changed {
 			break
@@ -29,7 +39,9 @@ func optimize(c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
 // names (nil = no local inlining). externalBindings supplies bindings
 // from imported modules (e.g., Prelude transparent wrappers like $,
 // fix, force) that are eligible for inlining at qualified call sites.
-func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, externalDicts ...map[string]ExternalBinding) {
+// The context is checked between optimization passes so that timeout or
+// cancellation can abort before runaway IR growth exhausts memory.
+func OptimizeProgram(ctx context.Context, prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, externalDicts ...map[string]ExternalBinding) {
 	candidates := collectInlineCandidates(prog, userBindings, externalBindings)
 	allRules := rules
 	if len(candidates) > 0 {
@@ -44,7 +56,7 @@ func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindin
 		allRules = append([]func(ir.Core) ir.Core{caseOfKnownDict(dicts, prog)}, allRules...)
 	}
 	for i, b := range prog.Bindings {
-		prog.Bindings[i].Expr = optimize(b.Expr, allRules)
+		prog.Bindings[i].Expr = optimize(ctx, b.Expr, allRules)
 	}
 }
 
@@ -64,6 +76,9 @@ func hasLocalDicts(prog *ir.Program) bool {
 // general-purpose dictionary inlining.
 func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func(ir.Core) ir.Core {
 	// Collect local dictionaries from the main program.
+	// Skip recursive dictionaries (self-referential bindings) to prevent
+	// infinite inlining expansion — e.g. `impl Functor Tree` where the
+	// method body calls fmap recursively via the same dictionary.
 	localDicts := make(map[string]ir.Core)
 	for _, b := range prog.Bindings {
 		if !b.Generated.IsGenerated() {
@@ -83,6 +98,9 @@ func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func
 		}
 		switch core.(type) {
 		case *ir.Con, *ir.App:
+			if _, selfRef := ir.FreeVars(b.Expr)[b.Name]; selfRef {
+				continue // recursive dictionary — skip to prevent infinite expansion
+			}
 			localDicts[b.Name] = b.Expr
 		}
 	}
@@ -157,13 +175,19 @@ func normalizeConApp(expr ir.Core) *ir.Con {
 
 // rewriter tracks whether any transformation fired during a pass.
 type rewriter struct {
+	ctx     context.Context
 	rules   []func(ir.Core) ir.Core
 	changed bool
 }
 
 // apply runs algebraic simplifications and registered fusion rules on a
-// single node, setting changed if any rule fires.
+// single node, setting changed if any rule fires. Bails out immediately
+// when the context is cancelled so that timeout aborts runaway expansion
+// (e.g. recursive dictionary inlining) within a single TransformMut pass.
 func (rw *rewriter) apply(c ir.Core) ir.Core {
+	if rw.ctx.Err() != nil {
+		return c
+	}
 	orig := c
 	// Phase 1: algebraic simplifications (always active).
 	c = betaReduce(c)

@@ -1,6 +1,7 @@
 package optimize
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -130,7 +131,7 @@ func TestR1_CaseOfKnownCtor(t *testing.T) {
 		alt(pcon("Just", pvar("y")), v("y")),
 		alt(pcon("Nothing"), v("z")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("x")) {
 		t.Fatalf("R1 failed: got %v", result)
 	}
@@ -143,7 +144,7 @@ func TestR1_CaseOfKnownCtorMultiArg(t *testing.T) {
 		alt(pcon("Cons", pvar("x"), pvar("y")), v("x")),
 		alt(pcon("Nil"), v("z")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("a")) {
 		t.Fatalf("R1 multi-arg failed: got %v", result)
 	}
@@ -157,7 +158,7 @@ func TestR1b_CaseOfKnownLit(t *testing.T) {
 		alt(plit(int64(0)), v("a")),
 		alt(plit(int64(1)), v("b")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("a")) {
 		t.Fatalf("R1b match failed: got %v", result)
 	}
@@ -170,7 +171,7 @@ func TestR1b_CaseOfKnownLitWildcard(t *testing.T) {
 		alt(plit(int64(0)), v("a")),
 		alt(pwild(), v("b")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("b")) {
 		t.Fatalf("R1b wildcard fallback failed: got %v", result)
 	}
@@ -183,7 +184,7 @@ func TestR1b_CaseOfKnownLitVar(t *testing.T) {
 		alt(plit(int64(0)), v("a")),
 		alt(pvar("x"), v("x")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, lit(int64(42))) {
 		t.Fatalf("R1b var binding failed: got %v", result)
 	}
@@ -196,7 +197,7 @@ func TestR1b_CaseOfKnownLitString(t *testing.T) {
 		alt(plit("hello"), v("a")),
 		alt(plit("world"), v("b")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("a")) {
 		t.Fatalf("R1b string match failed: got %v", result)
 	}
@@ -209,7 +210,7 @@ func TestR1b_CaseOfKnownLitNoMatch(t *testing.T) {
 		alt(plit(int64(0)), v("a")),
 		alt(plit(int64(1)), v("b")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, input) {
 		t.Fatalf("R1b no-match should be unchanged")
 	}
@@ -228,7 +229,7 @@ func TestR8_BindOfCase(t *testing.T) {
 		Var:  "r",
 		Body: v("r"),
 	}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	// After bind-of-case + bind-pure elimination:
 	// case x { A → 1; B → 2 }
 	cs, ok := result.(*ir.Case)
@@ -258,7 +259,7 @@ func TestR8_BindOfCase_SizeGuard(t *testing.T) {
 		Var:  "r",
 		Body: large,
 	}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if _, ok := result.(*ir.Bind); !ok {
 		t.Fatalf("R8 size guard: expected Bind (unchanged), got %T", result)
 	}
@@ -268,7 +269,7 @@ func TestR8_BindOfCase_SizeGuard(t *testing.T) {
 func TestR2_BetaReduction(t *testing.T) {
 	// (\x. x) y  →  y
 	input := app(lam("x", v("x")), v("y"))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("y")) {
 		t.Fatalf("R2 failed: got %v", result)
 	}
@@ -278,7 +279,7 @@ func TestR2_BetaReductionNested(t *testing.T) {
 	// (\f. \x. f x) g  →  \x. g x
 	input := app(lam("f", lam("x", app(v("f"), v("x")))), v("g"))
 	expected := lam("x", app(v("g"), v("x")))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, expected) {
 		t.Fatalf("R2 nested failed: got %v", result)
 	}
@@ -288,7 +289,7 @@ func TestR2_BetaReductionNested(t *testing.T) {
 func TestR3_BindPure(t *testing.T) {
 	// bind (pure e) x body  →  body[x := e]
 	input := &ir.Bind{Comp: &ir.Pure{Expr: v("e")}, Var: "x", Body: v("x")}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("e")) {
 		t.Fatalf("R3 failed: got %v", result)
 	}
@@ -298,7 +299,7 @@ func TestR3_BindPure(t *testing.T) {
 func TestR4_ForceThunk(t *testing.T) {
 	// force (thunk comp)  →  comp
 	input := &ir.Force{Expr: &ir.Thunk{Comp: v("comp")}}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("comp")) {
 		t.Fatalf("R4 failed: got %v", result)
 	}
@@ -314,7 +315,7 @@ func TestR5_RecordProjKnown(t *testing.T) {
 		}},
 		Label: "x",
 	}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, lit(int64(1))) {
 		t.Fatalf("R5 failed: got %v", result)
 	}
@@ -330,7 +331,7 @@ func TestR6_RecordUpdateChain(t *testing.T) {
 		},
 		Updates: []ir.Field{{Label: "y", Value: lit(int64(2))}},
 	}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	upd, ok := result.(*ir.RecordUpdate)
 	if !ok {
 		t.Fatalf("R6: expected RecordUpdate, got %T", result)
@@ -352,7 +353,7 @@ func TestR6_RecordUpdateOverwrite(t *testing.T) {
 		},
 		Updates: []ir.Field{{Label: "x", Value: lit(int64(2))}},
 	}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	upd, ok := result.(*ir.RecordUpdate)
 	if !ok {
 		t.Fatalf("R6 overwrite: expected RecordUpdate, got %T", result)
@@ -403,7 +404,7 @@ func testMapMapFusion(c ir.Core) ir.Core {
 // R10: Slice map/map fusion
 func TestR10_SliceMapMap(t *testing.T) {
 	input := primop("_sliceMap", 2, v("f"), primop("_sliceMap", 2, v("g"), v("xs")))
-	result := optimize(input, []func(ir.Core) ir.Core{testMapMapFusion})
+	result := optimize(context.Background(), input, []func(ir.Core) ir.Core{testMapMapFusion})
 	po, ok := result.(*ir.PrimOp)
 	if !ok || po.Name != "_sliceMap" {
 		t.Fatalf("R10: expected _sliceMap, got %T", result)
@@ -428,7 +429,7 @@ func TestR10_SliceMapMap(t *testing.T) {
 func TestR12_SlicePackedRoundtrip(t *testing.T) {
 	rules := []func(ir.Core) ir.Core{testRoundtrip("_sliceToList", "_sliceFromList")}
 	input := primop("_sliceToList", 1, primop("_sliceFromList", 1, v("xs")))
-	result := optimize(input, rules)
+	result := optimize(context.Background(), input, rules)
 	if !coreEq(result, v("xs")) {
 		t.Fatalf("R12 failed: got %v", result)
 	}
@@ -438,7 +439,7 @@ func TestR12_SlicePackedRoundtrip(t *testing.T) {
 func TestR14_ListPackedRoundtrip(t *testing.T) {
 	rules := []func(ir.Core) ir.Core{testRoundtrip("_listFromSlice", "_listToSlice")}
 	input := primop("_listFromSlice", 1, primop("_listToSlice", 1, v("xs")))
-	result := optimize(input, rules)
+	result := optimize(context.Background(), input, rules)
 	if !coreEq(result, v("xs")) {
 		t.Fatalf("R14 failed: got %v", result)
 	}
@@ -447,7 +448,7 @@ func TestR14_ListPackedRoundtrip(t *testing.T) {
 func TestR14_ListPackedRoundtripReverse(t *testing.T) {
 	rules := []func(ir.Core) ir.Core{testRoundtrip("_listToSlice", "_listFromSlice")}
 	input := primop("_listToSlice", 1, primop("_listFromSlice", 1, v("xs")))
-	result := optimize(input, rules)
+	result := optimize(context.Background(), input, rules)
 	if !coreEq(result, v("xs")) {
 		t.Fatalf("R14 reverse failed: got %v", result)
 	}
@@ -457,7 +458,7 @@ func TestR14_ListPackedRoundtripReverse(t *testing.T) {
 func TestR13_StringPackedRoundtrip(t *testing.T) {
 	rules := []func(ir.Core) ir.Core{testRoundtrip("_fromRunes", "_toRunes")}
 	input := primop("_fromRunes", 1, primop("_toRunes", 1, v("x")))
-	result := optimize(input, rules)
+	result := optimize(context.Background(), input, rules)
 	if !coreEq(result, v("x")) {
 		t.Fatalf("R13 failed: got %v", result)
 	}
@@ -473,7 +474,7 @@ func TestMultiPass_BetaThenCaseOfKnown(t *testing.T) {
 		lam("d", cas(v("d"), alt(pcon("Just", pvar("y")), v("y")))),
 		con("Just", v("x")),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, v("x")) {
 		t.Fatalf("multi-pass beta+case failed: got %v", result)
 	}
@@ -484,7 +485,7 @@ func TestMultiPass_BetaThenCaseOfKnown(t *testing.T) {
 func TestNoOp_CaseNotKnown(t *testing.T) {
 	// case x of { Just y -> y }  →  unchanged
 	input := cas(v("x"), alt(pcon("Just", pvar("y")), v("y")))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, input) {
 		t.Fatalf("should not transform non-known scrutinee")
 	}
@@ -493,7 +494,7 @@ func TestNoOp_CaseNotKnown(t *testing.T) {
 func TestNoOp_ForceNonThunk(t *testing.T) {
 	// force x  →  unchanged
 	input := &ir.Force{Expr: v("x")}
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	if !coreEq(result, input) {
 		t.Fatalf("should not transform force of non-thunk")
 	}
@@ -504,7 +505,7 @@ func TestNoOp_ForceNonThunk(t *testing.T) {
 func TestSubst_LamShadowing(t *testing.T) {
 	// (\x. \x. x) y  →  \x. x  (inner x shadows, must NOT become y)
 	input := app(lam("x", lam("x", v("x"))), v("y"))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	expected := lam("x", v("x"))
 	if !coreEq(result, expected) {
 		t.Fatalf("Lam shadowing: expected \\x. x, got %v", result)
@@ -515,7 +516,7 @@ func TestSubst_FixShadowing(t *testing.T) {
 	// (\x. fix x in \y. x) y  →  fix x in \y. x
 	inner := &ir.Fix{Name: "x", Body: lam("y", v("x"))}
 	input := app(lam("x", inner), v("y"))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	// The fix shadows x, so the body must remain unchanged.
 	fx, ok := result.(*ir.Fix)
 	if !ok {
@@ -535,7 +536,7 @@ func TestSubst_BindShadowing(t *testing.T) {
 	// The bind variable x shadows, so the body must remain v("x").
 	inner := &ir.Bind{Comp: v("x"), Var: "x", Body: v("x")}
 	input := app(lam("x", inner), v("y"))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	b, ok := result.(*ir.Bind)
 	if !ok {
 		t.Fatalf("Bind shadowing: expected Bind, got %T", result)
@@ -560,7 +561,7 @@ func TestSubst_CasePatternShadowing(t *testing.T) {
 		alt(pcon("Nothing"), v("x")),
 	)
 	input := app(lam("x", inner), v("y"))
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	cs, ok := result.(*ir.Case)
 	if !ok {
 		t.Fatalf("Case shadowing: expected Case, got %T", result)
@@ -730,7 +731,7 @@ func TestR11_SliceFoldrMapFusion(t *testing.T) {
 	}
 	input := primop("_sliceFoldr", 3, v("k"), v("z"),
 		primop("_sliceMap", 2, v("f"), v("xs")))
-	result := optimize(input, []func(ir.Core) ir.Core{fusionRule})
+	result := optimize(context.Background(), input, []func(ir.Core) ir.Core{fusionRule})
 
 	po, ok := result.(*ir.PrimOp)
 	if !ok || po.Name != "_sliceFoldr" {
@@ -778,7 +779,7 @@ func testListMapMapFusion(c ir.Core) ir.Core {
 
 func TestR15_ListMapMap(t *testing.T) {
 	input := primop("_listMap", 2, v("f"), primop("_listMap", 2, v("g"), v("xs")))
-	result := optimize(input, []func(ir.Core) ir.Core{testListMapMapFusion})
+	result := optimize(context.Background(), input, []func(ir.Core) ir.Core{testListMapMapFusion})
 	po, ok := result.(*ir.PrimOp)
 	if !ok || po.Name != "_listMap" {
 		t.Fatalf("R15: expected _listMap, got %T", result)
@@ -822,7 +823,7 @@ func testListFoldrMapFusion(c ir.Core) ir.Core {
 func TestR16_ListFoldrMapFusion(t *testing.T) {
 	// _listFoldr k z (_listMap f xs) → _listFoldr (\$x $acc -> k (f $x) $acc) z xs
 	input := primop("_listFoldr", 3, v("k"), v("z"), primop("_listMap", 2, v("f"), v("xs")))
-	result := optimize(input, []func(ir.Core) ir.Core{testListFoldrMapFusion})
+	result := optimize(context.Background(), input, []func(ir.Core) ir.Core{testListFoldrMapFusion})
 	po, ok := result.(*ir.PrimOp)
 	if !ok || po.Name != "_listFoldr" {
 		t.Fatalf("R16: expected _listFoldr, got %T", result)
@@ -856,7 +857,7 @@ func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {
 		lam("a", lam("b", cas(v("a"), alt(pcon("Just", pvar("x")), v("x"))))),
 		con("Just", app(lam("c", v("c")), v("z"))),
 	)
-	result := optimize(input, nil)
+	result := optimize(context.Background(), input, nil)
 	expected := lam("b", v("z"))
 	if !coreEq(result, expected) {
 		t.Fatalf("multi-pass nested beta: expected \\b. z, got %v", result)

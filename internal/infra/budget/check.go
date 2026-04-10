@@ -145,8 +145,11 @@ func (b *CheckBudget) SetResolveDepthLimit(n int) {
 }
 
 // EnterResolve increments instance resolution depth. Returns an error
-// if the depth limit is exceeded.
+// if the depth limit is exceeded or the context has been cancelled.
 func (b *CheckBudget) EnterResolve() error {
+	if err := b.checkCtx(); err != nil {
+		return err
+	}
 	b.resolveDepth++
 	if b.maxResolveDepth > 0 && b.resolveDepth > b.maxResolveDepth {
 		return &ResolveDepthLimitError{}

@@ -173,7 +173,7 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 	}
 	externalInline := pc.collectExternalInlineBindings()
 	externalDicts := pc.collectExternalDictionaries()
-	optimize.OptimizeProgram(prog, pc.host.rewriteRules, userBindings, externalInline, externalDicts)
+	optimize.OptimizeProgram(pc.ctx, prog, pc.host.rewriteRules, userBindings, externalInline, externalDicts)
 	annots := ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog, annots)
 	if pc.verifyIR {
