@@ -25,6 +25,10 @@ func newHostEnv() HostEnv {
 		prims:         eval.NewPrimRegistry(),
 		gatedBuiltins: make(map[string]bool),
 	}
+	// registeredTys maps type names to their kinds (Type, Type -> Type, etc.).
+	// Distinct from types.builtinTyCons which provides *TyCon singletons
+	// for pointer-identity optimization in zonk. This map is the kind
+	// registry that the checker uses for StrictTypeNames validation.
 	h.registeredTys["Int"] = types.TypeOfTypes
 	h.registeredTys["Double"] = types.TypeOfTypes
 	h.registeredTys["String"] = types.TypeOfTypes
