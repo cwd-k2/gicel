@@ -41,8 +41,29 @@ type Closure struct {
 // same bare name from different modules can appear in the same scope.
 // See also B-3 (caseOfKnownCtor module check, now fixed).
 type ConVal struct {
-	Con  string
-	Args []Value
+	Con          string
+	Args         []Value
+	DictArgCount int // number of leading evidence/dictionary arguments (hidden from display)
+}
+
+// DictSuffix is the suffix added to class names to form dictionary
+// constructor names (e.g., "Show" → "Show$Dict"). Must agree with
+// env.DictName in the compiler.
+const DictSuffix = "$Dict"
+
+// CountLeadingDictArgs counts the number of leading args that are
+// dictionary constructor values. Called once at ConVal construction
+// to populate DictArgCount.
+func CountLeadingDictArgs(args []Value) int {
+	count := 0
+	for _, arg := range args {
+		cv, ok := arg.(*ConVal)
+		if !ok || !strings.HasSuffix(cv.Con, DictSuffix) {
+			break
+		}
+		count++
+	}
+	return count
 }
 
 // PrimVal is a partially or fully applied primitive operation.

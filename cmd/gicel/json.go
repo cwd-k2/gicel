@@ -203,8 +203,10 @@ func formatValue(v gicel.Value) any {
 		if b, ok := gicel.IsBool(val); ok {
 			return b
 		}
-		args := make([]any, len(val.Args))
-		for i, a := range val.Args {
+		// Skip leading evidence/dictionary arguments (existential constraints).
+		visibleArgs := val.Args[val.DictArgCount:]
+		args := make([]any, len(visibleArgs))
+		for i, a := range visibleArgs {
 			args[i] = formatValue(a)
 		}
 		return map[string]any{"con": val.Con, "args": args}

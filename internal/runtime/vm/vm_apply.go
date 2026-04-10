@@ -56,7 +56,12 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 		args := make([]eval.Value, len(f.Args)+1)
 		copy(args, f.Args)
 		args[len(f.Args)] = arg
-		vm.push(&eval.ConVal{Con: f.Con, Args: args})
+		dc := f.DictArgCount
+		if dc == len(f.Args) {
+			// New arg may also be a dict.
+			dc = eval.CountLeadingDictArgs(args)
+		}
+		vm.push(&eval.ConVal{Con: f.Con, Args: args, DictArgCount: dc})
 		return nil
 
 	case *eval.PrimVal:

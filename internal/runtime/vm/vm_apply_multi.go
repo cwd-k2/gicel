@@ -284,7 +284,12 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*(len(f.Args)+len(args)))); err != nil {
 			return nil, err
 		}
-		return &eval.ConVal{Con: f.Con, Args: combineArgs(f.Args, args)}, nil
+		combined := combineArgs(f.Args, args)
+		dc := f.DictArgCount
+		if dc == len(f.Args) {
+			dc = eval.CountLeadingDictArgs(combined)
+		}
+		return &eval.ConVal{Con: f.Con, Args: combined, DictArgCount: dc}, nil
 
 	case *eval.VMThunkVal:
 		// Force the thunk in isolation, then apply all original args to

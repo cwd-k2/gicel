@@ -209,11 +209,13 @@ func prettyValueDepth(v Value, depth int) string {
 		if s, ok := collectListElems(val, func(v Value) string { return prettyValueDepth(v, depth+1) }); ok {
 			return s
 		}
-		if len(val.Args) == 0 {
+		// Skip leading evidence/dictionary arguments (existential constraints).
+		visibleArgs := val.Args[val.DictArgCount:]
+		if len(visibleArgs) == 0 {
 			return val.Con
 		}
-		args := make([]string, len(val.Args))
-		for i, a := range val.Args {
+		args := make([]string, len(visibleArgs))
+		for i, a := range visibleArgs {
 			s := prettyValueDepth(a, depth+1)
 			// Parenthesize constructor arguments that contain spaces.
 			if strings.Contains(s, " ") {

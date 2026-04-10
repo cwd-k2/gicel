@@ -366,7 +366,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			for i := arity - 1; i >= 0; i-- {
 				args[i] = vm.pop()
 			}
-			vm.push(&eval.ConVal{Con: name, Args: args})
+			vm.push(&eval.ConVal{Con: name, Args: args, DictArgCount: eval.CountLeadingDictArgs(args)})
 
 		case OpRecord:
 			descIdx := DecodeU16(frame.proto.Code, frame.ip)
