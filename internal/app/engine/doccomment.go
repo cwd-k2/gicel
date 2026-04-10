@@ -36,6 +36,10 @@ func ExtractDocComment(source string, declStart span.Pos) string {
 		trimmed := strings.TrimSpace(line)
 
 		if strings.HasPrefix(trimmed, "--") {
+			// Skip file header directives (-- gicel: ...).
+			if strings.HasPrefix(trimmed, "-- gicel:") {
+				break
+			}
 			// Strip the -- prefix and optional single space.
 			content := strings.TrimPrefix(trimmed, "--")
 			content = strings.TrimPrefix(content, " ")

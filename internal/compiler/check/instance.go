@@ -129,10 +129,17 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 	ch.injectAssocTypes(bodyParts.TypeDefs, syntaxTypeArgs, className, impl.S)
 
 	if ch.config.DeclRecorder != nil {
-		// Build the impl type: ClassName TypeArg1 TypeArg2 ...
+		// Build the impl type: context => ClassName TypeArg1 TypeArg2 ...
 		var implTy types.Type = &types.TyCon{Name: className}
 		for _, arg := range typeArgs {
 			implTy = &types.TyApp{Fun: implTy, Arg: arg}
+		}
+		// Wrap context constraints.
+		for i := len(context) - 1; i >= 0; i-- {
+			implTy = &types.TyEvidence{
+				Constraints: types.SingleConstraint(context[i].ClassName, context[i].Args),
+				Body:        implTy,
+			}
 		}
 		label := className
 		if impl.Name != "" {

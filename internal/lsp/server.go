@@ -9,9 +9,13 @@ import (
 	"sync"
 	"time"
 
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
 	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
@@ -461,6 +465,15 @@ func buildCompletionItems(ar *engine.AnalysisResult) []protocol.CompletionItem {
 		}
 	}
 
+	// Imported bindings (from modules).
+	for name, ty := range ar.ImportedBindings {
+		items = append(items, protocol.CompletionItem{
+			Label:  name,
+			Kind:   protocol.CIKVariable,
+			Detail: types.PrettyDisplay(ty),
+		})
+	}
+
 	return items
 }
 
@@ -531,6 +544,36 @@ func buildDocumentSymbols(ar *engine.AnalysisResult) []protocol.DocumentSymbol {
 		symbols = append(symbols, sym)
 	}
 
+	// Type aliases and impl declarations from AST.
+	if ar.AST != nil {
+		for _, d := range ar.AST.Decls {
+			switch decl := d.(type) {
+			case *syntax.DeclTypeAlias:
+				if decl.S != (span.Span{}) {
+					symbols = append(symbols, protocol.DocumentSymbol{
+						Name:           decl.Name,
+						Kind:           protocol.SKStruct,
+						Range:          spanToRange(src, decl.S),
+						SelectionRange: spanToRange(src, decl.S),
+					})
+				}
+			case *syntax.DeclImpl:
+				if decl.S != (span.Span{}) {
+					name := decl.Name
+					if name == "" {
+						name = "impl"
+					}
+					symbols = append(symbols, protocol.DocumentSymbol{
+						Name:           name,
+						Kind:           protocol.SKClass,
+						Range:          spanToRange(src, decl.S),
+						SelectionRange: spanToRange(src, decl.S),
+					})
+				}
+			}
+		}
+	}
+
 	return symbols
 }
 
@@ -589,30 +632,85 @@ func (s *Server) handleDefinition(msg *jsonrpc.Message) {
 		}
 	}
 
+	// Search type aliases in AST.
+	if doc.Analysis.AST != nil {
+		for _, d := range doc.Analysis.AST.Decls {
+			if alias, ok := d.(*syntax.DeclTypeAlias); ok {
+				if alias.Name == name && alias.S != (span.Span{}) {
+					s.respondResult(msg.ID, protocol.Location{
+						URI:   params.TextDocument.URI,
+						Range: spanToRange(doc.Analysis.Source, alias.S),
+					})
+					return
+				}
+			}
+		}
+	}
+
 	s.respondResult(msg.ID, nil)
 }
 
-// identifierAtOffset extracts the identifier at the given byte offset
-// by scanning forwards and backwards for word characters.
+// identifierAtOffset extracts the identifier or operator at the given
+// byte offset by scanning forwards and backwards. Uses rune-level
+// decoding to match the scanner's identifier definition.
 func identifierAtOffset(source string, offset int) string {
 	if offset < 0 || offset >= len(source) {
 		return ""
 	}
-	ch := source[offset]
-	if !isIdentChar(ch) {
+	r, _ := utf8.DecodeRuneInString(source[offset:])
+	if r == utf8.RuneError {
 		return ""
 	}
-	start := offset
-	for start > 0 && isIdentChar(source[start-1]) {
-		start--
+
+	if isIdentRune(r) {
+		start := offset
+		for start > 0 {
+			pr, size := utf8.DecodeLastRuneInString(source[:start])
+			if !isIdentRune(pr) {
+				break
+			}
+			start -= size
+		}
+		end := offset
+		for end < len(source) {
+			nr, size := utf8.DecodeRuneInString(source[end:])
+			if !isIdentRune(nr) {
+				break
+			}
+			end += size
+		}
+		return source[start:end]
 	}
-	end := offset
-	for end < len(source) && isIdentChar(source[end]) {
-		end++
+
+	if isOperatorRune(r) {
+		start := offset
+		for start > 0 {
+			pr, size := utf8.DecodeLastRuneInString(source[:start])
+			if !isOperatorRune(pr) {
+				break
+			}
+			start -= size
+		}
+		end := offset
+		for end < len(source) {
+			nr, size := utf8.DecodeRuneInString(source[end:])
+			if !isOperatorRune(nr) {
+				break
+			}
+			end += size
+		}
+		return source[start:end]
 	}
-	return source[start:end]
+
+	return ""
 }
 
-func isIdentChar(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '\''
+func isIdentRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '\''
+}
+
+func isOperatorRune(r rune) bool {
+	return r != '_' && r != '\'' && r != '(' && r != ')' &&
+		!unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsSpace(r) &&
+		r > ' ' && r != ',' && r != ';' && r != '{' && r != '}' && r != '[' && r != ']'
 }

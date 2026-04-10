@@ -23,6 +23,7 @@ import (
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -456,11 +457,13 @@ func (e *Engine) Parse(source string) error {
 // are present: Program may contain ir.Error sentinel nodes, and Errors
 // may be non-nil alongside a valid Program.
 type AnalysisResult struct {
-	Source    *span.Source
-	Program   *ir.Program
-	Errors    *diagnostic.Errors
-	Complete  bool       // true when Errors has no errors
-	HoverIndex *HoverIndex // nil unless EnableHoverIndex was called
+	Source           *span.Source
+	Program          *ir.Program
+	AST              *syntax.AstProgram    // original AST (for symbols, definition)
+	ImportedBindings map[string]types.Type // flattened imported names → types (for completion)
+	Errors           *diagnostic.Errors
+	Complete         bool        // true when Errors has no errors
+	HoverIndex       *HoverIndex // nil unless EnableHoverIndex was called
 }
 
 // Analyze runs the analysis pipeline (lex → parse → check), returning

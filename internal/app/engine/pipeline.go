@@ -234,9 +234,27 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	}
 
 	result.Program = prog
+	result.AST = ast
 	result.Errors = checkErrs
 	result.Complete = !checkErrs.HasErrors()
 	result.HoverIndex = idx
+
+	// Flatten imported bindings for completion.
+	if cfg.ImportedModules != nil {
+		imported := make(map[string]types.Type)
+		for _, exports := range cfg.ImportedModules {
+			for name, ty := range exports.Values {
+				imported[name] = ty
+			}
+			for name, ty := range exports.ConTypes {
+				imported[name] = ty
+			}
+		}
+		if len(imported) > 0 {
+			result.ImportedBindings = imported
+		}
+	}
+
 	return result
 }
 
@@ -487,10 +505,15 @@ func ComputeFormKind(dd *ir.DataDecl) types.Type {
 	return kind
 }
 
-// BuildConType builds the full type of a constructor.
-// E.g., Just in Maybe: forall a. a -> Maybe a.
+// BuildConType returns the full type of a constructor. If the checker
+// populated ConDecl.FullType (which includes GADT/existential foralls),
+// it is used directly. Otherwise falls back to reconstruction from
+// data-type-level parameters.
 func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
-	// Build the return type: Name a1 a2 ... an
+	if con.FullType != nil {
+		return con.FullType
+	}
+	// Fallback: reconstruct from data type params + fields.
 	var ret types.Type = &types.TyCon{Name: dd.Name}
 	for _, p := range dd.TyParams {
 		ret = &types.TyApp{Fun: ret, Arg: &types.TyVar{Name: p.Name}}
@@ -498,14 +521,10 @@ func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
 	if con.ReturnType != nil {
 		ret = con.ReturnType
 	}
-
-	// Build field → ret arrows.
 	ty := ret
 	for i := len(con.Fields) - 1; i >= 0; i-- {
 		ty = types.MkArrow(con.Fields[i], ty)
 	}
-
-	// Wrap in forall for type parameters.
 	for i := len(dd.TyParams) - 1; i >= 0; i-- {
 		ty = types.MkForall(dd.TyParams[i].Name, dd.TyParams[i].Kind, ty)
 	}

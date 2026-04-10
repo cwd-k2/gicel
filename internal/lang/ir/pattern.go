@@ -123,5 +123,6 @@ type ConDecl struct {
 	Name       string
 	Fields     []types.Type
 	ReturnType types.Type // GADT: refined return type (nil for ADT)
+	FullType   types.Type // complete constructor type including foralls (for hover/completion)
 	S          span.Span
 }
