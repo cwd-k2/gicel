@@ -102,6 +102,14 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 		}
 	}
 
+	// Re-zonk recorded expression types while temp solutions
+	// (meta → TyVar) are still active. This ensures that hover
+	// entries for sub-expressions of this binding show type variable
+	// names (a, b, ...) rather than unsolved meta placeholders (_).
+	if ch.config.PostGeneralize != nil {
+		ch.config.PostGeneralize(ch.unifier.Zonk)
+	}
+
 	// Remove temporary solutions.
 	for _, m := range unique {
 		ch.unifier.RemoveTempSolution(m.id)

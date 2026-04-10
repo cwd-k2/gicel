@@ -226,8 +226,9 @@ func TestServer_HoverOnDefinitionSite(t *testing.T) {
 	}
 	var hover protocol.Hover
 	mustUnmarshal(t, hoverResult, &hover)
-	if !strings.Contains(hover.Contents.Value, "Int") {
-		t.Fatalf("expected hover to contain 'Int', got %q", hover.Contents.Value)
+	// With HoverIndex, binding sites now show "main :: Int".
+	if !strings.Contains(hover.Contents.Value, "main :: Int") {
+		t.Fatalf("expected hover to contain 'main :: Int', got %q", hover.Contents.Value)
 	}
 }
 
@@ -291,5 +292,92 @@ func TestServer_DiagnosticsClearOnFix(t *testing.T) {
 	mustUnmarshal(t, notif2.Params, &diag2)
 	if len(diag2.Diagnostics) != 0 {
 		t.Fatalf("expected 0 diagnostics after fix, got %d", len(diag2.Diagnostics))
+	}
+}
+
+// hoverAt is a test helper that opens a document, waits for analysis,
+// then returns the hover string at the given line/character.
+func hoverAt(t *testing.T, env *testEnv, uri protocol.DocumentURI, source string, line, char int) string {
+	t.Helper()
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        uri,
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       source,
+		},
+	})
+	env.readNotification(t, 5*time.Second)
+	result := env.request(t, "textDocument/hover", protocol.HoverParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
+	})
+	if string(result) == "null" {
+		return ""
+	}
+	var hover protocol.Hover
+	mustUnmarshal(t, result, &hover)
+	return hover.Contents.Value
+}
+
+func TestServer_HoverOnFormDecl(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	source := "form Color := Red | Green | Blue\nmain := Red"
+	hover := hoverAt(t, env, "file:///form.gicel", source, 0, 5)
+	if hover == "" {
+		t.Fatal("hover on form declaration returned null")
+	}
+	if !strings.Contains(hover, "form Color") {
+		t.Fatalf("expected hover to contain 'form Color', got %q", hover)
+	}
+}
+
+func TestServer_HoverOnConstructor(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	// Hover on "Red" in usage position (line 1).
+	source := "import Prelude\nform Color := Red | Green | Blue\nmain := Red"
+	hover := hoverAt(t, env, "file:///con.gicel", source, 2, 8)
+	if hover == "" {
+		t.Fatal("hover on constructor usage returned null")
+	}
+	if !strings.Contains(hover, "Color") {
+		t.Fatalf("expected hover to contain 'Color', got %q", hover)
+	}
+}
+
+func TestServer_HoverOnTypeAnnotation(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	source := "import Prelude\nf :: Int -> Int\nf := \\x. x + 1\nmain := f 42"
+	// Hover on "f" in the :: annotation line (line 1, char 0).
+	hover := hoverAt(t, env, "file:///ann.gicel", source, 1, 0)
+	if hover == "" {
+		t.Fatal("hover on type annotation returned null")
+	}
+	if !strings.Contains(hover, "f :: ") && !strings.Contains(hover, "Int -> Int") {
+		t.Fatalf("expected hover to contain type annotation info, got %q", hover)
+	}
+}
+
+func TestServer_HoverOnImport(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	source := "import Prelude\nmain := 42"
+	hover := hoverAt(t, env, "file:///imp.gicel", source, 0, 3)
+	if hover == "" {
+		t.Fatal("hover on import returned null")
+	}
+	if !strings.Contains(hover, "import Prelude") {
+		t.Fatalf("expected hover to contain 'import Prelude', got %q", hover)
 	}
 }

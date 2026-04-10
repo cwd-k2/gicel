@@ -46,16 +46,18 @@ type CheckConfig struct {
 	GatedBuiltins   map[string]bool
 	Trace           CheckTraceHook
 	ImportedModules map[string]*ModuleExports
-	ModuleDeps      map[string][]string         // module → direct dependencies
-	DenyAssumptions bool                        // when true, reject `assumption` declarations (sandbox mode)
-	StrictTypeNames bool                        // when true, reject unregistered type constructor names
-	CurrentModule   string                      // module being compiled ("" = user main source)
-	EntryPoint      string                      // non-empty enables bare Computation check; that name is exempt
-	NestingLimit    int                         // structural nesting depth limit (0 = disabled)
-	MaxTFSteps      int                         // type family reduction step limit (0 = default 50000)
-	MaxSolverSteps  int                         // constraint solver step limit (0 = default 100000)
-	MaxResolveDepth int                         // instance resolution depth limit (0 = default 64)
-	TypeRecorder    func(span.Span, types.Type) // when non-nil, called for each inferred expression span→type
+	ModuleDeps      map[string][]string                    // module → direct dependencies
+	DenyAssumptions bool                                   // when true, reject `assumption` declarations (sandbox mode)
+	StrictTypeNames bool                                   // when true, reject unregistered type constructor names
+	CurrentModule   string                                 // module being compiled ("" = user main source)
+	EntryPoint      string                                 // non-empty enables bare Computation check; that name is exempt
+	NestingLimit    int                                    // structural nesting depth limit (0 = disabled)
+	MaxTFSteps      int                                    // type family reduction step limit (0 = default 50000)
+	MaxSolverSteps  int                                    // constraint solver step limit (0 = default 100000)
+	MaxResolveDepth int                                    // instance resolution depth limit (0 = default 64)
+	TypeRecorder    func(span.Span, types.Type)            // when non-nil, called for each inferred expression span→type
+	PostCheckHook   func(zonk func(types.Type) types.Type) // when non-nil, called after checking with the final zonk function
+	PostGeneralize  func(zonk func(types.Type) types.Type) // when non-nil, called during generalization while temp solutions are active
 }
 
 // ModuleExports is the type-level information exported by a compiled module.
@@ -230,6 +232,9 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
+	if config != nil && config.PostCheckHook != nil {
+		config.PostCheckHook(ch.unifier.Zonk)
+	}
 	return coreProgram, ch.errors
 }
 
@@ -238,6 +243,9 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
+	if config != nil && config.PostCheckHook != nil {
+		config.PostCheckHook(ch.unifier.Zonk)
+	}
 	exports := ch.ExportModule(coreProgram)
 	return coreProgram, exports, ch.errors
 }

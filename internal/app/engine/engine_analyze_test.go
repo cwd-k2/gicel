@@ -1,5 +1,5 @@
-// Analyze tests — AnalysisResult partial results, TypeIndex integration, backward compatibility.
-// Does NOT cover: TypeIndex data structure (typeindex_test.go).
+// Analyze tests — AnalysisResult partial results, HoverIndex integration, backward compatibility.
+// Does NOT cover: HoverIndex data structure (hoverindex_test.go).
 
 package engine
 
@@ -91,28 +91,28 @@ func TestAnalyze_BackwardCompat_NewRuntime(t *testing.T) {
 	}
 }
 
-func TestAnalyze_WithTypeIndex(t *testing.T) {
+func TestAnalyze_WithHoverIndex(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.EnableTypeIndex()
+	eng.EnableHoverIndex()
 	ar := eng.Analyze(context.Background(), `import Prelude; main := 42`)
 	if !ar.Complete {
 		t.Fatalf("expected Complete, got errors: %v", ar.Errors.Format())
 	}
-	if ar.TypeIndex == nil {
-		t.Fatal("expected non-nil TypeIndex when EnableTypeIndex is set")
+	if ar.HoverIndex == nil {
+		t.Fatal("expected non-nil HoverIndex when EnableHoverIndex is set")
 	}
-	if ar.TypeIndex.Len() == 0 {
-		t.Fatal("expected TypeIndex to have entries")
+	if ar.HoverIndex.Len() == 0 {
+		t.Fatal("expected HoverIndex to have entries")
 	}
 }
 
-func TestAnalyze_WithoutTypeIndex(t *testing.T) {
+func TestAnalyze_WithoutHoverIndex(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	// TypeRecorder not enabled: TypeIndex should be nil.
+	// TypeRecorder not enabled: HoverIndex should be nil.
 	ar := eng.Analyze(context.Background(), `import Prelude; main := 42`)
-	if ar.TypeIndex != nil {
-		t.Fatal("expected nil TypeIndex when EnableTypeIndex is not called")
+	if ar.HoverIndex != nil {
+		t.Fatal("expected nil HoverIndex when EnableHoverIndex is not called")
 	}
 }

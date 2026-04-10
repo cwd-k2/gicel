@@ -204,30 +204,30 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	cfg.EntryPoint = pc.entryPoint
 	cfg.DenyAssumptions = pc.denyAssumptions
 
-	var idx *TypeIndex
+	var idx *HoverIndex
 	if pc.typeRecorder {
-		idx = NewTypeIndex()
+		idx = NewHoverIndex()
 		cfg.TypeRecorder = func(sp span.Span, ty types.Type) {
 			idx.Record(sp, ty)
+		}
+		cfg.PostGeneralize = func(zonk func(types.Type) types.Type) {
+			idx.RezonkAll(zonk)
+		}
+		cfg.PostCheckHook = func(zonk func(types.Type) types.Type) {
+			idx.RezonkAll(zonk)
 		}
 	}
 
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if idx != nil {
-		// Record definition-site types from top-level bindings so
-		// hover works on binding names, not just expression bodies.
-		for _, b := range prog.Bindings {
-			if b.Type != nil && b.S != (span.Span{}) {
-				idx.Record(b.S, b.Type)
-			}
-		}
+		populateHoverDecls(idx, ast, prog)
 		idx.Finalize()
 	}
 
 	result.Program = prog
 	result.Errors = checkErrs
 	result.Complete = !checkErrs.HasErrors()
-	result.TypeIndex = idx
+	result.HoverIndex = idx
 	return result
 }
 
@@ -411,4 +411,90 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 		return nil, err
 	}
 	return rt, nil
+}
+
+// populateHoverDecls records declaration-level hover entries from the
+// checked program and the original AST.
+func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Program) {
+	// Binding definitions.
+	for _, b := range prog.Bindings {
+		if b.Type != nil && b.S != (span.Span{}) {
+			idx.RecordDecl(b.S, HoverBinding, b.Name, b.Type)
+		}
+	}
+
+	// Form declarations and constructors.
+	for i := range prog.DataDecls {
+		dd := &prog.DataDecls[i]
+		if dd.S != (span.Span{}) {
+			idx.RecordDecl(dd.S, HoverForm, dd.Name, computeFormKind(dd))
+		}
+		for j := range dd.Cons {
+			con := &dd.Cons[j]
+			if con.S != (span.Span{}) {
+				idx.RecordDecl(con.S, HoverConstructor, con.Name, buildConType(dd, con))
+			}
+		}
+	}
+
+	// Type annotations (match with binding types).
+	bindingTypes := make(map[string]types.Type, len(prog.Bindings))
+	for _, b := range prog.Bindings {
+		if b.Type != nil {
+			bindingTypes[b.Name] = b.Type
+		}
+	}
+	for _, d := range ast.Decls {
+		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
+			if ty, found := bindingTypes[ann.Name]; found && ann.S != (span.Span{}) {
+				idx.RecordDecl(ann.S, HoverTypeAnn, ann.Name, ty)
+			}
+		}
+	}
+
+	// Import declarations.
+	for _, imp := range ast.Imports {
+		if imp.S != (span.Span{}) {
+			label := imp.ModuleName
+			if imp.Alias != "" {
+				label += " as " + imp.Alias
+			}
+			idx.RecordDecl(imp.S, HoverImport, label, nil)
+		}
+	}
+}
+
+// computeFormKind builds the kind of a data declaration from its type
+// parameters. E.g., Maybe with [a :: Type] → Type -> Type.
+func computeFormKind(dd *ir.DataDecl) types.Type {
+	var kind types.Type = types.TypeOfTypes
+	for i := len(dd.TyParams) - 1; i >= 0; i-- {
+		kind = types.MkArrow(dd.TyParams[i].Kind, kind)
+	}
+	return kind
+}
+
+// buildConType builds the full type of a constructor.
+// E.g., Just in Maybe: forall a. a -> Maybe a.
+func buildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
+	// Build the return type: Name a1 a2 ... an
+	var ret types.Type = &types.TyCon{Name: dd.Name}
+	for _, p := range dd.TyParams {
+		ret = &types.TyApp{Fun: ret, Arg: &types.TyVar{Name: p.Name}}
+	}
+	if con.ReturnType != nil {
+		ret = con.ReturnType
+	}
+
+	// Build field → ret arrows.
+	ty := ret
+	for i := len(con.Fields) - 1; i >= 0; i-- {
+		ty = types.MkArrow(con.Fields[i], ty)
+	}
+
+	// Wrap in forall for type parameters.
+	for i := len(dd.TyParams) - 1; i >= 0; i-- {
+		ty = types.MkForall(dd.TyParams[i].Name, dd.TyParams[i].Kind, ty)
+	}
+	return ty
 }

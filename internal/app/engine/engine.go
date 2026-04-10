@@ -298,9 +298,9 @@ func (e *Engine) DisableInlining() {
 	e.invalidateRuntimeFingerprint()
 }
 
-// EnableTypeIndex causes Analyze to populate the TypeIndex field
+// EnableHoverIndex causes Analyze to populate the HoverIndex field
 // in the returned AnalysisResult. Not part of the cache key.
-func (e *Engine) EnableTypeIndex() { e.typeRecorder = true }
+func (e *Engine) EnableHoverIndex() { e.typeRecorder = true }
 
 // RegisterModuleFile reads a .gicel file and registers it as a module.
 // The module name is derived from the file basename (e.g., "Foo.gicel" → "Foo").
@@ -460,7 +460,7 @@ type AnalysisResult struct {
 	Program   *ir.Program
 	Errors    *diagnostic.Errors
 	Complete  bool       // true when Errors has no errors
-	TypeIndex *TypeIndex // nil unless EnableTypeIndex was called
+	HoverIndex *HoverIndex // nil unless EnableHoverIndex was called
 }
 
 // Analyze runs the analysis pipeline (lex → parse → check), returning

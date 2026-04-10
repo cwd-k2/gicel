@@ -11,7 +11,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
 )
@@ -324,7 +323,7 @@ func (s *Server) diagnose(ctx context.Context, uri protocol.DocumentURI) {
 		s.logger.Printf("engine factory returned nil")
 		return
 	}
-	eng.EnableTypeIndex()
+	eng.EnableHoverIndex()
 
 	docPath := protocol.URIToPath(uri)
 	res, err := header.Resolve(doc.Text, docPath)
@@ -378,14 +377,14 @@ func (s *Server) handleHover(msg *jsonrpc.Message) {
 	}
 
 	doc, ok := s.docs.get(params.TextDocument.URI)
-	if !ok || doc.Analysis == nil || doc.Analysis.TypeIndex == nil || doc.Analysis.Source == nil {
+	if !ok || doc.Analysis == nil || doc.Analysis.HoverIndex == nil || doc.Analysis.Source == nil {
 		s.respondResult(msg.ID, nil)
 		return
 	}
 
 	offset := posToOffset(doc.Analysis.Source, params.Position)
-	ty := doc.Analysis.TypeIndex.TypeAt(offset)
-	if ty == nil {
+	hover := doc.Analysis.HoverIndex.HoverAt(offset)
+	if hover == "" {
 		s.respondResult(msg.ID, nil)
 		return
 	}
@@ -393,7 +392,7 @@ func (s *Server) handleHover(msg *jsonrpc.Message) {
 	s.respondResult(msg.ID, protocol.Hover{
 		Contents: protocol.MarkupContent{
 			Kind:  protocol.Markdown,
-			Value: "```gicel\n" + types.Pretty(ty) + "\n```",
+			Value: "```gicel\n" + hover + "\n```",
 		},
 	})
 }
