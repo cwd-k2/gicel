@@ -29,10 +29,12 @@ func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 	}
 
 	// Try to extract capability rows from each post-state.
+	// Flatten nested rows that arise from meta-tail solutions
+	// (e.g., { fail: String | { state: Int | #r } } → { fail: String, state: Int | #r }).
 	rows := make([]*types.TyEvidenceRow, 0, len(zonked))
 	for _, z := range zonked {
 		if ev, ok := z.(*types.TyEvidenceRow); ok {
-			rows = append(rows, ev)
+			rows = append(rows, types.FlattenCapRow(ev))
 		}
 	}
 
@@ -56,42 +58,26 @@ func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 // Labels present in ALL rows are kept; labels present in only some are dropped.
 // For shared labels, field types are unified and multiplicities are joined
 // via LUB (if the LUB type family is defined) or unified as fallback.
+//
+// Open-tailed rows (those with a non-nil tail) are treated as potentially
+// carrying any labels in the tail. When all tails unify to the same variable,
+// a label that appears in some branches' concrete fields but not in others
+// is still considered "present" in the open-tailed branches — the tail
+// passes those labels through unchanged. This handles asymmetric branches
+// where one branch (e.g., failWith) has more concrete labels than another
+// (e.g., a state-only do-block).
 func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) types.Type {
 	if len(rows) == 0 {
 		return types.ClosedRow()
 	}
 
-	// Count label occurrences across all rows.
-	labelCount := make(map[string]int)
-	for _, r := range rows {
-		for _, f := range r.CapFields() {
-			labelCount[f.Label]++
-		}
-	}
-
-	// Shared labels: present in ALL rows.
-	n := len(rows)
-	var sharedFields []types.RowField
-	firstRow := rows[0]
-	for _, f := range firstRow.CapFields() {
-		if labelCount[f.Label] == n {
-			// This label is in all branches — keep it.
-			// Unify the type; join grades via LUB.
-			resultField := types.RowField{Label: f.Label, Type: f.Type, Grades: f.Grades, S: f.S}
-			for _, otherRow := range rows[1:] {
-				if of := types.RowFieldByLabel(otherRow.CapFields(), f.Label); of != nil {
-					ch.emitEq(resultField.Type, of.Type, s, solve.WithContext(0, "conflicting field types for label "+f.Label))
-					ch.joinGrades(&resultField, of.Grades, s)
-				}
-			}
-			sharedFields = append(sharedFields, resultField)
-		}
-	}
-
 	// Handle tail: if all rows have the same tail variable, preserve it.
+	// Done first so we can use the tail information for label intersection.
 	var tail types.Type
+	allSameTail := false
+	firstRow := rows[0]
 	if firstRow.Tail != nil {
-		allSameTail := true
+		allSameTail = true
 		for _, r := range rows[1:] {
 			if r.Tail == nil {
 				allSameTail = false
@@ -104,6 +90,68 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 		}
 		if allSameTail {
 			tail = firstRow.Tail
+		}
+	}
+
+	// Collect all labels across all rows.
+	allLabels := make(map[string]bool)
+	for _, r := range rows {
+		for _, f := range r.CapFields() {
+			allLabels[f.Label] = true
+		}
+	}
+
+	// Count label occurrences. When all tails are unified (open rows with
+	// a shared tail variable), open-tailed rows contribute to ALL labels:
+	// their tail can carry any label not explicitly named, so they don't
+	// constrain the intersection.
+	labelCount := make(map[string]int)
+	n := len(rows)
+	for _, r := range rows {
+		concreteLabels := make(map[string]bool)
+		for _, f := range r.CapFields() {
+			concreteLabels[f.Label] = true
+			labelCount[f.Label]++
+		}
+		// Open-tailed row with shared tail: count it for all labels
+		// it doesn't explicitly name (they pass through the tail).
+		if allSameTail && r.Tail != nil {
+			for label := range allLabels {
+				if !concreteLabels[label] {
+					labelCount[label]++
+				}
+			}
+		}
+	}
+
+	// Shared labels: present in ALL rows (directly or via tail).
+	var sharedFields []types.RowField
+	for _, f := range firstRow.CapFields() {
+		if labelCount[f.Label] == n {
+			resultField := types.RowField{Label: f.Label, Type: f.Type, Grades: f.Grades, S: f.S}
+			for _, otherRow := range rows[1:] {
+				if of := types.RowFieldByLabel(otherRow.CapFields(), f.Label); of != nil {
+					ch.emitEq(resultField.Type, of.Type, s, solve.WithContext(0, "conflicting field types for label "+f.Label))
+					ch.joinGrades(&resultField, of.Grades, s)
+				}
+			}
+			sharedFields = append(sharedFields, resultField)
+		}
+	}
+	// Also collect labels that appear in other rows but not firstRow
+	// (they were counted as present in firstRow via tail).
+	if allSameTail && firstRow.Tail != nil {
+		firstLabels := make(map[string]bool)
+		for _, f := range firstRow.CapFields() {
+			firstLabels[f.Label] = true
+		}
+		for _, r := range rows[1:] {
+			for _, f := range r.CapFields() {
+				if labelCount[f.Label] == n && !firstLabels[f.Label] {
+					sharedFields = append(sharedFields, types.RowField{Label: f.Label, Type: f.Type, Grades: f.Grades, S: f.S})
+					firstLabels[f.Label] = true // avoid duplicates
+				}
+			}
 		}
 	}
 
@@ -177,8 +225,12 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 		branchExpected := resultTy
 		if isComp {
 			freshPost := ch.freshMeta(types.TypeOfRows)
+			// Re-zonk comp.Pre for each branch: prior branches may have solved
+			// meta tails in comp.Pre (e.g., failWith solving the fail label into
+			// the tail). Re-zonking ensures each branch sees the current state.
+			zonkedPre := ch.unifier.Zonk(comp.Pre)
 			branchExpected = &types.TyCBPV{
-				Tag: types.TagComp, Pre: comp.Pre, Post: freshPost, Result: comp.Result, S: comp.S,
+				Tag: types.TagComp, Pre: zonkedPre, Post: freshPost, Result: comp.Result, S: comp.S,
 			}
 			branchPosts = append(branchPosts, freshPost)
 		}

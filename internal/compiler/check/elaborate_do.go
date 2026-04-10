@@ -1,7 +1,6 @@
 package check
 
 import (
-	"github.com/cwd-k2/gicel/internal/compiler/check/solve"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -230,9 +229,16 @@ func (d *doChecked) elaborateBind(varName string, comp syntax.Expr, rest []synta
 	compTy = ch.unifier.Zonk(compTy)
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
-		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, solve.WithLazyContext(0, func() string {
-			return "do bind: pre-state mismatch: expected " + types.Pretty(d.comp.Pre) + ", got " + types.Pretty(inferredComp.Pre)
-		}))
+		// Unify pre-states eagerly (not deferred via emitEq) so that the
+		// inferred Post carries fully-resolved row information into the
+		// rest of the do-block. Deferred pre-state constraints leave
+		// meta tails unsolved, causing cascading row errors in branches
+		// with asymmetric effect requirements (H10).
+		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
+			ch.addDiag(diagnostic.ErrTypeMismatch, stmtS,
+				diagFmt{Format: "do bind: pre-state mismatch: expected %s, got %s",
+					Args: []any{types.Pretty(ch.unifier.Zonk(d.comp.Pre)), types.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
+		}
 		ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
 		savedComp := d.comp
@@ -259,9 +265,12 @@ func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 	compTy = ch.unifier.Zonk(compTy)
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
-		ch.emitEq(inferredComp.Pre, d.comp.Pre, stmtS, solve.WithLazyContext(0, func() string {
-			return "do statement: pre-state mismatch: expected " + types.Pretty(d.comp.Pre) + ", got " + types.Pretty(inferredComp.Pre)
-		}))
+		// Eager unify (same rationale as elaborateBind — H10 fix).
+		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
+			ch.addDiag(diagnostic.ErrTypeMismatch, stmtS,
+				diagFmt{Format: "do statement: pre-state mismatch: expected %s, got %s",
+					Args: []any{types.Pretty(ch.unifier.Zonk(d.comp.Pre)), types.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
+		}
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
 		savedComp := d.comp
 		d.comp = restComp

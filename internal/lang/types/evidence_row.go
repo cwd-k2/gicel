@@ -117,6 +117,39 @@ func ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
 	}
 }
 
+// FlattenCapRow recursively flattens a nested capability evidence row.
+// For example, { fail: String | { state: Int | #r } } is flattened to
+// { fail: String, state: Int | #r }. Returns the flattened row.
+// Non-capability rows (constraint rows) are returned unchanged.
+func FlattenCapRow(r *TyEvidenceRow) *TyEvidenceRow {
+	cap, ok := r.Entries.(*CapabilityEntries)
+	if !ok {
+		return r
+	}
+	// Check if tail is a nested TyEvidenceRow with CapabilityEntries.
+	inner, ok := r.Tail.(*TyEvidenceRow)
+	if !ok {
+		return r
+	}
+	innerCap, ok := inner.Entries.(*CapabilityEntries)
+	if !ok {
+		return r
+	}
+	// Flatten: merge fields from outer and inner, keep inner's tail.
+	merged := make([]RowField, 0, len(cap.Fields)+len(innerCap.Fields))
+	merged = append(merged, cap.Fields...)
+	merged = append(merged, innerCap.Fields...)
+	entries := &CapabilityEntries{Fields: merged}
+	flat := &TyEvidenceRow{
+		Entries: entries,
+		Tail:    inner.Tail,
+		Flags:   EvidenceRowFlags(entries, inner.Tail),
+		S:       r.S,
+	}
+	// Recurse in case of deeper nesting.
+	return FlattenCapRow(flat)
+}
+
 // --- Row classification ---
 
 // ClassifyRowFields partitions two sets of row fields into shared labels,
