@@ -386,6 +386,11 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 			}
 			switch core.(type) {
 			case *ir.Con, *ir.App:
+				// Skip recursive dictionaries (self-referential bindings)
+				// to prevent infinite inlining expansion in the optimizer.
+				if _, selfRef := ir.FreeVars(b.Expr)[b.Name]; selfRef {
+					continue
+				}
 				key := ir.QualifiedKey(e.name, b.Name)
 				dicts[key] = optimize.ExternalBinding{
 					Module: e.name,
