@@ -104,14 +104,22 @@ func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 	// When multiple modules independently enrich the same associated type
 	// family (diamond import), equations from all sources are collected
 	// and deduplicated by structural pattern identity.
-	seen := make(map[string]bool, len(existing.Equations))
+	//
+	// If the same LHS patterns appear with a different RHS, this is a
+	// coherence violation — the family's meaning would depend on import
+	// order. Report an error rather than silently keeping the first.
+	seen := make(map[string]string, len(existing.Equations))
 	for _, eq := range existing.Equations {
-		seen[equationPatternKey(eq)] = true
+		seen[equationPatternKey(eq)] = equationRHSKey(eq)
 	}
 	for _, eq := range info.Equations {
-		if key := equationPatternKey(eq); !seen[key] {
+		key := equationPatternKey(eq)
+		if existingRHS, ok := seen[key]; !ok {
 			existing.Equations = append(existing.Equations, eq)
-			seen[key] = true
+			seen[key] = equationRHSKey(eq)
+		} else if equationRHSKey(eq) != existingRHS {
+			return fmt.Errorf("type family %s: conflicting equations for pattern %s",
+				name, key)
 		}
 	}
 	return nil
@@ -122,6 +130,13 @@ func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 // are considered identical for deduplication purposes.
 func equationPatternKey(eq tfEquation) string {
 	return types.TypeListKey("", ' ', eq.Patterns)
+}
+
+// equationRHSKey produces a canonical key from the RHS of a type family
+// equation. Used to detect conflicting equations: same LHS patterns but
+// different RHS is a coherence violation.
+func equationRHSKey(eq tfEquation) string {
+	return types.TypeKey(eq.RHS)
 }
 
 // RegisterDataType records a data type's reverse lookup entry.
