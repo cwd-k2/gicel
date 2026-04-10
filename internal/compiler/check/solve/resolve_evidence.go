@@ -47,11 +47,19 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 			tyArg := s.env.Zonk(freshSubst[v.Name])
 			dictExpr = &ir.TyApp{Expr: dictExpr, TyArg: tyArg, S: sp}
 		}
-		// Resolve and apply context (premise) dictionaries. Only class
-		// constraints contribute runtime dictionaries; other variants
-		// would have been rejected at checker time so this iteration
-		// skips them defensively.
+		// Resolve context premises:
+		// - ClassEntry: resolve and apply the runtime dictionary.
+		// - EqualityEntry: verify the equality holds (no runtime dict).
+		// - Other variants: skip (not currently generated).
 		for _, ctx := range qc.Context {
+			if eqEntry, ok := ctx.(*types.EqualityEntry); ok {
+				lhs := s.env.Zonk(ps.Apply(eqEntry.Lhs))
+				rhs := s.env.Zonk(ps.Apply(eqEntry.Rhs))
+				if err := s.env.Unify(lhs, rhs); err != nil {
+					return false
+				}
+				continue
+			}
 			ctxCls, ok := ctx.(*types.ClassEntry)
 			if !ok {
 				continue
