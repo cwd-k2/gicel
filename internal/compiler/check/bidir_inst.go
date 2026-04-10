@@ -112,6 +112,20 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, ir.Core) {
 			ch.addDiag(diagnostic.ErrBadTypeApp, e.S, diagMsg("type application to non-polymorphic type"))
 			return &types.TyError{S: e.S}, innerCore
 		}
+		// Kind check: verify the type argument has the kind expected by the
+		// forall binder. Without this, an explicit @-application can bypass
+		// the kind discipline that resolve_type.go enforces for type
+		// expressions (e.g. passing a Row-kinded type to a Type-kinded binder).
+		if f.Kind != nil {
+			if argKind := ch.kindOfType(ty); argKind != nil {
+				if err := ch.unifier.Unify(f.Kind, argKind); err != nil {
+					ch.addDiag(diagnostic.ErrKindMismatch, e.S,
+						diagFmt{Format: "type argument has kind %s, expected %s",
+							Args: []any{types.PrettyTypeAsKind(argKind), types.PrettyTypeAsKind(f.Kind)}})
+					return &types.TyError{S: e.S}, innerCore
+				}
+			}
+		}
 		resultTy := types.Subst(f.Body, f.Var, ty)
 		return resultTy, &ir.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
 	default:

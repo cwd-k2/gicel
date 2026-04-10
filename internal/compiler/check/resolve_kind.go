@@ -253,6 +253,19 @@ func typeAtMaxLevel(kindA, kindB types.Type) types.Type {
 func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 	switch t := ty.(type) {
 	case *types.TyCon:
+		// Label literals have kind Label, regardless of universe level.
+		if t.IsLabel {
+			return types.TypeOfLabels
+		}
+		// Universe stratification: L1 TyCons (Type, Row, Constraint,
+		// promoted data kinds) have kind Kind (SortZero). L2 TyCons
+		// (Kind itself) sit at the top — return nil (no further kind).
+		if types.LevelEqual(t.Level, types.L1) {
+			return types.SortZero
+		}
+		if types.LevelEqual(t.Level, types.L2) {
+			return nil
+		}
 		if k, ok := r.reg.LookupTypeKind(t.Name); ok {
 			return k
 		}
@@ -302,6 +315,21 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 		return t.Kind
 	case *types.TySkolem:
 		return t.Kind
+	case *types.TyEvidenceRow:
+		return t.Entries.FiberKind()
+	case *types.TyEvidence:
+		return types.TypeOfTypes
+	case *types.TyCBPV:
+		return types.TypeOfTypes
+	case *types.TyForall:
+		return types.TypeOfTypes
+	case *types.TyFamilyApp:
+		if fam, ok := r.lookupFamily(t.Name); ok {
+			return fam.ResultKind
+		}
+		return nil
+	case *types.TyError:
+		return nil
 	case *types.TyVar:
 		// Forall-bound kind (available during type resolution phase).
 		if r.forallKinds != nil {
