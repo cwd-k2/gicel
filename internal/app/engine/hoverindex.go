@@ -51,7 +51,7 @@ type hoverEntry struct {
 	ty     types.Type      // nil for imports
 	label  string          // "" for expressions
 	doc    string          // doc comment (empty for expressions)
-	module string          // source module (empty = local)
+	module string          // non-empty only for HoverOperator
 	fixity *OperatorFixity // non-nil only for HoverOperator
 }
 

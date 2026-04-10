@@ -104,6 +104,18 @@ const (
 	AssocNone
 )
 
+// String returns the fixity keyword: "infixl", "infixr", or "infixn".
+func (a Assoc) String() string {
+	switch a {
+	case AssocLeft:
+		return "infixl"
+	case AssocRight:
+		return "infixr"
+	default:
+		return "infixn"
+	}
+}
+
 // ImportName identifies a single name in a selective import list.
 type ImportName struct {
 	Name    string   // "add", "Bool", "Maybe", "(+)"

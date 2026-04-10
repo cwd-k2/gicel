@@ -520,14 +520,7 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 
 // fixityToHover converts a parse.Fixity to hover display information.
 func fixityToHover(f parse.Fixity) *OperatorFixity {
-	assoc := "infix"
-	switch f.Assoc {
-	case syntax.AssocLeft:
-		assoc = "infixl"
-	case syntax.AssocRight:
-		assoc = "infixr"
-	}
-	return &OperatorFixity{Assoc: assoc, Prec: f.Prec}
+	return &OperatorFixity{Assoc: f.Assoc.String(), Prec: f.Prec}
 }
 
 // collectFixityMap gathers the merged fixity map for the given AST:
