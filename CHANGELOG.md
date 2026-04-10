@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.28.1 — 2026-04-11
+
+Field-test audit: 10 zero-context agents explored the CLI, found 8 bugs and 5 UX gaps. All fixed.
+
+### Bug Fixes
+
+- **`try` soundness** — `tryImpl` now uses `driveEffectful` to force deferred effectful tails in do-blocks. Previously, `failWith` errors could escape `try` when the tail expression was a function call.
+- **Point-free partial application** — `compilePrimOp` partial-application path emitted args before the PrimVal stub, reversing the stack order. Top-level bindings like `foldl (+) 0` or `filter pred` now work correctly. The `--explain` flag masked this because it disables inlining.
+- **Recursive dictionary inlining** — `caseOfKnownDict` now skips self-referential dictionary bindings (`ir.FreeVars` guard), preventing exponential IR expansion that consumed gigabytes in seconds for recursive type class instances (e.g., `impl Functor Tree`).
+- **Optimizer timeout** — `context.Context` threaded through the optimizer; `rewriter.apply` checks cancellation per node. Compile-phase timeouts now abort runaway optimization.
+- **`doRunState` soundness** — state handler uses `driveEffectful` (same pattern as `tryImpl` fix).
+- **Nested `evalState`** — save/restore pattern in `doRunState` and `doRunStateDrive` preserves outer state capability across inner handler execution.
+- **CLI `--module` override** — CLI flags now register before header directives; `applyHeaderDirectives` skips already-registered modules. Matches documented "CLI overrides headers" behavior.
+
+### Error Messages
+
+- Missing `;` in do-blocks: detects `Computation` type in function position, suggests "did you forget a ';'?"
+- Unbound operators/functions: static name→module map suggests `import Prelude`, `import Effect.State`, etc.
+- `r.x` vs `r.#x`: detects bare-dot field access, suggests `.#field` syntax.
+
+### Performance
+
+- **resolveFromContext** — `couldBeDictType` pre-filter skips non-dictionary context entries without zonking. 10,000-binding compile: 1,650ms → 660ms.
+- **Context.LookupVar** — `varIndex` (LIFO map) replaces linear scan. 10,000-binding compile: 660ms → 560ms. Cumulative **-66%** from baseline.
+
 ## v0.28.0 — 2026-04-10
 
 This release adds **session types**, **named capability handlers**, CBPV **implicit coercion**, a full **optimizer pipeline** with fusion, and a comprehensive **structural overhaul** of the codebase. The LSP gains 5 new features (doc comments, document symbols, go-to-definition, completion for imports, operator hover). 62 commits since v0.27.0.
