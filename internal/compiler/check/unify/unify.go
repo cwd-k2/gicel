@@ -10,6 +10,8 @@
 package unify
 
 import (
+	"strconv"
+
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -305,11 +307,15 @@ func (u *Unifier) Unify(a, b types.Type) error {
 					return err
 				}
 			}
-			// Unify bodies with bound variables treated as equal.
-			// Use a fresh variable to avoid capture: substitute both sides
-			// to a common name that cannot clash with free variables.
-			fresh := &types.TyVar{Name: at.Var}
-			bodyA := at.Body
+			// Unify bodies under alpha-equivalence. Use a globally fresh
+			// name to avoid variable capture: if at.Var appeared free in
+			// bt.Body (or vice versa), reusing it would conflate bound
+			// and free occurrences. A gensym name is guaranteed disjoint
+			// from any user-written or previously generated name.
+			freshName := "$u" + strconv.Itoa(*u.freshID)
+			*u.freshID++
+			fresh := &types.TyVar{Name: freshName}
+			bodyA := types.Subst(at.Body, at.Var, fresh)
 			bodyB := types.Subst(bt.Body, bt.Var, fresh)
 			return u.Unify(bodyA, bodyB)
 		}
