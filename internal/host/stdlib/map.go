@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -160,8 +160,8 @@ func mapFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		if !ok {
 			return nil, ce, errExpected("mapFromList", "tuple", con.Args[0])
 		}
-		key, ok1 := pair.Get(ir.TupleLabel(1))
-		value, ok2 := pair.Get(ir.TupleLabel(2))
+		key, ok1 := pair.Get(types.TupleLabel(1))
+		value, ok2 := pair.Get(types.TupleLabel(2))
 		if !ok1 || !ok2 {
 			return nil, ce, errors.New("mapFromList: tuple must have _1 and _2")
 		}
@@ -412,7 +412,7 @@ func mapFindMinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
 	n := avlMinNode(m.root)
-	pair := eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value})
+	pair := eval.NewRecordFromMap(map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value})
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
 }
 
@@ -426,7 +426,7 @@ func mapFindMaxImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
 	n := avlMaxNode(m.root)
-	pair := eval.NewRecordFromMap(map[string]eval.Value{ir.TupleLabel(1): n.key, ir.TupleLabel(2): n.value})
+	pair := eval.NewRecordFromMap(map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value})
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
 }
 

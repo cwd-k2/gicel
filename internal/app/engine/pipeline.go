@@ -137,10 +137,10 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		return nil, &CompileError{errs: checkErrs}
 	}
 
-	modFixity := make(map[string]parse.Fixity)
+	modFixity := make(map[string]syntax.Fixity)
 	for _, d := range ast.Decls {
 		if fix, ok := d.(*syntax.DeclFixity); ok {
-			modFixity[fix.Op] = parse.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
+			modFixity[fix.Op] = syntax.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
 		}
 	}
 
@@ -572,14 +572,14 @@ func (pc *pipelineCtx) collectVarDocs() map[string]string {
 	return docs
 }
 
-// fixityToHover converts a parse.Fixity to hover display information.
-func fixityToHover(f parse.Fixity) *OperatorFixity {
+// fixityToHover converts a syntax.Fixity to hover display information.
+func fixityToHover(f syntax.Fixity) *OperatorFixity {
 	return &OperatorFixity{Assoc: f.Assoc.String(), Prec: f.Prec}
 }
 
 // collectFixityMap gathers the merged fixity map for the given AST:
 // transitive imports (from the module store) + local fixity declarations.
-func (pc *pipelineCtx) collectFixityMap(ast *syntax.AstProgram) map[string]parse.Fixity {
+func (pc *pipelineCtx) collectFixityMap(ast *syntax.AstProgram) map[string]syntax.Fixity {
 	importNames := make([]string, len(ast.Imports))
 	for i, imp := range ast.Imports {
 		importNames[i] = imp.ModuleName
@@ -587,7 +587,7 @@ func (pc *pipelineCtx) collectFixityMap(ast *syntax.AstProgram) map[string]parse
 	result := pc.store.CollectFixityMap(importNames)
 	for _, d := range ast.Decls {
 		if fix, ok := d.(*syntax.DeclFixity); ok {
-			result[fix.Op] = parse.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
+			result[fix.Op] = syntax.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
 		}
 	}
 	return result

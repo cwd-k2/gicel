@@ -6,9 +6,9 @@ import (
 	"sort"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
-	"github.com/cwd-k2/gicel/internal/compiler/parse"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/syntax"
 )
 
 type compiledModule struct {
@@ -16,7 +16,7 @@ type compiledModule struct {
 	annots         *ir.FVAnnotations // FV metadata for every Lam/Thunk/Merge in prog
 	exports        *check.ModuleExports
 	deps           []string
-	fixity         map[string]parse.Fixity
+	fixity         map[string]syntax.Fixity
 	sortedBindings []ir.Binding // pre-sorted for evalPrecompiledBindings
 	source         *span.Source // source text for error attribution
 }
@@ -105,8 +105,8 @@ func (s *ModuleStore) sortedModuleNames() []string {
 // of the given import names. Only modules reachable through the import
 // graph contribute fixity, preventing unimported modules from affecting
 // operator precedence.
-func (s *ModuleStore) CollectFixityMap(imports []string) map[string]parse.Fixity {
-	result := make(map[string]parse.Fixity)
+func (s *ModuleStore) CollectFixityMap(imports []string) map[string]syntax.Fixity {
+	result := make(map[string]syntax.Fixity)
 	visited := make(map[string]bool)
 	var walk func(string)
 	walk = func(name string) {

@@ -9,7 +9,7 @@ import (
 
 // ResolveFixity walks the AST and resolves all ExprInfixSpine nodes
 // into nested ExprInfix trees using the provided fixity map.
-func ResolveFixity(prog *syn.AstProgram, fixity map[string]Fixity, errors *diagnostic.Errors) {
+func ResolveFixity(prog *syn.AstProgram, fixity map[string]syn.Fixity, errors *diagnostic.Errors) {
 	r := &resolver{fixity: fixity, errors: errors}
 	for i, d := range prog.Decls {
 		prog.Decls[i] = r.resolveDecl(d)
@@ -17,26 +17,26 @@ func ResolveFixity(prog *syn.AstProgram, fixity map[string]Fixity, errors *diagn
 }
 
 // CollectModuleFixity extracts fixity declarations from parsed decls.
-func CollectModuleFixity(decls []syn.Decl) map[string]Fixity {
-	fixity := make(map[string]Fixity)
+func CollectModuleFixity(decls []syn.Decl) map[string]syn.Fixity {
+	fixity := make(map[string]syn.Fixity)
 	for _, d := range decls {
 		if f, ok := d.(*syn.DeclFixity); ok && f != nil {
-			fixity[f.Op] = Fixity{Assoc: f.Assoc, Prec: f.Prec}
+			fixity[f.Op] = syn.Fixity{Assoc: f.Assoc, Prec: f.Prec}
 		}
 	}
 	return fixity
 }
 
 type resolver struct {
-	fixity map[string]Fixity
+	fixity map[string]syn.Fixity
 	errors *diagnostic.Errors
 }
 
-func (r *resolver) lookupFixity(op string) Fixity {
+func (r *resolver) lookupFixity(op string) syn.Fixity {
 	if f, ok := r.fixity[op]; ok {
 		return f
 	}
-	return Fixity{Assoc: syn.AssocLeft, Prec: 9}
+	return syn.Fixity{Assoc: syn.AssocLeft, Prec: 9}
 }
 
 // resolveSpine converts a flat operator spine into a precedence-correct
@@ -49,7 +49,7 @@ func (r *resolver) resolveSpine(e *syn.ExprInfixSpine) syn.Expr {
 
 	type opEntry struct {
 		name string
-		fix  Fixity
+		fix  syn.Fixity
 		span span.Span
 	}
 

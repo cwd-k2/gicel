@@ -3,7 +3,7 @@ package stdlib
 import (
 	"context"
 
-	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -120,8 +120,8 @@ func doRunState(label string, initVal eval.Value, thunk eval.Value, ce eval.CapE
 	}
 
 	tuple := eval.NewRecordFromMap(map[string]eval.Value{
-		ir.TupleLabel(1): stateVal,
-		ir.TupleLabel(2): val,
+		types.TupleLabel(1): stateVal,
+		types.TupleLabel(2): val,
 	})
 	return tuple, cleanCe, nil
 }
@@ -151,7 +151,7 @@ func evalStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 		return nil, ce, err
 	}
 	rv := tuple.(*eval.RecordVal)
-	val, _ := rv.Get(ir.TupleLabel(2))
+	val, _ := rv.Get(types.TupleLabel(2))
 	return val, newCe, nil
 }
 
@@ -166,7 +166,7 @@ func execStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 		return nil, ce, err
 	}
 	rv := tuple.(*eval.RecordVal)
-	state, _ := rv.Get(ir.TupleLabel(1))
+	state, _ := rv.Get(types.TupleLabel(1))
 	return state, newCe, nil
 }
 
@@ -200,8 +200,8 @@ func doRunStateDrive(label string, initVal eval.Value, thunk eval.Value, ce eval
 	}
 
 	tuple := eval.NewRecordFromMap(map[string]eval.Value{
-		ir.TupleLabel(1): stateVal,
-		ir.TupleLabel(2): val,
+		types.TupleLabel(1): stateVal,
+		types.TupleLabel(2): val,
 	})
 	return tuple, cleanCe, nil
 }

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -205,7 +205,7 @@ func writeJSONTuple(ctx context.Context, buf *strings.Builder, r *eval.RecordVal
 		if i > 0 {
 			buf.WriteByte(',')
 		}
-		v, _ := r.Get(ir.TupleLabel(i + 1))
+		v, _ := r.Get(types.TupleLabel(i + 1))
 		if err := writeJSONValue(ctx, buf, v, depth+1); err != nil {
 			return err
 		}
@@ -351,8 +351,8 @@ func toJSONPairImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if !ok {
 		return nil, ce, errExpected("json", "tuple", args[2])
 	}
-	a, ok1 := pair.Get(ir.TupleLabel(1))
-	b, ok2 := pair.Get(ir.TupleLabel(2))
+	a, ok1 := pair.Get(types.TupleLabel(1))
+	b, ok2 := pair.Get(types.TupleLabel(2))
 	if !ok1 || !ok2 {
 		return nil, ce, errors.New("json: expected tuple with _1 and _2")
 	}
@@ -565,8 +565,8 @@ func fromJSONPairImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 		return jsonNothing, newCe, nil
 	}
 	pair := eval.NewRecordFromMap(map[string]eval.Value{
-		ir.TupleLabel(1): conA.Args[0],
-		ir.TupleLabel(2): conB.Args[0],
+		types.TupleLabel(1): conA.Args[0],
+		types.TupleLabel(2): conB.Args[0],
 	})
 	return jsonJust(pair), newCe, nil
 }

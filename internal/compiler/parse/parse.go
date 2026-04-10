@@ -15,12 +15,6 @@ import (
 // with any valid GICEL identifier.
 const errName = "<error>"
 
-// Fixity holds operator precedence and associativity.
-type Fixity struct {
-	Assoc syn.Assoc
-	Prec  int
-}
-
 // parserGuard tracks resource consumption to prevent runaway parsing.
 // Separated from parsing logic to make the safety boundary identifiable.
 type parserGuard struct {
@@ -112,7 +106,7 @@ func (pg *progressGuard) RecoverStagnation() {
 type Parser struct {
 	ctx         context.Context // external cancellation (nil-safe)
 	tb          *tokenBuffer
-	fixity      map[string]Fixity
+	fixity      map[string]syn.Fixity
 	errors      *diagnostic.Errors
 	depth       int  // paren/brace nesting depth
 	noBraceAtom bool // when true, { is not an atom start (inside case scrutinee)
@@ -137,7 +131,7 @@ func NewParser(ctx context.Context, source *span.Source, errors *diagnostic.Erro
 	return &Parser{
 		ctx:    ctx,
 		tb:     newTokenBuffer(scanner),
-		fixity: make(map[string]Fixity),
+		fixity: make(map[string]syn.Fixity),
 		errors: errors,
 		guard: parserGuard{
 			maxRecurseDepth: 256,
@@ -152,7 +146,7 @@ func (p *Parser) LexErrors() *diagnostic.Errors {
 }
 
 // AddFixity merges host-supplied fixity declarations into the parser.
-func (p *Parser) AddFixity(fixity map[string]Fixity) {
+func (p *Parser) AddFixity(fixity map[string]syn.Fixity) {
 	maps.Copy(p.fixity, fixity)
 }
 

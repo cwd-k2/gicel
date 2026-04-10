@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // ExplainKind classifies semantic evaluation events.
@@ -268,7 +268,7 @@ func IsTuple(r *RecordVal) bool {
 		return true // () is the unit tuple
 	}
 	for i := 1; i <= n; i++ {
-		if _, ok := r.Get(ir.TupleLabel(i)); !ok {
+		if _, ok := r.Get(types.TupleLabel(i)); !ok {
 			return false
 		}
 	}
@@ -282,7 +282,7 @@ func prettyTupleDepth(r *RecordVal, depth int) string {
 	}
 	parts := make([]string, n)
 	for i := range n {
-		parts[i] = prettyValueDepth(r.MustGet(ir.TupleLabel(i+1)), depth+1)
+		parts[i] = prettyValueDepth(r.MustGet(types.TupleLabel(i+1)), depth+1)
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
 }
