@@ -464,6 +464,11 @@ type AnalysisResult struct {
 	Errors           *diagnostic.Errors
 	Complete         bool        // true when Errors has no errors
 	HoverIndex       *HoverIndex // nil unless EnableHoverIndex was called
+
+	// Pre-computed LSP data — populated by Analyze, not by compileMain.
+	CompletionEntries []CompletionEntry
+	DocumentSymbols   []DocumentSymbolEntry
+	Definitions       []DefinitionEntry
 }
 
 // Analyze runs the analysis pipeline (lex → parse → check), returning

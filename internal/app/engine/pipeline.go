@@ -255,6 +255,11 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 		}
 	}
 
+	// Pre-compute LSP data so the server needs no lang/types or lang/syntax imports.
+	result.CompletionEntries = buildCompletionEntries(result)
+	result.DocumentSymbols = buildDocumentSymbolEntries(result)
+	result.Definitions = buildDefinitionEntries(result)
+
 	return result
 }
 

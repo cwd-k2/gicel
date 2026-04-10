@@ -15,8 +15,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
 	"github.com/cwd-k2/gicel/internal/infra/span"
-	"github.com/cwd-k2/gicel/internal/lang/syntax"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
 )
@@ -427,54 +425,15 @@ func (s *Server) handleCompletion(msg *jsonrpc.Message) {
 		return
 	}
 
-	items := buildCompletionItems(doc.Analysis)
+	items := make([]protocol.CompletionItem, len(doc.Analysis.CompletionEntries))
+	for i, e := range doc.Analysis.CompletionEntries {
+		items[i] = protocol.CompletionItem{
+			Label:  e.Label,
+			Kind:   protocol.CompletionItemKind(e.Kind),
+			Detail: e.Detail,
+		}
+	}
 	s.respondResult(msg.ID, protocol.CompletionList{Items: items})
-}
-
-func buildCompletionItems(ar *engine.AnalysisResult) []protocol.CompletionItem {
-	prog := ar.Program
-	var items []protocol.CompletionItem
-
-	// Top-level bindings.
-	for _, b := range prog.Bindings {
-		if b.Generated.IsGenerated() {
-			continue
-		}
-		items = append(items, protocol.CompletionItem{
-			Label:  b.Name,
-			Kind:   protocol.CIKFunction,
-			Detail: types.PrettyDisplay(b.Type),
-		})
-	}
-
-	// Data type names and constructors.
-	for i := range prog.DataDecls {
-		dd := &prog.DataDecls[i]
-		items = append(items, protocol.CompletionItem{
-			Label:  dd.Name,
-			Kind:   protocol.CIKStruct,
-			Detail: types.PrettyTypeAsKind(engine.ComputeFormKind(dd)),
-		})
-		for j := range dd.Cons {
-			con := &dd.Cons[j]
-			items = append(items, protocol.CompletionItem{
-				Label:  con.Name,
-				Kind:   protocol.CIKConstructor,
-				Detail: types.PrettyDisplay(engine.BuildConType(dd, con)),
-			})
-		}
-	}
-
-	// Imported bindings (from modules).
-	for name, ty := range ar.ImportedBindings {
-		items = append(items, protocol.CompletionItem{
-			Label:  name,
-			Kind:   protocol.CIKVariable,
-			Detail: types.PrettyDisplay(ty),
-		})
-	}
-
-	return items
 }
 
 // ---- Document Symbols ----
@@ -492,88 +451,25 @@ func (s *Server) handleDocumentSymbol(msg *jsonrpc.Message) {
 		return
 	}
 
-	symbols := buildDocumentSymbols(doc.Analysis)
+	symbols := convertDocumentSymbols(doc.Analysis.DocumentSymbols, doc.Analysis.Source)
 	s.respondResult(msg.ID, symbols)
 }
 
-func buildDocumentSymbols(ar *engine.AnalysisResult) []protocol.DocumentSymbol {
-	src := ar.Source
-	prog := ar.Program
-	var symbols []protocol.DocumentSymbol
-
-	// Top-level bindings.
-	for _, b := range prog.Bindings {
-		if b.Generated.IsGenerated() || b.S == (span.Span{}) {
-			continue
-		}
-		symbols = append(symbols, protocol.DocumentSymbol{
-			Name:           b.Name,
-			Detail:         types.PrettyDisplay(b.Type),
-			Kind:           protocol.SKFunction,
-			Range:          spanToRange(src, b.S),
-			SelectionRange: spanToRange(src, b.S),
-		})
-	}
-
-	// Data declarations with constructor children.
-	for i := range prog.DataDecls {
-		dd := &prog.DataDecls[i]
-		if dd.S == (span.Span{}) {
-			continue
-		}
+func convertDocumentSymbols(entries []engine.DocumentSymbolEntry, src *span.Source) []protocol.DocumentSymbol {
+	symbols := make([]protocol.DocumentSymbol, 0, len(entries))
+	for _, e := range entries {
 		sym := protocol.DocumentSymbol{
-			Name:           dd.Name,
-			Detail:         types.PrettyTypeAsKind(engine.ComputeFormKind(dd)),
-			Kind:           protocol.SKStruct,
-			Range:          spanToRange(src, dd.S),
-			SelectionRange: spanToRange(src, dd.S),
+			Name:           e.Name,
+			Detail:         e.Detail,
+			Kind:           protocol.SymbolKind(e.Kind),
+			Range:          spanToRange(src, e.S),
+			SelectionRange: spanToRange(src, e.S),
 		}
-		for j := range dd.Cons {
-			con := &dd.Cons[j]
-			if con.S == (span.Span{}) {
-				continue
-			}
-			sym.Children = append(sym.Children, protocol.DocumentSymbol{
-				Name:           con.Name,
-				Detail:         types.PrettyDisplay(engine.BuildConType(dd, con)),
-				Kind:           protocol.SKConstructor,
-				Range:          spanToRange(src, con.S),
-				SelectionRange: spanToRange(src, con.S),
-			})
+		if len(e.Children) > 0 {
+			sym.Children = convertDocumentSymbols(e.Children, src)
 		}
 		symbols = append(symbols, sym)
 	}
-
-	// Type aliases and impl declarations from AST.
-	if ar.AST != nil {
-		for _, d := range ar.AST.Decls {
-			switch decl := d.(type) {
-			case *syntax.DeclTypeAlias:
-				if decl.S != (span.Span{}) {
-					symbols = append(symbols, protocol.DocumentSymbol{
-						Name:           decl.Name,
-						Kind:           protocol.SKStruct,
-						Range:          spanToRange(src, decl.S),
-						SelectionRange: spanToRange(src, decl.S),
-					})
-				}
-			case *syntax.DeclImpl:
-				if decl.S != (span.Span{}) {
-					name := decl.Name
-					if name == "" {
-						name = "impl"
-					}
-					symbols = append(symbols, protocol.DocumentSymbol{
-						Name:           name,
-						Kind:           protocol.SKClass,
-						Range:          spanToRange(src, decl.S),
-						SelectionRange: spanToRange(src, decl.S),
-					})
-				}
-			}
-		}
-	}
-
 	return symbols
 }
 
@@ -599,51 +495,14 @@ func (s *Server) handleDefinition(msg *jsonrpc.Message) {
 		return
 	}
 
-	// Search bindings for definition.
-	for _, b := range doc.Analysis.Program.Bindings {
-		if b.Name == name && b.S != (span.Span{}) && !b.Generated.IsGenerated() {
+	// Search pre-computed definitions.
+	for _, def := range doc.Analysis.Definitions {
+		if def.Name == name {
 			s.respondResult(msg.ID, protocol.Location{
 				URI:   params.TextDocument.URI,
-				Range: spanToRange(doc.Analysis.Source, b.S),
+				Range: spanToRange(doc.Analysis.Source, def.S),
 			})
 			return
-		}
-	}
-
-	// Search constructors.
-	for i := range doc.Analysis.Program.DataDecls {
-		dd := &doc.Analysis.Program.DataDecls[i]
-		if dd.Name == name && dd.S != (span.Span{}) {
-			s.respondResult(msg.ID, protocol.Location{
-				URI:   params.TextDocument.URI,
-				Range: spanToRange(doc.Analysis.Source, dd.S),
-			})
-			return
-		}
-		for j := range dd.Cons {
-			con := &dd.Cons[j]
-			if con.Name == name && con.S != (span.Span{}) {
-				s.respondResult(msg.ID, protocol.Location{
-					URI:   params.TextDocument.URI,
-					Range: spanToRange(doc.Analysis.Source, con.S),
-				})
-				return
-			}
-		}
-	}
-
-	// Search type aliases in AST.
-	if doc.Analysis.AST != nil {
-		for _, d := range doc.Analysis.AST.Decls {
-			if alias, ok := d.(*syntax.DeclTypeAlias); ok {
-				if alias.Name == name && alias.S != (span.Span{}) {
-					s.respondResult(msg.ID, protocol.Location{
-						URI:   params.TextDocument.URI,
-						Range: spanToRange(doc.Analysis.Source, alias.S),
-					})
-					return
-				}
-			}
 		}
 	}
 
