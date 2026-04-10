@@ -1,6 +1,7 @@
 //go:build probe
 
-// Capability environment and effect interaction tests.
+// Effect probe tests — capability environment and effect interaction edge cases.
+// Does NOT cover: probe_runtime_probe_test.go, probe_sandbox_probe_test.go, probe_session_probe_test.go.
 package probe_test
 
 import (

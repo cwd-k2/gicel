@@ -1,6 +1,7 @@
 //go:build probe
 
-// Type class method dispatch edge-case tests.
+// Typeclass probe tests — type class method dispatch edge cases.
+// Does NOT cover: probe_typesystem_probe_test.go, probe_value_probe_test.go.
 package probe_test
 
 import (

@@ -1,5 +1,7 @@
 //go:build probe
 
+// Eval probe tests — evaluation edge cases, concurrency, resource limits, error recovery.
+// Does NOT cover: probe_runtime_probe_test.go, probe_sandbox_probe_test.go, probe_effect_probe_test.go.
 package probe_test
 
 import (

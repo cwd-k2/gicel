@@ -1,5 +1,7 @@
 //go:build probe
 
+// Instance probe tests — resolution depth, self-recursive instances, overlapping, missing methods.
+// Does NOT cover: instance_test.go, instance_tuple_test.go, class_elaboration_test.go, class_hkt_test.go.
 package check
 
 import (

@@ -1,6 +1,7 @@
 //go:build probe
 
-// Lexer probe tests: numeric literals, token edge cases, unicode, escapes, comments.
+// Lexer probe tests — numeric literals, token edge cases, unicode, escapes, comments.
+// Does NOT cover: lexer_test.go, scanner_test.go, scanner_shebang_test.go.
 package parse
 
 import (

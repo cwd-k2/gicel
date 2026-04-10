@@ -1,7 +1,7 @@
 //go:build probe
 
-// Runtime edge cases: entry points, error messages, concurrency,
-// regression tests, do-blocks, records, IO, and runtime reuse.
+// Runtime probe tests — entry points, error messages, concurrency, regression, do-blocks, records, IO.
+// Does NOT cover: probe_eval_probe_test.go, probe_sandbox_probe_test.go, probe_effect_probe_test.go.
 package probe_test
 
 import (

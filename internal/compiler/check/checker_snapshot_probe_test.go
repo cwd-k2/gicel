@@ -1,5 +1,7 @@
 //go:build probe
 
+// Snapshot/Restore probe tests — solution rollback, label context rollback, kind solution rollback.
+// Does NOT cover: check_solver_test.go, check_solver_implication_test.go, check_solver_given_test.go.
 package check
 
 import (

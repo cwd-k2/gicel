@@ -1,6 +1,7 @@
 //go:build probe
 
-// Stdlib correctness tests: list, map, set, show, string, numeric edge cases.
+// Stdlib probe tests — list, map, set, show, string, numeric edge cases.
+// Does NOT cover: probe_stdlib_collection_probe_test.go, probe_effect_probe_test.go.
 package probe_test
 
 import (

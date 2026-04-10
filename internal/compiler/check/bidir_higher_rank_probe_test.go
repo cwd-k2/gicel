@@ -1,5 +1,7 @@
 //go:build probe
 
+// Bidir higher-rank probe tests — polymorphic function arguments, rank-2+ type checking.
+// Does NOT cover: bidir_inference_test.go, bidir_typerecord_test.go, bidir_case_probe_test.go.
 package check
 
 import (

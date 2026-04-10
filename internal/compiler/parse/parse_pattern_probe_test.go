@@ -1,6 +1,7 @@
 //go:build probe
 
-// Pattern probe tests: pattern matching, nesting, qualified constructors, literals, records.
+// Pattern probe tests — pattern matching, nesting, qualified constructors, literals, records.
+// Does NOT cover: parse_pattern_bind_probe_test.go, parse_expr_probe_test.go, parse_crash_probe_test.go.
 package parse
 
 import (

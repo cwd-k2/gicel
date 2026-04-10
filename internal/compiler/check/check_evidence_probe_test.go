@@ -1,5 +1,7 @@
 //go:build probe
 
+// Evidence probe tests — superclass chains, missing instances, overlapping instances, diamond inheritance.
+// Does NOT cover: check_evidence_test.go, check_evidence_resolve_test.go, check_evidence_dict_reification_test.go, check_evidence_migration_test.go, check_evidence_sort_stress_test.go, check_evidence_stress_test.go.
 package check
 
 import (

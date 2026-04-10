@@ -1,6 +1,7 @@
 //go:build probe
 
-// Module interaction and registration edge-case tests.
+// Module probe tests — module interaction and registration edge cases.
+// Does NOT cover: probe_parser_probe_test.go, probe_typesystem_probe_test.go.
 package probe_test
 
 import (

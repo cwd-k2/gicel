@@ -1,6 +1,7 @@
 //go:build probe
 
-// Expression probe tests: lambda, record, list, tuple, case, block, row, qualified.
+// Expression probe tests — lambda, record, list, tuple, case, block, row, qualified.
+// Does NOT cover: parse_do_probe_test.go, parse_operator_probe_test.go, parse_pattern_probe_test.go, parse_crash_probe_test.go.
 package parse
 
 import (

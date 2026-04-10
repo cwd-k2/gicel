@@ -1,6 +1,7 @@
 //go:build probe
 
-// Value conversion edge-case tests.
+// Value probe tests — value conversion edge cases.
+// Does NOT cover: probe_eval_probe_test.go, probe_typeclass_probe_test.go, probe_runtime_probe_test.go.
 package probe_test
 
 import (

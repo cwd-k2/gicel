@@ -1,6 +1,7 @@
 //go:build probe
 
-// Do-notation probe tests: do-blocks, bind, pure, nesting, edge cases.
+// Do-notation probe tests — do-blocks, bind, pure, nesting, edge cases.
+// Does NOT cover: parse_expr_probe_test.go, parse_crash_probe_test.go, parse_pattern_probe_test.go.
 package parse
 
 import (

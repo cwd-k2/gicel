@@ -1,5 +1,5 @@
-// Shared test helpers for internal/engine/ tests.
-
+// Engine helpers tests — shared test helpers for internal/engine/ tests.
+// Does NOT cover: direct feature tests (see adjacent test files).
 package engine
 
 import (

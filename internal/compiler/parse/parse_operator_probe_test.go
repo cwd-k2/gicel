@@ -1,6 +1,7 @@
 //go:build probe
 
-// Operator probe tests: dot disambiguation, fixity, precedence, associativity, sections.
+// Operator probe tests — dot disambiguation, fixity, precedence, associativity, sections.
+// Does NOT cover: parse_expr_probe_test.go, parse_dashpipe_test.go.
 package parse
 
 import (

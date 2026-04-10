@@ -1,4 +1,5 @@
 // Import tests — module import processing, ambiguity resolution, ownership detection.
+// Does NOT cover: check_import_module_probe_test.go, check_import_collision_test.go (in parent package).
 package modscope
 
 import (

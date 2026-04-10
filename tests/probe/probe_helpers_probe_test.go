@@ -1,6 +1,7 @@
 //go:build probe
 
-// Shared test helpers for probe tests.
+// Probe helpers — shared test helpers for probe tests.
+// Does NOT cover: direct feature tests (see adjacent test files).
 package probe_test
 
 import (

@@ -1,6 +1,7 @@
 //go:build probe
 
-// Pattern matching edge-case tests.
+// Pattern probe tests — pattern matching edge cases.
+// Does NOT cover: probe_parser_probe_test.go, probe_eval_probe_test.go, probe_typesystem_probe_test.go.
 package probe_test
 
 import (

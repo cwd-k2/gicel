@@ -1,5 +1,7 @@
 //go:build probe
 
+// Parser probe tests — integration-level parser/syntax probes through the Engine API.
+// Does NOT cover: probe_pattern_probe_test.go, probe_module_probe_test.go, internal/compiler/parse/*_probe_test.go.
 package probe_test
 
 import (

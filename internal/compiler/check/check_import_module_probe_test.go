@@ -1,5 +1,7 @@
 //go:build probe
 
+// Import module probe tests — multi-module type checking, cross-module resolution.
+// Does NOT cover: check_import_collision_test.go, modscope/import_test.go.
 package check
 
 import (

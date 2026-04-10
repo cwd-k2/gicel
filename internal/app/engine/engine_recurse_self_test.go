@@ -1,5 +1,5 @@
-// OpRecurseSelf presence verification — ensures that compiled fib-style
-// programs actually emit the specialized self-recursion opcodes.
+// Engine recurse-self tests — OpRecurseSelf presence verification for fib-style programs.
+// Does NOT cover: engine_rec_test.go, engine_recursion_scope_test.go.
 package engine
 
 import (

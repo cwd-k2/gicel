@@ -1,8 +1,7 @@
 //go:build probe
 
-// Integration-level type system probes: type classes, type families,
-// GADTs, modules, higher-rank types, cross-feature interactions,
-// crash resistance, computation types, records, and inference.
+// Typesystem probe tests — type classes, type families, GADTs, higher-rank, cross-feature interactions.
+// Does NOT cover: probe_typeclass_probe_test.go, probe_session_probe_test.go, probe_pattern_probe_test.go.
 package probe_test
 
 import (

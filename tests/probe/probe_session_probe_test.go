@@ -1,5 +1,7 @@
 //go:build probe
 
+// Session probe tests — session type encoding boundary tests, protocol fidelity.
+// Does NOT cover: probe_effect_probe_test.go, probe_typesystem_probe_test.go.
 package probe_test
 
 import (

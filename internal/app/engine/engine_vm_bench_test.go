@@ -1,4 +1,5 @@
-// Pre-compiled execution benchmarks for the bytecode VM.
+// Engine VM bench tests — pre-compiled execution benchmarks (RunWith only).
+// Does NOT cover: correctness tests (see adjacent test files).
 //
 // These compile once outside the bench loop and time only RunWith.
 // This isolates steady-state runtime cost from per-iteration compile

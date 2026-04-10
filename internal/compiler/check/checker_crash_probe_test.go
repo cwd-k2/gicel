@@ -1,5 +1,7 @@
 //go:build probe
 
+// Checker crash probe tests — deeply nested foralls, wide rows, large data types, stress resilience.
+// Does NOT cover: checker_error_test.go, checker_regression_test.go, checker_hkt_stress_test.go, checker_structural_stress_test.go.
 package check
 
 import (

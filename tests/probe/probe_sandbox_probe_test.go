@@ -1,6 +1,7 @@
 //go:build probe
 
-// Sandbox recovery, resource limits, and sandbox edge-case tests.
+// Sandbox probe tests — sandbox recovery, resource limits, and sandbox edge cases.
+// Does NOT cover: probe_runtime_probe_test.go, probe_eval_probe_test.go, probe_effect_probe_test.go.
 package probe_test
 
 import (

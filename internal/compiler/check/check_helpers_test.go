@@ -1,5 +1,5 @@
-// Shared test helpers for internal/check/ tests.
-
+// Check helpers tests — shared test helpers for internal/check/ tests.
+// Does NOT cover: direct feature tests (see adjacent test files).
 package check
 
 import (

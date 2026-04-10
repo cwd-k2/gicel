@@ -1,6 +1,7 @@
 //go:build probe
 
-// Import probe tests: open, selective, qualified, edge cases.
+// Import probe tests — open, selective, qualified, edge cases.
+// Does NOT cover: parse_decl_probe_test.go, parse_expr_probe_test.go.
 package parse
 
 import (

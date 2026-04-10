@@ -1,6 +1,7 @@
 //go:build probe
 
 // Parser crash probe tests — deep nesting, long inputs, error recovery, step limits.
+// Does NOT cover: parse_expr_probe_test.go, parse_do_probe_test.go, parse_pattern_probe_test.go, parse_operator_probe_test.go, parse_import_probe_test.go, parse_recovery_probe_test.go.
 package parse
 
 import (

@@ -1,5 +1,7 @@
 //go:build probe
 
+// Unification probe tests — row unification, occurs check, meta solving, skolem/meta interaction.
+// Does NOT cover: check_unify_test.go, skolem_probe_test.go.
 package check
 
 import (

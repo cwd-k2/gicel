@@ -1,5 +1,7 @@
 //go:build probe
 
+// Type family probe tests — Peano arithmetic, nested families, recursive families, stuck families.
+// Does NOT cover: type_family_test.go, type_family_row_test.go, type_family_reduction_unit_test.go, type_family_reduction_match_test.go, type_family_reduction_decl_test.go, type_family_reduction_integration_test.go, type_family_interaction_*.go, type_family_stress_test.go, type_family_security_test.go, type_family_pathological_test.go.
 package check
 
 import (

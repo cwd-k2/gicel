@@ -1,5 +1,7 @@
 //go:build probe
 
+// Zonk probe tests — meta chain path compression, unsolved meta preservation, structural identity.
+// Does NOT cover: check_unify_test.go, check_unify_probe_test.go.
 package check
 
 import (

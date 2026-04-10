@@ -1,5 +1,7 @@
 //go:build probe
 
+// GADT probe tests — skolem escape detection, GADT index refinement, multi-constructor patterns.
+// Does NOT cover: checker_gadt_test.go, checker_equality_test.go, checker_equality_probe_test.go.
 package check
 
 import (

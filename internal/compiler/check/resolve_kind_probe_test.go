@@ -1,5 +1,7 @@
 //go:build probe
 
+// Kind resolution probe tests — kind-level metavariable unification, skolem rigidity.
+// Does NOT cover: resolve_kind_constraint_test.go, resolve_kind_datakinds_test.go, resolve_kind_hkt_test.go, resolve_kind_arrow_test.go, resolve_kind_arrow_probe_test.go, resolve_kind_class_family_test.go.
 package check
 
 import (

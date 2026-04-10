@@ -1,5 +1,7 @@
 //go:build probe
 
+// Skolem probe tests — skolem rigidity, same-skolem unification, different-skolem rejection.
+// Does NOT cover: check_unify_test.go, check_unify_probe_test.go, checker_gadt_probe_test.go.
 package check
 
 import (
