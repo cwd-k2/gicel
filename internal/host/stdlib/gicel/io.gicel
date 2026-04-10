@@ -6,8 +6,10 @@ _ioLog := assumption
 _ioDbg :: \a. a -> Effect { io: () | r } ()
 _ioDbg := assumption
 
+-- Write a string to standard output.
 log :: String -> Effect { io: () | r } ()
 log := _ioLog
 
+-- Write any value to standard error (debug output).
 dbg :: \a. a -> Effect { io: () | r } ()
 dbg := _ioDbg

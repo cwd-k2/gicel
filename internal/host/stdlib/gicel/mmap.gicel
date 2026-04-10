@@ -36,46 +36,54 @@ _mmapValues := assumption
 _mmapAdjust :: \k v r. (k -> k -> Ordering) -> k -> (v -> v) -> MMap k v -> Effect { mmap: () | r } ()
 _mmapAdjust := assumption
 
+-- Create an empty mutable map.
 new :: \k v r. Ord k => Effect { mmap: () | r } (MMap k v)
 new := _mmapNew compare
 
+-- Insert a key-value pair (in-place).
 insert :: \k v r. Ord k => k -> v -> MMap k v -> Effect { mmap: () | r } ()
 insert := _mmapInsert compare
 
+-- Look up the value for a key. Nothing if absent.
 lookup :: \k v r. Ord k => k -> MMap k v -> Effect { mmap: () | r } (Maybe v)
 lookup := _mmapLookup compare
 
+-- Remove a key and its value (in-place).
 delete :: \k v r. Ord k => k -> MMap k v -> Effect { mmap: () | r } ()
 delete := _mmapDelete compare
 
+-- Number of entries.
 size :: \k v r. MMap k v -> Effect { mmap: () | r } Int
 size := _mmapSize
 
+-- Test whether a key is present.
 member :: \k v r. Ord k => k -> MMap k v -> Effect { mmap: () | r } Bool
 member := _mmapMember compare
 
+-- Snapshot all entries as a list.
 toList :: \k v r. MMap k v -> Effect { mmap: () | r } (List (k, v))
 toList := _mmapToList
 
+-- Create a mutable map from a list of pairs.
 fromList :: \k v r. Ord k => List (k, v) -> Effect { mmap: () | r } (MMap k v)
 fromList := _mmapFromList compare
 
+-- Left fold with access to keys.
 foldlWithKey :: \k v b r. (b -> k -> v -> b) -> b -> MMap k v -> Effect { mmap: () | r } b
 foldlWithKey := _mmapFoldlWithKey
 
+-- All keys in ascending order.
 keys :: \k v r. MMap k v -> Effect { mmap: () | r } (List k)
 keys := _mmapKeys
 
+-- All values in key-ascending order.
 values :: \k v r. MMap k v -> Effect { mmap: () | r } (List v)
 values := _mmapValues
 
+-- Update the value at a key with a function (in-place).
 adjust :: \k v r. Ord k => k -> (v -> v) -> MMap k v -> Effect { mmap: () | r } ()
 adjust := _mmapAdjust compare
 
--- Named capability variants (label-parameterized).
--- Note: Operations other than new/fromList omit Ord k => because the
--- compare function is stored in the MMap handle at creation time.
--- This avoids label/evidence argument ordering issues at runtime.
 
 _mmapNewNamed :: \(l: Label) k v r. (k -> k -> Ordering) -> Effect { l: () | r } (MMap k v)
 _mmapNewNamed := assumption
@@ -113,6 +121,7 @@ _mmapValuesNamed := assumption
 _mmapAdjustNamed :: \(l: Label) k v r. k -> (v -> v) -> MMap k v -> Effect { l: () | r } ()
 _mmapAdjustNamed := assumption
 
+-- Label-parameterized variant of new. Takes an explicit comparator.
 newAt :: \(l: Label) k v r. (k -> k -> Ordering) -> Effect { l: () | r } (MMap k v)
 newAt := _mmapNewNamed
 

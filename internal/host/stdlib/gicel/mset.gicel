@@ -24,27 +24,35 @@ _msetFromList := assumption
 _msetFold :: \k b r. (b -> k -> b) -> b -> MSet k -> Effect { mset: () | r } b
 _msetFold := assumption
 
+-- Create an empty mutable set.
 new :: \k r. Ord k => Effect { mset: () | r } (MSet k)
 new := _msetNew compare
 
+-- Add an element (in-place).
 insert :: \k r. Ord k => k -> MSet k -> Effect { mset: () | r } ()
 insert := _msetInsert compare
 
+-- Test whether an element is present.
 member :: \k r. Ord k => k -> MSet k -> Effect { mset: () | r } Bool
 member := _msetMember compare
 
+-- Remove an element (in-place).
 delete :: \k r. Ord k => k -> MSet k -> Effect { mset: () | r } ()
 delete := _msetDelete compare
 
+-- Number of elements.
 size :: \k r. MSet k -> Effect { mset: () | r } Int
 size := _msetSize
 
+-- Snapshot all elements as a list.
 toList :: \k r. MSet k -> Effect { mset: () | r } (List k)
 toList := _msetToList
 
+-- Create a mutable set from a list.
 fromList :: \k r. Ord k => List k -> Effect { mset: () | r } (MSet k)
 fromList := _msetFromList compare
 
+-- Left fold over elements.
 fold :: \k b r. (b -> k -> b) -> b -> MSet k -> Effect { mset: () | r } b
 fold := _msetFold
 
@@ -57,18 +65,18 @@ _msetIntersection := assumption
 _msetDifference :: \k r. (k -> k -> Ordering) -> MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 _msetDifference := assumption
 
+-- Elements in either set (returns a new mutable set).
 union :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 union := _msetUnion compare
 
+-- Elements in both sets (returns a new mutable set).
 intersection :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 intersection := _msetIntersection compare
 
+-- Elements in the first set but not the second (returns a new mutable set).
 difference :: \k r. Ord k => MSet k -> MSet k -> Effect { mset: () | r } (MSet k)
 difference := _msetDifference compare
 
--- Named capability variants (label-parameterized).
--- Note: Operations other than new/fromList omit Ord k => because the
--- compare function is stored in the MSet handle at creation time.
 
 _msetNewNamed :: \(l: Label) k r. (k -> k -> Ordering) -> Effect { l: () | r } (MSet k)
 _msetNewNamed := assumption
@@ -103,6 +111,7 @@ _msetIntersectionNamed := assumption
 _msetDifferenceNamed :: \(l: Label) k r. MSet k -> MSet k -> Effect { l: () | r } (MSet k)
 _msetDifferenceNamed := assumption
 
+-- Label-parameterized variant of new. Takes an explicit comparator.
 newAt :: \(l: Label) k r. (k -> k -> Ordering) -> Effect { l: () | r } (MSet k)
 newAt := _msetNewNamed
 

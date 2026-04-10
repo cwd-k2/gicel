@@ -9,19 +9,22 @@ _refRead := assumption
 _refWrite :: \a (r: Row). a -> Ref a -> Effect { ref: () | r } ()
 _refWrite := assumption
 
+-- Create a mutable reference with an initial value.
 new :: \a (r: Row). a -> Effect { ref: () | r } (Ref a)
 new := _refNew
 
+-- Read the current value of a reference.
 read :: \a (r: Row). Ref a -> Effect { ref: () | r } a
 read := _refRead
 
+-- Overwrite the value of a reference.
 write :: \a (r: Row). a -> Ref a -> Effect { ref: () | r } ()
 write := _refWrite
 
+-- Apply a function to the value of a reference.
 modify :: \a (r: Row). (a -> a) -> Ref a -> Effect { ref: () | r } ()
 modify := \f r. do { v <- _refRead r; _refWrite (f v) r }
 
--- Named capability variants (label-parameterized).
 _refNewNamed :: \(l: Label) a (r: Row). a -> Effect { l: () | r } (Ref a)
 _refNewNamed := assumption
 
@@ -34,6 +37,7 @@ _refWriteNamed := assumption
 _refModifyNamed :: \(l: Label) a (r: Row). (a -> a) -> Ref a -> Effect { l: () | r } ()
 _refModifyNamed := assumption
 
+-- Label-parameterized variant of new.
 newAt :: \(l: Label) a (r: Row). a -> Effect { l: () | r } (Ref a)
 newAt := _refNewNamed
 

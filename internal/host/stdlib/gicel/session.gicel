@@ -3,8 +3,13 @@ import Effect.State
 
 -- ─── Session type constructors ──────────────────────────────────────────────
 
+-- Session state: the peer expects to receive a message, then continue with s.
 form Send := \s. { MkSend: Send s }
+
+-- Session state: the peer expects to send a message, then continue with s.
 form Recv := \s. { MkRecv: Recv s }
+
+-- Session state: the protocol has ended.
 form End := { MkEnd: End }
 
 -- Dual computes the peer's session type.
@@ -16,8 +21,7 @@ type Dual :: Type := \(s: Type). case s {
 
 -- ─── Session capability operations ──────────────────────────────────────────
 
--- closeAt removes a capability from the environment.
--- The session-typed close: the computation's post row no longer has the label.
+-- Close a session capability, removing it from the environment.
 closeAt :: \(l: Label) s r. Computation { l: s | r } r ()
 closeAt := assumption
 
@@ -28,16 +32,6 @@ closeAt := assumption
 
 -- ─── Session handler ────────────────────────────────────────────────────────
 
--- runSessionAt: introduces a session capability at label l, runs the
--- computation which transitions through protocol states, and eliminates
--- the capability. Thunk (not Suspended) because pre ≠ post.
---
--- Usage:
---   runSessionAt @#ch initVal do {
---     putAt @#ch 42;        -- transition ch's type
---     v <- getAt @#ch;      -- read session state
---     closeAt @#ch;          -- remove capability
---     pure v
---   }
+-- Introduce a session capability, run the protocol, then eliminate the capability.
 runSessionAt :: \(l: Label) s a r. s -> Thunk Zero { l: s | r } r a -> Effect r a
 runSessionAt := assumption

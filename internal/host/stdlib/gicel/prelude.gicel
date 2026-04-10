@@ -1,8 +1,14 @@
+-- Boolean values.
 form Bool := { True: Bool; False: Bool; }
+-- Success or failure with typed error.
 form Result := \e a. { Ok: a -> Result e a; Err: e -> Result e a; }
+-- Optional value.
 form Maybe := \a. { Just: a -> Maybe a; Nothing: Maybe a; }
+-- Singly-linked list.
 form List := \a. { Cons: a -> List a -> List a; Nil: List a; }
+-- Three-way comparison result.
 form Ordering := { LT: Ordering; EQ: Ordering; GT: Ordering; }
+-- Multiplicity grades for linear types.
 form Mult := { Zero: Mult; Linear: Mult; Affine: Mult; Unrestricted: Mult; }
 
 type MultJoin :: Mult -> Mult -> Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
@@ -64,17 +70,25 @@ impl UsageSemiring Mult := {
   mult := multMult
 }
 
+-- Equality comparison.
 form Eq := \a. { eq: a -> a -> Bool }
+-- Total ordering.
 form Ord := \a. Eq a => { compare: a -> a -> Ordering }
+-- Covariant mapping over a type constructor.
 form Functor := \f. { fmap: \a b. (a -> b) -> f a -> f b }
+-- Structures that can be folded to a summary value.
 form Foldable := \t. { foldr: \a b. (a -> b -> b) -> b -> t a -> b }
 
+-- Associative binary operation.
 form Semigroup := \a. { append: a -> a -> a }
+-- Semigroup with an identity element.
 form Monoid := \a. Semigroup a => { empty: a }
+-- Functor with application (lifting multi-argument functions).
 form Applicative := \f. Functor f => {
   wrap: \a. a -> f a;
   ap   : \a b. f (a -> b) -> f a -> f b
 }
+-- Traversal of a structure with an applicative effect.
 form Traversable := \t. (Functor t, Foldable t) => {
   traverse: \f a b. Applicative f => (a -> f b) -> t a -> f (t b)
 }
@@ -206,57 +220,74 @@ impl Semigroup (List a) := {
 
 impl Monoid (List a) := { empty := Nil }
 
+-- Identity function.
 id :: \a. a -> a
 id := \x. x
 
+-- Return the first argument, ignoring the second.
 const :: \a b. a -> b -> a
 const := \x _. x
 
+-- Swap the argument order of a binary function.
 flip :: \a b c. (a -> b -> c) -> b -> a -> c
 flip := \f b a. f a b
 
+-- Function composition: (f . g) x = f (g x).
 infixr 9 .
 (.) :: \b c a. (b -> c) -> (a -> b) -> a -> c
 (.) := \f g x. f (g x)
 
+-- Boolean negation.
 not :: Bool -> Bool
 not := \b. case b { True => False; False => True }
 
+-- Short-circuit logical AND.
 infixr 3 &&
 (&&) :: Bool -> Bool -> Bool
 (&&) := \x y. case x { False => False; True => y }
 
+-- Short-circuit logical OR.
 infixr 2 ||
 (||) :: Bool -> Bool -> Bool
 (||) := \x y. case x { True => True; False => y }
 
+-- Eliminate a Maybe: default value if Nothing, apply function if Just.
 maybe :: \a b. b -> (a -> b) -> Maybe a -> b
 maybe := \def f m. case m { Nothing => def; Just a => f a }
 
+-- Eliminate a Result: apply one function to Err, another to Ok.
 result :: \e a b. (e -> b) -> (a -> b) -> Result e a -> b
 result := \onErr onOk r. case r { Err e => onErr e; Ok a => onOk a }
 
+-- First element of a tuple.
 fst :: \a (r: Row). Record { _1: a | r } -> a
 fst := \p. p.#_1
 
+-- Second element of a tuple.
 snd :: \a (r: Row). Record { _2: a | r } -> a
 snd := \p. p.#_2
 
+-- First element of a list, or Nothing.
 head :: \a. List a -> Maybe a
 head := \xs. case xs { Nil => Nothing; Cons x _ => Just x }
 
+-- All elements after the first, or Nothing.
 tail :: \a. List a -> Maybe (List a)
 tail := \xs. case xs { Nil => Nothing; Cons _ rest => Just rest }
 
+-- True if the list is empty.
 null :: \a. List a -> Bool
 null := \xs. case xs { Nil => True; Cons _ _ => False }
 
+-- Apply a function to every element of a list.
 map :: \a b. (a -> b) -> List a -> List b
 map := fmap
 
+-- Keep elements satisfying the predicate.
 filter :: \a. (a -> Bool) -> List a -> List a
 filter := _listFilter
 
+-- A list containing one element.
 singleton :: \a. a -> List a
 singleton := \x. Cons x Nil
 
@@ -299,11 +330,13 @@ infixr 5 <+
 (<+) :: \a. a -> List a -> List a
 (<+) := Cons
 
+-- Convert a value to its string representation.
 form Show := \a. { show: a -> String }
 impl Show Bool := { show := \b. case b { True => "True"; False => "False" } }
 impl Show () := { show := \_. "()" }
 impl Show Ordering := { show := \x. case x { LT => "LT"; EQ => "EQ"; GT => "GT" } }
 
+-- Applicative with choice and failure.
 form Alternative := \f. Applicative f => {
   none: \a. f a;
   alt  : \a. f a -> f a -> f a
@@ -319,9 +352,11 @@ impl Alternative Maybe := {
 
 impl Alternative List := { none := Nil; alt := append }
 
+-- Succeed with () if True, fail (none) if False.
 guard :: \(f: Type -> Type). Alternative f => Bool -> f ()
 guard := \b. case b { True => wrap (); False => none }
 
+-- Sequential computation with bind.
 form Monad := \(m: Type -> Type). {
   mpure: \a. a -> m a;
   mbind: \a b. m a -> (a -> m b) -> m b
@@ -377,16 +412,19 @@ impl GradeAlgebra g => GIMonad g (Lift (Result e)) := {
   }
 }
 
+-- Pack/unpack between a container and its Slice representation.
 form Packed := \c e. {
   pack:   Slice e -> c;
   unpack: c -> Slice e
 }
 
+-- Construct a collection from a list of elements.
 form FromList := \l. {
   type Elem l :: Type;
   fromList: List (Elem l) -> l
 }
 
+-- Convert a collection to a list of elements.
 form ToList := \l. FromList l => {
   toList: l -> List (Elem l)
 }
@@ -457,10 +495,12 @@ impl Ord a => Ord (List a) := {
   }
 }
 
+-- Low-precedence function application: f $ x = f x.
 infixr 0 $
 ($) :: \a b. (a -> b) -> a -> b
 ($) := \f x. f x
 
+-- Reverse application (pipe): x & f = f x.
 infixl 1 &
 (&) :: \a b. a -> (a -> b) -> b
 (&) := \x f. f x
@@ -497,9 +537,11 @@ infixr 1 <=<
 (<=<) :: \(m: Type -> Type) b c a. Monad m => (b -> m c) -> (a -> m b) -> a -> m c
 (<=<) := \g f a. mbind (f a) g
 
+-- Apply a projection before a binary function: on f g x y = f (g x) (g y).
 on :: \a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c
 on := \f g x y. f (g x) (g y)
 
+-- Compare by a projection: comparing f = on compare f.
 comparing :: \a b. Ord b => (a -> b) -> a -> a -> Ordering
 comparing := \f. on compare f
 
@@ -646,6 +688,7 @@ impl Ord Int := { compare := _cmpInt }
 impl Semigroup Int := { append := _addInt }
 impl Monoid Int := { empty := 0 }
 
+-- Arithmetic operations.
 form Num := \a. Eq a => {
   add    : a -> a -> a;
   sub    : a -> a -> a;
@@ -660,12 +703,14 @@ impl Num Int := {
   negate := _negInt
 }
 
+-- Division (separate from Num to exclude types without division).
 form Div := \a. Num a => {
   div: a -> a -> a
 }
 
 impl Div Int := { div := _divInt }
 
+-- Integer modulus.
 mod :: Int -> Int -> Int
 mod := _modInt
 
@@ -724,6 +769,7 @@ _ceiling := assumption
 _truncate :: Double -> Int
 _truncate := assumption
 
+-- Convert an integer to a double.
 toDouble :: Int -> Double
 toDouble := _toDouble
 
@@ -756,6 +802,7 @@ infixl 7 /
 (/) :: \a. Div a => a -> a -> a
 (/) := div
 
+-- Absolute value.
 abs :: Int -> Int
 abs := \x. case _cmpInt x 0 { LT => negate x; _ => x }
 
@@ -788,9 +835,11 @@ fromSlice := _listFromSlice
 toSlice :: \a. List a -> List a
 toSlice := _listToSlice
 
+-- Number of elements.
 length :: \a. List a -> Int
 length := _listLength
 
+-- Append two lists.
 concat :: \a. List a -> List a -> List a
 concat := _listConcat
 
@@ -830,27 +879,35 @@ _listZip := assumption
 _listUnzip :: \a b. List (a, b) -> (List a, List b)
 _listUnzip := assumption
 
+-- Left fold over a list.
 foldl :: \a b. (b -> a -> b) -> b -> List a -> b
 foldl := _listFoldl
 
+-- First n elements.
 take :: \a. Int -> List a -> List a
 take := _listTake
 
+-- All elements after the first n.
 drop :: \a. Int -> List a -> List a
 drop := _listDrop
 
+-- Element at 0-based index. Nothing if out of bounds.
 index :: \a. Int -> List a -> Maybe a
 index := _listIndex
 
+-- A list of n copies of a value.
 replicate :: \a. Int -> a -> List a
 replicate := _listReplicate
 
+-- Integers from start (inclusive) to end (exclusive).
 range :: Int -> Int -> List Int
 range := _listRange
 
+-- Reverse a list.
 reverse :: \a. List a -> List a
 reverse := _listReverse
 
+-- Pair two lists element-wise, truncating to the shorter.
 zip :: \a b. List a -> List b -> List (a, b)
 zip := _listZip
 
@@ -884,9 +941,11 @@ span := _listSpan
 break :: \a. (a -> Bool) -> List a -> (List a, List a)
 break := \p. span (not . p)
 
+-- Sort a list using a custom comparator.
 sortBy :: \a. (a -> a -> Ordering) -> List a -> List a
 sortBy := _listSortBy
 
+-- Sort a list using the natural ordering.
 sort :: \a. Ord a => List a -> List a
 sort := sortBy compare
 
@@ -966,6 +1025,7 @@ byteToInt := _byteToInt
 intToByte :: Int -> Maybe Byte
 intToByte := _intToByte
 
+-- Length of a string in runes.
 strlen :: String -> Int
 strlen := _lengthStr
 
@@ -1002,9 +1062,11 @@ _readDouble := assumption
 _words :: String -> List String
 _words := assumption
 
+-- Rune at 0-based index. Nothing if out of bounds.
 charAt :: Int -> String -> Maybe Rune
 charAt := _charAt
 
+-- Extract a substring by start and end index (0-based, exclusive end).
 substring :: Int -> Int -> String -> String
 substring := _substring
 
@@ -1020,9 +1082,11 @@ trim := _trim
 contains :: String -> String -> Bool
 contains := _contains
 
+-- Split a string by a delimiter.
 split :: String -> String -> List String
 split := _split
 
+-- Join strings with a separator.
 join :: String -> List String -> String
 join := _join
 
@@ -1030,6 +1094,7 @@ join := _join
 words :: String -> List String
 words := _words
 
+-- Parse a value from a string. Nothing on failure.
 form Read := \a. { read: String -> Maybe a }
 
 impl Read Int    := { read := _readInt }
@@ -1118,6 +1183,7 @@ impl (Show a, Show b) => Show (a, b) := {
 
 -- ─── Bifunctor ──────────────────────────────────────────────────────────────
 
+-- Covariant mapping over both type parameters.
 form Bifunctor := \(p: Type -> Type -> Type). {
   bimap: \a b c d. (a -> c) -> (b -> d) -> p a b -> p c d
 }
@@ -1326,6 +1392,7 @@ endsWith := _isSuffixOfStr
 
 -- ─── Monadic combinators (Effect / Suspended scope) ─────────────────────────
 
+-- Map an effectful function over a list, collecting results.
 mapM :: \a b (r: Row). (a -> Effect r b) -> List a -> Effect r (List b)
 mapM := \f xs. case xs {
   Nil => pure Nil;
@@ -1336,6 +1403,7 @@ mapM := \f xs. case xs {
   }
 }
 
+-- Map an effectful function over a list, discarding results.
 mapM_ :: \a b (r: Row). (a -> Effect r b) -> List a -> Effect r ()
 mapM_ := \f xs. case xs {
   Nil => pure ();
@@ -1345,6 +1413,7 @@ mapM_ := \f xs. case xs {
   }
 }
 
+-- mapM with arguments flipped.
 forM :: \a b (r: Row). List a -> (a -> Effect r b) -> Effect r (List b)
 forM := flip mapM
 
@@ -1370,6 +1439,7 @@ sequence_ := \xs. case xs {
   }
 }
 
+-- Monadic left fold.
 foldM :: \a b (r: Row). (b -> a -> Effect r b) -> b -> List a -> Effect r b
 foldM := \f acc xs. case xs {
   Nil => pure acc;
@@ -1379,6 +1449,7 @@ foldM := \f acc xs. case xs {
   }
 }
 
+-- Monadic filter: keep elements where the predicate effect returns True.
 filterM :: \a (r: Row). (a -> Effect r Bool) -> List a -> Effect r (List a)
 filterM := \p xs. case xs {
   Nil => pure Nil;
@@ -1391,6 +1462,7 @@ filterM := \p xs. case xs {
   }
 }
 
+-- Run an action n times, collecting results.
 replicateM :: \a (r: Row). Int -> Suspended r a -> Effect r (List a)
 replicateM := \n action. case n <= 0 {
   True => pure Nil;

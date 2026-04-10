@@ -1,14 +1,18 @@
 import Prelude
 
+-- Lazy (possibly infinite) stream.
 lazy Stream := \a. { LCons: a -> Stream a -> Stream a; LNil: Stream a; }
 
+-- Cons an element onto a stream.
 infixr 5 +>
 (+>) :: \a. a -> Stream a -> Stream a
 (+>) := LCons
 
+-- First element, or Nothing if empty.
 head :: \a. Stream a -> Maybe a
 head := \s. case s { LNil => Nothing; LCons x _ => Just x }
 
+-- All elements after the first, or Nothing if empty.
 tail :: \a. Stream a -> Maybe (Stream a)
 tail := \s. case s { LNil => Nothing; LCons _ t => Just t }
 
@@ -33,9 +37,11 @@ _takeS := assumption
 _dropS :: \a. Int -> Stream a -> Stream a
 _dropS := assumption
 
+-- Collect the first n elements into a list.
 take :: \a. Int -> Stream a -> List a
 take := _takeS
 
+-- Skip the first n elements.
 drop :: \a. Int -> Stream a -> Stream a
 drop := _dropS
 
@@ -53,6 +59,7 @@ impl Foldable Stream := {
   }
 }
 
+-- Keep only elements satisfying the predicate.
 filter :: \a. (a -> Bool) -> Stream a -> Stream a
 filter := \p. fix \self s. case s {
   LNil => LNil;
@@ -61,6 +68,7 @@ filter := \p. fix \self s. case s {
     else self t
 }
 
+-- Combine two streams element-wise with a function.
 zipWith :: \a b c. (a -> b -> c) -> Stream a -> Stream b -> Stream c
 zipWith := \f. fix \self sa sb.
   case sa {
@@ -71,12 +79,15 @@ zipWith := \f. fix \self sa sb.
     }
   }
 
+-- Pair two streams element-wise.
 zip :: \a b. Stream a -> Stream b -> Stream (a, b)
 zip := zipWith (\a b. (a, b))
 
+-- Infinite stream: x, f x, f (f x), ...
 iterate :: \a. (a -> a) -> a -> Stream a
 iterate := \f. fix \self x. LCons x (self (f x))
 
+-- Collect elements while the predicate holds.
 takeWhile :: \a. (a -> Bool) -> Stream a -> List a
 takeWhile := \p. fix \self s. case s {
   LNil => Nil;
@@ -86,6 +97,7 @@ takeWhile := \p. fix \self s. case s {
       else Nil
 }
 
+-- Infinite stream of the same value.
 repeat :: \a. a -> Stream a
 repeat := \x. { go := fix \self _. LCons x (self ()); go () }
 

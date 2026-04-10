@@ -42,18 +42,23 @@ _mapMapValues := assumption
 _mapFilterWithKey :: \k v. (k -> v -> Bool) -> Map k v -> Map k v
 _mapFilterWithKey := assumption
 
+-- An empty map.
 empty :: \k v. Ord k => Map k v
 empty := _mapEmpty compare
 
+-- Insert a key-value pair, replacing any existing value for the key.
 insert :: \k v. Ord k => k -> v -> Map k v -> Map k v
 insert := _mapInsert compare
 
+-- Look up the value for a key. Nothing if absent.
 lookup :: \k v. Ord k => k -> Map k v -> Maybe v
 lookup := _mapLookup compare
 
+-- Remove a key and its value.
 delete :: \k v. Ord k => k -> Map k v -> Map k v
 delete := _mapDelete compare
 
+-- Number of entries.
 size :: \k v. Map k v -> Int
 size := _mapSize
 
@@ -64,42 +69,53 @@ impl Ord k => FromList (Map k v) := {
 
 impl Ord k => ToList (Map k v) := { toList := _mapToList }
 
+-- Left fold with access to keys.
 foldlWithKey :: \k v b. (b -> k -> v -> b) -> b -> Map k v -> b
 foldlWithKey := _mapFoldlWithKey
 
+-- Test whether a key is present.
 member :: \k v. Ord k => k -> Map k v -> Bool
 member := _mapMember compare
 
+-- Merge two maps; on key collision, combine values with the given function.
 unionWith :: \k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v
 unionWith := _mapUnionWith
 
+-- All keys in ascending order.
 keys :: \k v. Map k v -> List k
 keys := _mapKeys
 
+-- All values in key-ascending order.
 values :: \k v. Map k v -> List v
 values := _mapValues
 
+-- Apply a function to every value.
 mapValues :: \k v w. (v -> w) -> Map k v -> Map k w
 mapValues := _mapMapValues
 
+-- Keep entries where the predicate holds.
 filterWithKey :: \k v. (k -> v -> Bool) -> Map k v -> Map k v
 filterWithKey := _mapFilterWithKey
 
+-- True if the map has no entries.
 null :: \k v. Map k v -> Bool
 null := \m. _mapSize m == 0
 
+-- A map with one entry.
 singleton :: \k v. Ord k => k -> v -> Map k v
 singleton := \k v. insert k v empty
 
 _mapInsertWith :: \k v. (k -> k -> Ordering) -> (v -> v -> v) -> k -> v -> Map k v -> Map k v
 _mapInsertWith := assumption
 
+-- Insert with a combining function on collision.
 insertWith :: \k v. Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v
 insertWith := _mapInsertWith compare
 
 _mapIntersectionWith :: \k v w. (v -> w -> w) -> Map k v -> Map k w -> Map k w
 _mapIntersectionWith := assumption
 
+-- Intersect two maps, combining values with the given function.
 intersectionWith :: \k v w. (v -> w -> w) -> Map k v -> Map k w -> Map k w
 intersectionWith := _mapIntersectionWith
 
@@ -109,36 +125,44 @@ _mapFindMin := assumption
 _mapFindMax :: \k v. Map k v -> Maybe (k, v)
 _mapFindMax := assumption
 
+-- Smallest key-value pair.
 findMin :: \k v. Map k v -> Maybe (k, v)
 findMin := _mapFindMin
 
+-- Largest key-value pair.
 findMax :: \k v. Map k v -> Maybe (k, v)
 findMax := _mapFindMax
 
 _mapMapWithKey :: \k v w. (k -> v -> w) -> Map k v -> Map k w
 _mapMapWithKey := assumption
 
+-- Apply a function to every value, with access to the key.
 mapWithKey :: \k v w. (k -> v -> w) -> Map k v -> Map k w
 mapWithKey := _mapMapWithKey
 
 _mapFoldrWithKey :: \k v b. (k -> v -> b -> b) -> b -> Map k v -> b
 _mapFoldrWithKey := assumption
 
+-- Right fold with access to keys.
 foldrWithKey :: \k v b. (k -> v -> b -> b) -> b -> Map k v -> b
 foldrWithKey := _mapFoldrWithKey
 
+-- Update the value at a key with a function. No-op if absent.
 adjust :: \k v. Ord k => k -> (v -> v) -> Map k v -> Map k v
 adjust := \k f m. case lookup k m {
   Just v => insert k (f v) m;
   Nothing => m
 }
 
+-- Left-biased union (right value wins on collision).
 union :: \k v. Map k v -> Map k v -> Map k v
 union := unionWith (\_ b. b)
 
+-- Keys present in both maps (right value kept).
 intersection :: \k v. Map k v -> Map k v -> Map k v
 intersection := intersectionWith (\_ b. b)
 
+-- Keys in the first map that are not in the second.
 difference :: \k v. Ord k => Map k v -> Map k v -> Map k v
 difference := \m1 m2. foldlWithKey (\acc k _. delete k acc) m1 m2
 

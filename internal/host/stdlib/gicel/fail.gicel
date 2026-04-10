@@ -1,41 +1,38 @@
 import Prelude
 
+-- Abort with an error value.
 failWith :: \e r a. e -> Effect { fail: e | r } a
 failWith := assumption
 
+-- Abort with unit error.
 fail :: \r a. Effect { fail: () | r } a
 fail := failWith ()
 
+-- Extract a Maybe, aborting on Nothing.
 fromMaybe :: \a r. Maybe a -> Effect { fail: () | r } a
 fromMaybe := \m. case m {
   Nothing => fail;
   Just x  => pure x
 }
 
+-- Extract a Result, aborting on Err.
 fromResult :: \e a r. Result e a -> Effect { fail: e | r } a
 fromResult := \r. case r {
   Err e => failWith e;
   Ok x  => pure x
 }
 
--- Named capability variant.
+-- Label-parameterized variant of failWith.
 failWithAt :: \(l: Label) e r a. e -> Effect { l: e | r } a
 failWithAt := assumption
 
--- try forces a suspended computation, catching fail effects.
--- Success → Ok value (CapEnv propagated). Failure → Err detail (CapEnv rolled back).
--- The CBPV coercion pass handles force+thunk at the call-site boundaries
--- automatically: `comp` is a Suspended (Thunk) so `bind comp pure` receives
--- an implicit force, and the result flowing into `_try`'s Thunk-typed arg
--- receives an implicit thunk. The checker inserts both nodes silently.
 _try :: \e a r. Suspended { fail: e | r } a -> Effect r (Result e a)
 _try := assumption
 
+-- Run a computation, catching fail effects. Ok on success, Err on failure.
 try :: \e a r. Suspended { fail: e | r } a -> Effect r (Result e a)
 try := \comp. _try (bind comp pure)
 
--- Named capability variant of try. Accepts do-blocks or explicit thunks:
---   tryAt @#err do { ... }
---   tryAt @#err (thunk do { ... })
+-- Label-parameterized variant of try.
 tryAt :: \(l: Label) e a r. Suspended { l: e | r } a -> Effect r (Result e a)
 tryAt := assumption

@@ -40,28 +40,35 @@ _arrayFromSliceNamed := assumption
 _arrayToSliceNamed :: \(l: Label) a r. Array a -> Effect { l: () | r } (Slice a)
 _arrayToSliceNamed := assumption
 
+-- Create a mutable array of given size, filled with a default value.
 new :: \a r. Int -> a -> Effect { array: () | r } (Array a)
 new := _arrayNew
 
+-- Read element at index. Nothing if out of bounds.
 read :: \a r. Int -> Array a -> Effect { array: () | r } (Maybe a)
 read := _arrayRead
 
+-- Write element at index (in-place).
 write :: \a r. Int -> a -> Array a -> Effect { array: () | r } ()
 write := _arrayWrite
 
+-- Number of elements.
 size :: \a. Array a -> Int
 size := _arraySize
 
+-- Resize the array, filling new slots with the default value.
 resize :: \a r. Int -> a -> Array a -> Effect { array: () | r } (Array a)
 resize := _arrayResize
 
+-- Convert array contents to an immutable slice.
 toSlice :: \a r. Array a -> Effect { array: () | r } (Slice a)
 toSlice := _arrayToSlice
 
+-- Create a mutable array from an immutable slice.
 fromSlice :: \a r. Slice a -> Effect { array: () | r } (Array a)
 fromSlice := _arrayFromSlice
 
--- Named capability variants: use @#label to parameterize the effect slot.
+-- Label-parameterized variant of new.
 newAt :: \(l: Label) a r. Int -> a -> Effect { l: () | r } (Array a)
 newAt := _arrayNewNamed
 

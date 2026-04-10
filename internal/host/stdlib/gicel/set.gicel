@@ -30,18 +30,23 @@ _setIntersection := assumption
 _setDifference :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Set k
 _setDifference := assumption
 
+-- An empty set.
 empty :: \k. Ord k => Set k
 empty := _setEmpty compare
 
+-- Add an element.
 insert :: \k. Ord k => k -> Set k -> Set k
 insert := _setInsert compare
 
+-- Test whether an element is present.
 member :: \k. Ord k => k -> Set k -> Bool
 member := _setMember compare
 
+-- Remove an element.
 delete :: \k. Ord k => k -> Set k -> Set k
 delete := _setDelete compare
 
+-- Number of elements.
 size :: \k. Set k -> Int
 size := _setSize
 
@@ -52,42 +57,52 @@ impl Ord k => FromList (Set k) := {
 
 impl Ord k => ToList (Set k) := { toList := _setToList }
 
+-- Elements in either set.
 union :: \k. Ord k => Set k -> Set k -> Set k
 union := _setUnion compare
 
+-- Elements in both sets.
 intersection :: \k. Ord k => Set k -> Set k -> Set k
 intersection := _setIntersection compare
 
+-- Elements in the first set but not the second.
 difference :: \k. Ord k => Set k -> Set k -> Set k
 difference := _setDifference compare
 
+-- Left fold over elements.
 fold :: \k b. (b -> k -> b) -> b -> Set k -> b
 fold := \f z s. foldl f z (_setToList s)
 
 _setFoldr :: \k b. (k -> b -> b) -> b -> Set k -> b
 _setFoldr := \f z s. foldr f z (_setToList s)
 
+-- Right fold over elements.
 setFoldr :: \k b. (k -> b -> b) -> b -> Set k -> b
 setFoldr := _setFoldr
 
+-- Keep elements satisfying the predicate.
 filter :: \k. Ord k => (k -> Bool) -> Set k -> Set k
 filter := \p s. fold (\acc k.
   if p k
      then _setInsert compare k acc
      else acc) (_setEmpty compare) s
 
+-- Apply a function to every element, collecting results into a new set.
 map :: \k1 k2. (Ord k1, Ord k2) => (k1 -> k2) -> Set k1 -> Set k2
 map := \f s. fold (\acc k. _setInsert compare (f k) acc) (_setEmpty compare) s
 
+-- True if the set has no elements.
 null :: \k. Set k -> Bool
 null := \s. _setSize s == 0
 
+-- A set with one element.
 singleton :: \k. Ord k => k -> Set k
 singleton := \k. insert k empty
 
 _setIsSubsetOf :: \k. (k -> k -> Ordering) -> Set k -> Set k -> Bool
 _setIsSubsetOf := assumption
 
+-- True if every element of the first set is in the second.
 isSubsetOf :: \k. Ord k => Set k -> Set k -> Bool
 isSubsetOf := _setIsSubsetOf compare
 
@@ -97,12 +112,15 @@ _setFindMin := assumption
 _setFindMax :: \k. Set k -> Maybe k
 _setFindMax := assumption
 
+-- Smallest element.
 findMin :: \k. Set k -> Maybe k
 findMin := _setFindMin
 
+-- Largest element.
 findMax :: \k. Set k -> Maybe k
 findMax := _setFindMax
 
+-- Split into elements that satisfy the predicate and those that don't.
 partition :: \k. Ord k => (k -> Bool) -> Set k -> (Set k, Set k)
 partition := \p s. fold (\acc k. if p k
   then (_setInsert compare k (fst acc), snd acc)

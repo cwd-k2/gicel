@@ -2,6 +2,7 @@ import Prelude
 
 -- ─── ToJSON ─────────────────────────────────────────────────────────────────
 
+-- Serialize a value to a JSON string.
 form ToJSON := \a. { toJSON: a -> String }
 
 _toJSONInt :: Int -> String
@@ -52,6 +53,7 @@ impl (ToJSON e, ToJSON a) => ToJSON (Result e a) := {
 
 -- ─── FromJSON ───────────────────────────────────────────────────────────────
 
+-- Deserialize a value from a JSON string. Nothing on parse failure.
 form FromJSON := \a. { fromJSON: String -> Maybe a }
 
 _fromJSONInt :: String -> Maybe Int
@@ -133,11 +135,9 @@ impl (Ord k, FromJSON k) => FromJSON (Set k) := {
 
 -- ─── Generic encoder ────────────────────────────────────────────────────────
 
--- jsonEncode serializes any value to a JSON string using runtime introspection.
--- Records → JSON objects, lists → arrays, tuples → arrays, Maybe → nullable,
--- Result → {ok:v}/{err:e}, other ADTs → {tag:"Con", fields:[...]}.
 _jsonEncode :: \a. a -> String
 _jsonEncode := assumption
 
+-- Serialize any value to JSON via runtime introspection (no ToJSON needed).
 jsonEncode :: \a. a -> String
 jsonEncode := _jsonEncode

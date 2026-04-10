@@ -27,18 +27,23 @@ _sliceMap := assumption
 _sliceFoldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 _sliceFoldl := assumption
 
+-- An empty slice.
 empty :: \a. Slice a
 empty := _sliceEmpty
 
+-- A slice containing one element.
 singleton :: \a. a -> Slice a
 singleton := _sliceSingleton
 
+-- Number of elements.
 length :: \a. Slice a -> Int
 length := _sliceLength
 
+-- Element at 0-based index. Nothing if out of bounds.
 index :: \a. Int -> Slice a -> Maybe a
 index := _sliceIndex
 
+-- Left fold over elements.
 foldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 foldl := _sliceFoldl
 

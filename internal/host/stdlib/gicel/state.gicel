@@ -1,15 +1,18 @@
 import Prelude
 
+-- Read the current state value.
 get :: \s r. Effect { state: s | r } s
 get := assumption
 
+-- Replace the state value (may change the state type).
 put :: \s1 s2 r. s2 -> Computation { state: s1 | r } { state: s2 | r } ()
 put := assumption
 
+-- Apply a function to the current state.
 modify :: \s r. (s -> s) -> Effect { state: s | r } ()
 modify := \f. do { s <- get; put (f s) }
 
--- Named capability variants: label-parameterized state access.
+-- Label-parameterized variant of get.
 getAt :: \(l: Label) s r. Effect { l: s | r } s
 getAt := assumption
 
@@ -19,32 +22,28 @@ putAt := assumption
 modifyAt :: \(l: Label) s r. (s -> s) -> Effect { l: s | r } ()
 modifyAt := assumption
 
--- State effect handlers: introduce capability, run computation, eliminate capability.
--- Follows the same handler pattern as try (Effect.Fail).
-
 _runState :: \s a r. s -> Suspended { state: s | r } a -> Effect r (s, a)
 _runState := assumption
 
+-- Run a stateful computation with initial value, returning (finalState, result).
 runState :: \s a r. s -> Suspended { state: s | r } a -> Effect r (s, a)
 runState := \s comp. _runState s (bind comp pure)
 
+-- Run a stateful computation, returning only the result.
 evalState :: \s a r. s -> Suspended { state: s | r } a -> Effect r a
 evalState := \s comp. do {
   (_, a) <- runState s comp;
   pure a
 }
 
+-- Run a stateful computation, returning only the final state.
 execState :: \s a r. s -> Suspended { state: s | r } a -> Effect r s
 execState := \s comp. do {
   (s', _) <- runState s comp;
   pure s'
 }
 
--- Named capability handler variants.
--- Direct primitives that accept do-blocks or explicit thunks:
---   evalStateAt @#x 10 do { modifyAt @#x (+ 1); getAt @#x }
---   evalStateAt @#x 10 (thunk do { modifyAt @#x (+ 1); getAt @#x })
-
+-- Label-parameterized variant of runState.
 runStateAt :: \(l: Label) s a r. s -> Suspended { l: s | r } a -> Effect r (s, a)
 runStateAt := assumption
 
