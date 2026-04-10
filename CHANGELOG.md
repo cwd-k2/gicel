@@ -2,10 +2,14 @@
 
 ## v0.28.2 — 2026-04-11
 
+Second field-test follow-up: optimizer correctness, type checker soundness, error message cleanup.
+
 ### Bug Fixes
 
 - **caseOfCase variable capture** — `caseOfCase` and `bindOfCase` now alpha-rename inner pattern bindings that would capture free variables of the pushed outer body. Previously, inlined functions sharing pattern variable names with the caller produced silently wrong results (e.g., a recursive-descent parser returning incorrect values). The tree-walking evaluator (`--explain`) was unaffected because it disables inlining.
 - **caseOfKnownCtor PRecord decomposition** — `caseOfKnownCtor` now recursively decomposes `PRecord` and nested `PCon` patterns when collecting substitutions. Previously, only `PVar` patterns were substituted; `PRecord` patterns were skipped, returning the body without substitution.
+- **GADT explicit equality constraints** — `EqualityEntry` constraints in GADT constructor types (e.g., `MkRefl: a ~ b => Refl a b`) are now installed as given equalities during pattern matching. Previously only structural return-type differences were detected; explicit `a ~ b` constraints were silently skipped. Enables `Refl` symmetry/transitivity proofs and `castWith`.
+- **Parenthesized equality constraint** — `(a ~ Int) =>` now works identically to bare `a ~ Int =>`. The `TyExprQual` handler peels `TyExprParen` before checking for `TyExprEq`.
 
 ### Removed
 
