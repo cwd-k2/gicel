@@ -14,18 +14,22 @@ type CtxTyVar = env.CtxTyVar
 type CtxEvidence = env.CtxEvidence
 
 // Context is an ordered typing context (DK-style).
-// Auxiliary indices enable O(1) class-name lookup for both CtxEvidence
-// entries (evidence parameters) and CtxVar dict entries (instance dicts).
+// Auxiliary indices enable O(1) lookup by class name (CtxEvidence, CtxVar
+// dicts) and by variable name (CtxVar). All indices follow the same
+// LIFO stack-per-key pattern: Push appends, Pop removes the last entry,
+// and a panic guard verifies the invariant on every Pop.
 type Context struct {
 	entries       []CtxEntry
 	evidenceIndex map[string][]int // className → CtxEvidence positions
 	dictVarIndex  map[string][]int // className → CtxVar dict positions
+	varIndex      map[string][]int // varName → CtxVar positions
 }
 
 func NewContext() *Context {
 	return &Context{
 		evidenceIndex: make(map[string][]int),
 		dictVarIndex:  make(map[string][]int),
+		varIndex:      make(map[string][]int),
 	}
 }
 
@@ -35,8 +39,11 @@ func (c *Context) Push(entry CtxEntry) {
 	if ev, ok := entry.(*CtxEvidence); ok && ev.ClassName != "" {
 		c.evidenceIndex[ev.ClassName] = append(c.evidenceIndex[ev.ClassName], pos)
 	}
-	if v, ok := entry.(*CtxVar); ok && v.DictClassName != "" {
-		c.dictVarIndex[v.DictClassName] = append(c.dictVarIndex[v.DictClassName], pos)
+	if v, ok := entry.(*CtxVar); ok {
+		c.varIndex[v.Name] = append(c.varIndex[v.Name], pos)
+		if v.DictClassName != "" {
+			c.dictVarIndex[v.DictClassName] = append(c.dictVarIndex[v.DictClassName], pos)
+		}
 	}
 }
 
@@ -55,32 +62,38 @@ func (c *Context) Pop() CtxEntry {
 		}
 		c.evidenceIndex[ev.ClassName] = idxs[:n-1]
 	}
-	if v, ok := e.(*CtxVar); ok && v.DictClassName != "" {
-		idxs := c.dictVarIndex[v.DictClassName]
+	if v, ok := e.(*CtxVar); ok {
+		idxs := c.varIndex[v.Name]
 		n := len(idxs)
 		if n == 0 || idxs[n-1] != pos {
-			panic("internal: dictVarIndex LIFO invariant violated on Pop")
+			panic("internal: varIndex LIFO invariant violated on Pop")
 		}
-		c.dictVarIndex[v.DictClassName] = idxs[:n-1]
+		c.varIndex[v.Name] = idxs[:n-1]
+		if v.DictClassName != "" {
+			idxs := c.dictVarIndex[v.DictClassName]
+			n := len(idxs)
+			if n == 0 || idxs[n-1] != pos {
+				panic("internal: dictVarIndex LIFO invariant violated on Pop")
+			}
+			c.dictVarIndex[v.DictClassName] = idxs[:n-1]
+		}
 	}
 	return e
 }
 
 func (c *Context) LookupVar(name string) (types.Type, bool) {
-	for i := len(c.entries) - 1; i >= 0; i-- {
-		if v, ok := c.entries[i].(*CtxVar); ok && v.Name == name {
-			return v.Type, true
-		}
+	if idxs := c.varIndex[name]; len(idxs) > 0 {
+		v := c.entries[idxs[len(idxs)-1]].(*CtxVar)
+		return v.Type, true
 	}
 	return nil, false
 }
 
 // LookupVarFull returns the type and source module for a variable.
 func (c *Context) LookupVarFull(name string) (types.Type, string, bool) {
-	for i := len(c.entries) - 1; i >= 0; i-- {
-		if v, ok := c.entries[i].(*CtxVar); ok && v.Name == name {
-			return v.Type, v.Module, true
-		}
+	if idxs := c.varIndex[name]; len(idxs) > 0 {
+		v := c.entries[idxs[len(idxs)-1]].(*CtxVar)
+		return v.Type, v.Module, true
 	}
 	return nil, "", false
 }
