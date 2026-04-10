@@ -24,7 +24,10 @@ type Dual :: Type := \(s: Type). case s {
 
 `Dual (Dual S)` reduces to `S` for all closed protocol states.
 
-### Operations
+### Operations (type-check only)
+
+The following operations are type-checked but **not provided by the stdlib**.
+They must be supplied as host primitives via `RegisterPrim`:
 
 ```
 send  :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } T
@@ -32,7 +35,7 @@ recv  :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } T
 close :: Computation { ch: End @Linear } {} ()
 ```
 
-Each operation advances the protocol state. The pre/post indices enforce the correct sequence.
+Each operation advances the protocol state. The pre/post indices enforce the correct sequence. The stdlib provides `closeAt` and `runSessionAt` for session lifecycle management; the actual send/recv transport must be implemented by the host.
 
 ### Multiplicity Annotations
 

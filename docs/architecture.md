@@ -2,7 +2,7 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.25.0 (2026-04-01)._
+_Last updated: v0.29.0 (2026-04-11)._
 
 ## Layer Model
 
@@ -15,7 +15,7 @@ Layer 2  lang/ir types syntax    IR, type, and AST representation
 Layer 0  infra/span diagnostic budget    shared infrastructure
 ```
 
-Dependencies flow downward. `lang/syntax` imports `lang/ir` and `lang/types` (lateral within Layer 2).
+Dependencies flow downward. `lang/syntax` imports `lang/types` (lateral within Layer 2). Execution goes through `runtime/vm` (bytecode VM); `runtime/eval` provides shared value types.
 
 ## Dependency DAG
 
@@ -34,7 +34,7 @@ app/engine ──→ compiler/{check,parse,optimize}
 
 host/stdlib ──→ host/registry
             ──→ runtime/eval
-            ──→ lang/ir
+            ──→ lang/{ir,types}
             ──→ infra/budget
 
 host/registry ──→ runtime/eval
