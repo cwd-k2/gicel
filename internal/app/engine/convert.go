@@ -137,7 +137,21 @@ func AsFloat64(v eval.Value) (float64, bool) {
 	return f, ok
 }
 
+// TryHost extracts the inner Go value from a HostVal.
+// Returns (zero, false) if v is not a HostVal or the inner type does not match T.
+func TryHost[T any](v eval.Value) (T, bool) {
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	t, ok := hv.Inner.(T)
+	return t, ok
+}
+
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
+// Prefer TryHost in new code; MustHost is retained for call sites where the type
+// invariant is guaranteed by the compiler and a failure indicates a bug.
 func MustHost[T any](v eval.Value) T {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {

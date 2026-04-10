@@ -220,7 +220,12 @@ var (
 	FromRecord = engine.FromRecord
 )
 
+// TryHost extracts the inner Go value from a HostVal.
+// Returns (zero, false) if v is not a HostVal or the inner type does not match T.
+func TryHost[T any](v Value) (T, bool) { return engine.TryHost[T](v) }
+
 // MustHost extracts the inner Go value from a HostVal, panicking if it is not one.
+// Prefer TryHost in new code.
 func MustHost[T any](v Value) T { return engine.MustHost[T](v) }
 
 // ---- Utility functions ----

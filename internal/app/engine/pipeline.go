@@ -62,10 +62,10 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	desugar.Program(ast)
 
 	if p.LexErrors().HasErrors() {
-		return nil, nil, &CompileError{Errors: p.LexErrors()}
+		return nil, nil, &CompileError{errs: p.LexErrors()}
 	}
 	if parseErrs.HasErrors() {
-		return nil, nil, &CompileError{Errors: parseErrs}
+		return nil, nil, &CompileError{errs: parseErrs}
 	}
 	if injectCore {
 		injectCoreImport(ast)
@@ -134,7 +134,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 	// Modules (stdlib) may use host-provided assumptions; don't deny.
 	prog, exports, checkErrs := check.CheckModule(ast, src, config)
 	if checkErrs.HasErrors() {
-		return nil, &CompileError{Errors: checkErrs}
+		return nil, &CompileError{errs: checkErrs}
 	}
 
 	modFixity := make(map[string]parse.Fixity)
@@ -193,7 +193,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	result.Source = src
 	if err != nil {
 		if ce, ok := err.(*CompileError); ok {
-			result.Errors = ce.Errors
+			result.Errors = ce.errs
 		}
 		result.Program = &ir.Program{}
 		return result
@@ -305,7 +305,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *ir.FVAnnotations, *span.Source, error) {
 	ar := pc.analyze(source)
 	if !ar.Complete {
-		return nil, nil, nil, &CompileError{Errors: ar.Errors}
+		return nil, nil, nil, &CompileError{errs: ar.Errors}
 	}
 
 	var userBindings map[string]bool

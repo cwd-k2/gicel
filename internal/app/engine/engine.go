@@ -384,6 +384,11 @@ func ValidateModuleName(name string) error {
 // that compileModule itself runs against the current fingerprint state
 // (which correctly reflects the environment without the new module).
 func (e *Engine) RegisterModule(name, source string) (err error) {
+	// Blanket recover: RegisterModule is a library entry point where any
+	// unhandled panic (invariant violation, nil deref) must be surfaced as
+	// a typed error rather than crashing the caller. This is intentionally
+	// broader than precompileVM's typed PoolOverflowError recover — the
+	// two operate at different trust boundaries.
 	defer func() {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
@@ -518,7 +523,7 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 	cfg.EntryPoint = pc.entryPoint
 	prog, _, checkErrs := check.CheckModule(ast, src, cfg)
 	if checkErrs.HasErrors() {
-		return nil, &CompileError{Errors: checkErrs}
+		return nil, &CompileError{errs: checkErrs}
 	}
 	return &CompileResult{prog: prog}, nil
 }

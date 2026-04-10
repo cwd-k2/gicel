@@ -1,12 +1,18 @@
 package eval
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
+
+// cmpRecordField compares RecordFields by label for deterministic ordering.
+func cmpRecordField(a, b RecordField) int {
+	return cmp.Compare(a.Label, b.Label)
+}
 
 // Value is a runtime value.
 type Value interface {
@@ -118,7 +124,7 @@ func (r *RecordVal) AsMap() map[string]Value {
 
 // NewRecord creates a RecordVal from fields, sorting by label.
 func NewRecord(fields []RecordField) *RecordVal {
-	sort.Slice(fields, func(i, j int) bool { return fields[i].Label < fields[j].Label })
+	slices.SortFunc(fields, cmpRecordField)
 	return &RecordVal{fields: fields}
 }
 
@@ -128,7 +134,7 @@ func NewRecordFromMap(m map[string]Value) *RecordVal {
 	for k, v := range m {
 		fields = append(fields, RecordField{Label: k, Value: v})
 	}
-	sort.Slice(fields, func(i, j int) bool { return fields[i].Label < fields[j].Label })
+	slices.SortFunc(fields, cmpRecordField)
 	return &RecordVal{fields: fields}
 }
 
@@ -154,7 +160,7 @@ func (r *RecordVal) Update(updates []RecordField) *RecordVal {
 	for k, v := range umap {
 		result = append(result, RecordField{Label: k, Value: v})
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Label < result[j].Label })
+	slices.SortFunc(result, cmpRecordField)
 	return &RecordVal{fields: result}
 }
 

@@ -153,7 +153,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 					Phase:   diagnostic.PhaseCheck,
 					Message: poe.Error(),
 				})
-				err = &CompileError{Errors: diags}
+				err = &CompileError{errs: diags}
 				return
 			}
 			panic(rec) // real bug — propagate
