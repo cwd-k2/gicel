@@ -14,7 +14,6 @@ import (
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
 	"github.com/cwd-k2/gicel/internal/infra/budget"
-	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -244,7 +243,7 @@ func IsTuple(r *RecordVal) bool { return eval.IsTuple(r) }
 func IsBool(v *ConVal) (val bool, ok bool) { return eval.IsBool(v) }
 
 // TupleLabel returns the canonical field label for a 1-based tuple position.
-func TupleLabel(pos int) string { return ir.TupleLabel(pos) }
+func TupleLabel(pos int) string { return types.TupleLabel(pos) }
 
 // ValidateModuleName checks that name is a valid module identifier.
 func ValidateModuleName(name string) error { return engine.ValidateModuleName(name) }

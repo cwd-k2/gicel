@@ -190,8 +190,8 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 	result := &types.TyApp{
 		Fun: types.Con(types.TyConRecord),
 		Arg: types.ClosedRow(
-			types.RowField{Label: ir.TupleLabel(1), Type: a},
-			types.RowField{Label: ir.TupleLabel(2), Type: b},
+			types.RowField{Label: types.TupleLabel(1), Type: a},
+			types.RowField{Label: types.TupleLabel(2), Type: b},
 		),
 	}
 	mergedGrade := ch.composeGrades(g1, g2)

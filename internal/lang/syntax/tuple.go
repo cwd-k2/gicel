@@ -1,14 +1,11 @@
 package syntax
 
-import (
-	"github.com/cwd-k2/gicel/internal/lang/ir"
-	"github.com/cwd-k2/gicel/internal/lang/types"
-)
+import "github.com/cwd-k2/gicel/internal/lang/types"
 
-// TupleLabel delegates to ir.TupleLabel, which is the single canonical
+// TupleLabel delegates to types.TupleLabel, which is the canonical
 // encoding of tuple position labels.
 func TupleLabel(pos int) string {
-	return ir.TupleLabel(pos)
+	return types.TupleLabel(pos)
 }
 
 // DesugarConstraintTuple detects a tuple type used as a constraint group.
