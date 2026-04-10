@@ -911,13 +911,11 @@ func TestProbeE_CrashAllKeywordsAsExpr(t *testing.T) {
 	}
 }
 
-// TestProbeCrash_LetAsAtomInAppPosition pins the fix for a nil-deref crash in
-// parseApp's inner argument loop: `parseAtom` returned nil when it encountered
-// `let` as an identifier in expression position, and parseApp then dereferenced
-// arg.Span() without a guard. Discovered by field-test algorithm agent
-// (2026-04-08) via `do { let := 1; pure let }`.
+// TestProbeCrash_LetAsAtomInAppPosition verifies that `let` as a plain
+// identifier in expression position does not panic. `let` is not a keyword
+// in GICEL; it parses as an ordinary variable and resolves (or fails) at
+// the type-checking stage.
 func TestProbeCrash_LetAsAtomInAppPosition(t *testing.T) {
-	// Minimal repros — both previously panicked with nil pointer deref.
 	sources := []string{
 		`main := do { let := 1; pure let }`,
 		`main := pure let`,
@@ -925,11 +923,9 @@ func TestProbeCrash_LetAsAtomInAppPosition(t *testing.T) {
 		`main := let`,
 	}
 	for _, src := range sources {
-		// Must not panic. Diagnostic must be reported.
-		_, es := parse(src)
-		if !es.HasErrors() {
-			t.Errorf("expected parse error for %q, got none", src)
-		}
+		// Must not panic. Parse may or may not report errors,
+		// but the parser must complete without crashing.
+		parse(src)
 	}
 }
 

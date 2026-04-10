@@ -246,20 +246,14 @@ func caseOfKnownCtor(c ir.Core) ir.Core {
 			continue
 		}
 		// Simultaneous substitution: collect all pattern→arg mappings,
-		// then apply in a single tree traversal.
+		// recursively decomposing nested patterns (PRecord, PCon).
 		subs := make(map[string]ir.Core)
 		subsFV := make(map[string]struct{})
-		bindings := pcon.Args
-		for i, pat := range bindings {
+		for i, pat := range pcon.Args {
 			if i >= len(con.Args) {
 				break
 			}
-			if pv, ok := pat.(*ir.PVar); ok {
-				subs[pv.Name] = con.Args[i]
-				for k := range ir.FreeVars(con.Args[i]) {
-					subsFV[k] = struct{}{}
-				}
-			}
+			collectPatSubs(pat, con.Args[i], subs, subsFV)
 		}
 		if len(subs) == 0 {
 			return alt.Body
@@ -267,6 +261,47 @@ func caseOfKnownCtor(c ir.Core) ir.Core {
 		return substMany(alt.Body, subs, subsFV)
 	}
 	return c
+}
+
+// collectPatSubs recursively walks a pattern and a corresponding value,
+// collecting name→value substitutions for all PVar leaves.
+func collectPatSubs(pat ir.Pattern, val ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}) {
+	switch p := pat.(type) {
+	case *ir.PVar:
+		subs[p.Name] = val
+		for k := range ir.FreeVars(val) {
+			subsFV[k] = struct{}{}
+		}
+	case *ir.PRecord:
+		// For each field in the record pattern, project the corresponding
+		// field from the value and recurse.
+		for _, f := range p.Fields {
+			proj := &ir.RecordProj{Record: val, Label: f.Label, S: val.Span()}
+			// If the value is a known RecordLit, extract the field directly.
+			if rec, ok := val.(*ir.RecordLit); ok {
+				for _, rf := range rec.Fields {
+					if rf.Label == f.Label {
+						collectPatSubs(f.Pattern, rf.Value, subs, subsFV)
+						goto nextField
+					}
+				}
+			}
+			collectPatSubs(f.Pattern, proj, subs, subsFV)
+		nextField:
+		}
+	case *ir.PCon:
+		// Nested constructor pattern: only decompose if the value is
+		// also a known constructor with the same tag.
+		if con, ok := val.(*ir.Con); ok && con.Name == p.Con && con.Module == p.Module {
+			for i, sub := range p.Args {
+				if i < len(con.Args) {
+					collectPatSubs(sub, con.Args[i], subs, subsFV)
+				}
+			}
+		}
+	case *ir.PWild:
+		// nothing to bind
+	}
 }
 
 // R1b: Case (Lit v) alts  →  matching alt (literal scrutinee)

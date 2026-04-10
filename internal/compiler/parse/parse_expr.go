@@ -146,19 +146,6 @@ func (p *Parser) parseAtom() syn.Expr {
 	switch p.peek().Kind {
 	case syn.TokLower:
 		tok := p.peek()
-		// Detect Haskell-style keywords used in expression position.
-		if tok.Text == "let" {
-			p.errors.Add(&diagnostic.Error{
-				Code: diagnostic.ErrUnexpectedToken, Phase: diagnostic.PhaseParse, Span: tok.S,
-				Message: "unknown keyword 'let'; use { name := expr; body } for local bindings",
-			})
-			p.advance()
-			// Return ExprError (not nil) so callers that don't re-check for nil
-			// — e.g. parseApp's inner-loop arg collection — can't panic on
-			// Span() deref. parseApp treats nil from its *initial* parseAtom
-			// call specially at line 96; the inner loop has no such guard.
-			return &syn.ExprError{S: tok.S}
-		}
 		p.advance()
 		e = &syn.ExprVar{Name: tok.Text, S: tok.S}
 	case syn.TokUpper:
@@ -345,19 +332,6 @@ func (p *Parser) parseCase() syn.Expr {
 	p.noBraceAtom = true
 	scrut := p.parseExpr()
 	p.noBraceAtom = savedNoBrace
-	// Haskell-style `case expr of { ... }` — detect `of` absorbed into the scrutinee
-	// and recover by stripping it, so the alternatives parse correctly.
-	if app, ok := scrut.(*syn.ExprApp); ok {
-		if v, ok := app.Arg.(*syn.ExprVar); ok && v.Name == "of" {
-			p.errors.Add(&diagnostic.Error{
-				Code:    diagnostic.ErrUnexpectedToken,
-				Phase:   diagnostic.PhaseParse,
-				Span:    v.S,
-				Message: "case syntax does not use 'of'; write 'case expr { ... }'",
-			})
-			scrut = app.Fun
-		}
-	}
 	openTok := p.expect(syn.TokLBrace)
 	var alts []syn.AstAlt
 	p.parseBody("case expression", openTok.S, func() {

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.28.2 — 2026-04-11
+
+### Bug Fixes
+
+- **caseOfCase variable capture** — `caseOfCase` and `bindOfCase` now alpha-rename inner pattern bindings that would capture free variables of the pushed outer body. Previously, inlined functions sharing pattern variable names with the caller produced silently wrong results (e.g., a recursive-descent parser returning incorrect values). The tree-walking evaluator (`--explain`) was unaffected because it disables inlining.
+- **caseOfKnownCtor PRecord decomposition** — `caseOfKnownCtor` now recursively decomposes `PRecord` and nested `PCon` patterns when collecting substitutions. Previously, only `PVar` patterns were substituted; `PRecord` patterns were skipped, returning the body without substitution.
+
+### Removed
+
+- **Foreign-language error hints** — Removed 7 Haskell-migration hints (`data`→`form`, `class`→`form`, `instance`→`impl`, `where`→`{ }`, `let`→`{ }`, `case..of`→`case..{ }`). GICEL error messages now report purely in the language's own terms.
+
 ## v0.28.1 — 2026-04-11
 
 Field-test audit: 10 zero-context agents explored the CLI, found 8 bugs and 5 UX gaps. All fixed.

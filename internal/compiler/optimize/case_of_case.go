@@ -14,6 +14,10 @@ const maxDuplicateSize = 50
 // After:  case e { p1 => case b1 { q1 => w1; q2 => w2 }
 //
 //	p2 => case b2 { q1 => w1; q2 => w2 } }
+//
+// Capture avoidance: inner pattern bindings that collide with free
+// variables of the outer alternatives are alpha-renamed to prevent
+// accidental variable capture after the transformation.
 func caseOfCase(c ir.Core) ir.Core {
 	outer, ok := c.(*ir.Case)
 	if !ok {
@@ -33,13 +37,24 @@ func caseOfCase(c ir.Core) ir.Core {
 		}
 	}
 
-	// Push outer case into each inner branch.
+	// Collect free variables of all outer alt bodies. These are the names
+	// that must not be captured by inner pattern bindings.
+	outerFV := make(map[string]struct{})
+	for _, alt := range outer.Alts {
+		for k := range ir.FreeVars(alt.Body) {
+			outerFV[k] = struct{}{}
+		}
+	}
+
+	// Push outer case into each inner branch, alpha-renaming inner
+	// pattern bindings that would capture outer free variables.
 	newAlts := make([]ir.Alt, len(inner.Alts))
 	for i, alt := range inner.Alts {
+		pat, body := avoidCapture(alt.Pattern, alt.Body, outerFV)
 		newAlts[i] = ir.Alt{
-			Pattern: alt.Pattern,
+			Pattern: pat,
 			Body: &ir.Case{
-				Scrutinee: alt.Body,
+				Scrutinee: body,
 				Alts:      cloneAlts(outer.Alts),
 				S:         outer.S,
 			},
@@ -48,6 +63,27 @@ func caseOfCase(c ir.Core) ir.Core {
 		}
 	}
 	return &ir.Case{Scrutinee: inner.Scrutinee, Alts: newAlts, S: inner.S}
+}
+
+// avoidCapture alpha-renames any bindings in pat whose names collide with
+// freeNames, applying the same renaming to body.
+func avoidCapture(pat ir.Pattern, body ir.Core, freeNames map[string]struct{}) (ir.Pattern, ir.Core) {
+	bindings := pat.Bindings()
+	var renames [][2]string // (old, new) pairs
+	for _, name := range bindings {
+		if _, captured := freeNames[name]; captured {
+			renames = append(renames, [2]string{name, freshName(name)})
+		}
+	}
+	if len(renames) == 0 {
+		return pat, body
+	}
+	for _, r := range renames {
+		pat = renamePatternVar(pat, r[0], r[1])
+		fv := map[string]struct{}{r[1]: {}}
+		body = substMany(body, map[string]ir.Core{r[0]: &ir.Var{Name: r[1], Index: -1, S: body.Span()}}, fv)
+	}
+	return pat, body
 }
 
 // bindOfCase transforms bind (case e alts) x body by pushing the bind
@@ -71,13 +107,18 @@ func bindOfCase(c ir.Core) ir.Core {
 		return c
 	}
 
-	// Push bind into each branch.
+	// Collect free variables of the bind body for capture avoidance.
+	bindBodyFV := ir.FreeVars(bind.Body)
+
+	// Push bind into each branch, alpha-renaming inner pattern
+	// bindings that would capture free variables of the bind body.
 	newAlts := make([]ir.Alt, len(inner.Alts))
 	for i, alt := range inner.Alts {
+		pat, comp := avoidCapture(alt.Pattern, alt.Body, bindBodyFV)
 		newAlts[i] = ir.Alt{
-			Pattern: alt.Pattern,
+			Pattern: pat,
 			Body: &ir.Bind{
-				Comp:      alt.Body,
+				Comp:      comp,
 				Var:       bind.Var,
 				Discard:   bind.Discard,
 				Body:      ir.Clone(bind.Body),

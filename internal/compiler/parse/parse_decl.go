@@ -35,29 +35,6 @@ func (p *Parser) parseDecl() syn.Decl {
 	case p.peek().Kind == syn.TokLParen && p.isOperatorDeclStart():
 		return p.parseOperatorDecl()
 	case p.peek().Kind == syn.TokLower:
-		// Hint for common keywords from other languages.
-		switch p.peek().Text {
-		case "data":
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unknown keyword 'data'; use 'form' for type/class declarations")
-			p.advance()
-			return nil
-		case "class":
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unknown keyword 'class'; use 'form' for type class declarations")
-			p.advance()
-			return nil
-		case "instance":
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unknown keyword 'instance'; use 'impl' for instance declarations")
-			p.advance()
-			return nil
-		case "where":
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unknown keyword 'where'; use braces { } for declaration bodies")
-			p.advance()
-			return nil
-		case "let":
-			p.addErrorCode(diagnostic.ErrUnexpectedToken, "unknown keyword 'let'; use { name := expr; body } for local bindings")
-			p.advance()
-			return nil
-		}
 		return p.parseNamedDecl()
 	default:
 		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected declaration")
