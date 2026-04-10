@@ -567,9 +567,10 @@ func transformMutLeftSpineOrRec(c Core, f func(Core) Core) Core {
 // on deeply nested do-blocks that exceed maxTraversalDepth.
 func transformBindChain(c Core, f func(Core) Core) Core {
 	type bindNode struct {
-		orig    *Bind
-		comp    Core
-		compChg bool
+		orig      *Bind
+		comp      Core
+		compChg   bool
+		savedBody Core // original Body, for restoring after tentative mutation
 	}
 	var chain []bindNode
 
@@ -581,7 +582,7 @@ func transformBindChain(c Core, f func(Core) Core) Core {
 			break
 		}
 		newComp := transformRec(b.Comp, f, 0)
-		chain = append(chain, bindNode{orig: b, comp: newComp, compChg: newComp != b.Comp})
+		chain = append(chain, bindNode{orig: b, comp: newComp, compChg: newComp != b.Comp, savedBody: b.Body})
 		cur = b.Body
 	}
 
@@ -608,11 +609,19 @@ func transformBindChain(c Core, f func(Core) Core) Core {
 			bn.orig.Body = cur // tentative (needed if f inspects children)
 			r := f(bn.orig)
 			if r != bn.orig {
+				// f rewrote this node. Restore the original Body (undo the
+				// tentative mutation) and fall through to the rebuild path
+				// for the remaining chain elements.
+				bn.orig.Body = bn.savedBody
 				cur = r
-				anyChange = true
-			} else {
-				cur = bn.orig
+				for j := i - 1; j >= 0; j-- {
+					bnj := chain[j]
+					cur = f(&Bind{Comp: bnj.comp, Var: bnj.orig.Var, Discard: bnj.orig.Discard,
+						Body: cur, Generated: bnj.orig.Generated, S: bnj.orig.S})
+				}
+				return cur
 			}
+			cur = bn.orig
 		}
 		return cur
 	}
