@@ -9,7 +9,7 @@ import (
 type Alt struct {
 	Pattern   Pattern
 	Body      Core
-	Generated bool // true when the entire alt is compiler-generated (dict extraction, method selector)
+	Generated GenKind // non-zero when the entire alt is compiler-generated
 	S         span.Span
 }
 
@@ -23,7 +23,7 @@ type Pattern interface {
 // PVar — variable pattern (binds a value).
 type PVar struct {
 	Name      string
-	Generated bool // true when introduced by the compiler (dict params, section desugar)
+	Generated GenKind // non-zero when introduced by the compiler
 	S         span.Span
 }
 
@@ -94,7 +94,7 @@ type Binding struct {
 	Name      string
 	Type      types.Type
 	Expr      Core
-	Generated bool // true when introduced by the compiler (dict bindings, method selectors)
+	Generated GenKind // non-zero when introduced by the compiler
 	S         span.Span
 }
 

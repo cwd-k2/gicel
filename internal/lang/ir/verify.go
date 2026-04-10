@@ -2,7 +2,6 @@ package ir
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -23,7 +22,7 @@ func (e *VerifyError) Error() string {
 //
 // Checked invariants:
 //   - V1: No ir.Error nodes survive to post-check.
-//   - V2: Auto-force generated Bind has structure: Bind{Generated:true, Comp: Force{Var{$lz...}}}.
+//   - V2: Auto-force generated Bind has structure: Bind{Generated:true, Comp: Force{Var{...}}}.
 //   - V4a: No double-Force: Force{Expr: Force{...}}.
 //   - V4b: No double-Thunk: Thunk{Comp: Thunk{...}} (generalizes former V3).
 //   - V6: No label-kinded TyApp after label erasure.
@@ -60,28 +59,22 @@ func verifyCore(c Core, errs []VerifyError) []VerifyError {
 
 // verifyBind checks V2: auto-force generated Bind structure.
 func verifyBind(b *Bind, errs []VerifyError) []VerifyError {
-	if !b.Generated {
+	if !b.Generated.IsGenerated() {
 		return errs
 	}
-	// Generated Bind from autoForceLazy has Comp = Force{Expr: Var{Name: "$lz..."}}.
+	// Generated Bind from autoForceLazy has Comp = Force{Expr: Var{...}}.
+	// The structural pattern (Generated + Force + Var) is the invariant;
+	// the Var's name is an implementation detail of autoForceLazy.
 	force, ok := b.Comp.(*Force)
 	if !ok {
 		// Generated Bind with non-Force comp — may be from other compiler passes
-		// (e.g. dict extraction). Only flag if it looks like a botched auto-force.
+		// (e.g. dict extraction, CBPV auto-bind). Not an auto-force violation.
 		return errs
 	}
-	v, ok := force.Expr.(*Var)
-	if !ok {
+	if _, ok := force.Expr.(*Var); !ok {
 		errs = append(errs, VerifyError{
 			Node:    b,
 			Message: "generated Bind{Force{...}} — Force argument is not a Var",
-		})
-		return errs
-	}
-	if !strings.HasPrefix(v.Name, "$lz") {
-		errs = append(errs, VerifyError{
-			Node:    b,
-			Message: fmt.Sprintf("generated Bind{Force{Var{%q}}} — expected $lz prefix", v.Name),
 		})
 	}
 	return errs

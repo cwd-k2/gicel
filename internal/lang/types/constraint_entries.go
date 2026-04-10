@@ -321,7 +321,8 @@ func SingleConstraint(className string, args []Type) *TyEvidenceRow {
 }
 
 // ConstraintKey returns a canonical string for a constraint entry.
-// Used for sorting/display, not for matching (matching uses className + type unification).
+// Used for sorting and as a bucketing key for non-class-headed entries
+// in ClassifyConstraints. Class-headed entries use HeadClassName instead.
 // Delegates to TypeKey for injective encoding.
 func ConstraintKey(e ConstraintEntry) string {
 	switch e := e.(type) {

@@ -5,6 +5,23 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// GenKind classifies the origin of compiler-generated IR nodes.
+// Zero value (UserWritten) means user-authored. Non-zero values
+// identify which compiler pass introduced the node.
+type GenKind uint8
+
+const (
+	UserWritten    GenKind = 0 // user-authored (default zero value)
+	GenDict        GenKind = 1 // dictionary parameter or binding (instance elaboration)
+	GenAutoForce   GenKind = 2 // auto-force lazy field extraction (pattern desugar)
+	GenSection     GenKind = 3 // operator section desugaring
+	GenDictExtract GenKind = 4 // method selector / dict field extraction
+	GenAutoBind    GenKind = 5 // CBPV implicit bind variable
+)
+
+// IsGenerated reports whether the node is compiler-generated.
+func (g GenKind) IsGenerated() bool { return g != 0 }
+
 // Core is a term in the core intermediate representation.
 // 19 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, Merge, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate, Error.
 type Core interface {
@@ -34,7 +51,7 @@ type Lam struct {
 	Param     string
 	ParamType types.Type
 	Body      Core
-	Generated bool // true when introduced by the compiler (dict params, pattern desugar, sections)
+	Generated GenKind // non-zero when introduced by the compiler
 	S         span.Span
 }
 
@@ -97,8 +114,8 @@ type Bind struct {
 	Comp      Core
 	Var       string
 	Body      Core
-	Discard   bool // true when the bound value is unused (wildcard bind)
-	Generated bool // true when Var is compiler-introduced (anonymous bind)
+	Discard   bool    // true when the bound value is unused (wildcard bind)
+	Generated GenKind // non-zero when Var is compiler-introduced
 	S         span.Span
 }
 

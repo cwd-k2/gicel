@@ -479,7 +479,7 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		ch.unifier.RemoveGivenEq(skolemID)
 	}
 	for i := len(dicts) - 1; i >= 0; i-- {
-		bodyCore = &ir.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, Generated: true, S: expr.Span()}
+		bodyCore = &ir.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, Generated: ir.GenDict, S: expr.Span()}
 	}
 	return bodyCore
 }
@@ -567,7 +567,7 @@ func (ch *Checker) withEvidenceScope(e *syntax.ExprEvidence, body func() ir.Core
 		ch.ctx.Pop() // pop CtxEvidence
 	}
 	ch.ctx.Pop() // pop CtxVar
-	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: true, S: e.S}
+	lamCore := &ir.Lam{Param: bindName, ParamType: dictTy, Body: bodyCore, Generated: ir.GenDict, S: e.S}
 	return &ir.App{Fun: lamCore, Arg: dictCore, S: e.S}
 }
 

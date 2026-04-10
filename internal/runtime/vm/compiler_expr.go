@@ -312,6 +312,9 @@ func (c *Compiler) compileFix(fix *ir.Fix) {
 		protoIdx := c.addProto(child)
 		c.emitU16(OpFixThunk, protoIdx)
 	default:
+		// fix with a non-lambda/thunk body can type-check (e.g., fix (\self. Con 1 2))
+		// because the (a -> a) -> a constraint is satisfiable for data constructors.
+		// Emit a runtime error with a clear diagnostic.
 		msg := fmt.Sprintf(
 			"fix binding %s requires a lambda or thunk body (got %T); "+
 				"in CBV evaluation, fix creates a self-referential closure "+
@@ -327,7 +330,7 @@ func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
 	c.compileExpr(bind.Comp, false)
 	slot := c.allocLocal(bind.Var)
 	c.emitU16(OpBind, uint16(slot))
-	if !bind.Discard && !bind.Generated {
+	if !bind.Discard && !bind.Generated.IsGenerated() {
 		c.top().bindNames = append(c.top().bindNames, BindInfo{Slot: slot, Name: bind.Var})
 	}
 	c.compileExpr(bind.Body, tail)

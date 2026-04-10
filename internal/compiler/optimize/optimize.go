@@ -66,7 +66,7 @@ func OptimizeProgram(prog *ir.Program, rules []func(ir.Core) ir.Core, userBindin
 
 func hasLocalDicts(prog *ir.Program) bool {
 	for _, b := range prog.Bindings {
-		if b.Generated {
+		if b.Generated.IsGenerated() {
 			return true
 		}
 	}
@@ -82,7 +82,7 @@ func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func
 	// Collect local dictionaries from the main program.
 	localDicts := make(map[string]ir.Core)
 	for _, b := range prog.Bindings {
-		if !b.Generated {
+		if !b.Generated.IsGenerated() {
 			continue
 		}
 		core := b.Expr

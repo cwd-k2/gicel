@@ -111,7 +111,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, s, "bind: ⇒ %s", types.Pretty(resultTy))
 	}
-	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, Generated: true, S: s}
+	return resultTy, &ir.Bind{Comp: compCore, Var: bindVar, Body: bodyCore, Generated: ir.GenAutoBind, S: s}
 }
 
 // inferDualForm infers the CBPV dual: thunk (Comp→Thunk) or force (Thunk→Comp).
@@ -312,7 +312,7 @@ func thunkIfBareComputation(ty types.Type, core ir.Core, s span.Span) (types.Typ
 			return newTy, newCore
 		}
 	case *types.TyEvidence:
-		if lam, ok := core.(*ir.Lam); ok && lam.Generated {
+		if lam, ok := core.(*ir.Lam); ok && lam.Generated.IsGenerated() {
 			innerTy, innerCore := thunkIfBareComputation(t.Body, lam.Body, s)
 			newTy := &types.TyEvidence{Constraints: t.Constraints, Body: innerTy, S: t.S}
 			newCore := &ir.Lam{

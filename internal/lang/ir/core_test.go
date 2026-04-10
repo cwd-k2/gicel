@@ -1,6 +1,7 @@
 package ir
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -41,8 +42,8 @@ func TestWalkCollectVars(t *testing.T) {
 func TestTransformIdentity(t *testing.T) {
 	term := &Pure{Expr: &Con{Name: "Unit"}}
 	result := Transform(term, func(c Core) Core { return c })
-	if Pretty(result) != Pretty(term) {
-		t.Errorf("identity transform changed output: %q vs %q", Pretty(result), Pretty(term))
+	if !reflect.DeepEqual(result, term) {
+		t.Errorf("identity transform changed structure: got %v, want %v", result, term)
 	}
 }
 
@@ -132,6 +133,45 @@ func TestPatternBindings(t *testing.T) {
 	bs := p.Bindings()
 	if len(bs) != 2 || bs[0] != "a" || bs[1] != "b" {
 		t.Errorf("expected [a, b], got %v", bs)
+	}
+}
+
+func TestTransformDeepBindChain(t *testing.T) {
+	// Build a Bind chain deeper than maxTraversalDepth (512).
+	// Before the fix, Transform would silently return the chain untransformed.
+	const depth = 600
+	var term Core = &Pure{Expr: &Lit{Value: int64(0)}}
+	for i := depth - 1; i >= 0; i-- {
+		term = &Bind{Comp: &Pure{Expr: &Lit{Value: int64(i)}}, Var: "_", Discard: true, Body: term}
+	}
+	count := 0
+	_ = Transform(term, func(c Core) Core {
+		if _, ok := c.(*Lit); ok {
+			count++
+		}
+		return c
+	})
+	// depth Comp literals + 1 tail literal = depth+1
+	if count != depth+1 {
+		t.Errorf("Transform visited %d Lit nodes, want %d", count, depth+1)
+	}
+}
+
+func TestTransformMutDeepBindChain(t *testing.T) {
+	const depth = 600
+	var term Core = &Pure{Expr: &Lit{Value: int64(0)}}
+	for i := depth - 1; i >= 0; i-- {
+		term = &Bind{Comp: &Pure{Expr: &Lit{Value: int64(i)}}, Var: "_", Discard: true, Body: term}
+	}
+	count := 0
+	_ = TransformMut(term, func(c Core) Core {
+		if _, ok := c.(*Lit); ok {
+			count++
+		}
+		return c
+	})
+	if count != depth+1 {
+		t.Errorf("TransformMut visited %d Lit nodes, want %d", count, depth+1)
 	}
 }
 

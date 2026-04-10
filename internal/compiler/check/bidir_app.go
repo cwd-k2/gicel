@@ -7,6 +7,16 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// syntaxGenKind converts a surface AST Generated bool to the IR GenKind.
+// Surface syntax only marks section desugaring; the specific IR kind
+// is assigned at each elaboration site.
+func syntaxGenKind(generated bool) ir.GenKind {
+	if generated {
+		return ir.GenSection
+	}
+	return ir.UserWritten
+}
+
 func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 	if len(e.Params) == 0 {
 		return ch.check(e.Body, expected)
@@ -33,13 +43,13 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 		ch.ctx.Push(&CtxVar{Name: freshName, Type: argTy})
 		bodyCore := ch.check(caseExpr, retTy)
 		ch.ctx.Pop()
-		return &ir.Lam{Param: freshName, ParamType: argTy, Body: bodyCore, Generated: true, S: e.S}
+		return &ir.Lam{Param: freshName, ParamType: argTy, Body: bodyCore, Generated: ir.GenSection, S: e.S}
 	}
 
 	paramName := ch.patternName(e.Params[0])
-	generated := false
+	var generated ir.GenKind
 	if pv, ok := e.Params[0].(*syntax.PatVar); ok {
-		generated = pv.Generated
+		generated = syntaxGenKind(pv.Generated)
 	}
 	ch.ctx.Push(&CtxVar{Name: paramName, Type: argTy})
 	var bodyCore ir.Core

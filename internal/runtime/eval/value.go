@@ -29,6 +29,11 @@ type Closure struct {
 }
 
 // ConVal is a fully-applied constructor value.
+// Con is the bare constructor name (no module qualification). This is safe
+// because the type checker guarantees that all constructor references are
+// resolved to their canonical names and that no two constructors with the
+// same bare name from different modules can appear in the same scope.
+// See also B-3 (caseOfKnownCtor module check, now fixed).
 type ConVal struct {
 	Con  string
 	Args []Value

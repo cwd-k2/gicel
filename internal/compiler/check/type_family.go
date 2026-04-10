@@ -110,10 +110,10 @@ func (ch *Checker) processTypeFamilyDecl(
 func (ch *Checker) familyEnv() *family.ReduceEnv {
 	if ch.cachedFamilyEnv == nil {
 		ch.cachedFamilyEnv = &family.ReduceEnv{
-			LookupFamily:    ch.lookupFamily,
-			Budget:          ch.budget,
-			Unifier:         ch.unifier,
-			FreshMeta:       ch.freshMeta,
+			LookupFamily: ch.lookupFamily,
+			Budget:       ch.budget,
+			Unifier:      ch.unifier,
+			FreshMeta:    ch.freshMeta,
 			AddError: func(code diagnostic.Code, s span.Span, msg string) {
 				ch.addDiag(code, s, diagMsg(msg))
 			},

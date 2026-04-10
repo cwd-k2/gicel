@@ -100,7 +100,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		for i := len(ctxParams) - 1; i >= 0; i-- {
 			dictExpr = &ir.Lam{
 				Param: ctxParams[i].name, ParamType: ctxParams[i].ty,
-				Body: dictExpr, Generated: true, S: inst.S,
+				Body: dictExpr, Generated: ir.GenDict, S: inst.S,
 			}
 			dictTy = types.MkArrow(ctxParams[i].ty, dictTy)
 		}
@@ -113,7 +113,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		Name:      inst.DictBindName,
 		Type:      dictTy,
 		Expr:      dictExpr,
-		Generated: true,
+		Generated: ir.GenDict,
 		S:         inst.S,
 	})
 

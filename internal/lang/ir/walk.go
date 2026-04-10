@@ -125,17 +125,19 @@ func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) {
 	}
 }
 
-// Transform applies a function to every Core node bottom-up.
 // Clone creates a deep copy of a Core tree. All nodes including Var and Lit
 // are freshly allocated, so the clone shares no mutable state with the original.
 // This is necessary when the same subtree is inserted into multiple positions
 // in the IR (e.g., by substitution), because AssignIndices mutates Var.Index
 // and Lam.FVIndices in place.
+//
+// Var.Index is reset to -1 (unassigned) in the clone. The caller must run
+// AssignIndices on the cloned subtree after insertion into its new scope.
 func Clone(c Core) Core {
 	return Transform(c, func(n Core) Core {
 		switch v := n.(type) {
 		case *Var:
-			return &Var{Name: v.Name, Module: v.Module, Key: v.Key, Index: v.Index, S: v.S}
+			return &Var{Name: v.Name, Module: v.Module, Key: v.Key, Index: -1, S: v.S}
 		case *Lit:
 			return &Lit{Value: v.Value, S: v.S}
 		default:
@@ -150,9 +152,11 @@ func Transform(c Core, f func(Core) Core) Core {
 
 func transformRec(c Core, f func(Core) Core, depth int) Core {
 	if depth > maxTraversalDepth {
-		// For left-spine App chains, use iterative descent.
-		if _, ok := c.(*App); ok {
+		switch c.(type) {
+		case *App:
 			return transformLeftSpine(c, f)
+		case *Bind:
+			return transformBindChain(c, f)
 		}
 		return c
 	}
@@ -222,12 +226,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		}
 		return f(&Pure{Expr: newExpr, S: n.S})
 	case *Bind:
-		newComp := transformRec(n.Comp, f, depth+1)
-		newBody := transformRec(n.Body, f, depth+1)
-		if newComp == n.Comp && newBody == n.Body {
-			return f(n)
-		}
-		return f(&Bind{Comp: newComp, Var: n.Var, Discard: n.Discard, Body: newBody, Generated: n.Generated, S: n.S})
+		return transformBindChain(c, f)
 	case *Thunk:
 		newComp := transformRec(n.Comp, f, depth+1)
 		if newComp == n.Comp {
@@ -435,8 +434,11 @@ func TransformMut(c Core, f func(Core) Core) Core {
 
 func transformMutRec(c Core, f func(Core) Core, depth int) Core {
 	if depth > maxTraversalDepth {
-		if _, ok := c.(*App); ok {
+		switch c.(type) {
+		case *App:
 			return transformMutLeftSpine(c, f)
+		case *Bind:
+			return transformMutBindChain(c, f)
 		}
 		return c
 	}
@@ -472,9 +474,7 @@ func transformMutRec(c Core, f func(Core) Core, depth int) Core {
 		n.Expr = transformMutRec(n.Expr, f, depth+1)
 		return f(n)
 	case *Bind:
-		n.Comp = transformMutRec(n.Comp, f, depth+1)
-		n.Body = transformMutRec(n.Body, f, depth+1)
-		return f(n)
+		return transformMutBindChain(c, f)
 	case *Thunk:
 		n.Comp = transformMutRec(n.Comp, f, depth+1)
 		return f(n)
@@ -559,4 +559,100 @@ func transformMutLeftSpineOrRec(c Core, f func(Core) Core) Core {
 		return transformMutLeftSpine(c, f)
 	}
 	return transformMutRec(c, f, 0)
+}
+
+// transformBindChain iteratively processes right-leaning Bind chains
+// (e.g., do-block sequences: Bind{Comp, Body: Bind{Comp, Body: ...}}).
+// This mirrors transformLeftSpine for App chains, preventing stack overflow
+// on deeply nested do-blocks that exceed maxTraversalDepth.
+func transformBindChain(c Core, f func(Core) Core) Core {
+	type bindNode struct {
+		orig    *Bind
+		comp    Core
+		compChg bool
+	}
+	var chain []bindNode
+
+	// Phase 1: unwind the Bind chain, transforming Comp children.
+	cur := c
+	for {
+		b, ok := cur.(*Bind)
+		if !ok {
+			break
+		}
+		newComp := transformRec(b.Comp, f, 0)
+		chain = append(chain, bindNode{orig: b, comp: newComp, compChg: newComp != b.Comp})
+		cur = b.Body
+	}
+
+	// Transform the tail (non-Bind).
+	newTail := transformRec(cur, f, 0)
+	tailChg := newTail != cur
+
+	// Phase 2: rebuild from the tail outward.
+	anyChange := tailChg
+	if !anyChange {
+		for _, bn := range chain {
+			if bn.compChg {
+				anyChange = true
+				break
+			}
+		}
+	}
+
+	cur = newTail
+	if !anyChange {
+		// No structural change — pass original nodes through f; rebuild if f rewrites.
+		for i := len(chain) - 1; i >= 0; i-- {
+			bn := chain[i]
+			bn.orig.Body = cur // tentative (needed if f inspects children)
+			r := f(bn.orig)
+			if r != bn.orig {
+				cur = r
+				anyChange = true
+			} else {
+				cur = bn.orig
+			}
+		}
+		return cur
+	}
+	for i := len(chain) - 1; i >= 0; i-- {
+		bn := chain[i]
+		cur = f(&Bind{Comp: bn.comp, Var: bn.orig.Var, Discard: bn.orig.Discard,
+			Body: cur, Generated: bn.orig.Generated, S: bn.orig.S})
+	}
+	return cur
+}
+
+// transformMutBindChain iteratively processes right-leaning Bind chains
+// with in-place mutation.
+func transformMutBindChain(c Core, f func(Core) Core) Core {
+	type bindNode struct {
+		bind *Bind
+		comp Core
+	}
+	var chain []bindNode
+
+	// Phase 1: unwind the Bind chain, mutating Comp children in place.
+	cur := c
+	for {
+		b, ok := cur.(*Bind)
+		if !ok {
+			break
+		}
+		b.Comp = transformMutRec(b.Comp, f, 0)
+		chain = append(chain, bindNode{bind: b, comp: b.Comp})
+		cur = b.Body
+	}
+
+	// Transform the tail (non-Bind).
+	cur = transformMutRec(cur, f, 0)
+
+	// Phase 2: rebuild from the tail outward with in-place mutation.
+	for i := len(chain) - 1; i >= 0; i-- {
+		bn := chain[i]
+		bn.bind.Body = cur
+		cur = f(bn.bind)
+	}
+	return cur
 }

@@ -175,7 +175,7 @@ func NewFVAnnotations() *FVAnnotations {
 func (a *FVAnnotations) LookupLam(lam *Lam) *FVInfo {
 	info, ok := a.Lams[lam]
 	if !ok {
-		panic("ir.FVAnnotations: Lam node missing from annotation table")
+		panic(fmt.Sprintf("ir.FVAnnotations: Lam node missing from annotation table (param=%q, span=%v)", lam.Param, lam.S))
 	}
 	return info
 }
@@ -184,7 +184,7 @@ func (a *FVAnnotations) LookupLam(lam *Lam) *FVInfo {
 func (a *FVAnnotations) LookupThunk(th *Thunk) *FVInfo {
 	info, ok := a.Thunks[th]
 	if !ok {
-		panic("ir.FVAnnotations: Thunk node missing from annotation table")
+		panic(fmt.Sprintf("ir.FVAnnotations: Thunk node missing from annotation table (span=%v)", th.S))
 	}
 	return info
 }
@@ -193,7 +193,7 @@ func (a *FVAnnotations) LookupThunk(th *Thunk) *FVInfo {
 func (a *FVAnnotations) LookupMerge(m *Merge) *MergeFVInfo {
 	info, ok := a.Merges[m]
 	if !ok {
-		panic("ir.FVAnnotations: Merge node missing from annotation table")
+		panic(fmt.Sprintf("ir.FVAnnotations: Merge node missing from annotation table (span=%v)", m.S))
 	}
 	return info
 }

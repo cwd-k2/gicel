@@ -34,6 +34,12 @@ type ExternalBinding struct {
 // ir.VarKey so the inliner matches references regardless of whether
 // they are local (`Name`) or module-qualified (`Module\x00Name`).
 //
+// Key space: local bindings (evidence and user) use bare name as key;
+// external bindings use ir.QualifiedKey ("Module\x00Name"). The two
+// namespaces are disjoint because \x00 cannot appear in surface names.
+// Lookups via ir.VarKey produce the matching format: bare for local
+// Vars, qualified for Vars with Module set.
+//
 // Three categories of candidates:
 //   - User bindings: small lambdas (existing behavior)
 //   - External bindings: small lambdas from imported modules
@@ -48,7 +54,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 	// (TyLam/Lam/Case) are compile-time constants whose inlining
 	// enables algebraic simplification.
 	for _, b := range prog.Bindings {
-		if !b.Generated {
+		if !b.Generated.IsGenerated() {
 			continue
 		}
 		if !eligibleEvidenceBody(b.Expr, b.Name) {
@@ -63,7 +69,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 			if !userBindings[b.Name] {
 				continue
 			}
-			if b.Generated {
+			if b.Generated.IsGenerated() {
 				continue
 			}
 			if !eligibleInlineBody(b.Expr, b.Name) {

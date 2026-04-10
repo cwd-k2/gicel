@@ -332,7 +332,7 @@ func (ch *Checker) autoForceLazy(pat ir.Pattern, body ir.Core, s span.Span) ir.C
 			Comp:      &ir.Force{Expr: &ir.Var{Name: f.internalName, S: s}, S: s},
 			Var:       f.userName,
 			Body:      body,
-			Generated: true,
+			Generated: ir.GenAutoForce,
 			S:         s,
 		}
 	}

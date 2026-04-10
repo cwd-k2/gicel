@@ -43,17 +43,19 @@ func (cs *CacheStore) PutRuntime(key runtimeCacheKey, rt *Runtime)     { cs.runt
 func (cs *CacheStore) ResetRuntime()                                   { cs.runtimes.Reset() }
 func (cs *CacheStore) RuntimeLen() int                                 { return cs.runtimes.Len() }
 
-func (cs *CacheStore) GetModule(key moduleCacheKey) (*compiledModule, bool) { return cs.modules.Get(key) }
-func (cs *CacheStore) PutModule(key moduleCacheKey, mod *compiledModule)    { cs.modules.Put(key, mod) }
-func (cs *CacheStore) ResetModule()                                        { cs.modules.Reset() }
-func (cs *CacheStore) ModuleLen() int                                      { return cs.modules.Len() }
+func (cs *CacheStore) GetModule(key moduleCacheKey) (*compiledModule, bool) {
+	return cs.modules.Get(key)
+}
+func (cs *CacheStore) PutModule(key moduleCacheKey, mod *compiledModule) { cs.modules.Put(key, mod) }
+func (cs *CacheStore) ResetModule()                                      { cs.modules.Reset() }
+func (cs *CacheStore) ModuleLen() int                                    { return cs.modules.Len() }
 
 // --- Backward-compatible public functions ---
 
-func ResetRuntimeCache() { defaultCacheStore.ResetRuntime() }
+func ResetRuntimeCache()   { defaultCacheStore.ResetRuntime() }
 func RuntimeCacheLen() int { return defaultCacheStore.RuntimeLen() }
-func ResetModuleCache() { defaultCacheStore.ResetModule() }
-func ModuleCacheLen() int { return defaultCacheStore.ModuleLen() }
+func ResetModuleCache()    { defaultCacheStore.ResetModule() }
+func ModuleCacheLen() int  { return defaultCacheStore.ModuleLen() }
 
 // --- Cache key computation ---
 

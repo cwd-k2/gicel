@@ -157,7 +157,7 @@ func compilePRecord(c *Compiler, p *ir.PRecord, failPatches *[]int) {
 func patternSlotInfo(pat ir.Pattern, idx int) (string, bool) {
 	switch p := pat.(type) {
 	case *ir.PVar:
-		return p.Name, p.Generated
+		return p.Name, p.Generated.IsGenerated()
 	default:
 		return fmt.Sprintf("$match_%d", idx), true
 	}

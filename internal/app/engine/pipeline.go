@@ -253,7 +253,7 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *ir.FVAnnotation
 func collectUserBindings(prog *ir.Program) map[string]bool {
 	m := make(map[string]bool)
 	for _, b := range prog.Bindings {
-		if !b.Generated {
+		if !b.Generated.IsGenerated() {
 			m[b.Name] = true
 		}
 	}
@@ -308,7 +308,7 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 			continue
 		}
 		for _, b := range e.prog.Bindings {
-			if b.Generated {
+			if b.Generated.IsGenerated() {
 				continue
 			}
 			if !transparentInlineWhitelist[b.Name] && !optimize.IsTransparentAlias(b.Expr) && !optimize.IsMethodSelector(b.Expr) {
@@ -337,7 +337,7 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 			continue
 		}
 		for _, b := range e.prog.Bindings {
-			if !b.Generated {
+			if !b.Generated.IsGenerated() {
 				continue
 			}
 			core := b.Expr

@@ -237,7 +237,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 	var resultExpr ir.Core
 	for j := 0; j < len(dict.fieldTypes); j++ {
 		argName := fmt.Sprintf("%s_%d", prefixField, j)
-		patArgs = append(patArgs, &ir.PVar{Name: argName, Generated: true})
+		patArgs = append(patArgs, &ir.PVar{Name: argName, Generated: ir.GenDictExtract})
 		if j == fieldIdx {
 			resultExpr = &ir.Var{Name: argName, S: s}
 		}
@@ -248,14 +248,14 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		Alts: []ir.Alt{{
 			Pattern:   &ir.PCon{Con: cls.DictName, Args: patArgs, S: s},
 			Body:      resultExpr,
-			Generated: true,
+			Generated: ir.GenDictExtract,
 			S:         s,
 		}},
 		S: s,
 	}
 
 	var selectorBody ir.Core = &ir.Lam{
-		Param: selName, ParamType: dict.resultType, Body: caseExpr, Generated: true, S: s,
+		Param: selName, ParamType: dict.resultType, Body: caseExpr, Generated: ir.GenDictExtract, S: s,
 	}
 
 	for j := len(cls.TyParams) - 1; j >= 0; j-- {

@@ -35,11 +35,11 @@ func TestVerifyV1_NestedErrorNode(t *testing.T) {
 }
 
 func TestVerifyV2_ValidAutoForce(t *testing.T) {
-	// Valid: Bind{Generated: true, Comp: Force{Var{$lz_0}}}
+	// Valid: Bind{Generated: GenAutoForce, Comp: Force{Var{$lz_0}}}
 	prog := &Program{
 		Bindings: []Binding{
 			{Name: "main", Expr: &Bind{
-				Generated: true,
+				Generated: GenAutoForce,
 				Comp:      &Force{Expr: &Var{Name: "$lz_0"}},
 				Var:       "x",
 				Body:      &Var{Name: "x"},
@@ -53,11 +53,11 @@ func TestVerifyV2_ValidAutoForce(t *testing.T) {
 }
 
 func TestVerifyV2_ForceNonVar(t *testing.T) {
-	// Invalid: Bind{Generated: true, Comp: Force{Lit{42}}}
+	// Invalid: Bind{Generated: GenAutoForce, Comp: Force{Lit{42}}}
 	prog := &Program{
 		Bindings: []Binding{
 			{Name: "main", Expr: &Bind{
-				Generated: true,
+				Generated: GenAutoForce,
 				Comp:      &Force{Expr: &Lit{Value: int64(42)}},
 				Var:       "x",
 				Body:      &Var{Name: "x"},
@@ -73,12 +73,13 @@ func TestVerifyV2_ForceNonVar(t *testing.T) {
 	}
 }
 
-func TestVerifyV2_ForceBadPrefix(t *testing.T) {
-	// Invalid: Bind{Generated: true, Comp: Force{Var{x}}} — not $lz prefix
+func TestVerifyV2_ForceAnyVarName(t *testing.T) {
+	// Valid: Bind{Generated: GenAutoForce, Comp: Force{Var{x}}} — the Var's name is
+	// immaterial; the structural pattern (Generated + Force + Var) is the invariant.
 	prog := &Program{
 		Bindings: []Binding{
 			{Name: "main", Expr: &Bind{
-				Generated: true,
+				Generated: GenAutoForce,
 				Comp:      &Force{Expr: &Var{Name: "x"}},
 				Var:       "y",
 				Body:      &Var{Name: "y"},
@@ -86,11 +87,8 @@ func TestVerifyV2_ForceBadPrefix(t *testing.T) {
 		},
 	}
 	errs := VerifyProgram(prog)
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d", len(errs))
-	}
-	if !strings.Contains(errs[0].Message, "$lz prefix") {
-		t.Fatalf("expected '$lz prefix' message, got %q", errs[0].Message)
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors for valid auto-force, got %d: %v", len(errs), errs)
 	}
 }
 

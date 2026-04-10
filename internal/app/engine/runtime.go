@@ -89,7 +89,7 @@ type Runtime struct {
 type vmBindingProto struct {
 	name      string
 	proto     *vm.Proto
-	generated bool // true when introduced by the compiler (dict bindings)
+	generated ir.GenKind // non-zero when introduced by the compiler
 }
 
 type moduleEntry struct {
@@ -501,7 +501,7 @@ func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProt
 		}
 		result, err := machine.Run(bp.proto, eval.NewCapEnv(nil))
 		if err != nil {
-			if budget.IsLimitError(err) || bp.generated {
+			if budget.IsLimitError(err) || bp.generated.IsGenerated() {
 				return err
 			}
 			return fmt.Errorf("evaluating %s: %w", bp.name, err)
