@@ -88,7 +88,7 @@ func (r *resolver) resolveSpine(e *syn.ExprInfixSpine) syn.Expr {
 			left := output[len(output)-2]
 			output = output[:len(output)-1]
 			output[len(output)-1] = &syn.ExprInfix{
-				Left: left, Op: top.name, Right: right,
+				Left: left, Op: top.name, OpSpan: top.span, Right: right,
 				S: span.Span{Start: left.Span().Start, End: right.Span().End},
 			}
 		}
@@ -105,7 +105,7 @@ func (r *resolver) resolveSpine(e *syn.ExprInfixSpine) syn.Expr {
 		left := output[len(output)-2]
 		output = output[:len(output)-1]
 		output[len(output)-1] = &syn.ExprInfix{
-			Left: left, Op: top.name, Right: right,
+			Left: left, Op: top.name, OpSpan: top.span, Right: right,
 			S: span.Span{Start: left.Span().Start, End: right.Span().End},
 		}
 	}

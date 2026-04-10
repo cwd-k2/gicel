@@ -23,6 +23,19 @@ func (ch *Checker) recordType(sp span.Span, ty *types.Type) {
 	}
 }
 
+// recordOperator calls the OperatorRecorder callback if configured,
+// falling back to TypeRecorder for the same span.
+func (ch *Checker) recordOperator(sp span.Span, name, module string, ty *types.Type) {
+	if sp == (span.Span{}) || *ty == nil {
+		return
+	}
+	if ch.config.OperatorRecorder != nil {
+		ch.config.OperatorRecorder(sp, name, module, *ty)
+	} else if ch.config.TypeRecorder != nil {
+		ch.config.TypeRecorder(sp, *ty)
+	}
+}
+
 // infer produces a type for an expression and a Core IR node.
 func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	defer ch.recordType(expr.Span(), &ty)
@@ -151,13 +164,15 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		// the merge/*** transparency pattern below and honors user
 		// shadowing in the current module.
 		if isDollarOp(e.Op) {
-			if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+			if opTy, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+				ch.recordOperator(e.OpSpan, e.Op, mod, &opTy)
 				return ch.infer(&syntax.ExprApp{Fun: e.Left, Arg: e.Right, S: e.S})
 			}
 		}
 		// Special form: merge / *** as infix operator.
 		if isMergeOp(e.Op) {
-			if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+			if opTy, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+				ch.recordOperator(e.OpSpan, e.Op, mod, &opTy)
 				return ch.inferMerge(e.Left, e.Right, e.S)
 			}
 		}
@@ -189,6 +204,8 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 			return &types.TyError{S: e.S}, &ir.Var{Name: e.Op, S: e.S}
 		}
 		opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})
+		// Record the operator's own type at its source span for hover.
+		ch.recordOperator(e.OpSpan, e.Op, opMod, &opTy)
 		ret1Ty, app1Core := ch.inferApply(opTy, opCore, e.Left, e.S)
 		return ch.inferApply(ret1Ty, app1Core, e.Right, e.S)
 

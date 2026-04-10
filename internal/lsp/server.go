@@ -427,11 +427,18 @@ func (s *Server) handleCompletion(msg *jsonrpc.Message) {
 
 	items := make([]protocol.CompletionItem, len(doc.Analysis.CompletionEntries))
 	for i, e := range doc.Analysis.CompletionEntries {
-		items[i] = protocol.CompletionItem{
+		item := protocol.CompletionItem{
 			Label:  e.Label,
 			Kind:   protocol.CompletionItemKind(e.Kind),
 			Detail: e.Detail,
 		}
+		if e.Documentation != "" {
+			item.Documentation = &protocol.MarkupContent{
+				Kind:  protocol.Markdown,
+				Value: e.Documentation,
+			}
+		}
+		items[i] = item
 	}
 	s.respondResult(msg.ID, protocol.CompletionList{Items: items})
 }

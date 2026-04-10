@@ -44,6 +44,10 @@ func (ch *Checker) mergePatternBindings(parent map[string]types.Type, child map[
 func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternResult {
 	switch p := pat.(type) {
 	case *syntax.PatVar:
+		// Record the pattern variable type for hover.
+		if !p.Generated {
+			ch.recordType(p.S, &scrutTy)
+		}
 		return patternResult{
 			Pattern:  &ir.PVar{Name: p.Name, Generated: syntaxGenKind(p.Generated), S: p.S},
 			Bindings: map[string]types.Type{p.Name: scrutTy},

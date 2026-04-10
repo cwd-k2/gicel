@@ -74,7 +74,7 @@ func (p *Parser) continueInfix(left syn.Expr) syn.Expr {
 	if len(ops) == 1 {
 		// Single operator: produce ExprInfix directly (no fixity needed).
 		return &syn.ExprInfix{
-			Left: operands[0], Op: ops[0], Right: operands[1],
+			Left: operands[0], Op: ops[0], OpSpan: opSpans[0], Right: operands[1],
 			S: span.Span{Start: operands[0].Span().Start, End: operands[1].Span().End},
 		}
 	}
@@ -249,7 +249,7 @@ func (p *Parser) parseParen() syn.Expr {
 			}
 			p.advance()
 			section = &syn.ExprSection{
-				Op: opName, Arg: arg, IsRight: true,
+				Op: opName, OpSpan: opTok.S, Arg: arg, IsRight: true,
 				S: span.Span{Start: start, End: p.prevEnd()},
 			}
 			return true
@@ -276,7 +276,7 @@ func (p *Parser) parseParen() syn.Expr {
 		p.advance() // skip op
 		p.advance() // skip )
 		return &syn.ExprSection{
-			Op: opName, Arg: firstApp, IsRight: false,
+			Op: opName, OpSpan: opTok.S, Arg: firstApp, IsRight: false,
 			S: span.Span{Start: start, End: p.prevEnd()},
 		}
 	}

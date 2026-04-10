@@ -210,6 +210,15 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 		cfg.TypeRecorder = func(sp span.Span, ty types.Type) {
 			idx.Record(sp, ty)
 		}
+		// Collect fixity map for operator hover display.
+		fixityMap := pc.collectFixityMap(ast)
+		cfg.OperatorRecorder = func(sp span.Span, name, module string, ty types.Type) {
+			var fix *OperatorFixity
+			if f, ok := fixityMap[name]; ok {
+				fix = fixityToHover(f)
+			}
+			idx.RecordOperator(sp, name, module, ty, fix)
+		}
 		cfg.PostGeneralize = func(zonk func(types.Type) types.Type) {
 			idx.RezonkAll(zonk)
 		}
@@ -242,16 +251,20 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	// Flatten imported bindings for completion.
 	if cfg.ImportedModules != nil {
 		imported := make(map[string]types.Type)
-		for _, exports := range cfg.ImportedModules {
+		modules := make(map[string]string)
+		for modName, exports := range cfg.ImportedModules {
 			for name, ty := range exports.Values {
 				imported[name] = ty
+				modules[name] = modName
 			}
 			for name, ty := range exports.ConTypes {
 				imported[name] = ty
+				modules[name] = modName
 			}
 		}
 		if len(imported) > 0 {
 			result.ImportedBindings = imported
+			result.ImportedModules = modules
 		}
 	}
 
@@ -503,6 +516,34 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 			idx.RecordDecl(imp.S, HoverImport, label, nil, "")
 		}
 	}
+}
+
+// fixityToHover converts a parse.Fixity to hover display information.
+func fixityToHover(f parse.Fixity) *OperatorFixity {
+	assoc := "infix"
+	switch f.Assoc {
+	case syntax.AssocLeft:
+		assoc = "infixl"
+	case syntax.AssocRight:
+		assoc = "infixr"
+	}
+	return &OperatorFixity{Assoc: assoc, Prec: f.Prec}
+}
+
+// collectFixityMap gathers the merged fixity map for the given AST:
+// transitive imports (from the module store) + local fixity declarations.
+func (pc *pipelineCtx) collectFixityMap(ast *syntax.AstProgram) map[string]parse.Fixity {
+	importNames := make([]string, len(ast.Imports))
+	for i, imp := range ast.Imports {
+		importNames[i] = imp.ModuleName
+	}
+	result := pc.store.CollectFixityMap(importNames)
+	for _, d := range ast.Decls {
+		if fix, ok := d.(*syntax.DeclFixity); ok {
+			result[fix.Op] = parse.Fixity{Assoc: fix.Assoc, Prec: fix.Prec}
+		}
+	}
+	return result
 }
 
 // ComputeFormKind builds the kind of a data declaration from its type

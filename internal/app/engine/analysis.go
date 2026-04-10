@@ -20,9 +20,10 @@ const (
 // Type strings are pre-formatted by the engine so the LSP layer
 // needs no direct dependency on lang/types.
 type CompletionEntry struct {
-	Label  string
-	Detail string // pre-formatted type string
-	Kind   CompletionKind
+	Label         string
+	Detail        string // short classification (e.g., "function", "constructor")
+	Documentation string // rich type signature as markdown code block
+	Kind          CompletionKind
 }
 
 // SymbolKind classifies document symbols (mirrors LSP SymbolKind).
@@ -50,6 +51,11 @@ type DefinitionEntry struct {
 	S    span.Span
 }
 
+// completionDoc formats a type signature as a markdown code block for LSP documentation.
+func completionDoc(name, sig string) string {
+	return "```gicel\n" + name + " :: " + sig + "\n```"
+}
+
 // buildCompletionEntries produces completion data from a compiled program.
 func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 	prog := ar.Program
@@ -59,35 +65,47 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 		if b.Generated.IsGenerated() {
 			continue
 		}
+		sig := types.PrettyDisplay(b.Type)
 		items = append(items, CompletionEntry{
-			Label:  b.Name,
-			Kind:   CompletionFunction,
-			Detail: types.PrettyDisplay(b.Type),
+			Label:         b.Name,
+			Kind:          CompletionFunction,
+			Detail:        sig,
+			Documentation: completionDoc(b.Name, sig),
 		})
 	}
 
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
+		kind := types.PrettyTypeAsKind(ComputeFormKind(dd))
 		items = append(items, CompletionEntry{
-			Label:  dd.Name,
-			Kind:   CompletionStruct,
-			Detail: types.PrettyTypeAsKind(ComputeFormKind(dd)),
+			Label:         dd.Name,
+			Kind:          CompletionStruct,
+			Detail:        kind,
+			Documentation: completionDoc("form "+dd.Name, kind),
 		})
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
+			sig := types.PrettyDisplay(BuildConType(dd, con))
 			items = append(items, CompletionEntry{
-				Label:  con.Name,
-				Kind:   CompletionConstructor,
-				Detail: types.PrettyDisplay(BuildConType(dd, con)),
+				Label:         con.Name,
+				Kind:          CompletionConstructor,
+				Detail:        sig,
+				Documentation: completionDoc(con.Name, sig),
 			})
 		}
 	}
 
 	for name, ty := range ar.ImportedBindings {
+		sig := types.PrettyDisplay(ty)
+		qualName := name
+		if mod := ar.ImportedModules[name]; mod != "" {
+			qualName = mod + "." + name
+		}
 		items = append(items, CompletionEntry{
-			Label:  name,
-			Kind:   CompletionVariable,
-			Detail: types.PrettyDisplay(ty),
+			Label:         name,
+			Kind:          CompletionVariable,
+			Detail:        sig,
+			Documentation: completionDoc(qualName, sig),
 		})
 	}
 

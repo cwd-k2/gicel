@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -19,6 +20,7 @@ const (
 	HoverConstructor                  // constructor
 	HoverImport                       // import declaration
 	HoverImpl                         // impl declaration
+	HoverOperator                     // operator with fixity info
 )
 
 // HoverIndex records hover information for each expression and
@@ -32,12 +34,25 @@ type HoverIndex struct {
 	finalized bool
 }
 
+// OperatorFixity holds the fixity information for an operator.
+type OperatorFixity struct {
+	Assoc string // "infixl", "infixr", "infix"
+	Prec  int
+}
+
+// String returns the fixity declaration form (e.g., "infixl 6").
+func (f OperatorFixity) String() string {
+	return fmt.Sprintf("%s %d", f.Assoc, f.Prec)
+}
+
 type hoverEntry struct {
-	span  span.Span
-	kind  HoverKind
-	ty    types.Type // nil for imports
-	label string     // "" for expressions
-	doc   string     // doc comment (empty for expressions)
+	span   span.Span
+	kind   HoverKind
+	ty     types.Type      // nil for imports
+	label  string          // "" for expressions
+	doc    string          // doc comment (empty for expressions)
+	module string          // source module (empty = local)
+	fixity *OperatorFixity // non-nil only for HoverOperator
 }
 
 // NewHoverIndex creates an empty HoverIndex.
@@ -45,13 +60,19 @@ func NewHoverIndex() *HoverIndex {
 	return &HoverIndex{}
 }
 
-// Record adds an expression type entry. Entries with zero-width spans
-// or TyError types are silently discarded. Panics if called after Finalize.
-func (idx *HoverIndex) Record(sp span.Span, ty types.Type) {
+// guard checks common preconditions for recording: not finalized, non-zero span.
+// Returns false if the entry should be skipped.
+func (idx *HoverIndex) guard(sp span.Span) bool {
 	if idx.finalized {
-		panic("HoverIndex.Record called after Finalize")
+		panic("HoverIndex: Record called after Finalize")
 	}
-	if sp.Start >= sp.End {
+	return sp.Start < sp.End
+}
+
+// Record adds an expression type entry. Entries with zero-width spans
+// or TyError types are silently discarded.
+func (idx *HoverIndex) Record(sp span.Span, ty types.Type) {
+	if !idx.guard(sp) {
 		return
 	}
 	if _, ok := ty.(*types.TyError); ok {
@@ -60,16 +81,23 @@ func (idx *HoverIndex) Record(sp span.Span, ty types.Type) {
 	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: HoverExpr, ty: ty})
 }
 
-// RecordDecl adds a declaration entry with a label, kind, and optional
-// doc comment. Entries with zero-width spans are silently discarded.
+// RecordDecl adds a declaration entry with a label, kind, and optional doc comment.
 func (idx *HoverIndex) RecordDecl(sp span.Span, kind HoverKind, label string, ty types.Type, doc string) {
-	if idx.finalized {
-		panic("HoverIndex.RecordDecl called after Finalize")
-	}
-	if sp.Start >= sp.End {
+	if !idx.guard(sp) {
 		return
 	}
 	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: kind, ty: ty, label: label, doc: doc})
+}
+
+// RecordOperator adds an operator entry with its type, module, and fixity information.
+func (idx *HoverIndex) RecordOperator(sp span.Span, name, module string, ty types.Type, fixity *OperatorFixity) {
+	if !idx.guard(sp) {
+		return
+	}
+	if _, ok := ty.(*types.TyError); ok {
+		return
+	}
+	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: HoverOperator, ty: ty, label: name, module: module, fixity: fixity})
 }
 
 // RezonkAll applies a final zonk function to all recorded types,
@@ -174,6 +202,15 @@ func formatHover(e *hoverEntry) string {
 			sig = "impl " + types.PrettyDisplay(e.ty)
 		} else {
 			sig = "impl " + e.label
+		}
+	case HoverOperator:
+		name := e.label
+		if e.module != "" {
+			name = e.module + "." + e.label
+		}
+		sig = "(" + name + ") :: " + types.PrettyDisplay(e.ty)
+		if e.fixity != nil {
+			sig += "\n" + e.fixity.String()
 		}
 	default:
 		if e.ty != nil {

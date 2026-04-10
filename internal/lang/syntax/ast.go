@@ -72,10 +72,11 @@ type ExprBlock struct {
 }
 
 type ExprInfix struct {
-	Left  Expr
-	Op    string
-	Right Expr
-	S     span.Span
+	Left   Expr
+	Op     string
+	OpSpan span.Span // source span of the operator token
+	Right  Expr
+	S      span.Span
 }
 
 // ExprInfixSpine is a flat sequence of operands interleaved with operators.
@@ -157,6 +158,7 @@ type ExprProject struct {
 // IsRight=false → left section (1 +) = \x. 1 + x
 type ExprSection struct {
 	Op      string
+	OpSpan  span.Span // source span of the operator token
 	Arg     Expr
 	IsRight bool
 	S       span.Span

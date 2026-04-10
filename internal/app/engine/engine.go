@@ -466,6 +466,7 @@ type AnalysisResult struct {
 	Program          *ir.Program
 	AST              *syntax.AstProgram    // original AST (for symbols, definition)
 	ImportedBindings map[string]types.Type // flattened imported names → types (for completion)
+	ImportedModules  map[string]string     // name → source module (for display)
 	Errors           *diagnostic.Errors
 	Complete         bool        // true when Errors has no errors
 	HoverIndex       *HoverIndex // nil unless EnableHoverIndex was called

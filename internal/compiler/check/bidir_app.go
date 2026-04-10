@@ -23,6 +23,9 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 	}
 	argTy, retTy := ch.matchArrow(expected, e.S)
 
+	// Record the parameter type at the pattern's source span for hover.
+	ch.recordType(e.Params[0].Span(), &argTy)
+
 	// Desugar structured patterns: \pat. body  →  \$p. case $p { pat -> body }
 	if isStructuredPattern(e.Params[0]) {
 		freshName := ch.freshName(prefixPat)
@@ -120,13 +123,15 @@ func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core 
 	// special-form detection and downstream optimizations. See bidir.go
 	// ExprInfix for the full rationale.
 	if isDollarOp(e.Op) {
-		if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+		if opTy, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+			ch.recordOperator(e.OpSpan, e.Op, mod, &opTy)
 			return ch.check(&syntax.ExprApp{Fun: e.Left, Arg: e.Right, S: e.S}, expected)
 		}
 	}
 	// Special form: merge / *** as infix operator.
 	if isMergeOp(e.Op) {
-		if _, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+		if opTy, mod, ok := ch.ctx.LookupVarFull(e.Op); !ok || mod != "" {
+			ch.recordOperator(e.OpSpan, e.Op, mod, &opTy)
 			ty, core := ch.inferMerge(e.Left, e.Right, e.S)
 			return ch.subsCheck(ty, expected, core, e.S)
 		}
@@ -153,6 +158,8 @@ func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core 
 		return &ir.Var{Name: e.Op, S: e.S}
 	}
 	opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})
+	// Record the operator's own type at its source span for hover.
+	ch.recordOperator(e.OpSpan, e.Op, opMod, &opTy)
 	arg1Ty, ret1Ty := ch.matchArrow(opTy, e.S)
 	arg2Ty, ret2Ty := ch.matchArrow(ret1Ty, e.S)
 
@@ -192,9 +199,9 @@ func desugarSection(e *syntax.ExprSection) *syntax.ExprLam {
 	paramVar := &syntax.ExprVar{Name: param, S: e.S}
 	var body syntax.Expr
 	if e.IsRight {
-		body = &syntax.ExprInfix{Left: paramVar, Op: e.Op, Right: e.Arg, S: e.S}
+		body = &syntax.ExprInfix{Left: paramVar, Op: e.Op, OpSpan: e.OpSpan, Right: e.Arg, S: e.S}
 	} else {
-		body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, Right: paramVar, S: e.S}
+		body = &syntax.ExprInfix{Left: e.Arg, Op: e.Op, OpSpan: e.OpSpan, Right: paramVar, S: e.S}
 	}
 	return &syntax.ExprLam{Params: []syntax.Pattern{&syntax.PatVar{Name: param, Generated: true, S: e.S}}, Body: body, S: e.S}
 }
