@@ -707,8 +707,10 @@ func TestProbeD_RowTypeWithTail(t *testing.T) {
 			}
 			if row.Tail == nil {
 				t.Error("expected non-nil row tail")
-			} else if row.Tail.Name != "r" {
-				t.Errorf("expected tail name 'r', got %q", row.Tail.Name)
+			} else if v, ok := row.Tail.(*TyExprVar); !ok {
+				t.Errorf("expected *TyExprVar tail, got %T", row.Tail)
+			} else if v.Name != "r" {
+				t.Errorf("expected tail name 'r', got %q", v.Name)
 			}
 		}
 	}

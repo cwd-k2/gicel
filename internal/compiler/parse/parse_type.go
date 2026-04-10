@@ -295,7 +295,7 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 	}
 	var fields []syn.TyRowField
 	var typeDecls []syn.TyRowTypeDecl
-	var tail *syn.TyExprVar
+	var tail syn.TypeExpr
 
 	pg := p.newProgressGuard("row type")
 	for {
@@ -304,11 +304,9 @@ func (p *Parser) parseRowType() syn.TypeExpr {
 		}
 		if p.peek().Kind == syn.TokPipe {
 			p.advance()
-			if p.peek().Kind == syn.TokLower {
-				tok := p.peek()
-				tail = &syn.TyExprVar{Name: tok.Text, S: tok.S}
-				p.advance()
-			}
+			// Accept any type atom as the tail: a row variable (lowercase),
+			// a nested row type ({ ... }), or a parenthesized expression.
+			tail = p.parseTypeAtom()
 			break
 		}
 		if p.peek().Kind == syn.TokRBrace || p.peek().Kind == syn.TokEOF {

@@ -48,7 +48,7 @@ type TyExprForall struct {
 type TyExprRow struct {
 	Fields    []TyRowField
 	TypeDecls []TyRowTypeDecl // associated type declarations (in form bodies only)
-	Tail      *TyExprVar
+	Tail      TypeExpr        // nil for closed rows; *TyExprVar for row variables, or nested row types
 	S         span.Span
 }
 

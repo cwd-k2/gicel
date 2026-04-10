@@ -114,7 +114,11 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		}
 		var tail types.Type
 		if t.Tail != nil {
-			tail = &types.TyVar{Name: t.Tail.Name, S: t.Tail.S}
+			if v, ok := t.Tail.(*syntax.TyExprVar); ok {
+				tail = &types.TyVar{Name: v.Name, S: v.S}
+			} else {
+				tail = r.resolveTypeExpr(t.Tail)
+			}
 		}
 		// Use ClosedRow/OpenRow to ensure sorted field order.
 		if tail == nil {
