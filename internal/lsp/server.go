@@ -82,6 +82,10 @@ func (s *Server) ExitCode() int { return s.exitCode }
 
 // Run reads messages in a loop until exit or context cancellation.
 // Pending diagnose goroutines are cancelled when Run returns.
+// Run starts the main message loop. The loop checks ctx.Done() and exitCh
+// between messages but blocks inside transport.Read() — cancellation while
+// waiting for the next message requires the client to close stdin or send
+// a message. This is inherent to stdio-based LSP transports.
 func (s *Server) Run(ctx context.Context) error {
 	diagnoseCtx, diagnoseCancel := context.WithCancel(ctx)
 	s.cancel = diagnoseCancel
@@ -264,9 +268,22 @@ func (s *Server) handleDidClose(msg *jsonrpc.Message) {
 		s.logger.Printf("didClose unmarshal: %v", err)
 		return
 	}
-	s.docs.close(params.TextDocument.URI)
+	uri := params.TextDocument.URI
+	s.docs.close(uri)
+	// Clean up debounce state to prevent leaking timers and cancel funcs
+	// across open/close cycles on the same or different URIs.
+	s.mu.Lock()
+	if timer, ok := s.debounceTimers[uri]; ok {
+		timer.Stop()
+		delete(s.debounceTimers, uri)
+	}
+	if cancel, ok := s.diagCancels[uri]; ok {
+		cancel()
+		delete(s.diagCancels, uri)
+	}
+	s.mu.Unlock()
 	s.notify("textDocument/publishDiagnostics", protocol.PublishDiagnosticsParams{
-		URI:         params.TextDocument.URI,
+		URI:         uri,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }

@@ -471,6 +471,10 @@ func (e *Engine) Parse(source string) error {
 // Unlike CompileResult, it includes partial results even when errors
 // are present: Program may contain ir.Error sentinel nodes, and Errors
 // may be non-nil alongside a valid Program.
+//
+// Program is shared with the postCheck pipeline — callers must treat
+// it as immutable. Mutating Program.Bindings or their Expr fields
+// corrupts cached state and produces undefined behavior.
 type AnalysisResult struct {
 	Source           *span.Source
 	Program          *ir.Program
