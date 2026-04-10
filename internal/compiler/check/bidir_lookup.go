@@ -23,7 +23,9 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 			if ch.pipeState != nil && ch.pipeState.currentBinding != "" && e.Name == ch.pipeState.currentBinding {
 				msg += " (self-reference requires a type annotation or use of fix with --recursion)"
 			}
-			if hints := ch.suggestVar(e.Name); len(hints) > 0 {
+			if hints := suggestImport(e.Name); len(hints) > 0 {
+				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, diagMsg(msg), hints)
+			} else if hints := ch.suggestVar(e.Name); len(hints) > 0 {
 				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, diagMsg(msg), hints)
 			} else {
 				ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagMsg(msg))

@@ -131,9 +131,25 @@ func (ch *Checker) checkInfix(e *syntax.ExprInfix, expected types.Type) ir.Core 
 			return ch.subsCheck(ty, expected, core, e.S)
 		}
 	}
+	// Hint: r.x when the user likely meant r.#x (record projection).
+	if e.Op == "." {
+		if rv, isVar := e.Right.(*syntax.ExprVar); isVar {
+			if _, _, ok := ch.ctx.LookupVarFull(rv.Name); !ok {
+				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S,
+					diagMsg("use .# for record field access"),
+					[]diagnostic.Hint{{Message: "did you mean '.#" + rv.Name + "'?"}})
+				return &ir.Var{Name: e.Op, S: e.S}
+			}
+		}
+	}
 	opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 	if !ok {
-		ch.addDiag(diagnostic.ErrUnboundVar, e.S, diagUnknown{Kind: "operator", Name: e.Op})
+		detail := diagUnknown{Kind: "operator", Name: e.Op}
+		if hints := suggestImport(e.Op); len(hints) > 0 {
+			ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, detail, hints)
+		} else {
+			ch.addDiag(diagnostic.ErrUnboundVar, e.S, detail)
+		}
 		return &ir.Var{Name: e.Op, S: e.S}
 	}
 	opTy, opCore := ch.instantiate(opTy, &ir.Var{Name: e.Op, Module: opMod, S: e.S})

@@ -161,11 +161,27 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 				return ch.inferMerge(e.Left, e.Right, e.S)
 			}
 		}
+		// Hint: r.x when the user likely meant r.#x (record projection).
+		// The dot operator (.) is function composition. When the RHS is a
+		// bare variable not in scope, the user almost certainly intended
+		// the record projection syntax .#.
+		if e.Op == "." {
+			if rv, isVar := e.Right.(*syntax.ExprVar); isVar {
+				if _, _, ok := ch.ctx.LookupVarFull(rv.Name); !ok {
+					ch.addDiagHints(diagnostic.ErrUnboundVar, e.S,
+						diagMsg("use .# for record field access"),
+						[]diagnostic.Hint{{Message: "did you mean '.#" + rv.Name + "'?"}})
+					return &types.TyError{S: e.S}, &ir.Var{Name: e.Op, S: e.S}
+				}
+			}
+		}
 		// Desugar: a op b → App(App(Var(op), a), b)
 		opTy, opMod, ok := ch.ctx.LookupVarFull(e.Op)
 		if !ok {
 			detail := diagUnknown{Kind: "operator", Name: e.Op}
-			if hints := ch.suggestVar(e.Op); len(hints) > 0 {
+			if hints := suggestImport(e.Op); len(hints) > 0 {
+				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, detail, hints)
+			} else if hints := ch.suggestVar(e.Op); len(hints) > 0 {
 				ch.addDiagHints(diagnostic.ErrUnboundVar, e.S, detail, hints)
 			} else {
 				ch.addDiag(diagnostic.ErrUnboundVar, e.S, detail)

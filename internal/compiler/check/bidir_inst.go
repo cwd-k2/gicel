@@ -27,6 +27,16 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	if arr, ok := ty.(*types.TyArrow); ok {
 		return arr.From, arr.To
 	}
+	// A Computation type in function position is a strong signal of a missing
+	// semicolon in a do-block: `x <- get; put (x + 1) get` parses the last
+	// two statements as a single application `(put (x + 1)) get`, and the
+	// return type of `put (x + 1)` is Computation — not a function.
+	if cbpv, ok := ty.(*types.TyCBPV); ok && cbpv.Tag == types.TagComp {
+		msg := "expected function type, got " + types.Pretty(ty)
+		hints := []diagnostic.Hint{{Message: "did you forget a ';' between statements in a do-block?"}}
+		ch.addDiagHints(diagnostic.ErrBadApplication, s, diagMsg(msg), hints)
+		return ch.freshMeta(types.TypeOfTypes), ch.freshMeta(types.TypeOfTypes)
+	}
 	// Generate fresh metas and decompose eagerly.
 	// Eager unification is required here: callers use argTy/retTy immediately
 	// for downstream checking (e.g., check(arg, argTy)), so the metas must

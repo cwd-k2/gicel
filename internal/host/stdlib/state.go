@@ -87,9 +87,16 @@ func runStateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 
 // doRunState is the shared handler logic for runState.
 // It introduces a state capability, forces the suspended computation,
-// extracts the final state, and eliminates the capability from the CapEnv.
+// extracts the final state, and restores (or eliminates) the capability
+// from the CapEnv. Save/restore ensures nested anonymous state handlers
+// each operate on their own slot without clobbering the outer handler's
+// state — they all share the same label ("state").
 // On error, the original CapEnv is returned (rollback).
 func doRunState(label string, initVal eval.Value, thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	// Save any existing capability under this label so nested handlers
+	// can coexist with an outer handler using the same label.
+	savedState, hadSaved := ce.Get(label)
+
 	innerCe := ce.Set(label, initVal)
 	val, finalCe, err := driveEffectful(thunk, innerCe, apply)
 	if err != nil {
@@ -103,7 +110,15 @@ func doRunState(label string, initVal eval.Value, thunk eval.Value, ce eval.CapE
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "runState: state capability is not a Value"}
 	}
-	cleanCe := finalCe.Delete(label)
+
+	// Restore the outer capability if one existed; otherwise remove.
+	var cleanCe eval.CapEnv
+	if hadSaved {
+		cleanCe = finalCe.Set(label, savedState)
+	} else {
+		cleanCe = finalCe.Delete(label)
+	}
+
 	tuple := eval.NewRecordFromMap(map[string]eval.Value{
 		ir.TupleLabel(1): stateVal,
 		ir.TupleLabel(2): val,
@@ -159,7 +174,10 @@ func execStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 // instead of relying on apply.Apply to fully execute the computation. This
 // handles the case where the thunk body evaluates to a deferred effectful
 // PrimVal (common with named capability primitives after label erasure).
+// Same save/restore semantics as doRunState for nested handler safety.
 func doRunStateDrive(label string, initVal eval.Value, thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	savedState, hadSaved := ce.Get(label)
+
 	innerCe := ce.Set(label, initVal)
 	val, finalCe, err := driveEffectful(thunk, innerCe, apply)
 	if err != nil {
@@ -173,7 +191,14 @@ func doRunStateDrive(label string, initVal eval.Value, thunk eval.Value, ce eval
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "runStateAt: state capability is not a Value"}
 	}
-	cleanCe := finalCe.Delete(label)
+
+	var cleanCe eval.CapEnv
+	if hadSaved {
+		cleanCe = finalCe.Set(label, savedState)
+	} else {
+		cleanCe = finalCe.Delete(label)
+	}
+
 	tuple := eval.NewRecordFromMap(map[string]eval.Value{
 		ir.TupleLabel(1): stateVal,
 		ir.TupleLabel(2): val,

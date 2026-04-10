@@ -48,6 +48,38 @@ func (ch *Checker) suggestCon(name string) []diagnostic.Hint {
 	return suggestHints(name, candidates)
 }
 
+// importHints maps well-known names to the module that exports them.
+// Used to suggest "import M" when a name is unbound but would be
+// available with the right import.
+var importHints = map[string]string{
+	"+": "Prelude", "-": "Prelude", "*": "Prelude", "/": "Prelude",
+	"==": "Prelude", "/=": "Prelude", "<": "Prelude", ">": "Prelude",
+	"<=": "Prelude", ">=": "Prelude", "&&": "Prelude", "||": "Prelude",
+	".": "Prelude", "$": "Prelude", "<>": "Prelude", "++": "Prelude",
+	">>": "Prelude", ">>=": "Prelude", "compare": "Prelude",
+	"show": "Prelude", "read": "Prelude", "id": "Prelude",
+	"const": "Prelude", "flip": "Prelude", "map": "Prelude",
+	"filter": "Prelude", "foldl": "Prelude", "foldr": "Prelude",
+	"head": "Prelude", "tail": "Prelude", "length": "Prelude",
+	"reverse": "Prelude", "concat": "Prelude", "fmap": "Prelude",
+	"pure": "Prelude", "ap": "Prelude",
+	"get": "Effect.State", "put": "Effect.State", "modify": "Effect.State",
+	"evalState": "Effect.State", "runState": "Effect.State", "execState": "Effect.State",
+	"failWith": "Effect.Fail", "try": "Effect.Fail",
+	"log": "Effect.IO",
+	"putLine": "Console",
+}
+
+// suggestImport returns a hint suggesting the appropriate import if name
+// is a well-known identifier or operator from a standard module.
+func suggestImport(name string) []diagnostic.Hint {
+	mod, ok := importHints[name]
+	if !ok {
+		return nil
+	}
+	return []diagnostic.Hint{{Message: "did you mean: import " + mod + "?"}}
+}
+
 func suggestHints(name string, candidates []string) []diagnostic.Hint {
 	matches := diagnostic.Suggest(name, candidates, 2, 3)
 	if len(matches) == 0 {

@@ -206,26 +206,25 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	}
 	eng.DenyAssumptions() // CLI user code cannot use assumption declarations
 
+	// CLI --module flags are registered first so that header directives
+	// can detect and skip modules already provided on the command line.
+	if err := registerUserModules(eng, modules, budget); err != nil {
+		return nil, nil, err
+	}
+
 	// Apply file header directives when source is from a file.
+	// Modules already registered by CLI flags are skipped.
 	if expr == "" && fs.NArg() > 0 && fs.Arg(0) != "-" {
 		if err := applyHeaderDirectives(eng, string(source), fs.Arg(0)); err != nil {
 			return nil, nil, err
 		}
 	}
-
-	if err := registerUserModules(eng, modules, budget); err != nil {
-		return nil, nil, err
-	}
 	return source, eng, nil
 }
 
 // applyHeaderDirectives recursively resolves -- gicel: directives from the
-// source header and registers discovered modules. CLI flags take precedence
-// (modules registered here can be overridden by --module flags registered later).
-
-// applyHeaderDirectives recursively resolves -- gicel: directives from the
-// source header and registers discovered modules. CLI flags take precedence
-// (modules registered here can be overridden by --module flags registered later).
+// source header and registers discovered modules. Modules already registered
+// by CLI --module flags are skipped, ensuring CLI flags take precedence.
 func applyHeaderDirectives(eng *gicel.Engine, source, filePath string) error {
 	res, err := header.Resolve(source, filePath)
 	if err != nil {
@@ -238,6 +237,9 @@ func applyHeaderDirectives(eng *gicel.Engine, source, filePath string) error {
 		eng.EnableRecursion()
 	}
 	for _, mod := range res.Modules {
+		if eng.HasModule(mod.Name) {
+			continue // CLI --module flag takes precedence
+		}
 		if err := eng.RegisterModule(mod.Name, mod.Source); err != nil {
 			return fmt.Errorf("header module %s: %w", mod.Name, err)
 		}

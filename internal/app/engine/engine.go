@@ -303,6 +303,11 @@ func (e *Engine) DisableInlining() {
 // in the returned AnalysisResult. Not part of the cache key.
 func (e *Engine) EnableHoverIndex() { e.typeRecorder = true }
 
+// HasModule reports whether a module with the given name is registered.
+func (e *Engine) HasModule(name string) bool {
+	return e.store.Has(name)
+}
+
 // RegisterModuleFile reads a .gicel file and registers it as a module.
 // The module name is derived from the file basename (e.g., "Foo.gicel" → "Foo").
 // For dotted module names (e.g., "Effect.State"), use RegisterModule directly
