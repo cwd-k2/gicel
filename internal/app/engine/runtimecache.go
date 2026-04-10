@@ -181,18 +181,24 @@ func (e *Engine) writeRuntimeSpecificSection(b *bytes.Buffer) {
 	writeBool(b, e.verifyIR)
 	b.WriteByte(0)
 
-	// Prim identity: function pointer per-prim (distinguishes different
-	// code bodies across Engines) plus a monotonic registration counter
-	// (distinguishes re-registration of same-code closures within one
-	// Engine). The function pointer cannot distinguish closures with
-	// identical code but different captured state (L1 limitation).
+	// Prim identity: per-prim function pointer or explicit key.
+	// When RegisterPrimWithKey was used, the key replaces the function
+	// pointer in the fingerprint, resolving the L1 closure-capture
+	// blindness limitation. For prims without an explicit key, the
+	// function pointer is used (which cannot distinguish closures with
+	// identical code but different captured state).
 	for _, name := range e.host.prims.SortedNames() {
-		impl, _ := e.host.prims.Lookup(name)
-		ptr := reflect.ValueOf(impl).Pointer()
 		b.WriteString("p:")
 		b.WriteString(name)
 		b.WriteByte('=')
-		b.Write(strconv.AppendUint(numBuf[:0], uint64(ptr), 16))
+		if key, ok := e.primKeys[name]; ok {
+			b.WriteString("k:")
+			b.WriteString(key)
+		} else {
+			impl, _ := e.host.prims.Lookup(name)
+			ptr := reflect.ValueOf(impl).Pointer()
+			b.Write(strconv.AppendUint(numBuf[:0], uint64(ptr), 16))
+		}
 		b.WriteByte('\n')
 	}
 	b.WriteString("ps:")

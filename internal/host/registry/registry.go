@@ -15,6 +15,13 @@ type RewriteRule = func(ir.Core) ir.Core
 // Registrar is the interface for registering primitives, modules, and rewrite rules.
 type Registrar interface {
 	RegisterPrim(name string, impl eval.PrimImpl)
+	// RegisterPrimWithKey registers a primitive with an explicit cache
+	// identity key. Use this when impl is a closure whose captured state
+	// varies across Engine instances — the key disambiguates the cache
+	// fingerprint where function pointers alone cannot (L1 limitation).
+	// The key must be stable across calls that should share cached runtimes,
+	// and distinct across calls that should not.
+	RegisterPrimWithKey(name string, impl eval.PrimImpl, key string)
 	RegisterModule(name string, source string) error
 	// RegisterModuleRec compiles a module with fix/rec enabled, scoped
 	// to this single compilation. The recursion gate is saved before

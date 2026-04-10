@@ -99,9 +99,14 @@ type Engine struct {
 	// different captured state. Two distinct Engine instances that each
 	// call RegisterPrim("foo", makePrim(differentConfig)) will produce
 	// the same cache fingerprint and share a cached Runtime. Callers that
-	// need isolation should use Engine.SetCacheStore with a per-engine
-	// CacheStore rather than relying on the global default.
+	// need isolation should use RegisterPrimWithKey with a distinct key,
+	// or Engine.SetCacheStore with a per-engine CacheStore.
 	primSeq uint64
+
+	// primKeys maps prim name → explicit cache identity key.
+	// Set by RegisterPrimWithKey. When present, the key is used in the
+	// runtime fingerprint instead of the function pointer, resolving L1.
+	primKeys map[string]string
 }
 
 // NewEngine creates a new Engine with default limits.
@@ -163,6 +168,23 @@ func (e *Engine) RegisterType(name string, kind types.Type) {
 // RegisterPrim registers a primitive implementation for an assumption.
 func (e *Engine) RegisterPrim(name string, impl eval.PrimImpl) {
 	e.host.prims.Register(name, impl)
+	e.primSeq++
+	e.invalidateRuntimeFingerprint()
+}
+
+// RegisterPrimWithKey registers a primitive with an explicit cache identity
+// key. The key is used in the runtime fingerprint instead of the function
+// pointer, resolving the L1 closure-capture blindness limitation.
+//
+// Use this when impl is a closure whose captured state varies across Engine
+// instances. The key should encode the configuration that distinguishes the
+// closure (e.g., "getCounter/tenant=acme").
+func (e *Engine) RegisterPrimWithKey(name string, impl eval.PrimImpl, key string) {
+	e.host.prims.Register(name, impl)
+	if e.primKeys == nil {
+		e.primKeys = make(map[string]string)
+	}
+	e.primKeys[name] = key
 	e.primSeq++
 	e.invalidateRuntimeFingerprint()
 }

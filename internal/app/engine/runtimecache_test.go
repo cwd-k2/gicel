@@ -531,3 +531,106 @@ main := True
 		t.Errorf("runtimeFpValid should be true after runtimeFingerprint call")
 	}
 }
+
+// TestRuntimeCache_PrimKey_MissOnDifferentKey verifies that two Engines
+// registering the same closure body with different explicit keys produce
+// distinct cache fingerprints (cache miss). This is the L1 fix: without
+// RegisterPrimWithKey, these two Engines would collide.
+func TestRuntimeCache_PrimKey_MissOnDifferentKey(t *testing.T) {
+	resetCaches()
+	defer resetCaches()
+
+	source := `import Prelude
+main := 1
+`
+	// Same function literal — identical code pointer.
+	makePrim := func(tag string) eval.PrimImpl {
+		return func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+			_ = tag // captured state differs
+			return nil, capEnv, nil
+		}
+	}
+
+	eng1 := NewEngine()
+	stdlib.Prelude(eng1)
+	eng1.RegisterPrimWithKey("custom", makePrim("a"), "custom/config=a")
+
+	eng2 := NewEngine()
+	stdlib.Prelude(eng2)
+	eng2.RegisterPrimWithKey("custom", makePrim("b"), "custom/config=b")
+
+	rt1, err := eng1.NewRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt2, err := eng2.NewRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rt1 == rt2 {
+		t.Errorf("expected cache miss for different prim keys, got same *Runtime")
+	}
+}
+
+// TestRuntimeCache_PrimKey_HitOnSameKey verifies that two Engines with
+// the same explicit key produce a cache hit despite having distinct
+// closure instances (L1 scenario resolved by key).
+func TestRuntimeCache_PrimKey_HitOnSameKey(t *testing.T) {
+	resetCaches()
+	defer resetCaches()
+
+	source := `import Prelude
+main := 1
+`
+	makePrim := func(tag string) eval.PrimImpl {
+		return func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+			_ = tag
+			return nil, capEnv, nil
+		}
+	}
+
+	eng1 := NewEngine()
+	stdlib.Prelude(eng1)
+	eng1.RegisterPrimWithKey("custom", makePrim("same"), "custom/config=same")
+
+	eng2 := NewEngine()
+	stdlib.Prelude(eng2)
+	eng2.RegisterPrimWithKey("custom", makePrim("same"), "custom/config=same")
+
+	rt1, err := eng1.NewRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt2, err := eng2.NewRuntime(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rt1 != rt2 {
+		t.Errorf("expected cache hit for same prim key, got distinct *Runtime pointers")
+	}
+}
+
+// TestFingerprintInvalidation_RegisterPrimWithKey verifies that
+// RegisterPrimWithKey invalidates the cached fingerprint.
+func TestFingerprintInvalidation_RegisterPrimWithKey(t *testing.T) {
+	resetCaches()
+	defer resetCaches()
+
+	source := `import Prelude
+main := 1
+`
+	eng := NewEngine()
+	stdlib.Prelude(eng)
+	pc := eng.pipeline(context.Background())
+	k1 := pc.computeRuntimeCacheKey(source)
+
+	eng.RegisterPrimWithKey("extra", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+		return nil, capEnv, nil
+	}, "extra/v1")
+	pc2 := eng.pipeline(context.Background())
+	k2 := pc2.computeRuntimeCacheKey(source)
+
+	if k1 == k2 {
+		t.Errorf("RegisterPrimWithKey: fingerprint unchanged after mutation")
+	}
+}
