@@ -1,3 +1,5 @@
+// Deps tests — SortBindings topological sort.
+// Does NOT cover: free.go (FreeVars annotation), walk.go (traversal).
 package ir
 
 import "testing"

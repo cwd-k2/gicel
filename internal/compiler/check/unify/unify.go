@@ -44,8 +44,6 @@ type FamilyReducer func(types.Type) types.Type
 // Unlike FamilyReducer, this does not walk the type tree or reset the step counter.
 type TryReduceFamily func(name string, args []types.Type, s span.Span) (types.Type, bool)
 
-// trailTag discriminates the three maps that a trail entry can target.
-
 // Unifier manages type unification.
 type Unifier struct {
 	soln       map[int]types.Type
@@ -120,15 +118,11 @@ func NewUnifierShared(freshID *int) *Unifier {
 }
 
 // FreshLevelMeta creates a fresh universe level metavariable.
-
-// FreshLevelMeta creates a fresh universe level metavariable.
 func (u *Unifier) FreshLevelMeta() *types.LevelMeta {
 	id := *u.freshID
 	*u.freshID++
 	return &types.LevelMeta{ID: id}
 }
-
-// Solve returns the current solution for a metavariable.
 
 // Solve returns the current solution for a metavariable.
 func (u *Unifier) Solve(id int) types.Type {
@@ -139,16 +133,9 @@ func (u *Unifier) Solve(id int) types.Type {
 // The caller must call RemoveTempSolution when done. Used by let-generalization
 // to substitute metas with type variables for Zonk, then clean up.
 // NOT trailed: callers manage the lifecycle manually outside trial scopes.
-
-// InstallTempSolution registers a temporary solution for a metavariable.
-// The caller must call RemoveTempSolution when done. Used by let-generalization
-// to substitute metas with type variables for Zonk, then clean up.
-// NOT trailed: callers manage the lifecycle manually outside trial scopes.
 func (u *Unifier) InstallTempSolution(id int, ty types.Type) {
 	u.soln[id] = ty
 }
-
-// RemoveTempSolution removes a previously installed temporary solution.
 
 // RemoveTempSolution removes a previously installed temporary solution.
 func (u *Unifier) RemoveTempSolution(id int) {
@@ -156,25 +143,14 @@ func (u *Unifier) RemoveTempSolution(id int) {
 }
 
 // Solutions returns the current solution map for introspection (e.g., skolem escape check).
-
-// Solutions returns the current solution map for introspection (e.g., skolem escape check).
 func (u *Unifier) Solutions() map[int]types.Type {
 	return u.soln
 }
 
 // Labels returns the label context map for save/restore during trial unification.
-
-// Labels returns the label context map for save/restore during trial unification.
 func (u *Unifier) Labels() map[int]map[string]struct{} {
 	return u.labels
 }
-
-// ---------------------------------------------------------------------------
-// Trail-based snapshot / restore
-// ---------------------------------------------------------------------------
-
-// Snapshot records the current trail position for later rollback.
-// O(1) — no map copying.
 
 // Unify solves the constraint a ~ b.
 func (u *Unifier) Unify(a, b types.Type) error {
@@ -388,12 +364,6 @@ func (u *Unifier) Unify(a, b types.Type) error {
 // This avoids the normalize cycle: normalizeCompApp converts TyApp→TyCBPV,
 // while compToApp converts TyCBPV→TyApp, causing infinite recursion.
 // Instead, we decompose the TyApp into (head, args) and unify each component directly.
-
-// unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
-// a named type constructor with 3 fields (Computation or Thunk).
-// This avoids the normalize cycle: normalizeCompApp converts TyApp→TyCBPV,
-// while compToApp converts TyCBPV→TyApp, causing infinite recursion.
-// Instead, we decompose the TyApp into (head, args) and unify each component directly.
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)
 	if len(args) < 3 {
@@ -460,13 +430,6 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 // the overhead of emitting a CtEq and processing it through the solver.
 // Precondition: m must be unsolved (Solve(m.ID) == nil).
 // Returns false if the meta is untouchable at the current solver level.
-
-// SolveFreshMeta directly solves a fresh (unsolved) metavariable to a value.
-// Used as a trivial shortcut during constraint generation: when a meta is
-// freshly created and immediately unifiable with a known type, this skips
-// the overhead of emitting a CtEq and processing it through the solver.
-// Precondition: m must be unsolved (Solve(m.ID) == nil).
-// Returns false if the meta is untouchable at the current solver level.
 func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) bool {
 	// Touchability: reject if meta was created at an outer level.
 	if u.SolverLevel >= 0 && m.Level < u.SolverLevel {
@@ -483,9 +446,6 @@ func (u *Unifier) SolveFreshMeta(m *types.TyMeta, t types.Type) bool {
 	}
 	return true
 }
-
-// CollectBlockingMetas collects all unsolved meta IDs in the given types,
-// using the current solution map to resolve already-solved metas.
 
 // CollectBlockingMetas collects all unsolved meta IDs in the given types,
 // using the current solution map to resolve already-solved metas.

@@ -1,3 +1,5 @@
+// CapEnv tests — Get, Set, Delete, Labels, COW semantics.
+// Does NOT cover: usage in evaluator (vm package).
 package eval
 
 import "testing"

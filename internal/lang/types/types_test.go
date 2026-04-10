@@ -304,19 +304,3 @@ func TestEvidenceRowConstraintEntriesEqualOrderIndependent(t *testing.T) {
 	}
 }
 
-func TestConstraintRowEqualOrderIndependent(t *testing.T) {
-	var eqA ConstraintEntry = &ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}
-	var ordB ConstraintEntry = &ClassEntry{ClassName: "Ord", Args: []Type{Var("b")}}
-	// Same entries, different order.
-	r1 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, ordB}}}
-	r2 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{ordB, eqA}}}
-	if !Equal(r1, r2) {
-		t.Error("TyEvidenceRow with ConstraintEntries Equal should be order-independent")
-	}
-	// Different entries should not be equal.
-	var showC ConstraintEntry = &ClassEntry{ClassName: "Show", Args: []Type{Var("c")}}
-	r3 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, showC}}}
-	if Equal(r1, r3) {
-		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")
-	}
-}
