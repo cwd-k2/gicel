@@ -91,7 +91,7 @@ func runStateImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 // On error, the original CapEnv is returned (rollback).
 func doRunState(label string, initVal eval.Value, thunk eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	innerCe := ce.Set(label, initVal)
-	val, finalCe, err := apply.Apply(thunk, unitVal, innerCe)
+	val, finalCe, err := driveEffectful(thunk, innerCe, apply)
 	if err != nil {
 		return nil, ce, err
 	}
