@@ -110,7 +110,7 @@ func TestAnalyze_WithHoverIndex(t *testing.T) {
 func TestAnalyze_WithoutHoverIndex(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	// TypeRecorder not enabled: HoverIndex should be nil.
+	// HoverRecorder not enabled: HoverIndex should be nil.
 	ar := eng.Analyze(context.Background(), `import Prelude; main := 42`)
 	if ar.HoverIndex != nil {
 		t.Fatal("expected nil HoverIndex when EnableHoverIndex is not called")

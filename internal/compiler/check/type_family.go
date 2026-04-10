@@ -101,12 +101,12 @@ func (ch *Checker) processTypeFamilyDecl(
 		Equations:  equations,
 	}
 
-	if ch.config.DeclRecorder != nil {
+	if ch.config.HoverRecorder != nil {
 		var kind types.Type = resultKind
 		for i := len(params) - 1; i >= 0; i-- {
 			kind = types.MkArrow(params[i].Kind, kind)
 		}
-		ch.config.DeclRecorder(s, "alias", name, kind)
+		ch.config.HoverRecorder.RecordDecl(s, "alias", name, kind)
 	}
 
 	_ = ch.reg.RegisterFamily(name, info) // closed type families never conflict by name

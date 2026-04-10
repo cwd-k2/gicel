@@ -106,8 +106,8 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 	// (meta → TyVar) are still active. This ensures that hover
 	// entries for sub-expressions of this binding show type variable
 	// names (a, b, ...) rather than unsolved meta placeholders (_).
-	if ch.config.PostGeneralize != nil {
-		ch.config.PostGeneralize(ch.unifier.Zonk)
+	if ch.config.HoverRecorder != nil {
+		ch.config.HoverRecorder.Rezonk(ch.unifier.Zonk)
 	}
 
 	// Remove temporary solutions.

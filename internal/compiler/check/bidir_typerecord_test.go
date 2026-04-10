@@ -1,5 +1,5 @@
-// TypeRecorder tests — verifies the infer() hook records span→type pairs.
-// Does NOT cover: TypeIndex data structure (engine/typeindex_test.go).
+// HoverRecorder tests — verifies the infer()/check() hooks record span→type pairs.
+// Does NOT cover: HoverIndex data structure (engine/hoverindex_test.go).
 
 package check
 
@@ -14,15 +14,22 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// testRecorder is a minimal HoverRecorder for testing.
+type testRecorder struct{ typeCount int }
+
+func (r *testRecorder) RecordType(_ span.Span, _ types.Type) { r.typeCount++ }
+func (r *testRecorder) RecordOperator(_ span.Span, _, _ string, _ types.Type) {}
+func (r *testRecorder) RecordVarDoc(_ span.Span, _ string)                    {}
+func (r *testRecorder) RecordDecl(_ span.Span, _, _ string, _ types.Type)     {}
+func (r *testRecorder) Rezonk(_ func(types.Type) types.Type)                  {}
+
 func parseAndCheck(t *testing.T, source string, cfg *CheckConfig) (*diagnostic.Errors, int) {
 	t.Helper()
-	var count int
+	rec := &testRecorder{}
 	if cfg == nil {
 		cfg = &CheckConfig{}
 	}
-	cfg.TypeRecorder = func(_ span.Span, _ types.Type) {
-		count++
-	}
+	cfg.HoverRecorder = rec
 	src := span.NewSource("test", source)
 	es := &diagnostic.Errors{Source: src}
 	p := parse.NewParser(context.Background(), src, es)
@@ -35,25 +42,25 @@ func parseAndCheck(t *testing.T, source string, cfg *CheckConfig) (*diagnostic.E
 	}
 	desugar.Program(ast)
 	_, checkErrs := Check(ast, src, cfg)
-	return checkErrs, count
+	return checkErrs, rec.typeCount
 }
 
-func TestTypeRecorder_Called(t *testing.T) {
+func TestHoverRecorder_Called(t *testing.T) {
 	errs, count := parseAndCheck(t, `main := 42`, nil)
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Format())
 	}
 	if count == 0 {
-		t.Fatal("TypeRecorder was never called")
+		t.Fatal("HoverRecorder.RecordType was never called")
 	}
 }
 
-func TestTypeRecorder_NilSafe(t *testing.T) {
-	// Verify no panic when TypeRecorder is nil.
+func TestHoverRecorder_NilSafe(t *testing.T) {
+	// Verify no panic when HoverRecorder is nil.
 	checkSource(t, `main := 42`, nil)
 }
 
-func TestTypeRecorder_MultipleExpressions(t *testing.T) {
+func TestHoverRecorder_MultipleExpressions(t *testing.T) {
 	errs, count := parseAndCheck(t, `
 x := 1
 y := 2

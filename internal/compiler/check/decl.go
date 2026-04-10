@@ -278,12 +278,12 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 		paramKinds = append(paramKinds, ch.resolveKindExpr(p.Kind))
 	}
 	body := ch.resolveTypeExpr(parts.Body)
-	if ch.config.DeclRecorder != nil {
+	if ch.config.HoverRecorder != nil {
 		var kind types.Type = types.TypeOfTypes
 		for i := len(paramKinds) - 1; i >= 0; i-- {
 			kind = types.MkArrow(paramKinds[i], kind)
 		}
-		ch.config.DeclRecorder(d.S, "alias", d.Name, kind)
+		ch.config.HoverRecorder.RecordDecl(d.S, "alias", d.Name, kind)
 	}
 	ch.reg.RegisterAlias(d.Name, &AliasInfo{Params: params, ParamKinds: paramKinds, Body: body})
 }

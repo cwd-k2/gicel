@@ -15,31 +15,27 @@ import (
 // Used via defer with a pointer to the named return value so that
 // the final type is captured regardless of which return path is taken.
 // Records the raw type without zonking — the PostGeneralize and
-// PostCheckHook re-zonk passes resolve metavariables later, when
-// all unifications and generalizations have completed.
+// recordType calls HoverRecorder.RecordType if configured. The HoverRecorder
+// re-zonk passes (Rezonk) resolve metavariables later, when all unifications
+// and generalizations have completed.
 func (ch *Checker) recordType(sp span.Span, ty *types.Type) {
-	if ch.config.TypeRecorder != nil && *ty != nil {
-		ch.config.TypeRecorder(sp, *ty)
+	if ch.config.HoverRecorder != nil && *ty != nil {
+		ch.config.HoverRecorder.RecordType(sp, *ty)
 	}
 }
 
-// recordOperator calls the OperatorRecorder callback if configured,
-// falling back to TypeRecorder for the same span.
 func (ch *Checker) recordOperator(sp span.Span, name, module string, ty *types.Type) {
 	if sp == (span.Span{}) || *ty == nil {
 		return
 	}
-	if ch.config.OperatorRecorder != nil {
-		ch.config.OperatorRecorder(sp, name, module, *ty)
-	} else if ch.config.TypeRecorder != nil {
-		ch.config.TypeRecorder(sp, *ty)
+	if ch.config.HoverRecorder != nil {
+		ch.config.HoverRecorder.RecordOperator(sp, name, module, *ty)
 	}
 }
 
-// recordVarDoc calls the VarDocRecorder callback if configured.
 func (ch *Checker) recordVarDoc(sp span.Span, name string) {
-	if ch.config.VarDocRecorder != nil && sp != (span.Span{}) {
-		ch.config.VarDocRecorder(sp, name)
+	if ch.config.HoverRecorder != nil && sp != (span.Span{}) {
+		ch.config.HoverRecorder.RecordVarDoc(sp, name)
 	}
 }
 
@@ -297,10 +293,10 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 
 	expected = ch.unifier.Zonk(expected)
 	// Record the checked type for IDE hover. The raw expected type is
-	// recorded without extra zonking — PostGeneralize and PostCheckHook
-	// re-zonk all entries after unifications complete.
-	if ch.config.TypeRecorder != nil {
-		defer ch.config.TypeRecorder(expr.Span(), expected)
+	// recorded without extra zonking — HoverRecorder.Rezonk re-zonks
+	// all entries after unifications complete.
+	if ch.config.HoverRecorder != nil {
+		defer ch.config.HoverRecorder.RecordType(expr.Span(), expected)
 	}
 
 	// Reduce type family applications in the expected type so that checking

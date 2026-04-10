@@ -39,28 +39,23 @@ const (
 
 // CheckConfig provides environment for type checking.
 type CheckConfig struct {
-	Context          context.Context // cancellation context (nil = no cancellation)
-	RegisteredTypes  map[string]types.Type
-	Assumptions      map[string]types.Type
-	Bindings         map[string]types.Type
-	GatedBuiltins    map[string]bool
-	Trace            CheckTraceHook
-	ImportedModules  map[string]*ModuleExports
-	ModuleDeps       map[string][]string                                    // module → direct dependencies
-	DenyAssumptions  bool                                                   // when true, reject `assumption` declarations (sandbox mode)
-	StrictTypeNames  bool                                                   // when true, reject unregistered type constructor names
-	CurrentModule    string                                                 // module being compiled ("" = user main source)
-	EntryPoint       string                                                 // non-empty enables bare Computation check; that name is exempt
-	NestingLimit     int                                                    // structural nesting depth limit (0 = disabled)
-	MaxTFSteps       int                                                    // type family reduction step limit (0 = default 50000)
-	MaxSolverSteps   int                                                    // constraint solver step limit (0 = default 100000)
-	MaxResolveDepth  int                                                    // instance resolution depth limit (0 = default 64)
-	TypeRecorder     func(span.Span, types.Type)                            // when non-nil, called for each inferred expression span→type
-	OperatorRecorder func(sp span.Span, name, module string, ty types.Type) // when non-nil, called for operator tokens with their own type
-	VarDocRecorder   func(sp span.Span, name string)                        // when non-nil, called for variable references (attaches doc to hover)
-	DeclRecorder     func(span.Span, string, string, types.Type)            // when non-nil, called for declaration hover: (span, declType, name, type/kind)
-	PostCheckHook    func(zonk func(types.Type) types.Type)                 // when non-nil, called after checking with the final zonk function
-	PostGeneralize   func(zonk func(types.Type) types.Type)                 // when non-nil, called during generalization while temp solutions are active
+	Context         context.Context // cancellation context (nil = no cancellation)
+	RegisteredTypes map[string]types.Type
+	Assumptions     map[string]types.Type
+	Bindings        map[string]types.Type
+	GatedBuiltins   map[string]bool
+	Trace           CheckTraceHook
+	ImportedModules map[string]*ModuleExports
+	ModuleDeps      map[string][]string // module → direct dependencies
+	DenyAssumptions bool                // when true, reject `assumption` declarations (sandbox mode)
+	StrictTypeNames bool                // when true, reject unregistered type constructor names
+	CurrentModule   string              // module being compiled ("" = user main source)
+	EntryPoint      string              // non-empty enables bare Computation check; that name is exempt
+	NestingLimit    int                 // structural nesting depth limit (0 = disabled)
+	MaxTFSteps      int                 // type family reduction step limit (0 = default 50000)
+	MaxSolverSteps  int                 // constraint solver step limit (0 = default 100000)
+	MaxResolveDepth int                 // instance resolution depth limit (0 = default 64)
+	HoverRecorder   HoverRecorder       // when non-nil, receives hover events during checking
 }
 
 // ModuleExports is the type-level information exported by a compiled module.
@@ -235,8 +230,8 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
-	if config != nil && config.PostCheckHook != nil {
-		config.PostCheckHook(ch.unifier.Zonk)
+	if config != nil && config.HoverRecorder != nil {
+		config.HoverRecorder.Rezonk(ch.unifier.Zonk)
 	}
 	return coreProgram, ch.errors
 }
@@ -246,8 +241,8 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
-	if config != nil && config.PostCheckHook != nil {
-		config.PostCheckHook(ch.unifier.Zonk)
+	if config != nil && config.HoverRecorder != nil {
+		config.HoverRecorder.Rezonk(ch.unifier.Zonk)
 	}
 	exports := ch.ExportModule(coreProgram)
 	return coreProgram, exports, ch.errors

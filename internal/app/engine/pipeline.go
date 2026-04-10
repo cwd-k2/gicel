@@ -213,20 +213,6 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	var idx *HoverIndex
 	if pc.typeRecorder {
 		idx = NewHoverIndex()
-		cfg.TypeRecorder = func(sp span.Span, ty types.Type) {
-			idx.Record(sp, ty)
-		}
-		// Collect fixity map for operator hover display.
-		fixityMap := pc.collectFixityMap(ast)
-		cfg.OperatorRecorder = func(sp span.Span, name, module string, ty types.Type) {
-			var fix *OperatorFixity
-			if f, ok := fixityMap[name]; ok {
-				fix = fixityToHover(f)
-			}
-			idx.RecordOperator(sp, name, module, ty, fix)
-		}
-		// Build name→doc map for variable hover doc enrichment.
-		// Includes imported module bindings + local declarations.
 		varDocs := pc.collectVarDocs()
 		for _, d := range ast.Decls {
 			switch decl := d.(type) {
@@ -244,25 +230,11 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 				}
 			}
 		}
-		cfg.VarDocRecorder = func(sp span.Span, name string) {
-			if doc, ok := varDocs[name]; ok {
-				idx.AttachDoc(sp, doc)
-			}
-		}
-		cfg.PostGeneralize = func(zonk func(types.Type) types.Type) {
-			idx.RezonkAll(zonk)
-		}
-		cfg.PostCheckHook = func(zonk func(types.Type) types.Type) {
-			idx.RezonkAll(zonk)
-		}
-		cfg.DeclRecorder = func(sp span.Span, declType, name string, ty types.Type) {
-			doc := ExtractDocComment(source, sp.Start)
-			switch declType {
-			case "alias":
-				idx.RecordDecl(sp, HoverTypeAlias, name, ty, doc)
-			case "impl":
-				idx.RecordDecl(sp, HoverImpl, name, ty, doc)
-			}
+		cfg.HoverRecorder = &hoverAdapter{
+			idx:       idx,
+			fixityMap: pc.collectFixityMap(ast),
+			varDocs:   varDocs,
+			source:    source,
 		}
 	}
 
