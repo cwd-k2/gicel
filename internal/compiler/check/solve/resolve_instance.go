@@ -22,15 +22,51 @@ func (s *Solver) resolveFromContext(className string, args []types.Type, sp span
 		}
 	}
 	// Slow path: scan for dict vars not in the index (no DictClassName set).
+	// Pre-compute the expected dict type constructor name so we can reject
+	// non-dictionary entries cheaply without zonking their types.
+	dictTyCon := env.DictName(className)
 	var result ir.Core
 	s.env.ScanContext(func(entry env.CtxEntry) bool {
-		if v, ok := entry.(*env.CtxVar); ok && !v.SolverInvisible && v.DictClassName == "" && s.matchesDictVar(v, className, args) {
+		v, ok := entry.(*env.CtxVar)
+		if !ok || v.SolverInvisible || v.DictClassName != "" {
+			return true
+		}
+		// Cheap pre-filter: walk the type's TyApp spine without zonking.
+		// If the head is a concrete non-dict TyCon or a TyArrow, this
+		// variable cannot be a dictionary — skip it. Only fall through
+		// to the full matchesDictVar (which zonks and unifies) when the
+		// head is a TyMeta or the matching TyCon.
+		if !couldBeDictType(v.Type, dictTyCon) {
+			return true
+		}
+		if s.matchesDictVar(v, className, args) {
 			result = &ir.Var{Name: v.Name, Module: v.Module, S: sp}
 			return false
 		}
 		return true
 	})
 	return result
+}
+
+// couldBeDictType is a cheap pre-filter that walks the TyApp spine of a type
+// WITHOUT zonking to check whether the head could be the expected dictionary
+// type constructor. Returns false only when the head is a concrete type that
+// is definitely not dictTyCon (e.g. TyArrow, a different TyCon). Returns true
+// for TyMeta heads (need zonking to know) and matching TyCon heads.
+func couldBeDictType(ty types.Type, dictTyCon string) bool {
+	for {
+		switch t := ty.(type) {
+		case *types.TyApp:
+			ty = t.Fun
+			continue
+		case *types.TyCon:
+			return t.Name == dictTyCon
+		case *types.TyMeta:
+			return true // unknown — must fall through to full check
+		default:
+			return false // TyArrow, TyForall, TyVar, etc. — not a dict
+		}
+	}
 }
 
 // resolveFromSuperclasses searches context for dictionaries whose superclass
