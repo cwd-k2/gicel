@@ -3,6 +3,7 @@ package check
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -94,4 +95,50 @@ func (s *CheckState) addDiagHints(code diagnostic.Code, sp span.Span, detail dia
 		Detail:  detail,
 		Hints:   hints,
 	})
+}
+
+// --- Unification error mapping ---
+
+// unifyErrorCode maps a UnifyError to the corresponding diagnostic.Code.
+// Returns ErrTypeMismatch for non-UnifyError or general mismatch.
+func unifyErrorCode(err error) diagnostic.Code {
+	ue, ok := err.(unify.UnifyError)
+	if !ok {
+		return diagnostic.ErrTypeMismatch
+	}
+	switch ue.Kind() {
+	case unify.UnifyOccursCheck:
+		return diagnostic.ErrOccursCheck
+	case unify.UnifyDupLabel:
+		return diagnostic.ErrDuplicateLabel
+	case unify.UnifyRowMismatch:
+		return diagnostic.ErrRowMismatch
+	case unify.UnifySkolemRigid:
+		return diagnostic.ErrSkolemRigid
+	case unify.UnifyUntouchable:
+		return diagnostic.ErrUntouchable
+	default:
+		return diagnostic.ErrTypeMismatch
+	}
+}
+
+// addUnifyError maps a unification error to the appropriate structured error code.
+func (s *CheckState) addUnifyError(err error, sp span.Span, ctx string) {
+	if _, ok := err.(*unify.MismatchError); ok {
+		s.addDiag(unifyErrorCode(err), sp, diagMsg(ctx))
+		return
+	}
+	s.addDiag(unifyErrorCode(err), sp, diagWithErr{Context: ctx, Err: err})
+}
+
+// addSemanticUnifyError reports a unification failure with a semantic error code.
+// For simple mismatches, the semantic code is used. For specific failures
+// (occurs check, skolem rigidity, etc.), the underlying error overrides.
+func (s *CheckState) addSemanticUnifyError(semanticCode diagnostic.Code, err error, sp span.Span, ctx string) {
+	code := unifyErrorCode(err)
+	if code == diagnostic.ErrTypeMismatch {
+		s.addDiag(semanticCode, sp, diagMsg(ctx))
+		return
+	}
+	s.addDiag(code, sp, diagWithErr{Context: ctx, Err: err})
 }

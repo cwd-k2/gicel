@@ -129,6 +129,10 @@ func (p *declPipeline) run() *ir.Program {
 	p.enterPhase(phaseCheckValues)
 	p.checkValues(annotations)
 
+	// Refine Merge labels now that constraint resolution has solved row metas.
+	// Previously caller convention; now structurally guaranteed.
+	p.ch.refineMergeLabels()
+
 	return p.prog
 }
 

@@ -280,3 +280,65 @@ func extractCapFields(ch *Checker, ty types.Type) []types.RowField {
 	}
 	return cap.Fields
 }
+
+// joinGrades computes the grade join of two annotated capability fields.
+// Uses the GradeJoin associated type family from GradeAlgebra when available;
+// falls back to unification.
+func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span.Span) {
+	if len(result.Grades) == 0 && len(other) == 0 {
+		return
+	}
+
+	// One side annotated, other unrestricted → take the annotation (more restrictive).
+	if len(result.Grades) == 0 && len(other) > 0 {
+		result.Grades = other
+		return
+	}
+	if len(result.Grades) > 0 && len(other) == 0 {
+		return // keep result grades
+	}
+
+	// Both annotated: grade counts must match.
+	if len(result.Grades) != len(other) {
+		ch.addDiag(diagnostic.ErrTypeMismatch, s,
+			diagFmt{Format: "grade count mismatch for %s: %d vs %d",
+				Args: []any{result.Label, len(result.Grades), len(other)}})
+		return
+	}
+
+	// Resolve the grade algebra to get the join family name.
+	gk := gradeAlgebraKind(ch)
+	algebra := ch.resolveGradeAlgebra(gk)
+
+	for i := range result.Grades {
+		a := ch.unifier.Zonk(result.Grades[i])
+		b := ch.unifier.Zonk(other[i])
+
+		// Try GradeJoin family reduction.
+		if algebra.valid && algebra.joinFamily != "" {
+			joinResult, ok := ch.reduceTyFamily(algebra.joinFamily, []types.Type{a, b}, s)
+			if ok {
+				result.Grades[i] = joinResult
+				continue
+			}
+			// Stuck: emit CtFunEq for deferred join reduction.
+			args := []types.Type{a, b}
+			blocking := ch.unifier.CollectBlockingMetas(args)
+			if len(blocking) > 0 {
+				resultMeta := ch.freshMeta(gk)
+				ct := &CtFunEq{
+					FamilyName: algebra.joinFamily,
+					Args:       args,
+					ResultMeta: resultMeta,
+					BlockingOn: blocking,
+					S:          s,
+				}
+				ch.registerStuckFunEq(ct)
+				result.Grades[i] = resultMeta
+				continue
+			}
+		}
+		// No GradeAlgebra or no blocking metas: fall back to equality constraint.
+		ch.emitEq(a, b, s, nil)
+	}
+}

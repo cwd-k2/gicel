@@ -230,7 +230,6 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
-	ch.refineMergeLabels(coreProgram)
 	return coreProgram, ch.errors
 }
 
@@ -239,7 +238,6 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
-	ch.refineMergeLabels(coreProgram)
 	exports := ch.ExportModule(coreProgram)
 	return coreProgram, exports, ch.errors
 }
@@ -248,9 +246,8 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 // pre-state row types recorded in pendingMergeLabels at inferMerge time,
 // now that constraint resolution has solved the row metavariables. The
 // side table is drained after refinement so the pre-state types can be
-// garbage collected; refineMergeLabels takes a *ir.Program argument only
-// for symmetry with the other passes (the IR is no longer walked).
-func (ch *Checker) refineMergeLabels(_ *ir.Program) {
+// garbage collected. Called from declPipeline.run after checkValues.
+func (ch *Checker) refineMergeLabels() {
 	if ch.pipeState == nil {
 		return
 	}

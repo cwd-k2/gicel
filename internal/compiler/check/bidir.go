@@ -5,63 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cwd-k2/gicel/internal/compiler/check/unify"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
-
-// unifyErrorCode maps a UnifyError to the corresponding diagnostic.Code.
-// Returns ErrTypeMismatch for non-UnifyError or general mismatch.
-func unifyErrorCode(err error) diagnostic.Code {
-	ue, ok := err.(unify.UnifyError)
-	if !ok {
-		return diagnostic.ErrTypeMismatch
-	}
-	switch ue.Kind() {
-	case unify.UnifyOccursCheck:
-		return diagnostic.ErrOccursCheck
-	case unify.UnifyDupLabel:
-		return diagnostic.ErrDuplicateLabel
-	case unify.UnifyRowMismatch:
-		return diagnostic.ErrRowMismatch
-	case unify.UnifySkolemRigid:
-		return diagnostic.ErrSkolemRigid
-	case unify.UnifyUntouchable:
-		return diagnostic.ErrUntouchable
-	default:
-		return diagnostic.ErrTypeMismatch
-	}
-}
-
-// addUnifyError maps a unification error to the appropriate structured error code.
-// Used at general type-mismatch sites where the UnifyError kind IS the primary diagnosis.
-func (s *CheckState) addUnifyError(err error, sp span.Span, ctx string) {
-	// Avoid redundant detail when the unifier reports a simple type mismatch —
-	// the context already contains the type expectation. Only the
-	// MismatchError variant carries both type sides; other UnifyMismatch-kind
-	// variants (Grade/Level/Message) need their detail message appended.
-	if _, ok := err.(*unify.MismatchError); ok {
-		s.addDiag(unifyErrorCode(err), sp, diagMsg(ctx))
-		return
-	}
-	s.addDiag(unifyErrorCode(err), sp, diagWithErr{Context: ctx, Err: err})
-}
-
-// addSemanticUnifyError reports a unification failure with a semantic error code.
-// For simple mismatches, the semantic code and message are used as-is.
-// For specific failures (occurs check, skolem rigidity, etc.), the underlying
-// unification error overrides the semantic code — it reveals the root cause.
-func (s *CheckState) addSemanticUnifyError(semanticCode diagnostic.Code, err error, sp span.Span, ctx string) {
-	code := unifyErrorCode(err)
-	if code == diagnostic.ErrTypeMismatch {
-		s.addDiag(semanticCode, sp, diagMsg(ctx))
-		return
-	}
-	s.addDiag(code, sp, diagWithErr{Context: ctx, Err: err})
-}
 
 // recordType calls the TypeRecorder callback if configured.
 // Used via defer with a pointer to the named return value so that
@@ -425,45 +374,20 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 			}
 			continue
 		}
-		var dictTy types.Type
-		var className string
-		var args []types.Type
-		var quantified *types.QuantifiedConstraint
-		switch e := entry.(type) {
-		case *types.QuantifiedConstraint:
-			quantified = e
-			dictTy = ch.buildQuantifiedDictType(e)
-			if e.Head != nil {
-				className = e.Head.ClassName
-				args = e.Head.Args
-			}
-		case *types.VarEntry:
-			cv := ch.unifier.Zonk(e.Var)
-			if cn, cArgs, ok := types.DecomposeConstraintType(cv); ok {
-				className = cn
-				args = cArgs
-				dictTy = ch.buildDictType(cn, cArgs)
-			} else {
-				className = "?"
-				dictTy = cv
-			}
-		case *types.ClassEntry:
-			className = e.ClassName
-			args = e.Args
-			dictTy = ch.buildDictType(e.ClassName, e.Args)
-		default:
+		di, ok := ch.constraintDictInfo(entry)
+		if !ok {
 			continue
 		}
-		dictParam := ch.freshDictName(className)
-		dicts = append(dicts, dictInfo{param: dictParam, ty: dictTy})
-		ch.ctx.Push(&CtxVar{Name: dictParam, Type: dictTy, DictClassName: className})
+		dictParam := ch.freshDictName(di.className)
+		dicts = append(dicts, dictInfo{param: dictParam, ty: di.dictTy})
+		ch.ctx.Push(&CtxVar{Name: dictParam, Type: di.dictTy, DictClassName: di.className})
 		pushed++
 		ch.ctx.Push(&CtxEvidence{
-			ClassName:  className,
-			Args:       args,
+			ClassName:  di.className,
+			Args:       di.args,
 			DictName:   dictParam,
-			DictType:   dictTy,
-			Quantified: quantified,
+			DictType:   di.dictTy,
+			Quantified: di.quantified,
 		})
 		pushed++
 	}
@@ -482,6 +406,40 @@ func (ch *Checker) checkWithEvidence(expr syntax.Expr, ev *types.TyEvidence) ir.
 		bodyCore = &ir.Lam{Param: dicts[i].param, ParamType: dicts[i].ty, Body: bodyCore, Generated: ir.GenDict, S: expr.Span()}
 	}
 	return bodyCore
+}
+
+// constraintDictResult holds the decomposed dict info for a class constraint entry.
+type constraintDictResult struct {
+	dictTy     types.Type
+	className  string
+	args       []types.Type
+	quantified *types.QuantifiedConstraint
+}
+
+// constraintDictInfo maps a non-equality ConstraintEntry to its dict type,
+// class name, and arguments. Returns false for entries that don't produce dicts.
+func (ch *Checker) constraintDictInfo(entry types.ConstraintEntry) (constraintDictResult, bool) {
+	switch e := entry.(type) {
+	case *types.QuantifiedConstraint:
+		r := constraintDictResult{
+			dictTy:     ch.buildQuantifiedDictType(e),
+			quantified: e,
+		}
+		if e.Head != nil {
+			r.className = e.Head.ClassName
+			r.args = e.Head.Args
+		}
+		return r, true
+	case *types.VarEntry:
+		cv := ch.unifier.Zonk(e.Var)
+		if cn, cArgs, ok := types.DecomposeConstraintType(cv); ok {
+			return constraintDictResult{dictTy: ch.buildDictType(cn, cArgs), className: cn, args: cArgs}, true
+		}
+		return constraintDictResult{dictTy: cv, className: "?"}, true
+	case *types.ClassEntry:
+		return constraintDictResult{dictTy: ch.buildDictType(e.ClassName, e.Args), className: e.ClassName, args: e.Args}, true
+	}
+	return constraintDictResult{}, false
 }
 
 // subsCheck performs the subsumption check: inferred ≤ expected.
