@@ -88,7 +88,7 @@ type coverageStats struct {
 func TestHoverCoverage_AllExamples(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "gicel")
 	var files []string
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -96,7 +96,9 @@ func TestHoverCoverage_AllExamples(t *testing.T) {
 			files = append(files, path)
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("walk examples: %v", err)
+	}
 	if len(files) == 0 {
 		t.Fatal("no example files found")
 	}
@@ -365,7 +367,7 @@ func unique(ss []string) []string {
 func TestHoverCoverage_Report(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "gicel")
 	var files []string
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -373,7 +375,9 @@ func TestHoverCoverage_Report(t *testing.T) {
 			files = append(files, path)
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("walk examples: %v", err)
+	}
 	if len(files) == 0 {
 		t.Fatal("no example files found")
 	}

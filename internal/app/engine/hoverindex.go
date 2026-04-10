@@ -141,7 +141,7 @@ func (idx *HoverIndex) Finalize() {
 	}
 	idx.pendingDocs = nil
 	idx.finalized = true
-	sort.Slice(idx.entries, func(i, j int) bool {
+	sort.SliceStable(idx.entries, func(i, j int) bool {
 		a, b := idx.entries[i].span, idx.entries[j].span
 		if a.Start != b.Start {
 			return a.Start < b.Start

@@ -32,7 +32,7 @@ type SymbolKind int
 const (
 	SymbolFunction    SymbolKind = 12
 	SymbolStruct      SymbolKind = 23
-	SymbolConstructor SymbolKind = 14 // enum member
+	SymbolConstructor SymbolKind = 9 // constructor
 	SymbolClass       SymbolKind = 5
 )
 

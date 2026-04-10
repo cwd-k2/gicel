@@ -94,12 +94,9 @@ func collectForalls(t *TyForall) ([]string, Type) {
 	return vars, body
 }
 
-// flattenTupleRow collects capability fields from a possibly nested row,
-// returning the flattened fields and the final tail (nil if closed).
-// Handles both flat rows { _1: a, _2: b } and nested rows { _1: a | { _2: b | r } }.
 // flattenTupleRow collects capability fields from a possibly nested row.
-// Returns (fields, tail, true) on success. The ok flag distinguishes
-// "zero fields found" from "not a capability row".
+// Walks nested row tails: { _1: a | { _2: b | r } } → [_1: a, _2: b], tail=r.
+// Returns (fields, tail, ok). ok is false for non-capability rows.
 func flattenTupleRow(row *TyEvidenceRow) (fields []RowField, tail Type, ok bool) {
 	for {
 		caps, isCap := row.Entries.(*CapabilityEntries)

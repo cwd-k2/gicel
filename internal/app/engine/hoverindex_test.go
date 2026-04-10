@@ -182,6 +182,19 @@ func TestHoverIndex_FormatHover(t *testing.T) {
 		{HoverConstructor, "Just", types.MkArrow(&types.TyVar{Name: "a"}, tycon("Maybe", sp(0, 0))), "Just :: a -> Maybe"},
 		{HoverImport, "Prelude", nil, "import Prelude"},
 		{HoverTypeAnn, "foo", types.MkArrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0))), "foo :: Int -> Int"},
+		{HoverTypeAlias, "MyType", types.TypeOfTypes, "type MyType :: Type"},
+		{HoverImpl, "", tycon("Eq Int", sp(0, 0)), "impl Eq Int"},
+	}
+	// HoverOperator tested separately (requires fixity field).
+	opEntry := &hoverEntry{
+		kind: HoverOperator, label: "+", module: "Prelude",
+		ty:     types.MkArrow(tycon("Int", sp(0, 0)), types.MkArrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0)))),
+		fixity: &OperatorFixity{Assoc: "infixl", Prec: 6},
+	}
+	opGot := formatHover(opEntry)
+	opWant := "(Prelude.+) :: Int -> Int -> Int\ninfixl 6"
+	if opGot != opWant {
+		t.Errorf("formatHover(HoverOperator) = %q, want %q", opGot, opWant)
 	}
 	for _, tt := range tests {
 		e := &hoverEntry{kind: tt.kind, label: tt.label, ty: tt.ty}
