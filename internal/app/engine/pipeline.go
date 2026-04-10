@@ -217,18 +217,19 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 			idx.RezonkAll(zonk)
 		}
 		cfg.DeclRecorder = func(sp span.Span, declType, name string, ty types.Type) {
+			doc := ExtractDocComment(source, sp.Start)
 			switch declType {
 			case "alias":
-				idx.RecordDecl(sp, HoverTypeAlias, name, ty)
+				idx.RecordDecl(sp, HoverTypeAlias, name, ty, doc)
 			case "impl":
-				idx.RecordDecl(sp, HoverImpl, name, ty)
+				idx.RecordDecl(sp, HoverImpl, name, ty, doc)
 			}
 		}
 	}
 
 	prog, checkErrs := check.Check(ast, src, cfg)
 	if idx != nil {
-		populateHoverDecls(idx, ast, prog)
+		populateHoverDecls(idx, ast, prog, source)
 		idx.Finalize()
 	}
 
@@ -422,12 +423,16 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 }
 
 // populateHoverDecls records declaration-level hover entries from the
-// checked program and the original AST.
-func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Program) {
+// checked program and the original AST, extracting doc comments from source.
+func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Program, source string) {
+	doc := func(s span.Span) string {
+		return ExtractDocComment(source, s.Start)
+	}
+
 	// Binding definitions (skip compiler-generated dict bindings etc.).
 	for _, b := range prog.Bindings {
 		if b.Type != nil && b.S != (span.Span{}) && !b.Generated.IsGenerated() {
-			idx.RecordDecl(b.S, HoverBinding, b.Name, b.Type)
+			idx.RecordDecl(b.S, HoverBinding, b.Name, b.Type, doc(b.S))
 		}
 	}
 
@@ -435,12 +440,12 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
 		if dd.S != (span.Span{}) {
-			idx.RecordDecl(dd.S, HoverForm, dd.Name, ComputeFormKind(dd))
+			idx.RecordDecl(dd.S, HoverForm, dd.Name, ComputeFormKind(dd), doc(dd.S))
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
 			if con.S != (span.Span{}) {
-				idx.RecordDecl(con.S, HoverConstructor, con.Name, BuildConType(dd, con))
+				idx.RecordDecl(con.S, HoverConstructor, con.Name, BuildConType(dd, con), "")
 			}
 		}
 	}
@@ -455,7 +460,7 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 	for _, d := range ast.Decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
 			if ty, found := bindingTypes[ann.Name]; found && ann.S != (span.Span{}) {
-				idx.RecordDecl(ann.S, HoverTypeAnn, ann.Name, ty)
+				idx.RecordDecl(ann.S, HoverTypeAnn, ann.Name, ty, doc(ann.S))
 			}
 		}
 	}
@@ -467,7 +472,7 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 			if imp.Alias != "" {
 				label += " as " + imp.Alias
 			}
-			idx.RecordDecl(imp.S, HoverImport, label, nil)
+			idx.RecordDecl(imp.S, HoverImport, label, nil, "")
 		}
 	}
 }

@@ -67,10 +67,12 @@ type InitializeResult struct {
 
 // ServerCapabilities declares what the server supports.
 type ServerCapabilities struct {
-	PositionEncoding   string                   `json:"positionEncoding,omitempty"`
-	TextDocumentSync   *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
-	HoverProvider      bool                     `json:"hoverProvider,omitempty"`
-	CompletionProvider *CompletionOptions       `json:"completionProvider,omitempty"`
+	PositionEncoding       string                   `json:"positionEncoding,omitempty"`
+	TextDocumentSync       *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
+	HoverProvider          bool                     `json:"hoverProvider,omitempty"`
+	CompletionProvider     *CompletionOptions       `json:"completionProvider,omitempty"`
+	DocumentSymbolProvider bool                     `json:"documentSymbolProvider,omitempty"`
+	DefinitionProvider     bool                     `json:"definitionProvider,omitempty"`
 }
 
 // TextDocumentSyncOptions configures document synchronization.
@@ -195,10 +197,11 @@ type CompletionList struct {
 
 // CompletionItem represents a single completion suggestion.
 type CompletionItem struct {
-	Label    string             `json:"label"`
-	Kind     CompletionItemKind `json:"kind,omitempty"`
-	Detail   string             `json:"detail,omitempty"`
-	SortText string             `json:"sortText,omitempty"`
+	Label         string             `json:"label"`
+	Kind          CompletionItemKind `json:"kind,omitempty"`
+	Detail        string             `json:"detail,omitempty"`
+	Documentation *MarkupContent     `json:"documentation,omitempty"`
+	SortText      string             `json:"sortText,omitempty"`
 }
 
 // CompletionItemKind classifies completion items.
@@ -217,4 +220,41 @@ const (
 // CompletionOptions configures the completion provider.
 type CompletionOptions struct {
 	TriggerCharacters []string `json:"triggerCharacters,omitempty"`
+}
+
+// ---- Document Symbols ----
+
+// DocumentSymbolParams is sent for textDocument/documentSymbol requests.
+type DocumentSymbolParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+}
+
+// DocumentSymbol represents a symbol in a document (hierarchical).
+type DocumentSymbol struct {
+	Name           string           `json:"name"`
+	Detail         string           `json:"detail,omitempty"`
+	Kind           SymbolKind       `json:"kind"`
+	Range          Range            `json:"range"`
+	SelectionRange Range            `json:"selectionRange"`
+	Children       []DocumentSymbol `json:"children,omitempty"`
+}
+
+// SymbolKind classifies document symbols.
+type SymbolKind int
+
+const (
+	SKModule      SymbolKind = 2
+	SKClass       SymbolKind = 5
+	SKConstructor SymbolKind = 9
+	SKFunction    SymbolKind = 12
+	SKVariable    SymbolKind = 13
+	SKStruct      SymbolKind = 23
+)
+
+// ---- Definition ----
+
+// DefinitionParams is sent for textDocument/definition requests.
+type DefinitionParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Position     Position               `json:"position"`
 }

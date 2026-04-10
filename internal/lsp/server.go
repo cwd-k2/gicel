@@ -11,6 +11,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
@@ -148,6 +149,10 @@ func (s *Server) handleRequest(msg *jsonrpc.Message) {
 		s.handleHover(msg)
 	case "textDocument/completion":
 		s.handleCompletion(msg)
+	case "textDocument/documentSymbol":
+		s.handleDocumentSymbol(msg)
+	case "textDocument/definition":
+		s.handleDefinition(msg)
 	default:
 		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeMethodNotFound,
 			"method not found: "+msg.Method))
@@ -208,8 +213,10 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 				Change:    protocol.SyncFull,
 				Save:      &protocol.SaveOptions{IncludeText: true},
 			},
-			HoverProvider:      true,
-			CompletionProvider: &protocol.CompletionOptions{},
+			HoverProvider:          true,
+			CompletionProvider:     &protocol.CompletionOptions{},
+			DocumentSymbolProvider: true,
+			DefinitionProvider:     true,
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    "gicel-lsp",
@@ -455,4 +462,157 @@ func buildCompletionItems(ar *engine.AnalysisResult) []protocol.CompletionItem {
 	}
 
 	return items
+}
+
+// ---- Document Symbols ----
+
+func (s *Server) handleDocumentSymbol(msg *jsonrpc.Message) {
+	var params protocol.DocumentSymbolParams
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeInvalidParams, err.Error()))
+		return
+	}
+
+	doc, ok := s.docs.get(params.TextDocument.URI)
+	if !ok || doc.Analysis == nil || doc.Analysis.Program == nil || doc.Analysis.Source == nil {
+		s.respondResult(msg.ID, []protocol.DocumentSymbol{})
+		return
+	}
+
+	symbols := buildDocumentSymbols(doc.Analysis)
+	s.respondResult(msg.ID, symbols)
+}
+
+func buildDocumentSymbols(ar *engine.AnalysisResult) []protocol.DocumentSymbol {
+	src := ar.Source
+	prog := ar.Program
+	var symbols []protocol.DocumentSymbol
+
+	// Top-level bindings.
+	for _, b := range prog.Bindings {
+		if b.Generated.IsGenerated() || b.S == (span.Span{}) {
+			continue
+		}
+		symbols = append(symbols, protocol.DocumentSymbol{
+			Name:           b.Name,
+			Detail:         types.PrettyDisplay(b.Type),
+			Kind:           protocol.SKFunction,
+			Range:          spanToRange(src, b.S),
+			SelectionRange: spanToRange(src, b.S),
+		})
+	}
+
+	// Data declarations with constructor children.
+	for i := range prog.DataDecls {
+		dd := &prog.DataDecls[i]
+		if dd.S == (span.Span{}) {
+			continue
+		}
+		sym := protocol.DocumentSymbol{
+			Name:           dd.Name,
+			Detail:         types.PrettyTypeAsKind(engine.ComputeFormKind(dd)),
+			Kind:           protocol.SKStruct,
+			Range:          spanToRange(src, dd.S),
+			SelectionRange: spanToRange(src, dd.S),
+		}
+		for j := range dd.Cons {
+			con := &dd.Cons[j]
+			if con.S == (span.Span{}) {
+				continue
+			}
+			sym.Children = append(sym.Children, protocol.DocumentSymbol{
+				Name:           con.Name,
+				Detail:         types.PrettyDisplay(engine.BuildConType(dd, con)),
+				Kind:           protocol.SKConstructor,
+				Range:          spanToRange(src, con.S),
+				SelectionRange: spanToRange(src, con.S),
+			})
+		}
+		symbols = append(symbols, sym)
+	}
+
+	return symbols
+}
+
+// ---- Definition ----
+
+func (s *Server) handleDefinition(msg *jsonrpc.Message) {
+	var params protocol.DefinitionParams
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeInvalidParams, err.Error()))
+		return
+	}
+
+	doc, ok := s.docs.get(params.TextDocument.URI)
+	if !ok || doc.Analysis == nil || doc.Analysis.Source == nil || doc.Analysis.Program == nil {
+		s.respondResult(msg.ID, nil)
+		return
+	}
+
+	offset := posToOffset(doc.Analysis.Source, params.Position)
+	name := identifierAtOffset(doc.Analysis.Source.Text, int(offset))
+	if name == "" {
+		s.respondResult(msg.ID, nil)
+		return
+	}
+
+	// Search bindings for definition.
+	for _, b := range doc.Analysis.Program.Bindings {
+		if b.Name == name && b.S != (span.Span{}) && !b.Generated.IsGenerated() {
+			s.respondResult(msg.ID, protocol.Location{
+				URI:   params.TextDocument.URI,
+				Range: spanToRange(doc.Analysis.Source, b.S),
+			})
+			return
+		}
+	}
+
+	// Search constructors.
+	for i := range doc.Analysis.Program.DataDecls {
+		dd := &doc.Analysis.Program.DataDecls[i]
+		if dd.Name == name && dd.S != (span.Span{}) {
+			s.respondResult(msg.ID, protocol.Location{
+				URI:   params.TextDocument.URI,
+				Range: spanToRange(doc.Analysis.Source, dd.S),
+			})
+			return
+		}
+		for j := range dd.Cons {
+			con := &dd.Cons[j]
+			if con.Name == name && con.S != (span.Span{}) {
+				s.respondResult(msg.ID, protocol.Location{
+					URI:   params.TextDocument.URI,
+					Range: spanToRange(doc.Analysis.Source, con.S),
+				})
+				return
+			}
+		}
+	}
+
+	s.respondResult(msg.ID, nil)
+}
+
+// identifierAtOffset extracts the identifier at the given byte offset
+// by scanning forwards and backwards for word characters.
+func identifierAtOffset(source string, offset int) string {
+	if offset < 0 || offset >= len(source) {
+		return ""
+	}
+	ch := source[offset]
+	if !isIdentChar(ch) {
+		return ""
+	}
+	start := offset
+	for start > 0 && isIdentChar(source[start-1]) {
+		start--
+	}
+	end := offset
+	for end < len(source) && isIdentChar(source[end]) {
+		end++
+	}
+	return source[start:end]
+}
+
+func isIdentChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '\''
 }

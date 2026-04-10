@@ -135,7 +135,7 @@ func TestHoverIndex_BoundaryPositions(t *testing.T) {
 func TestHoverIndex_RecordDecl(t *testing.T) {
 	idx := NewHoverIndex()
 	intTy := tycon("Int", sp(0, 0))
-	idx.RecordDecl(sp(0, 12), HoverBinding, "main", intTy)
+	idx.RecordDecl(sp(0, 12), HoverBinding, "main", intTy, "")
 	idx.Finalize()
 
 	hover := idx.HoverAt(span.Pos(0))
@@ -151,7 +151,7 @@ func TestHoverIndex_ExprWinsOverDecl(t *testing.T) {
 	idx := NewHoverIndex()
 	intTy := tycon("Int", sp(0, 0))
 	// Binding declaration covers [0, 15).
-	idx.RecordDecl(sp(0, 15), HoverBinding, "main", intTy)
+	idx.RecordDecl(sp(0, 15), HoverBinding, "main", intTy, "")
 	// Expression literal covers [8, 10) — inside the binding.
 	idx.Record(sp(8, 10), intTy)
 	idx.Finalize()

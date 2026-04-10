@@ -37,6 +37,7 @@ type hoverEntry struct {
 	kind  HoverKind
 	ty    types.Type // nil for imports
 	label string     // "" for expressions
+	doc   string     // doc comment (empty for expressions)
 }
 
 // NewHoverIndex creates an empty HoverIndex.
@@ -59,16 +60,16 @@ func (idx *HoverIndex) Record(sp span.Span, ty types.Type) {
 	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: HoverExpr, ty: ty})
 }
 
-// RecordDecl adds a declaration entry with a label and kind. Entries
-// with zero-width spans are silently discarded.
-func (idx *HoverIndex) RecordDecl(sp span.Span, kind HoverKind, label string, ty types.Type) {
+// RecordDecl adds a declaration entry with a label, kind, and optional
+// doc comment. Entries with zero-width spans are silently discarded.
+func (idx *HoverIndex) RecordDecl(sp span.Span, kind HoverKind, label string, ty types.Type, doc string) {
 	if idx.finalized {
 		panic("HoverIndex.RecordDecl called after Finalize")
 	}
 	if sp.Start >= sp.End {
 		return
 	}
-	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: kind, ty: ty, label: label})
+	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: kind, ty: ty, label: label, doc: doc})
 }
 
 // RezonkAll applies a final zonk function to all recorded types,
@@ -144,35 +145,43 @@ func (idx *HoverIndex) entryAt(pos span.Pos) *hoverEntry {
 }
 
 func formatHover(e *hoverEntry) string {
+	var sig string
 	switch e.kind {
 	case HoverExpr:
-		return types.PrettyDisplay(e.ty)
+		sig = types.PrettyDisplay(e.ty)
 	case HoverBinding:
-		return e.label + " :: " + types.PrettyDisplay(e.ty)
+		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverForm:
 		if e.ty != nil {
-			return "form " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
+			sig = "form " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
+		} else {
+			sig = "form " + e.label
 		}
-		return "form " + e.label
 	case HoverTypeAlias:
 		if e.ty != nil {
-			return "type " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
+			sig = "type " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
+		} else {
+			sig = "type " + e.label
 		}
-		return "type " + e.label
 	case HoverTypeAnn:
-		return e.label + " :: " + types.PrettyDisplay(e.ty)
+		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverConstructor:
-		return e.label + " :: " + types.PrettyDisplay(e.ty)
+		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverImport:
-		return "import " + e.label
+		sig = "import " + e.label
 	case HoverImpl:
 		if e.ty != nil {
-			return "impl " + types.PrettyDisplay(e.ty)
+			sig = "impl " + types.PrettyDisplay(e.ty)
+		} else {
+			sig = "impl " + e.label
 		}
-		return "impl " + e.label
+	default:
+		if e.ty != nil {
+			sig = types.PrettyDisplay(e.ty)
+		}
 	}
-	if e.ty != nil {
-		return types.PrettyDisplay(e.ty)
+	if e.doc != "" && sig != "" {
+		return sig + "\n\n" + e.doc
 	}
-	return ""
+	return sig
 }

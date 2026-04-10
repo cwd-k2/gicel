@@ -477,3 +477,99 @@ func TestServer_HoverOnImpl(t *testing.T) {
 		t.Fatalf("expected hover to contain 'impl', got %q", hover)
 	}
 }
+
+func TestServer_DocumentSymbols(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///sym.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "import Prelude\nform Color := Red | Green | Blue\nf :: Int -> Int\nf := \\x. x + 1\nmain := f 42",
+		},
+	})
+	env.readNotification(t, 5*time.Second)
+
+	result := env.request(t, "textDocument/documentSymbol", protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: "file:///sym.gicel"},
+	})
+
+	var symbols []protocol.DocumentSymbol
+	mustUnmarshal(t, result, &symbols)
+	if len(symbols) == 0 {
+		t.Fatal("expected at least one document symbol")
+	}
+
+	found := map[string]bool{}
+	for _, sym := range symbols {
+		found[sym.Name] = true
+		// Check hierarchy: Color should have constructor children.
+		if sym.Name == "Color" {
+			if len(sym.Children) != 3 {
+				t.Fatalf("expected 3 constructor children for Color, got %d", len(sym.Children))
+			}
+			for _, child := range sym.Children {
+				found[child.Name] = true
+			}
+		}
+	}
+	for _, name := range []string{"f", "main", "Color", "Red", "Green", "Blue"} {
+		if !found[name] {
+			t.Errorf("expected symbol %q", name)
+		}
+	}
+}
+
+func TestServer_DefinitionOnBinding(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	// f is defined on line 1, used on line 2.
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///def.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "import Prelude\nf := \\x. x + 1\nmain := f 42",
+		},
+	})
+	env.readNotification(t, 5*time.Second)
+
+	// Go-to-definition on 'f' in 'f 42' (line 2, char 8).
+	result := env.request(t, "textDocument/definition", protocol.DefinitionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: "file:///def.gicel"},
+		Position:     protocol.Position{Line: 2, Character: 8},
+	})
+
+	if string(result) == "null" {
+		t.Fatal("definition returned null")
+	}
+	var loc protocol.Location
+	mustUnmarshal(t, result, &loc)
+	// Should point to line 1 where f is defined.
+	if loc.Range.Start.Line != 1 {
+		t.Fatalf("expected definition at line 1, got line %d", loc.Range.Start.Line)
+	}
+}
+
+func TestServer_HoverWithDocComment(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	source := "import Prelude\n-- Adds one to a number.\nadd1 := \\x. x + 1\nmain := add1 1"
+	hover := hoverAt(t, env, "file:///doc.gicel", source, 2, 0)
+	if hover == "" {
+		t.Fatal("hover returned null")
+	}
+	if !strings.Contains(hover, "add1 :: ") {
+		t.Fatalf("expected type signature in hover, got %q", hover)
+	}
+	if !strings.Contains(hover, "Adds one to a number.") {
+		t.Fatalf("expected doc comment in hover, got %q", hover)
+	}
+}
