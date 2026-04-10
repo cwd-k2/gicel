@@ -93,45 +93,74 @@ func collectForalls(t *TyForall) ([]string, Type) {
 	return vars, body
 }
 
-// prettyTuple checks if the type is a closed Record row with tuple-shaped labels
+// flattenTupleRow collects capability fields from a possibly nested row,
+// returning the flattened fields and the final tail (nil if closed).
+// Handles both flat rows { _1: a, _2: b } and nested rows { _1: a | { _2: b | r } }.
+// flattenTupleRow collects capability fields from a possibly nested row.
+// Returns (fields, tail, true) on success. The ok flag distinguishes
+// "zero fields found" from "not a capability row".
+func flattenTupleRow(row *TyEvidenceRow) (fields []RowField, tail Type, ok bool) {
+	for {
+		caps, isCap := row.Entries.(*CapabilityEntries)
+		if !isCap {
+			return nil, nil, false
+		}
+		fields = append(fields, caps.Fields...)
+		if row.Tail == nil {
+			return fields, nil, true
+		}
+		next, isRow := row.Tail.(*TyEvidenceRow)
+		if !isRow {
+			return fields, row.Tail, true
+		}
+		row = next
+	}
+}
+
+// prettyTuple checks if the type is a Record row with tuple-shaped labels
 // and renders it with tuple sugar:
 //
-//	Record {}                         → ()
-//	Record { _1: T1, _2: T2, ... }   → (T1, T2, ...)
+//	Record {}                                   → ()
+//	Record { _1: T1, _2: T2 }                  → (T1, T2)
+//	Record { _1: a | { _2: b | r } }           → (a, b | r)
 //
-// Open rows (tail != nil) are not sugared — they represent row-polymorphic
-// record access, not tuple operations.
+// Fields must be _1, _2, ..., _N in order after flattening nested rows.
 func prettyTuple(app *TyApp, render func(Type) string) (string, bool) {
 	con, ok := app.Fun.(*TyCon)
 	if !ok || con.Name != TyConRecord {
 		return "", false
 	}
 	row, ok := app.Arg.(*TyEvidenceRow)
-	if !ok || row.Tail != nil {
-		return "", false
-	}
-	caps, ok := row.Entries.(*CapabilityEntries)
 	if !ok {
 		return "", false
 	}
-	// 0 fields = unit ()
-	if len(caps.Fields) == 0 {
-		return "()", true
-	}
-	// All fields must be _1, _2, ... in order, with at least 2.
-	if len(caps.Fields) < 2 {
+	fields, tail, ok := flattenTupleRow(row)
+	if !ok {
 		return "", false
 	}
-	for i, f := range caps.Fields {
+	// 0 fields, no tail = unit ()
+	if len(fields) == 0 && tail == nil {
+		return "()", true
+	}
+	// Check all fields are _1, _2, ..., _N in order.
+	for i, f := range fields {
 		if f.Label != "_"+strconv.Itoa(i+1) {
 			return "", false
 		}
 	}
-	parts := make([]string, len(caps.Fields))
-	for i, f := range caps.Fields {
+	// At least 2 fields, or 1+ field with a tail.
+	if len(fields) < 2 && tail == nil {
+		return "", false
+	}
+	parts := make([]string, len(fields))
+	for i, f := range fields {
 		parts[i] = render(f.Type)
 	}
-	return "(" + strings.Join(parts, ", ") + ")", true
+	inner := strings.Join(parts, ", ")
+	if tail != nil {
+		inner += " | " + render(tail)
+	}
+	return "(" + inner + ")", true
 }
 
 func prettyCapFields(fields []RowField, tail Type) string {

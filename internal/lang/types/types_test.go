@@ -240,6 +240,12 @@ func TestPretty(t *testing.T) {
 			`\a b. a -> b`},
 		{EmptyRow(), "{}"},
 		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x: Int }"},
+		// Tuple sugar
+		{&TyApp{Fun: Con(TyConRecord), Arg: EmptyRow()}, "()"},
+		{&TyApp{Fun: Con(TyConRecord), Arg: ClosedRow(
+			RowField{Label: "_1", Type: Con("Int")},
+			RowField{Label: "_2", Type: Con("Bool")},
+		)}, "(Int, Bool)"},
 	}
 	for _, tt := range tests {
 		got := Pretty(tt.ty)
