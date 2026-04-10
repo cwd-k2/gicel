@@ -17,15 +17,17 @@ import (
 // pipelineCtx encapsulates the compile-time environment shared across
 // pipeline stages: lex → parse → check → optimize → assemble.
 //
-// The engine back-pointer gives pipeline stages access to Engine-level
-// caches (fingerprints, etc.). host/store/limits remain as explicit
-// fields for direct access inside hot paths.
+// All fields are value snapshots taken at pipeline() time. There is no
+// back-pointer to Engine — the pipeline is a pure function of its inputs.
 type pipelineCtx struct {
-	engine          *Engine
 	ctx             context.Context
 	host            *HostEnv
 	store           *ModuleStore
 	limits          *Limits
+	cacheStore      *CacheStore  // cache for compiled modules and runtimes
+	modEnvFp        [32]byte     // pre-computed module environment fingerprint
+	runtimeFp       [32]byte     // pre-computed runtime fingerprint
+	warnFunc        func(string) // warning callback (nil = stderr)
 	traceHook       check.CheckTraceHook
 	entryPoint      string
 	denyAssumptions bool
@@ -107,7 +109,7 @@ func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
 // Results are cached at the process level keyed by (source hash, env fingerprint).
 func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, error) {
 	cacheKey := pc.computeModuleCacheKey(source)
-	if cached, ok := pc.engine.cacheStore.GetModule(cacheKey); ok {
+	if cached, ok := pc.cacheStore.GetModule(cacheKey); ok {
 		return cached, nil
 	}
 
@@ -151,7 +153,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		sortedBindings: ir.SortBindings(prog.Bindings),
 		source:         src,
 	}
-	pc.engine.cacheStore.PutModule(cacheKey, mod)
+	pc.cacheStore.PutModule(cacheKey, mod)
 	return mod, nil
 }
 
@@ -388,7 +390,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 		nestingLimit:       pc.limits.nestingLimit,
 		allocLimit:         pc.limits.allocLimit,
 		source:             src,
-		warnFunc:           pc.engine.warnFunc,
+		warnFunc:           pc.warnFunc,
 		bindings:           maps.Clone(pc.host.bindings),
 		moduleEntries:      entries,
 		sortedMainBindings: sortedMain,

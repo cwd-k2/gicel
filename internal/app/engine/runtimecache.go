@@ -5,134 +5,54 @@ import (
 	"crypto/sha256"
 	"reflect"
 	"strconv"
-	"sync"
+
+	"github.com/cwd-k2/gicel/internal/infra/cache"
 )
 
-// CacheStore is a thread-safe cache for compiled modules and assembled
-// Runtimes. Both caches are keyed by SHA-256 fingerprints and use a
-// capacity limit with random eviction to prevent unbounded growth in
-// long-running processes (LSP, embedded servers).
-//
-// The default process-global CacheStore is used when Engine.cacheStore
-// is nil. Use SetCacheStore on Engine for testing or multi-tenant
-// isolation.
+// CacheStore holds the compilation caches for modules and runtimes.
+// Built on generic cache.Map — the domain-specific key types are the
+// only engine knowledge here.
 type CacheStore struct {
-	runtime struct {
-		mu    sync.RWMutex
-		items map[runtimeCacheKey]*Runtime
-	}
-	module struct {
-		mu    sync.RWMutex
-		items map[moduleCacheKey]*compiledModule
-	}
-	cap int // max entries per sub-cache; 0 = unlimited
+	runtimes *cache.Map[runtimeCacheKey, *Runtime]
+	modules  *cache.Map[moduleCacheKey, *compiledModule]
 }
 
-// NewCacheStore creates a CacheStore with the given per-sub-cache
-// capacity. Pass 0 for unlimited (suitable for CLI one-shot processes).
+// NewCacheStore creates a CacheStore with per-sub-cache capacity.
+// Pass 0 for unlimited (suitable for CLI one-shot processes).
 func NewCacheStore(cap int) *CacheStore {
-	cs := &CacheStore{cap: cap}
-	cs.runtime.items = make(map[runtimeCacheKey]*Runtime)
-	cs.module.items = make(map[moduleCacheKey]*compiledModule)
-	return cs
+	return &CacheStore{
+		runtimes: cache.NewMap[runtimeCacheKey, *Runtime](cap),
+		modules:  cache.NewMap[moduleCacheKey, *compiledModule](cap),
+	}
 }
 
-// defaultCacheStore is the process-global cache. Engines use this when
-// no explicit CacheStore is set.
 var defaultCacheStore = NewCacheStore(0)
-
-// --- Runtime cache ---
 
 type runtimeCacheKey struct {
 	sourceHash         [32]byte
 	runtimeFingerprint [32]byte
 }
 
-func (cs *CacheStore) GetRuntime(key runtimeCacheKey) (*Runtime, bool) {
-	cs.runtime.mu.RLock()
-	defer cs.runtime.mu.RUnlock()
-	rt, ok := cs.runtime.items[key]
-	return rt, ok
-}
-
-func (cs *CacheStore) PutRuntime(key runtimeCacheKey, rt *Runtime) {
-	cs.runtime.mu.Lock()
-	defer cs.runtime.mu.Unlock()
-	if cs.cap > 0 && len(cs.runtime.items) >= cs.cap {
-		evictOne(cs.runtime.items)
-	}
-	cs.runtime.items[key] = rt
-}
-
-func (cs *CacheStore) ResetRuntime() {
-	cs.runtime.mu.Lock()
-	defer cs.runtime.mu.Unlock()
-	cs.runtime.items = make(map[runtimeCacheKey]*Runtime)
-}
-
-func (cs *CacheStore) RuntimeLen() int {
-	cs.runtime.mu.RLock()
-	defer cs.runtime.mu.RUnlock()
-	return len(cs.runtime.items)
-}
-
-// --- Module cache ---
-
 type moduleCacheKey struct {
 	sourceHash     [32]byte
 	envFingerprint [32]byte
 }
 
-func (cs *CacheStore) GetModule(key moduleCacheKey) (*compiledModule, bool) {
-	cs.module.mu.RLock()
-	defer cs.module.mu.RUnlock()
-	mod, ok := cs.module.items[key]
-	return mod, ok
-}
+func (cs *CacheStore) GetRuntime(key runtimeCacheKey) (*Runtime, bool) { return cs.runtimes.Get(key) }
+func (cs *CacheStore) PutRuntime(key runtimeCacheKey, rt *Runtime)     { cs.runtimes.Put(key, rt) }
+func (cs *CacheStore) ResetRuntime()                                   { cs.runtimes.Reset() }
+func (cs *CacheStore) RuntimeLen() int                                 { return cs.runtimes.Len() }
 
-func (cs *CacheStore) PutModule(key moduleCacheKey, mod *compiledModule) {
-	cs.module.mu.Lock()
-	defer cs.module.mu.Unlock()
-	if cs.cap > 0 && len(cs.module.items) >= cs.cap {
-		evictOne(cs.module.items)
-	}
-	cs.module.items[key] = mod
-}
+func (cs *CacheStore) GetModule(key moduleCacheKey) (*compiledModule, bool) { return cs.modules.Get(key) }
+func (cs *CacheStore) PutModule(key moduleCacheKey, mod *compiledModule)    { cs.modules.Put(key, mod) }
+func (cs *CacheStore) ResetModule()                                        { cs.modules.Reset() }
+func (cs *CacheStore) ModuleLen() int                                      { return cs.modules.Len() }
 
-func (cs *CacheStore) ResetModule() {
-	cs.module.mu.Lock()
-	defer cs.module.mu.Unlock()
-	cs.module.items = make(map[moduleCacheKey]*compiledModule)
-}
+// --- Backward-compatible public functions ---
 
-func (cs *CacheStore) ModuleLen() int {
-	cs.module.mu.RLock()
-	defer cs.module.mu.RUnlock()
-	return len(cs.module.items)
-}
-
-// evictOne removes one arbitrary entry from the map. Go's map iteration
-// order is non-deterministic, which provides a reasonable approximation
-// of random eviction without tracking insertion order or access times.
-func evictOne[K comparable, V any](m map[K]V) {
-	for k := range m {
-		delete(m, k)
-		return
-	}
-}
-
-// --- Backward-compatible public functions (delegate to defaultCacheStore) ---
-
-// ResetRuntimeCache clears the global runtime cache. Intended for testing.
 func ResetRuntimeCache() { defaultCacheStore.ResetRuntime() }
-
-// RuntimeCacheLen returns the number of entries in the global runtime cache.
 func RuntimeCacheLen() int { return defaultCacheStore.RuntimeLen() }
-
-// ResetModuleCache clears the global module cache. Intended for testing.
 func ResetModuleCache() { defaultCacheStore.ResetModule() }
-
-// ModuleCacheLen returns the number of entries in the global module cache.
 func ModuleCacheLen() int { return defaultCacheStore.ModuleLen() }
 
 // --- Cache key computation ---
@@ -140,14 +60,14 @@ func ModuleCacheLen() int { return defaultCacheStore.ModuleLen() }
 func (pc *pipelineCtx) computeRuntimeCacheKey(source string) runtimeCacheKey {
 	return runtimeCacheKey{
 		sourceHash:         sha256.Sum256([]byte(source)),
-		runtimeFingerprint: pc.engine.runtimeFingerprint(),
+		runtimeFingerprint: pc.runtimeFp,
 	}
 }
 
 func (pc *pipelineCtx) computeModuleCacheKey(source string) moduleCacheKey {
 	return moduleCacheKey{
 		sourceHash:     sha256.Sum256([]byte(source)),
-		envFingerprint: pc.engine.moduleEnvFingerprint(),
+		envFingerprint: pc.modEnvFp,
 	}
 }
 

@@ -324,11 +324,14 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		ep = DefaultEntryPoint
 	}
 	return &pipelineCtx{
-		engine:          e,
 		ctx:             ctx,
 		host:            &e.host,
 		store:           &e.store,
 		limits:          &e.limits,
+		cacheStore:      e.cacheStore,
+		modEnvFp:        e.moduleEnvFingerprint(),
+		runtimeFp:       e.runtimeFingerprint(),
+		warnFunc:        e.warnFunc,
 		traceHook:       e.checkTraceHook,
 		entryPoint:      ep,
 		denyAssumptions: e.denyAssumptions,
