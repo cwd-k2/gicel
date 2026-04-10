@@ -4,6 +4,13 @@ import "github.com/cwd-k2/gicel/internal/lang/ir"
 
 // List fusion rules — IR-level rewrite rules for list primitive composition.
 // Separated from list.go (runtime primitives) to isolate IR dependency.
+//
+// DESIGN NOTE: Fusion rules live in host/stdlib (not compiler/optimize)
+// because each pack owns its own algebraic laws. The tradeoff is that
+// stdlib imports lang/ir for Core pattern matching, creating a cross-
+// layer dependency. This is acknowledged and intentional — the
+// alternative (optimizer importing domain-specific pack knowledge)
+// would be worse for modularity. See registry.RewriteRule.
 
 // Primitive names for list operations used in registration and fusion rules.
 const (

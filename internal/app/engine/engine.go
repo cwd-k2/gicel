@@ -2,9 +2,19 @@
 //
 // Files are grouped by responsibility:
 //
-//   - Orchestration: engine.go, pipeline.go, modstore.go
-//   - Execution:     runtime.go, sandbox.go, limits.go
-//   - Host bridge:   hostenv.go, convert.go, typehelpers.go, errors.go
+//   - Orchestration:  engine.go, pipeline.go, modstore.go
+//   - Execution:      runtime.go, runtime_compile.go, sandbox.go, limits.go
+//   - Host bridge:    host_env.go, convert.go, type_helpers.go, errors.go
+//   - LSP adaptation: analysis.go, hoverindex.go, hover_adapter.go
+//   - Caching:        runtimecache.go
+//
+// This package is intentionally a composition root: it pulls together
+// compiler, runtime, host, and LSP concerns into a single orchestration
+// layer. The responsibility concentration is a known trade-off — the
+// alternative (multiple orchestration packages) would fragment the
+// pipeline without reducing coupling. Decomposition is warranted only
+// when a new consumer (e.g., a batch compiler) needs a different
+// pipeline shape.
 package engine
 
 import (
