@@ -381,3 +381,99 @@ func TestServer_HoverOnImport(t *testing.T) {
 		t.Fatalf("expected hover to contain 'import Prelude', got %q", hover)
 	}
 }
+
+func TestServer_HoverOnTypeAlias(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	source := "import Prelude\ntype Pair := \\a b. { fst: a; snd: b }\nmain := { fst := 1; snd := 2 }"
+	// Hover on "Pair" (line 1, char 5).
+	hover := hoverAt(t, env, "file:///alias.gicel", source, 1, 5)
+	if hover == "" {
+		t.Fatal("hover on type alias returned null")
+	}
+	if !strings.Contains(hover, "type Pair") {
+		t.Fatalf("expected hover to contain 'type Pair', got %q", hover)
+	}
+}
+
+func TestServer_CompletionBasic(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///comp.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "import Prelude\nform Color := Red | Green | Blue\nf :: Int -> Int\nf := \\x. x + 1\nmain := f 42",
+		},
+	})
+	env.readNotification(t, 5*time.Second)
+
+	result := env.request(t, "textDocument/completion", protocol.CompletionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: "file:///comp.gicel"},
+		Position:     protocol.Position{Line: 4, Character: 8},
+	})
+
+	var list protocol.CompletionList
+	mustUnmarshal(t, result, &list)
+	if len(list.Items) == 0 {
+		t.Fatal("expected at least one completion item")
+	}
+
+	// Check that user bindings appear.
+	found := map[string]bool{}
+	for _, item := range list.Items {
+		found[item.Label] = true
+	}
+	for _, name := range []string{"f", "main", "Color", "Red", "Green", "Blue"} {
+		if !found[name] {
+			t.Errorf("expected completion item %q", name)
+		}
+	}
+}
+
+func TestServer_CompletionEmpty(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	// Open a document with errors — completion should still return empty list, not error.
+	env.sendNotification(t, "textDocument/didOpen", protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        "file:///empty.gicel",
+			LanguageID: "gicel",
+			Version:    1,
+			Text:       "main := (",
+		},
+	})
+	env.readNotification(t, 5*time.Second)
+
+	result := env.request(t, "textDocument/completion", protocol.CompletionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: "file:///empty.gicel"},
+		Position:     protocol.Position{Line: 0, Character: 9},
+	})
+
+	var list protocol.CompletionList
+	mustUnmarshal(t, result, &list)
+	// Should not error — empty or minimal list is fine.
+}
+
+func TestServer_HoverOnImpl(t *testing.T) {
+	env := newTestEnv(t)
+	env.request(t, "initialize", protocol.InitializeParams{})
+	env.sendNotification(t, "initialized", nil)
+
+	source := "import Prelude\nform MyEq := \\a. { myEq: a -> a -> Bool }\nimpl MyEq Int := { myEq := \\x y. x == y }\nmain := myEq 1 2"
+	// Hover on "impl" (line 2, char 0).
+	hover := hoverAt(t, env, "file:///impl.gicel", source, 2, 0)
+	if hover == "" {
+		t.Fatal("hover on impl returned null")
+	}
+	if !strings.Contains(hover, "impl") {
+		t.Fatalf("expected hover to contain 'impl', got %q", hover)
+	}
+}

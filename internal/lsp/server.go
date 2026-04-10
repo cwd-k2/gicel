@@ -11,6 +11,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
 )
@@ -145,6 +146,8 @@ func (s *Server) handleRequest(msg *jsonrpc.Message) {
 		s.handleShutdown(msg)
 	case "textDocument/hover":
 		s.handleHover(msg)
+	case "textDocument/completion":
+		s.handleCompletion(msg)
 	default:
 		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeMethodNotFound,
 			"method not found: "+msg.Method))
@@ -205,7 +208,8 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 				Change:    protocol.SyncFull,
 				Save:      &protocol.SaveOptions{IncludeText: true},
 			},
-			HoverProvider: true,
+			HoverProvider:      true,
+			CompletionProvider: &protocol.CompletionOptions{},
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    "gicel-lsp",
@@ -395,4 +399,60 @@ func (s *Server) handleHover(msg *jsonrpc.Message) {
 			Value: "```gicel\n" + hover + "\n```",
 		},
 	})
+}
+
+// ---- Completion ----
+
+func (s *Server) handleCompletion(msg *jsonrpc.Message) {
+	var params protocol.CompletionParams
+	if err := json.Unmarshal(msg.Params, &params); err != nil {
+		s.respond(jsonrpc.NewError(msg.ID, jsonrpc.CodeInvalidParams, err.Error()))
+		return
+	}
+
+	doc, ok := s.docs.get(params.TextDocument.URI)
+	if !ok || doc.Analysis == nil || doc.Analysis.Program == nil {
+		s.respondResult(msg.ID, protocol.CompletionList{})
+		return
+	}
+
+	items := buildCompletionItems(doc.Analysis)
+	s.respondResult(msg.ID, protocol.CompletionList{Items: items})
+}
+
+func buildCompletionItems(ar *engine.AnalysisResult) []protocol.CompletionItem {
+	prog := ar.Program
+	var items []protocol.CompletionItem
+
+	// Top-level bindings.
+	for _, b := range prog.Bindings {
+		if b.Generated.IsGenerated() {
+			continue
+		}
+		items = append(items, protocol.CompletionItem{
+			Label:  b.Name,
+			Kind:   protocol.CIKFunction,
+			Detail: types.Pretty(b.Type),
+		})
+	}
+
+	// Data type names and constructors.
+	for i := range prog.DataDecls {
+		dd := &prog.DataDecls[i]
+		items = append(items, protocol.CompletionItem{
+			Label:  dd.Name,
+			Kind:   protocol.CIKStruct,
+			Detail: types.PrettyTypeAsKind(engine.ComputeFormKind(dd)),
+		})
+		for j := range dd.Cons {
+			con := &dd.Cons[j]
+			items = append(items, protocol.CompletionItem{
+				Label:  con.Name,
+				Kind:   protocol.CIKConstructor,
+				Detail: types.Pretty(engine.BuildConType(dd, con)),
+			})
+		}
+	}
+
+	return items
 }

@@ -89,14 +89,15 @@ func TestHoverIndex_AllExamples(t *testing.T) {
 	}
 }
 
-// assertLowMetaRate checks that TyMeta entries are rare (< 5% of total).
-// Some metas may remain from the check function's expected-type recording
-// where the meta is solved after the expression is recorded.
+// assertLowMetaRate checks that TyMeta entries are rare.
+// Some orphaned metas remain from CBPV auto-coercion and complex
+// type-level computations where intermediate metas are never unified.
+// These represent genuinely ambiguous type positions and are harmless.
 func assertLowMetaRate(t *testing.T, ar *AnalysisResult) {
 	t.Helper()
 	total := ar.HoverIndex.Len()
 	metaCount := 0
-	for i := 0; i < total; i++ {
+	for i := range total {
 		e := &ar.HoverIndex.entries[i]
 		if e.ty != nil && containsMeta(e.ty) {
 			metaCount++
@@ -104,7 +105,6 @@ func assertLowMetaRate(t *testing.T, ar *AnalysisResult) {
 	}
 	if metaCount > 0 {
 		pct := float64(metaCount) / float64(total) * 100
-		t.Logf("TyMeta entries: %d/%d (%.1f%%)", metaCount, total, pct)
 		if pct > 15.0 {
 			t.Errorf("too many TyMeta entries: %d/%d (%.1f%% > 15%%)", metaCount, total, pct)
 		}

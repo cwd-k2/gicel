@@ -18,6 +18,7 @@ const (
 	HoverTypeAnn                      // :: type annotation
 	HoverConstructor                  // constructor
 	HoverImport                       // import declaration
+	HoverImpl                         // impl declaration
 )
 
 // HoverIndex records hover information for each expression and
@@ -164,6 +165,11 @@ func formatHover(e *hoverEntry) string {
 		return e.label + " :: " + types.Pretty(e.ty)
 	case HoverImport:
 		return "import " + e.label
+	case HoverImpl:
+		if e.ty != nil {
+			return "impl " + types.Pretty(e.ty)
+		}
+		return "impl " + e.label
 	}
 	if e.ty != nil {
 		return types.Pretty(e.ty)

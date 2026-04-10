@@ -15,9 +15,12 @@ import (
 // recordType calls the TypeRecorder callback if configured.
 // Used via defer with a pointer to the named return value so that
 // the final type is captured regardless of which return path is taken.
+// Records the raw type without zonking — the PostGeneralize and
+// PostCheckHook re-zonk passes resolve metavariables later, when
+// all unifications and generalizations have completed.
 func (ch *Checker) recordType(sp span.Span, ty *types.Type) {
 	if ch.config.TypeRecorder != nil && *ty != nil {
-		ch.config.TypeRecorder(sp, ch.unifier.Zonk(*ty))
+		ch.config.TypeRecorder(sp, *ty)
 	}
 }
 
@@ -253,10 +256,11 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	defer ch.budget.Unnest()
 
 	expected = ch.unifier.Zonk(expected)
-	// Record the checked type for IDE hover. The expected type (post-zonk)
-	// is the type this expression is used at.
+	// Record the checked type for IDE hover. The raw expected type is
+	// recorded without extra zonking — PostGeneralize and PostCheckHook
+	// re-zonk all entries after unifications complete.
 	if ch.config.TypeRecorder != nil {
-		defer ch.config.TypeRecorder(expr.Span(), ch.unifier.Zonk(expected))
+		defer ch.config.TypeRecorder(expr.Span(), expected)
 	}
 
 	// Reduce type family applications in the expected type so that checking

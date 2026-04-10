@@ -128,6 +128,18 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 	// Inject associated type definitions and data family definitions.
 	ch.injectAssocTypes(bodyParts.TypeDefs, syntaxTypeArgs, className, impl.S)
 
+	if ch.config.DeclRecorder != nil {
+		// Build the impl type: ClassName TypeArg1 TypeArg2 ...
+		var implTy types.Type = &types.TyCon{Name: className}
+		for _, arg := range typeArgs {
+			implTy = &types.TyApp{Fun: implTy, Arg: arg}
+		}
+		label := className
+		if impl.Name != "" {
+			label = impl.Name
+		}
+		ch.config.DeclRecorder(impl.S, "impl", label, implTy)
+	}
 	ch.reg.RegisterInstance(inst)
 	return inst, bodyParts.Methods
 }

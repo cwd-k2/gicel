@@ -216,6 +216,14 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 		cfg.PostCheckHook = func(zonk func(types.Type) types.Type) {
 			idx.RezonkAll(zonk)
 		}
+		cfg.DeclRecorder = func(sp span.Span, declType, name string, ty types.Type) {
+			switch declType {
+			case "alias":
+				idx.RecordDecl(sp, HoverTypeAlias, name, ty)
+			case "impl":
+				idx.RecordDecl(sp, HoverImpl, name, ty)
+			}
+		}
 	}
 
 	prog, checkErrs := check.Check(ast, src, cfg)
@@ -416,9 +424,9 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 // populateHoverDecls records declaration-level hover entries from the
 // checked program and the original AST.
 func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Program) {
-	// Binding definitions.
+	// Binding definitions (skip compiler-generated dict bindings etc.).
 	for _, b := range prog.Bindings {
-		if b.Type != nil && b.S != (span.Span{}) {
+		if b.Type != nil && b.S != (span.Span{}) && !b.Generated.IsGenerated() {
 			idx.RecordDecl(b.S, HoverBinding, b.Name, b.Type)
 		}
 	}
@@ -427,12 +435,12 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
 		if dd.S != (span.Span{}) {
-			idx.RecordDecl(dd.S, HoverForm, dd.Name, computeFormKind(dd))
+			idx.RecordDecl(dd.S, HoverForm, dd.Name, ComputeFormKind(dd))
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
 			if con.S != (span.Span{}) {
-				idx.RecordDecl(con.S, HoverConstructor, con.Name, buildConType(dd, con))
+				idx.RecordDecl(con.S, HoverConstructor, con.Name, BuildConType(dd, con))
 			}
 		}
 	}
@@ -464,9 +472,9 @@ func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Progra
 	}
 }
 
-// computeFormKind builds the kind of a data declaration from its type
+// ComputeFormKind builds the kind of a data declaration from its type
 // parameters. E.g., Maybe with [a :: Type] → Type -> Type.
-func computeFormKind(dd *ir.DataDecl) types.Type {
+func ComputeFormKind(dd *ir.DataDecl) types.Type {
 	var kind types.Type = types.TypeOfTypes
 	for i := len(dd.TyParams) - 1; i >= 0; i-- {
 		kind = types.MkArrow(dd.TyParams[i].Kind, kind)
@@ -474,9 +482,9 @@ func computeFormKind(dd *ir.DataDecl) types.Type {
 	return kind
 }
 
-// buildConType builds the full type of a constructor.
+// BuildConType builds the full type of a constructor.
 // E.g., Just in Maybe: forall a. a -> Maybe a.
-func buildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
+func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
 	// Build the return type: Name a1 a2 ... an
 	var ret types.Type = &types.TyCon{Name: dd.Name}
 	for _, p := range dd.TyParams {

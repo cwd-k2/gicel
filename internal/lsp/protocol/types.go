@@ -67,9 +67,10 @@ type InitializeResult struct {
 
 // ServerCapabilities declares what the server supports.
 type ServerCapabilities struct {
-	PositionEncoding string                   `json:"positionEncoding,omitempty"`
-	TextDocumentSync *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
-	HoverProvider    bool                     `json:"hoverProvider,omitempty"`
+	PositionEncoding   string                   `json:"positionEncoding,omitempty"`
+	TextDocumentSync   *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
+	HoverProvider      bool                     `json:"hoverProvider,omitempty"`
+	CompletionProvider *CompletionOptions       `json:"completionProvider,omitempty"`
 }
 
 // TextDocumentSyncOptions configures document synchronization.
@@ -177,3 +178,43 @@ const (
 	PlainText MarkupKind = "plaintext"
 	Markdown  MarkupKind = "markdown"
 )
+
+// ---- Completion ----
+
+// CompletionParams is sent for textDocument/completion requests.
+type CompletionParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Position     Position               `json:"position"`
+}
+
+// CompletionList is the result of a textDocument/completion request.
+type CompletionList struct {
+	IsIncomplete bool             `json:"isIncomplete"`
+	Items        []CompletionItem `json:"items"`
+}
+
+// CompletionItem represents a single completion suggestion.
+type CompletionItem struct {
+	Label    string             `json:"label"`
+	Kind     CompletionItemKind `json:"kind,omitempty"`
+	Detail   string             `json:"detail,omitempty"`
+	SortText string             `json:"sortText,omitempty"`
+}
+
+// CompletionItemKind classifies completion items.
+type CompletionItemKind int
+
+const (
+	CIKFunction    CompletionItemKind = 3
+	CIKConstructor CompletionItemKind = 4
+	CIKVariable    CompletionItemKind = 6
+	CIKClass       CompletionItemKind = 7
+	CIKModule      CompletionItemKind = 9
+	CIKKeyword     CompletionItemKind = 14
+	CIKStruct      CompletionItemKind = 22 // used for form/type
+)
+
+// CompletionOptions configures the completion provider.
+type CompletionOptions struct {
+	TriggerCharacters []string `json:"triggerCharacters,omitempty"`
+}
