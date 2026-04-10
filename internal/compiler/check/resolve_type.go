@@ -126,7 +126,13 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// Embedded in TyEvidence as an EqualityEntry variant. No evidence
 		// dictionary is generated; the CtEq is emitted when the constraint
 		// is instantiated (forall variables → metas).
-		if eq, ok := t.Constraint.(*syntax.TyExprEq); ok {
+		// Unwrap parentheses so that (a ~ Int) => is handled identically
+		// to bare a ~ Int =>.
+		rawConstraint := t.Constraint
+		if p, ok := rawConstraint.(*syntax.TyExprParen); ok {
+			rawConstraint = p.Inner
+		}
+		if eq, ok := rawConstraint.(*syntax.TyExprEq); ok {
 			body := r.resolveTypeExpr(t.Body)
 			lhs := r.resolveTypeExpr(eq.Lhs)
 			rhs := r.resolveTypeExpr(eq.Rhs)
