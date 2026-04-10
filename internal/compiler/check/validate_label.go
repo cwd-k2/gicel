@@ -74,7 +74,7 @@ func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLam
 		n.TyArg = ch.unifier.Zonk(n.TyArg)
 		if labelLamDepth == 0 {
 			if meta, ok := n.TyArg.(*types.TyMeta); ok {
-				if types.Equal(meta.Kind, types.TypeOfLabels) && typeContainsMeta(bindingType, meta.ID) {
+				if types.Equal(ch.unifier.Zonk(meta.Kind), types.TypeOfLabels) && typeContainsMeta(bindingType, meta.ID) {
 					ch.addDiag(diagnostic.ErrMissingLabel, n.S,
 						diagMsg("named capability requires explicit @#label argument"))
 				}

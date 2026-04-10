@@ -312,7 +312,11 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 		}
 		return nil
 	case *types.TyMeta:
-		return t.Kind
+		// Zonk the Kind to resolve stale TyVar references left by PeelForalls.
+		// Defense-in-depth: PeelForalls applies accumulated substitutions to
+		// Kind before visiting, but Zonk ensures correctness if a meta's Kind
+		// was set before outer binders were solved.
+		return r.unifier.Zonk(t.Kind)
 	case *types.TySkolem:
 		return t.Kind
 	case *types.TyEvidenceRow:

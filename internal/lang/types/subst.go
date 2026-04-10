@@ -336,7 +336,26 @@ func PeelForalls(t Type, visit func(f *TyForall) (typeRepl Type, levelRepl Level
 		if !ok {
 			break
 		}
-		repl, lvl := visit(f)
+		// For K>=2 binders, apply accumulated substitutions to f.Kind
+		// before calling the visitor. Without this, the visitor receives
+		// stale TyVar references in the Kind field (e.g., TyVar{k} instead
+		// of the meta that replaced k in the first iteration).
+		visited := f
+		if hasFirst {
+			var adjustedKind Type
+			if typeSubs != nil {
+				adjustedKind = SubstMany(f.Kind, typeSubs, levelSubs)
+			} else {
+				adjustedKind = Subst(f.Kind, firstVar, firstRepl)
+				if firstLevel != nil {
+					adjustedKind = SubstLevel(adjustedKind, firstVar, firstLevel)
+				}
+			}
+			if adjustedKind != f.Kind {
+				visited = &TyForall{Var: f.Var, Kind: adjustedKind, Body: f.Body}
+			}
+		}
+		repl, lvl := visit(visited)
 		if !hasFirst {
 			firstVar = f.Var
 			firstRepl = repl
