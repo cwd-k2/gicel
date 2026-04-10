@@ -54,8 +54,11 @@
 //	  bidir_lookup.go          variable lookup and module qualification
 //	  bidir_ql.go             Quick Look impredicative inference
 //	  bidir_suggest.go        "did you mean" suggestion hints
-//	  elaborate_do.go         do-block elaboration (three modes)
-//	  elaborate_do_monadic.go  GIMonad-specific do elaboration
+//	  elaborate_do.go         do-block elaboration (doStrategy interface,
+//	                          doInfer, doChecked)
+//	  elaborate_do_monadic.go GIMonad-specific do elaboration (doGraded)
+//	  elaborate_block.go      block-expression and pure-bind elaboration
+//	                          (localLetGen, inferBlock)
 //	  elaborate_record.go     record literal / projection / update
 //	  pattern.go              pattern checking and binding extraction
 //
@@ -68,7 +71,9 @@
 //	  grade.go                grade algebra checking
 //	  validate_label.go       label validity for rows and records
 //
-//	Solver bridges
+//	Diagnostics / bridges
+//	  diag.go                 structured diagnostic types and unify
+//	                          error mapping
 //	  solve_bridge.go         wraps solve.Solver with checker state
 //	                          (constraint entry/emit)
 //	  builtin.go              built-in identifiers (fix, rec, pure,

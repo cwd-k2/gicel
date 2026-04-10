@@ -25,6 +25,8 @@
 //     (populated from Module and Name via varKey).
 //   - Var.Index is -1 for global references (resolved through Key) and
 //     >= 0 for local references (de Bruijn index, 0 = innermost).
+//   - Clone resets Var.Index to -1 for all cloned Vars. The caller
+//     must run AssignIndices on the cloned subtree after insertion.
 //   - FVInfo.Overflow == true signals the FV computation was truncated
 //     by the traversal depth limit. In that case Vars and Indices are
 //     not meaningful and the evaluator must capture the entire
@@ -55,4 +57,8 @@
 // Transforms run BEFORE AnnotateFreeVars in the pipeline, so they do
 // not need to propagate FV annotations — the post-transform annotate
 // pass regenerates them over the rewritten tree.
+//
+// App and Bind chains are handled iteratively (transformLeftSpine,
+// transformBindChain) to prevent stack overflow on deeply nested
+// operator chains or do-block sequences that exceed maxTraversalDepth.
 package ir
