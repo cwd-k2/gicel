@@ -220,7 +220,9 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 				Save:      &protocol.SaveOptions{IncludeText: true},
 			},
 			HoverProvider:          true,
-			CompletionProvider:     &protocol.CompletionOptions{},
+			CompletionProvider: &protocol.CompletionOptions{
+				TriggerCharacters: []string{"."},
+			},
 			DocumentSymbolProvider: true,
 			DefinitionProvider:     true,
 		},
@@ -442,8 +444,21 @@ func (s *Server) handleCompletion(msg *jsonrpc.Message) {
 		return
 	}
 
-	items := make([]protocol.CompletionItem, len(doc.Analysis.CompletionEntries))
-	for i, e := range doc.Analysis.CompletionEntries {
+	// Detect qualified prefix: extract "Module" from "Module." before cursor.
+	var qualPrefix string
+	if doc.Analysis.Source != nil {
+		offset := posToOffset(doc.Analysis.Source, params.Position)
+		qualPrefix = extractQualifiedPrefix(doc.Text, int(offset))
+	}
+
+	var items []protocol.CompletionItem
+	for _, e := range doc.Analysis.CompletionEntries {
+		// When a qualified prefix is active, show only entries from that module.
+		if qualPrefix != "" {
+			if e.Module != qualPrefix {
+				continue
+			}
+		}
 		item := protocol.CompletionItem{
 			Label:  e.Label,
 			Kind:   protocol.CompletionItemKind(e.Kind),
@@ -455,9 +470,40 @@ func (s *Server) handleCompletion(msg *jsonrpc.Message) {
 				Value: e.Documentation,
 			}
 		}
-		items[i] = item
+		items = append(items, item)
 	}
 	s.respondResult(msg.ID, protocol.CompletionList{Items: items})
+}
+
+// extractQualifiedPrefix returns the module name if the cursor is immediately
+// after "Module." (an uppercase identifier followed by a dot). Returns "" if
+// no qualified prefix is detected. offset is the byte position of the cursor.
+func extractQualifiedPrefix(text string, offset int) string {
+	if offset <= 0 || offset > len(text) {
+		return ""
+	}
+	// Cursor is right after the dot (trigger character).
+	if text[offset-1] != '.' {
+		return ""
+	}
+	// Walk backwards from the dot to find the module name.
+	end := offset - 1
+	start := end
+	for start > 0 && (text[start-1] >= 'a' && text[start-1] <= 'z' ||
+		text[start-1] >= 'A' && text[start-1] <= 'Z' ||
+		text[start-1] >= '0' && text[start-1] <= '9' ||
+		text[start-1] == '_') {
+		start--
+	}
+	if start >= end {
+		return ""
+	}
+	name := text[start:end]
+	// Module names start with an uppercase letter.
+	if name[0] < 'A' || name[0] > 'Z' {
+		return ""
+	}
+	return name
 }
 
 // ---- Document Symbols ----

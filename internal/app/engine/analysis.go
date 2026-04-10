@@ -24,6 +24,7 @@ type CompletionEntry struct {
 	Detail        string // short classification (e.g., "function", "constructor")
 	Documentation string // rich type signature as markdown code block
 	Kind          CompletionKind
+	Module        string // source module (non-empty for imported bindings)
 }
 
 // SymbolKind classifies document symbols (mirrors LSP SymbolKind).
@@ -97,8 +98,9 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 
 	for name, ty := range ar.ImportedBindings {
 		sig := types.PrettyDisplay(ty)
+		mod := ar.ImportedModules[name]
 		qualName := name
-		if mod := ar.ImportedModules[name]; mod != "" {
+		if mod != "" {
 			qualName = mod + "." + name
 		}
 		items = append(items, CompletionEntry{
@@ -106,6 +108,7 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 			Kind:          CompletionVariable,
 			Detail:        sig,
 			Documentation: completionDoc(qualName, sig),
+			Module:        mod,
 		})
 	}
 
