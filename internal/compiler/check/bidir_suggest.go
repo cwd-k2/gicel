@@ -66,7 +66,7 @@ var importHints = map[string]string{
 	"get": "Effect.State", "put": "Effect.State", "modify": "Effect.State",
 	"evalState": "Effect.State", "runState": "Effect.State", "execState": "Effect.State",
 	"failWith": "Effect.Fail", "try": "Effect.Fail",
-	"log": "Effect.IO",
+	"log":     "Effect.IO",
 	"putLine": "Console",
 }
 

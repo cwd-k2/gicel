@@ -134,7 +134,6 @@ func (ch *Checker) kindOfType(ty types.Type) types.Type {
 	return ch.typeResolver().kindOfType(ty)
 }
 
-
 func (ch *Checker) hasDeterministicKind(ty types.Type) bool {
 	return ch.typeResolver().hasDeterministicKind(ty)
 }

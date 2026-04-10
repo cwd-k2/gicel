@@ -17,7 +17,7 @@ import (
 // testRecorder is a minimal HoverRecorder for testing.
 type testRecorder struct{ typeCount int }
 
-func (r *testRecorder) RecordType(_ span.Span, _ types.Type) { r.typeCount++ }
+func (r *testRecorder) RecordType(_ span.Span, _ types.Type)                  { r.typeCount++ }
 func (r *testRecorder) RecordOperator(_ span.Span, _, _ string, _ types.Type) {}
 func (r *testRecorder) RecordVarDoc(_ span.Span, _, _ string)                 {}
 func (r *testRecorder) RecordDecl(_ span.Span, _, _ string, _ types.Type)     {}

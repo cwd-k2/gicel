@@ -219,7 +219,7 @@ func (s *Server) handleInitialize(msg *jsonrpc.Message) {
 				Change:    protocol.SyncFull,
 				Save:      &protocol.SaveOptions{IncludeText: true},
 			},
-			HoverProvider:          true,
+			HoverProvider: true,
 			CompletionProvider: &protocol.CompletionOptions{
 				TriggerCharacters: []string{"."},
 			},

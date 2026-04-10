@@ -303,4 +303,3 @@ func TestEvidenceRowConstraintEntriesEqualOrderIndependent(t *testing.T) {
 		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")
 	}
 }
-
