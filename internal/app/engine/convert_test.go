@@ -149,8 +149,8 @@ func TestRecordTypeHelper(t *testing.T) {
 func TestTupleTypeHelper(t *testing.T) {
 	tt := TupleType(ConType("Int"), ConType("Bool"))
 	got := TypePretty(tt)
-	if !strings.Contains(got, "Record") || !strings.Contains(got, "_1") {
-		t.Errorf("expected Record{_1, _2} type, got %s", got)
+	if got != "(Int, Bool)" {
+		t.Errorf("expected (Int, Bool), got %s", got)
 	}
 }
 

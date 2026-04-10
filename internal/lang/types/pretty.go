@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,9 @@ func Pretty(t Type) string {
 		}
 		return ty.Name
 	case *TyApp:
+		if s, ok := prettyTuple(ty, Pretty); ok {
+			return s
+		}
 		return Pretty(ty.Fun) + " " + prettyAtom(ty.Arg)
 	case *TyArrow:
 		from := Pretty(ty.From)
@@ -62,9 +66,14 @@ func PrettyAtom(t Type) string {
 }
 
 func prettyAtom(t Type) string {
-	switch t.(type) {
+	switch ty := t.(type) {
 	case *TyVar, *TyCon, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
 		return Pretty(t)
+	case *TyApp:
+		if s, ok := prettyTuple(ty, Pretty); ok {
+			return s
+		}
+		return "(" + Pretty(t) + ")"
 	default:
 		return "(" + Pretty(t) + ")"
 	}
@@ -82,6 +91,47 @@ func collectForalls(t *TyForall) ([]string, Type) {
 		}
 	}
 	return vars, body
+}
+
+// prettyTuple checks if the type is a closed Record row with tuple-shaped labels
+// and renders it with tuple sugar:
+//
+//	Record {}                         → ()
+//	Record { _1: T1, _2: T2, ... }   → (T1, T2, ...)
+//
+// Open rows (tail != nil) are not sugared — they represent row-polymorphic
+// record access, not tuple operations.
+func prettyTuple(app *TyApp, render func(Type) string) (string, bool) {
+	con, ok := app.Fun.(*TyCon)
+	if !ok || con.Name != TyConRecord {
+		return "", false
+	}
+	row, ok := app.Arg.(*TyEvidenceRow)
+	if !ok || row.Tail != nil {
+		return "", false
+	}
+	caps, ok := row.Entries.(*CapabilityEntries)
+	if !ok {
+		return "", false
+	}
+	// 0 fields = unit ()
+	if len(caps.Fields) == 0 {
+		return "()", true
+	}
+	// All fields must be _1, _2, ... in order, with at least 2.
+	if len(caps.Fields) < 2 {
+		return "", false
+	}
+	for i, f := range caps.Fields {
+		if f.Label != "_"+strconv.Itoa(i+1) {
+			return "", false
+		}
+	}
+	parts := make([]string, len(caps.Fields))
+	for i, f := range caps.Fields {
+		parts[i] = render(f.Type)
+	}
+	return "(" + strings.Join(parts, ", ") + ")", true
 }
 
 func prettyCapFields(fields []RowField, tail Type) string {
@@ -207,6 +257,9 @@ func PrettyDisplay(t Type) string {
 		}
 		return from + " -> " + PrettyDisplay(ty.To)
 	case *TyApp:
+		if s, ok := prettyTuple(ty, PrettyDisplay); ok {
+			return s
+		}
 		return PrettyDisplay(ty.Fun) + " " + prettyDisplayAtom(ty.Arg)
 	case *TyForall:
 		vars, body := collectForalls(ty)
@@ -219,9 +272,14 @@ func PrettyDisplay(t Type) string {
 }
 
 func prettyDisplayAtom(t Type) string {
-	switch t.(type) {
+	switch ty := t.(type) {
 	case *TyVar, *TyCon, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
 		return PrettyDisplay(t)
+	case *TyApp:
+		if s, ok := prettyTuple(ty, PrettyDisplay); ok {
+			return s
+		}
+		return "(" + PrettyDisplay(t) + ")"
 	default:
 		return "(" + PrettyDisplay(t) + ")"
 	}
