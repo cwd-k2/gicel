@@ -30,12 +30,12 @@ func newHostEnv() HostEnv {
 	h.registeredTys["String"] = types.TypeOfTypes
 	h.registeredTys["Rune"] = types.TypeOfTypes
 	h.registeredTys["Byte"] = types.TypeOfTypes
-	h.registeredTys["Slice"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
-	h.registeredTys["Array"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
-	h.registeredTys["Map"] = &types.TyArrow{From: types.TypeOfTypes, To: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}}
-	h.registeredTys["Set"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
-	h.registeredTys["MMap"] = &types.TyArrow{From: types.TypeOfTypes, To: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}}
-	h.registeredTys["MSet"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
-	h.registeredTys["Ref"] = &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
+	h.registeredTys["Slice"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Array"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Map"] = types.MkArrow(types.TypeOfTypes, types.MkArrow(types.TypeOfTypes, types.TypeOfTypes))
+	h.registeredTys["Set"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["MMap"] = types.MkArrow(types.TypeOfTypes, types.MkArrow(types.TypeOfTypes, types.TypeOfTypes))
+	h.registeredTys["MSet"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Ref"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
 	return h
 }

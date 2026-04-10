@@ -3,6 +3,7 @@ package stdlib
 import (
 	"context"
 
+	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -19,17 +20,23 @@ var IO Pack = func(e Registrar) error {
 
 var ioSource = mustReadSource("io")
 
-func logImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func logImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asString(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costPerByte+costSlotSize); err != nil {
 		return nil, ce, err
 	}
 	newCe := appendIO(ce, s)
 	return unitVal, newCe, nil
 }
 
-func dbgImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func dbgImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s := eval.PrettyValue(args[0])
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costPerByte+costSlotSize); err != nil {
+		return nil, ce, err
+	}
 	newCe := appendIO(ce, s)
 	return unitVal, newCe, nil
 }

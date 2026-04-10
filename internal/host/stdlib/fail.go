@@ -37,6 +37,9 @@ func tryImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Ap
 // FailLabel matches the handler's label. Non-matching labeled errors and
 // anonymous errors propagate unchanged.
 func tryAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	if err := validateLabelArg(args); err != nil {
+		return nil, ce, err
+	}
 	label := args[0].(*eval.HostVal).Inner.(string)
 	val, newCe, err := driveEffectful(args[1], ce, apply)
 	if err != nil {

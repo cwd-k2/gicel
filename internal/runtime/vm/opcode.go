@@ -5,7 +5,10 @@
 // structural nesting limit imposed by Go's call stack.
 package vm
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 // Opcode identifies a single bytecode instruction.
 type Opcode uint8
@@ -232,7 +235,7 @@ func InstructionSize(op Opcode) int {
 		return 1 // opcode only
 
 	default:
-		return 1
+		panic(fmt.Sprintf("InstructionSize: unhandled opcode %d (%s)", op, op))
 	}
 }
 
