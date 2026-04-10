@@ -1,37 +1,87 @@
 # Changelog
 
-## Unreleased
+## v0.28.0 — 2026-04-10
+
+This release adds **session types**, **named capability handlers**, CBPV **implicit coercion**, a full **optimizer pipeline** with fusion, and a comprehensive **structural overhaul** of the codebase. The LSP gains 5 new features (doc comments, document symbols, go-to-definition, completion for imports, operator hover). 62 commits since v0.27.0.
+
+### Language Features
+
+- **Session types** via `Effect.Session` — `runSessionAt`/`closeAt` with indexed-monad encoding of Honda-Vasconcelos-Kubo session protocols.
+- **Named capability handlers** — `runStateAt`, `evalStateAt`, `execStateAt`, `tryAt` for label-scoped effect handling.
+- **CBPV implicit coercion** — automatic `Thunk`/`Force` insertion at Computation ↔ Value boundaries via the CBPV adjunction. Non-entry `Computation`-typed top-level bindings are auto-thunked. `$` is transparent forward application. Transparent Prelude wrappers (`fix`, `force`) inline at compile time.
+- **`zipWithIndex`** added to Prelude.
+- **Map/Set operations** — `adjust`, `union`, `intersection`, `difference` for `Data.Map`; `setFoldr` for `Data.Set`. JSON instances for Map and Set.
+
+### Optimizer
+
+- **Dictionary specialization** — evidence binding inlining and `Case`-of-known-dictionary resolution.
+- **TyApp beta reduction** — type-level beta redexes (`TyApp (TyLam @a body) ty`) now reduce, enabling evidence specialization.
+- **PrimOp absorption** — `App`-applied arguments are collected into `PrimOp.Args` for fusion rule matching.
+- **List fusion** — consumer×transformer fusion rules with `_listFilter` prim.
+- **Saturated self-call specialization** in `fix` bodies.
+
+### Language Server
+
+- **Doc comments** — `--` comments preceding declarations appear in hover.
+- **Document symbols** — outline view with data types, constructors, type aliases, impl declarations.
+- **Go-to-definition** — jump to binding, constructor, data type, and type alias declarations.
+- **Completion** — includes imported bindings, GADT constructors, type families, operators.
+- **Hover fixes** — TySkolem displayed as plain type variable; type alias and impl hover.
+- **Version-aware diagnostics** with per-URI cancellation.
+- **Architectural decoupling** — LSP server no longer imports `lang/types` or `lang/syntax`; all type formatting and AST traversal pre-computed by the engine in `AnalysisResult`.
+
+### Bug Fixes
+
+- Fail effects are now label-scoped (H13 soundness fix).
+- `ForceEffectful` added to `Applier` for named handler do-block driving.
+- Kind mismatch now reported (instead of type mismatch) for TyVar.
+- `QuantifiedConstraint` shadowing/capture avoidance in `SubstMany`.
+- Derived class errors suppressed after structural equality failure.
+- Skolem disambiguation and narrowed overlap error spans.
+- Universe sort names recognized in explicit type applications.
+- Post-state threading skipped on failed do-binding decomposition.
+- Malformed numeric and multi-char rune literal diagnostics improved.
+- CLI exits 0 on no-args (usage display is valid state).
 
 ### Structural Refactoring
 
-Systematic audit and decomposition pass across IR, checker, optimizer, and runtime. Driven by four-agent codebase audit (2026-04-10) that identified 27 items; 26 resolved, 1 deferred.
+Comprehensive codebase overhaul driven by 27-item audit (2026-04-10).
 
-#### IR Layer
+#### File Splits (500-line rule enforcement)
 
-- **`Generated bool` → `GenKind` typed enum.** Six generation origins are now structurally distinguished: `UserWritten`, `GenDict`, `GenAutoForce`, `GenSection`, `GenDictExtract`, `GenAutoBind`. All consumers use `IsGenerated()` for binary checks; setter sites carry the specific origin.
-- **Iterative Bind chain handling.** `Transform` and `TransformMut` now handle right-leaning Bind chains (deep do-block sequences) iteratively via `transformBindChain`/`transformMutBindChain`, preventing silent skip on chains exceeding `maxTraversalDepth` (512).
-- **Clone resets `Var.Index` to -1.** Previously copied the stale de Bruijn index from the original tree. Callers must run `AssignIndices` after insertion, which was already the case for all call sites.
-- **Verify V2 uses structural pattern.** The `$lz` prefix check is removed; the invariant is now `Bind{Generated≠0, Comp: Force{Var{...}}}` — independent of naming conventions.
-- **`FVAnnotations.Lookup*` panic messages** now include span and parameter information for debugging.
+- `vm_apply.go` (1,184 → 4 files: `vm_apply.go`, `vm_apply_multi.go`, `vm_apply_prim.go`, `vm_apply_host.go`)
+- `subst.go` (997 → 3 files: `subst.go`, `subst_many.go`, `subst_constraint.go`)
+- `vm.go` (890 → `vm.go` + `vm_execute.go`)
+- `runtime.go` (559 → `runtime.go` + `runtime_compile.go`)
+- `bidir.go` (645 → `bidir.go` + `bidir_subscheck.go`)
+- `scanner.go` (625 → `scanner.go` + `scanner_literal.go`)
+- `optimize.go` (738 → `optimize.go` + `subst.go`)
 
-#### Checker
+#### Layer Boundary Fixes
 
-- **`doElaborator` decomposed into `doStrategy` interface + 3 types.** `doInfer`, `doChecked`, `doGraded` each carry only their own state. Eliminates 4 switch-on-mode dispatch sites. Shared loop extracted as `doElaborate` standalone function.
-- **`doInfer.lastPost` save/restore** replaced with `pushPost` scope guard, eliminating fragile manual mutation pattern.
-- **Block elaboration extracted** to `elaborate_block.go` (`localLetGen`, `elaboratePureBind`, `inferBlock`), separating block-expression concerns from do-block elaboration.
-- **`unifyErrorCode`/`addUnifyError`/`addSemanticUnifyError`** moved from `bidir.go` to `diag.go` (divergent change elimination).
-- **`joinGrades`** moved from `bidir_case.go` to `grade.go` (feature stray elimination; removes `diagnostic` import from `bidir_case.go`).
-- **`checkWithEvidence`** constraint-entry type dispatch extracted to `constraintDictInfo` helper, separating mapping logic from push/pop protocol.
-- **`refineMergeLabels`** moved from caller convention (`Check`/`CheckModule`) to `declPipeline.run` (structural guarantee).
+- IR builtin builders (`PureBody`, `BindBody`, `FixBody`, `RecBody`) moved from `runtime/eval` to `lang/ir` — eval no longer constructs Core IR.
+- Parser no longer imports `lang/types` — `TyConRecord` constant inlined.
+- LSP server no longer imports `lang/syntax` or `lang/types` — completion, symbols, definitions pre-computed in engine.
 
-#### Audit Debt
+#### Duplication Removal
 
-- **`ConstraintKey` docstring** corrected to reflect bucketing usage in `ClassifyConstraints`.
-- **`IsPrivateName`** documented as compiler-controlled injective encoding (not a heuristic).
-- **`compileFix` OpRaise** documented as legitimate — `fix(\self. Con ...)` type-checks via `(a → a) → a`.
-- **Inline candidate key space** documented as intentionally disjoint (bare name vs `\x00`-qualified).
-- **`ConVal` bare name** documented as safe via checker invariant (name uniqueness guarantee).
-- Audit items D-1 (TyVar module), A-1 (inline keys), 1.3 (Bind rename), F10/F13/F14/F4/F15 closed after investigation confirmed resolution or non-issue status.
+- `substTyVarInCore` improved with identity checks (avoids unnecessary allocation). Documented why `ir.Transform` cannot be used (Core-level TyLam shadowing requires pre-order skip).
+- `typeContainsMeta` → `types.AnyType` (short-circuit, no slice allocation).
+- `ContainsSkolemOrFamily` → `types.AnyType` (correctness fix: evidence children now traversed).
+- Test `containsMeta` → `types.AnyType` (was missing 5 type variants).
+- `freshName` namespace convention (`$`, `$r`, `_`) documented across 3 sites.
+- Duplicate doc comments in `unify.go` removed (5 sites).
+
+#### Other Refactoring
+
+- `desugar` pass separated from parser — surface AST lowering is now its own compilation stage.
+- `doElaborator` decomposed into `doStrategy` interface + 3 types.
+- Structured diagnostics — 98 inline message sites replaced with `diagMsg`/`diagFmt`.
+- Budget enforcement unified with amortized cross-cutting check.
+- `GenKind` typed enum replaces `Generated bool`.
+- Bind chain iterative handling in `Transform`/`TransformMut`.
+- Pipeline ← Engine back-pointer severed; generic cache extracted.
+- 37 test files updated with "Does NOT cover" scope documentation.
 
 ## v0.27.0 — 2026-04-08
 

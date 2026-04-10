@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.27.0** — [Changelog](CHANGELOG.md)
+**v0.28.0** — [Changelog](CHANGELOG.md)
 
 > **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions.
 
