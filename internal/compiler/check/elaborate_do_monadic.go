@@ -22,15 +22,15 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 
 	// Fast path: Computation types use Core.Bind with expected pre/post threading.
 	if comp, ok := expected.(*types.TyCBPV); ok && comp.Tag == types.TagComp {
-		d := &doElaborator{ch: ch, mode: doModeChecked, comp: comp}
-		_, result := d.elaborate(e.Stmts, e.S)
+		d := &doChecked{ch: ch, comp: comp}
+		_, result := doElaborate(ch, d, e.Stmts, e.S)
 		ch.checkGradeBoundary(comp, e.S)
 		return result
 	}
 	switch expected.(type) {
 	case *types.TyMeta, *types.TyError:
-		d := &doElaborator{ch: ch, mode: doModeInfer}
-		inferredTy, coreExpr := d.elaborate(e.Stmts, e.S)
+		d := &doInfer{ch: ch}
+		inferredTy, coreExpr := doElaborate(ch, d, e.Stmts, e.S)
 		return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 	}
 
@@ -39,8 +39,8 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	if monadHead != nil {
 		if _, _, ok := ch.resolveGIMonadDict(monadHead, e.S); ok {
 			head, _ := types.AppSpineHead(monadHead)
-			d := &doElaborator{ch: ch, mode: doModeGraded, monadHead: head, expected: expected}
-			_, result := d.elaborate(e.Stmts, e.S)
+			d := &doGraded{ch: ch, monadHead: head, expected: expected}
+			_, result := doElaborate(ch, d, e.Stmts, e.S)
 			return result
 		}
 		// Monad fallback: desugar to mbind/mpure for Type→Type monads.
@@ -56,8 +56,8 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 	}
 
 	// Fallback: try Computation inference.
-	d := &doElaborator{ch: ch, mode: doModeInfer}
-	inferredTy, coreExpr := d.elaborate(e.Stmts, e.S)
+	d := &doInfer{ch: ch}
+	inferredTy, coreExpr := doElaborate(ch, d, e.Stmts, e.S)
 	return ch.subsCheck(inferredTy, expected, coreExpr, e.S)
 }
 
@@ -291,10 +291,30 @@ func (ch *Checker) desugarDoToMonad(stmts []syntax.Stmt, s span.Span) syntax.Exp
 	return &syntax.ExprError{S: s}
 }
 
-// --- GIMonad (graded indexed monad) dispatch ---
+// --- doGraded: GIMonad class dispatch (grade-aware) ---
 
-// gradedBind handles x <- comp; rest in GIMonad mode.
-func (d *doElaborator) gradedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+type doGraded struct {
+	ch        *Checker
+	monadHead types.Type
+	expected  types.Type
+}
+
+func (d *doGraded) errPair(s span.Span) (types.Type, ir.Core) {
+	return d.expected, &ir.Error{S: s}
+}
+
+func (d *doGraded) elaborateBase(expr syntax.Expr, s span.Span) (types.Type, ir.Core) {
+	ch := d.ch
+	if pureVal := extractPureArg(expr); pureVal != nil {
+		if app, ok := d.expected.(*types.TyApp); ok {
+			valCore := ch.check(pureVal, app.Arg)
+			return d.expected, ch.mkGIPure(d.monadHead, valCore, s)
+		}
+	}
+	return d.expected, ch.check(expr, d.expected)
+}
+
+func (d *doGraded) elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 
 	var compCore ir.Core
@@ -311,13 +331,12 @@ func (d *doElaborator) gradedBind(varName string, comp syntax.Expr, rest []synta
 	}
 
 	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
-	_, restCore := d.elaborate(rest, doS)
+	_, restCore := doElaborate(ch, d, rest, doS)
 	ch.ctx.Pop()
 	return d.expected, ch.mkGIBind(d.monadHead, compCore, varName, restCore, stmtS)
 }
 
-// gradedExprStmt handles comp; rest (expression statement) in GIMonad mode.
-func (d *doElaborator) gradedExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+func (d *doGraded) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 
 	var compCore ir.Core
@@ -329,6 +348,6 @@ func (d *doElaborator) gradedExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 		compCore = cc
 	}
 
-	_, restCore := d.elaborate(rest, doS)
+	_, restCore := doElaborate(ch, d, rest, doS)
 	return d.expected, ch.mkGIBind(d.monadHead, compCore, "_", restCore, stmtS)
 }

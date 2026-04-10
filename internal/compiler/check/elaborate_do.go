@@ -10,162 +10,122 @@ import (
 )
 
 // Do elaboration files:
-//   elaborate_do.go          — doElaborator, shared helpers, unified elaboration loop
-//   elaborate_do_monadic.go  — checkDo dispatch, GIMonad helpers (extractMonadHead, mkGIBind, etc.)
-//   grade.go                 — grade boundary check (checkGradeBoundary)
+//   elaborate_do.go          — doStrategy interface, shared loop, doInfer, doChecked
+//   elaborate_do_monadic.go  — checkDo dispatch, doGraded, GIMonad helpers
 
-// --- doElaborator: unified do-block elaboration ---
+// --- doStrategy: polymorphic do-block elaboration ---
 
-// doMode selects which elaboration strategy a doElaborator uses.
-type doMode int
-
-const (
-	doModeInfer   doMode = iota // fresh metas for pre/post; returns inferred type
-	doModeChecked               // threads known pre/post from TyCBPV
-	doModeGraded                // GIMonad class dispatch via dictionary (grade-aware)
-)
-
-// doElaborator parameterizes the differences between the three do elaboration paths.
-// The statement dispatch loop (StmtBind/StmtPureBind/StmtExpr) is shared; mode-specific
-// behavior is confined to bind construction, type extraction, and base-case handling.
-type doElaborator struct {
-	ch   *Checker
-	mode doMode
-
-	// checked mode: threading state.
-	comp *types.TyCBPV
-
-	// monadic/graded mode: class dispatch parameters.
-	monadHead types.Type
-	expected  types.Type
-
-	// infer mode: post-state from the preceding statement.
-	// Used to pre-resolve comp pre-states before pattern matching,
-	// preventing pattern-bound variable metas from leaking into
-	// the state position (the "put a after pattern bind" bug).
-	lastPost types.Type
+// doStrategy defines the four operations that differ between infer, checked,
+// and graded do-block elaboration. The shared statement dispatch loop
+// (doElaborate) calls these methods; each concrete type carries only the
+// state relevant to its mode.
+type doStrategy interface {
+	errPair(s span.Span) (types.Type, ir.Core)
+	elaborateBase(expr syntax.Expr, s span.Span) (types.Type, ir.Core)
+	elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core)
+	elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core)
 }
 
-// errPair returns a mode-appropriate error pair.
-func (d *doElaborator) errPair(s span.Span) (types.Type, ir.Core) {
-	errCore := &ir.Error{S: s}
-	switch d.mode {
-	case doModeChecked:
-		return d.comp, errCore
-	case doModeGraded:
-		return d.expected, errCore
-	default:
-		return &types.TyError{S: s}, errCore
-	}
-}
-
-// elaborate processes a do-block statement sequence.
-// All three modes share the same structural loop; differences are in
-// base-case handling and bind construction.
-func (d *doElaborator) elaborate(stmts []syntax.Stmt, s span.Span) (types.Type, ir.Core) {
-	ch := d.ch
-
+// doElaborate processes a do-block statement sequence.
+// Shared across all modes; dispatches to strat for mode-specific behavior.
+func doElaborate(ch *Checker, strat doStrategy, stmts []syntax.Stmt, s span.Span) (types.Type, ir.Core) {
 	// Base case: single statement must be an expression.
 	if len(stmts) == 1 {
 		if ch.rejectDoEnding(stmts[0]) {
-			return d.errPair(stmts[0].Span())
+			return strat.errPair(stmts[0].Span())
 		}
 		st := stmts[0].(*syntax.StmtExpr)
-		return d.elaborateBase(st.Expr, st.S)
+		return strat.elaborateBase(st.Expr, st.S)
 	}
 
 	// Recursive case: dispatch on first statement.
 	switch st := stmts[0].(type) {
 	case *syntax.StmtBind:
 		if name, ok := syntax.PatVarName(st.Pat); ok {
-			return d.elaborateBind(name, st.Comp, stmts[1:], st.S, s)
+			return strat.elaborateBind(name, st.Comp, stmts[1:], st.S, s)
 		}
-		return d.elaboratePatternBind(st.Pat, st.Comp, stmts[1:], st.S, s)
+		return doPatternBind(ch, strat, st.Pat, st.Comp, stmts[1:], st.S, s)
 
 	case *syntax.StmtPureBind:
 		if _, ok := syntax.PatVarName(st.Pat); ok {
 			var restTy types.Type
 			c := ch.elaboratePureBind(st, func() ir.Core {
 				var rc ir.Core
-				restTy, rc = d.elaborate(stmts[1:], s)
+				restTy, rc = doElaborate(ch, strat, stmts[1:], s)
 				return rc
 			})
 			return restTy, c
 		}
-		return d.elaboratePatternPureBind(st.Pat, st.Expr, stmts[1:], st.S, s)
+		return doPatternPureBind(ch, strat, st.Pat, st.Expr, stmts[1:], st.S, s)
 
 	case *syntax.StmtExpr:
-		return d.elaborateExprStmt(st.Expr, stmts[1:], st.S, s)
+		return strat.elaborateExprStmt(st.Expr, stmts[1:], st.S, s)
 
 	default:
 		ch.addDiag(diagnostic.ErrBadComputation, s, diagMsg("unexpected statement in do block"))
-		return d.errPair(s)
+		return strat.errPair(s)
 	}
 }
 
-// elaborateBase handles the last expression in a do block.
-func (d *doElaborator) elaborateBase(expr syntax.Expr, s span.Span) (types.Type, ir.Core) {
-	ch := d.ch
-	switch d.mode {
-	case doModeInfer:
-		return ch.infer(expr)
-	case doModeChecked:
-		return d.comp, ch.check(expr, d.comp)
-	case doModeGraded:
-		// Intercept `pure val` / `gipure val` at the end of a graded do block.
-		if pureVal := extractPureArg(expr); pureVal != nil {
-			if app, ok := d.expected.(*types.TyApp); ok {
-				valCore := ch.check(pureVal, app.Arg)
-				return d.expected, ch.mkGIPure(d.monadHead, valCore, s)
-			}
-		}
-		return d.expected, ch.check(expr, d.expected)
+// doPatternBind handles pat <- comp; rest for irrefutable patterns.
+// Desugars to: $fresh <- comp; case $fresh { pat => rest }
+func doPatternBind(ch *Checker, strat doStrategy, pat syntax.Pattern, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	freshName := ch.freshName("$p")
+	freshPat := &syntax.PatVar{Name: freshName, S: pat.Span()}
+	freshBind := &syntax.StmtBind{Pat: freshPat, Comp: comp, S: stmtS}
+	caseStmt := &syntax.StmtExpr{
+		Expr: &syntax.ExprCase{
+			Scrutinee: &syntax.ExprVar{Name: freshName, S: stmtS},
+			Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
+			S:         stmtS,
+		},
+		S: stmtS,
 	}
-	return d.errPair(s)
+	return doElaborate(ch, strat, []syntax.Stmt{freshBind, caseStmt}, doS)
 }
 
-// elaborateBind handles x <- comp; rest.
-func (d *doElaborator) elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	switch d.mode {
-	case doModeInfer:
-		return d.inferBind(varName, comp, rest, stmtS, doS)
-	case doModeChecked:
-		return d.checkedBind(varName, comp, rest, stmtS, doS)
-	case doModeGraded:
-		return d.gradedBind(varName, comp, rest, stmtS, doS)
+// doPatternPureBind handles pat := expr; rest for irrefutable patterns.
+// Desugars to: case expr { pat => rest }
+func doPatternPureBind(ch *Checker, strat doStrategy, pat syntax.Pattern, expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+	caseExpr := &syntax.ExprCase{
+		Scrutinee: expr,
+		Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
+		S:         stmtS,
 	}
-	return d.errPair(stmtS)
+	stmts := []syntax.Stmt{&syntax.StmtExpr{Expr: caseExpr, S: stmtS}}
+	return doElaborate(ch, strat, stmts, doS)
 }
 
-// elaborateExprStmt handles comp; rest (expression statement, no binding variable).
-func (d *doElaborator) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	switch d.mode {
-	case doModeInfer:
-		return d.inferExprStmt(expr, rest, stmtS, doS)
-	case doModeChecked:
-		return d.checkedDiscard(expr, rest, stmtS, doS)
-	case doModeGraded:
-		return d.gradedExprStmt(expr, rest, stmtS, doS)
-	}
-	return d.errPair(stmtS)
+func stmtsToDoExpr(stmts []syntax.Stmt, s span.Span) syntax.Expr {
+	return &syntax.ExprDo{Stmts: stmts, S: s}
 }
 
-// --- Infer mode ---
+// --- doInfer: fresh metas for pre/post, returns inferred type ---
 
-func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+type doInfer struct {
+	ch *Checker
+	// Post-state from the preceding statement. Used to pre-resolve
+	// comp pre-states before pattern matching, preventing pattern-bound
+	// variable metas from leaking into the state position.
+	lastPost types.Type
+}
+
+func (d *doInfer) errPair(s span.Span) (types.Type, ir.Core) {
+	return &types.TyError{S: s}, &ir.Error{S: s}
+}
+
+func (d *doInfer) elaborateBase(expr syntax.Expr, s span.Span) (types.Type, ir.Core) {
+	return d.ch.infer(expr)
+}
+
+func (d *doInfer) elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 	compTy, compCore := ch.infer(comp)
 	compTy = ch.unifier.Zonk(compTy)
-	// CBPV auto-force: if the inferred comp is a Thunk, wrap in ir.Force
-	// so the do-block binding always sees a Computation. Mirrors the
-	// subsCheck-based coercion; do-block elaboration builds its own
-	// CBPV expectation from fresh metas and bypasses that entry point.
 	compTy, compCore = ch.autoForceIfThunk(compTy, compCore, comp.Span())
 
-	// Pre-resolve: if the preceding statement's post-state is known,
-	// unify it with this comp's pre-state BEFORE elaborating rest.
-	// This resolves result-type metas before pattern matching, preventing
-	// pattern-bound variable metas from leaking into the state position.
+	// Pre-resolve: unify preceding post-state with this comp's pre-state
+	// BEFORE elaborating rest, preventing pattern-bound metas from leaking.
 	if d.lastPost != nil {
 		if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 			ch.emitEq(d.lastPost, inferredComp.Pre, stmtS, nil)
@@ -175,12 +135,10 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 
 	resultTy := ch.extractCompResult(compTy, stmtS)
 
-	// If the binding's type could not be decomposed as a Computation,
-	// skip post-state threading — cascading unification errors would
-	// be noise derived from the primary error already reported.
+	// Error recovery: skip post-state threading on decomposition failure.
 	if _, isErr := resultTy.(*types.TyError); isErr {
 		ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
-		restTy, restCore := d.elaborate(rest, doS)
+		restTy, restCore := doElaborate(ch, d, rest, doS)
 		ch.ctx.Pop()
 		return restTy, &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
 	}
@@ -193,54 +151,41 @@ func (d *doElaborator) inferBind(varName string, comp syntax.Expr, rest []syntax
 	}
 
 	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
-	restTy, restCore := d.elaborate(rest, doS)
+	restTy, restCore := doElaborate(ch, d, rest, doS)
 	ch.ctx.Pop()
 
 	if savedPost != nil || d.lastPost != nil {
 		d.lastPost = savedPost
 	}
 
-	// Thread post-state: unify comp's post with rest's pre so that
-	// type information (e.g. state type from put) propagates to
-	// variables bound by get in subsequent statements.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
 	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
 }
 
-func (d *doElaborator) inferExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+func (d *doInfer) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 	compTy, compCore := ch.infer(expr)
 	compTy = ch.unifier.Zonk(compTy)
-	// CBPV auto-force: expression statements are executed for their
-	// effect, so a Thunk in statement position is auto-forced to the
-	// underlying computation. Same rationale as inferBind above.
 	compTy, compCore = ch.autoForceIfThunk(compTy, compCore, expr.Span())
 
-	// Track post-state for the next statement's pre-resolve.
 	var savedPost types.Type
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
 		savedPost = d.lastPost
 		d.lastPost = inferredComp.Post
 	}
 
-	restTy, restCore := d.elaborate(rest, doS)
+	restTy, restCore := doElaborate(ch, d, rest, doS)
 
 	if savedPost != nil || d.lastPost != nil {
 		d.lastPost = savedPost
 	}
 
-	// Thread post-state: see inferBind comment.
 	d.unifyCompPostPre(compTy, restTy, stmtS)
 	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
 }
 
 // withFirstPre returns restTy with its Pre replaced by compTy's Pre.
-// In infer-mode do-blocks, each statement returns the rest's type, which
-// has the rest's own Pre (= comp's Post after unification). For session
-// types where pre ≠ post, the overall do-block type must carry the FIRST
-// statement's Pre, not the rest's. For state effects (pre == post), the
-// replacement is a no-op because comp's Pre == comp's Post == rest's Pre.
-func (d *doElaborator) withFirstPre(compTy, restTy types.Type) types.Type {
+func (d *doInfer) withFirstPre(compTy, restTy types.Type) types.Type {
 	comp, ok1 := compTy.(*types.TyCBPV)
 	rest, ok2 := restTy.(*types.TyCBPV)
 	if !ok1 || !ok2 || comp.Tag != types.TagComp || rest.Tag != types.TagComp {
@@ -257,10 +202,7 @@ func (d *doElaborator) withFirstPre(compTy, restTy types.Type) types.Type {
 	}
 }
 
-// unifyCompPostPre unifies the post-state of compTy with the pre-state of
-// restTy. This propagates type information through capability rows in
-// infer-mode do-blocks (e.g. put sets state to Int, get's result becomes Int).
-func (d *doElaborator) unifyCompPostPre(compTy, restTy types.Type, s span.Span) {
+func (d *doInfer) unifyCompPostPre(compTy, restTy types.Type, s span.Span) {
 	ch := d.ch
 	compTy = ch.unifier.Zonk(compTy)
 	restTy = ch.unifier.Zonk(restTy)
@@ -271,46 +213,22 @@ func (d *doElaborator) unifyCompPostPre(compTy, restTy types.Type, s span.Span) 
 	}
 }
 
-// --- Pattern bind (all modes) ---
+// --- doChecked: threads known pre/post from TyCBPV ---
 
-// elaboratePatternBind handles pat <- comp; rest for irrefutable patterns.
-// Desugars to: $fresh <- comp; case $fresh { pat => rest }
-func (d *doElaborator) elaboratePatternBind(pat syntax.Pattern, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	freshName := d.ch.freshName("$p")
-	freshPat := &syntax.PatVar{Name: freshName, S: pat.Span()}
-	// Rewrite as: $fresh <- comp; case $fresh { pat => rest... }
-	freshBind := &syntax.StmtBind{Pat: freshPat, Comp: comp, S: stmtS}
-	caseStmt := &syntax.StmtExpr{
-		Expr: &syntax.ExprCase{
-			Scrutinee: &syntax.ExprVar{Name: freshName, S: stmtS},
-			Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
-			S:         stmtS,
-		},
-		S: stmtS,
-	}
-	return d.elaborate([]syntax.Stmt{freshBind, caseStmt}, doS)
+type doChecked struct {
+	ch   *Checker
+	comp *types.TyCBPV
 }
 
-// elaboratePatternPureBind handles pat := expr; rest for irrefutable patterns.
-// Desugars to: case expr { pat => rest }
-func (d *doElaborator) elaboratePatternPureBind(pat syntax.Pattern, expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
-	caseExpr := &syntax.ExprCase{
-		Scrutinee: expr,
-		Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
-		S:         stmtS,
-	}
-	stmts := []syntax.Stmt{&syntax.StmtExpr{Expr: caseExpr, S: stmtS}}
-	return d.elaborate(stmts, doS)
+func (d *doChecked) errPair(s span.Span) (types.Type, ir.Core) {
+	return d.comp, &ir.Error{S: s}
 }
 
-// stmtsToDoExpr wraps remaining do-block statements as a do expression.
-func stmtsToDoExpr(stmts []syntax.Stmt, s span.Span) syntax.Expr {
-	return &syntax.ExprDo{Stmts: stmts, S: s}
+func (d *doChecked) elaborateBase(expr syntax.Expr, s span.Span) (types.Type, ir.Core) {
+	return d.comp, d.ch.check(expr, d.comp)
 }
 
-// --- Checked mode ---
-
-func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+func (d *doChecked) elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
 	compTy, compCore := ch.infer(comp)
 	compTy = ch.unifier.Zonk(compTy)
@@ -323,26 +241,25 @@ func (d *doElaborator) checkedBind(varName string, comp syntax.Expr, rest []synt
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
 		savedComp := d.comp
 		d.comp = restComp
-		_, restCore := d.elaborate(rest, doS)
+		_, restCore := doElaborate(ch, d, rest, doS)
 		d.comp = savedComp
 		ch.ctx.Pop()
 		return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
 	}
 
-	// Fallback: infer didn't give TyCBPV, extract result and continue with infer mode.
+	// Fallback: infer didn't give TyCBPV, continue with infer mode.
 	resultTy := ch.extractCompResult(compTy, stmtS)
 	ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
-	fallback := &doElaborator{ch: ch, mode: doModeInfer}
-	restTy, restCore := fallback.elaborate(rest, doS)
+	fallback := &doInfer{ch: ch}
+	restTy, restCore := doElaborate(ch, fallback, rest, doS)
 	ch.ctx.Pop()
 	ch.emitEq(restTy, d.comp, stmtS, nil)
 	return d.comp, &ir.Bind{Comp: compCore, Var: varName, Body: restCore, S: stmtS}
 }
 
-// checkedDiscard handles expression statements (comp; rest) in checked mode.
-func (d *doElaborator) checkedDiscard(comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
+func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	ch := d.ch
-	compTy, compCore := ch.infer(comp)
+	compTy, compCore := ch.infer(expr)
 	compTy = ch.unifier.Zonk(compTy)
 
 	if inferredComp, ok := compTy.(*types.TyCBPV); ok {
@@ -352,14 +269,14 @@ func (d *doElaborator) checkedDiscard(comp syntax.Expr, rest []syntax.Stmt, stmt
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
 		savedComp := d.comp
 		d.comp = restComp
-		_, restCore := d.elaborate(rest, doS)
+		_, restCore := doElaborate(ch, d, rest, doS)
 		d.comp = savedComp
 		return d.comp, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
 	}
 
 	// Fallback: infer didn't give TyCBPV, continue with infer mode.
-	fallback := &doElaborator{ch: ch, mode: doModeInfer}
-	restTy, restCore := fallback.elaborate(rest, doS)
+	fallback := &doInfer{ch: ch}
+	restTy, restCore := doElaborate(ch, fallback, rest, doS)
 	ch.emitEq(restTy, d.comp, stmtS, nil)
 	return d.comp, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
 }
@@ -371,8 +288,8 @@ func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, ir.Core) {
 		ch.addDiag(diagnostic.ErrEmptyDo, e.S, diagMsg("empty do block"))
 		return ch.errorPair(e.S)
 	}
-	d := &doElaborator{ch: ch, mode: doModeInfer}
-	return d.elaborate(e.Stmts, e.S)
+	d := &doInfer{ch: ch}
+	return doElaborate(ch, d, e.Stmts, e.S)
 }
 
 // --- Shared helpers ---
