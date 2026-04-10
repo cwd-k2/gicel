@@ -81,11 +81,16 @@ type Engine struct {
 	// multi-tenant isolation.
 	cacheStore *CacheStore
 
-	// primSeq is a monotonic counter incremented on every RegisterPrim
-	// call. Used in the runtime fingerprint to invalidate cached Runtimes
-	// when prim implementations change, without relying on
-	// reflect.ValueOf(impl).Pointer() which cannot distinguish closures
-	// with different captured state.
+	// primSeq is a per-engine monotonic counter incremented on every
+	// RegisterPrim call. Used in the runtime fingerprint to invalidate
+	// cached Runtimes when prim implementations change within one Engine.
+	//
+	// LIMITATION (L1): function pointers cannot distinguish closures with
+	// different captured state. Two distinct Engine instances that each
+	// call RegisterPrim("foo", makePrim(differentConfig)) will produce
+	// the same cache fingerprint and share a cached Runtime. Callers that
+	// need isolation should use Engine.SetCacheStore with a per-engine
+	// CacheStore rather than relying on the global default.
 	primSeq uint64
 }
 
