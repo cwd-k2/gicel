@@ -194,6 +194,39 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 	return result.String()
 }
 
+// PrettyDisplay renders a type for IDE display (hover, completion).
+// Unlike Pretty, it shows TySkolem as plain type variables without the # prefix.
+func PrettyDisplay(t Type) string {
+	switch ty := t.(type) {
+	case *TySkolem:
+		return ty.Name
+	case *TyArrow:
+		from := PrettyDisplay(ty.From)
+		if _, ok := ty.From.(*TyArrow); ok {
+			from = "(" + from + ")"
+		}
+		return from + " -> " + PrettyDisplay(ty.To)
+	case *TyApp:
+		return PrettyDisplay(ty.Fun) + " " + prettyDisplayAtom(ty.Arg)
+	case *TyForall:
+		vars, body := collectForalls(ty)
+		return `\` + strings.Join(vars, " ") + ". " + PrettyDisplay(body)
+	case *TyEvidence:
+		return PrettyDisplay(ty.Constraints) + " => " + PrettyDisplay(ty.Body)
+	default:
+		return Pretty(t)
+	}
+}
+
+func prettyDisplayAtom(t Type) string {
+	switch t.(type) {
+	case *TyVar, *TyCon, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
+		return PrettyDisplay(t)
+	default:
+		return "(" + PrettyDisplay(t) + ")"
+	}
+}
+
 // PrettyTypeAsKind renders a type that represents a kind (level >= 1).
 // Used for error messages and diagnostics during/after Type/Kind unification.
 func PrettyTypeAsKind(t Type) string {

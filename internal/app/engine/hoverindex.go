@@ -146,9 +146,9 @@ func (idx *HoverIndex) entryAt(pos span.Pos) *hoverEntry {
 func formatHover(e *hoverEntry) string {
 	switch e.kind {
 	case HoverExpr:
-		return types.Pretty(e.ty)
+		return types.PrettyDisplay(e.ty)
 	case HoverBinding:
-		return e.label + " :: " + types.Pretty(e.ty)
+		return e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverForm:
 		if e.ty != nil {
 			return "form " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
@@ -160,19 +160,19 @@ func formatHover(e *hoverEntry) string {
 		}
 		return "type " + e.label
 	case HoverTypeAnn:
-		return e.label + " :: " + types.Pretty(e.ty)
+		return e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverConstructor:
-		return e.label + " :: " + types.Pretty(e.ty)
+		return e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverImport:
 		return "import " + e.label
 	case HoverImpl:
 		if e.ty != nil {
-			return "impl " + types.Pretty(e.ty)
+			return "impl " + types.PrettyDisplay(e.ty)
 		}
 		return "impl " + e.label
 	}
 	if e.ty != nil {
-		return types.Pretty(e.ty)
+		return types.PrettyDisplay(e.ty)
 	}
 	return ""
 }

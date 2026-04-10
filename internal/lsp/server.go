@@ -432,7 +432,7 @@ func buildCompletionItems(ar *engine.AnalysisResult) []protocol.CompletionItem {
 		items = append(items, protocol.CompletionItem{
 			Label:  b.Name,
 			Kind:   protocol.CIKFunction,
-			Detail: types.Pretty(b.Type),
+			Detail: types.PrettyDisplay(b.Type),
 		})
 	}
 
@@ -449,7 +449,7 @@ func buildCompletionItems(ar *engine.AnalysisResult) []protocol.CompletionItem {
 			items = append(items, protocol.CompletionItem{
 				Label:  con.Name,
 				Kind:   protocol.CIKConstructor,
-				Detail: types.Pretty(engine.BuildConType(dd, con)),
+				Detail: types.PrettyDisplay(engine.BuildConType(dd, con)),
 			})
 		}
 	}
