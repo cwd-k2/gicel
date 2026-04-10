@@ -56,6 +56,13 @@ type Unifier struct {
 	trail         []trailEntry
 	snapshotDepth int // number of active Snapshot scopes (for trail-free path compression)
 
+	// Normalization callbacks — lazy-installed by the Checker as each
+	// processing phase completes. Installation order matters:
+	//   1. AliasExpander  — after alias validation (decl phase 2)
+	//   2. FamilyReducer  — after type family processing (decl phase 4)
+	//   3. TryReduceFamily — same phase as FamilyReducer
+	// Using a callback before its phase is installed is safe (nil = no-op)
+	// but may produce suboptimal results (aliases/families not normalized).
 	AliasExpander   AliasExpander   // optional; set by Checker after alias processing
 	FamilyReducer   FamilyReducer   // optional; set by Checker after type family processing
 	TryReduceFamily TryReduceFamily // optional; set by Checker — single-node reduction for zonking

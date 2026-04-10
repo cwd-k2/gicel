@@ -12,7 +12,12 @@ import (
 // rows in Computation pre/post) and ConstraintEntries (for type class
 // constraint rows in TyEvidence).
 //
-// New fibers can be added by implementing this interface.
+// Closed design: exactly two fibers exist (CapabilityEntries,
+// ConstraintEntries). Performance-critical paths (EvidenceRowFlags,
+// WriteTypeKey, NormalizeRow, ForEachChild in type.go) type-switch on
+// these concrete types. Adding a third fiber requires updating all
+// such switches — the interface is a structural separation, not an
+// open extension point.
 type EvidenceEntries interface {
 	evidenceEntries()
 	EntryCount() int

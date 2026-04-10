@@ -65,6 +65,9 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 	case *syntax.PatLit:
 		return ch.checkLitPattern(p, scrutTy)
 	case *syntax.PatList:
+		// PatList is desugared here (not in compiler/desugar) because pattern
+		// desugaring requires type-directed elaboration — the desugar pass
+		// operates on syntax.Expr only, without type information.
 		return ch.checkPattern(desugarListPattern(p), scrutTy)
 	default:
 		ch.addDiag(diagnostic.ErrTypeMismatch, pat.Span(), diagFmt{Format: "unsupported pattern form: %T", Args: []any{pat}})
