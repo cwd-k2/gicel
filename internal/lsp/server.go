@@ -568,9 +568,15 @@ func (s *Server) handleDefinition(msg *jsonrpc.Message) {
 	// Search pre-computed definitions.
 	for _, def := range doc.Analysis.Definitions {
 		if def.Name == name {
+			uri := params.TextDocument.URI
+			src := doc.Analysis.Source
+			if def.FilePath != "" && def.Source != nil {
+				uri = protocol.DocumentURI("file://" + def.FilePath)
+				src = def.Source
+			}
 			s.respondResult(msg.ID, protocol.Location{
-				URI:   params.TextDocument.URI,
-				Range: spanToRange(doc.Analysis.Source, def.S),
+				URI:   uri,
+				Range: spanToRange(src, def.S),
 			})
 			return
 		}

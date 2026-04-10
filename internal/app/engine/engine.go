@@ -355,7 +355,15 @@ func (e *Engine) RegisterModuleFile(path string) error {
 		return fmt.Errorf("read module file: %w", err)
 	}
 	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	return e.RegisterModule(name, string(data))
+	if err := e.RegisterModule(name, string(data)); err != nil {
+		return err
+	}
+	// Store the original file path for cross-module go-to-definition.
+	absPath, _ := filepath.Abs(path)
+	if mod, ok := e.store.modules[name]; ok {
+		mod.filePath = absPath
+	}
+	return nil
 }
 
 // pipeline returns the Engine's reusable pipelineCtx, populating its

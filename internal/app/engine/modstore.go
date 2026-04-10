@@ -19,6 +19,7 @@ type compiledModule struct {
 	fixity         map[string]syntax.Fixity
 	sortedBindings []ir.Binding // pre-sorted for evalPrecompiledBindings
 	source         *span.Source // source text for error attribution
+	filePath       string       // original file path (non-empty for RegisterModuleFile)
 }
 
 // ModuleStore manages compiled modules, their ordering, and dependency checking.

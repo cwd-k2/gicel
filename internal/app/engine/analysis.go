@@ -48,8 +48,10 @@ type DocumentSymbolEntry struct {
 
 // DefinitionEntry maps a declared name to its source span.
 type DefinitionEntry struct {
-	Name string
-	S    span.Span
+	Name     string
+	S        span.Span
+	FilePath string       // non-empty for cross-module definitions
+	Source   *span.Source // non-nil for cross-module (needed for spanToRange)
 }
 
 // completionDoc formats a type signature as a markdown code block for LSP documentation.
@@ -189,10 +191,13 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 }
 
 // buildDefinitionEntries collects named declarations with their source spans.
-func buildDefinitionEntries(ar *AnalysisResult) []DefinitionEntry {
+// Includes cross-module definitions for imported bindings when file paths
+// are available in the module store.
+func buildDefinitionEntries(ar *AnalysisResult, store *ModuleStore) []DefinitionEntry {
 	prog := ar.Program
 	var entries []DefinitionEntry
 
+	// Same-file definitions.
 	for _, b := range prog.Bindings {
 		if b.S != (span.Span{}) {
 			entries = append(entries, DefinitionEntry{Name: b.Name, S: b.S})
@@ -217,6 +222,35 @@ func buildDefinitionEntries(ar *AnalysisResult) []DefinitionEntry {
 			if alias, ok := d.(*syntax.DeclTypeAlias); ok {
 				if alias.S != (span.Span{}) {
 					entries = append(entries, DefinitionEntry{Name: alias.Name, S: alias.S})
+				}
+			}
+		}
+	}
+
+	// Cross-module definitions: for each imported binding, look up the
+	// source module and find the binding's span within that module.
+	if store != nil {
+		sameFile := make(map[string]bool, len(entries))
+		for _, e := range entries {
+			sameFile[e.Name] = true
+		}
+		for name, modName := range ar.ImportedModules {
+			if sameFile[name] {
+				continue // same-file definition takes precedence
+			}
+			mod, ok := store.modules[modName]
+			if !ok || mod.filePath == "" || mod.prog == nil {
+				continue
+			}
+			for _, b := range mod.prog.Bindings {
+				if b.Name == name && b.S != (span.Span{}) {
+					entries = append(entries, DefinitionEntry{
+						Name:     name,
+						S:        b.S,
+						FilePath: mod.filePath,
+						Source:   mod.source,
+					})
+					break
 				}
 			}
 		}
