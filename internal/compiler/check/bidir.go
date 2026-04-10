@@ -33,9 +33,9 @@ func (ch *Checker) recordOperator(sp span.Span, name, module string, ty *types.T
 	}
 }
 
-func (ch *Checker) recordVarDoc(sp span.Span, name string) {
+func (ch *Checker) recordVarDoc(sp span.Span, name, module string) {
 	if ch.config.HoverRecorder != nil && sp != (span.Span{}) {
-		ch.config.HoverRecorder.RecordVarDoc(sp, name)
+		ch.config.HoverRecorder.RecordVarDoc(sp, name, module)
 	}
 }
 
@@ -73,7 +73,12 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
-		ch.recordVarDoc(e.S, e.Name)
+		// Extract module from the Core node (set by lookupVar from CtxVar.Module).
+		varMod := ""
+		if v, ok := coreExpr.(*ir.Var); ok {
+			varMod = v.Module
+		}
+		ch.recordVarDoc(e.S, e.Name, varMod)
 		if ch.config.Trace != nil {
 			ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
 		}
@@ -91,6 +96,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
+		ch.recordVarDoc(e.S, e.Name, e.Qualifier)
 		if ch.config.Trace != nil {
 			ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
 		}

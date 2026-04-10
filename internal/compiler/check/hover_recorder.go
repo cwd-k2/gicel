@@ -21,8 +21,9 @@ type HoverRecorder interface {
 	RecordOperator(sp span.Span, name, module string, ty types.Type)
 
 	// RecordVarDoc is called for variable references so the
-	// implementation can attach documentation to the span.
-	RecordVarDoc(sp span.Span, name string)
+	// implementation can attach documentation and module provenance
+	// to the span.
+	RecordVarDoc(sp span.Span, name, module string)
 
 	// RecordDecl is called for declaration hover entries (type aliases,
 	// impl declarations). declType is "alias" or "impl".

@@ -27,10 +27,8 @@ func (a *hoverAdapter) RecordOperator(sp span.Span, name, module string, ty type
 	a.idx.RecordOperator(sp, name, module, ty, fix)
 }
 
-func (a *hoverAdapter) RecordVarDoc(sp span.Span, name string) {
-	if doc, ok := a.varDocs[name]; ok {
-		a.idx.AttachDoc(sp, doc)
-	}
+func (a *hoverAdapter) RecordVarDoc(sp span.Span, name, module string) {
+	a.idx.AttachVarInfo(sp, name, module, a.varDocs[name])
 }
 
 func (a *hoverAdapter) RecordDecl(sp span.Span, declType, name string, ty types.Type) {

@@ -30,9 +30,11 @@ const (
 // Lifecycle: Record/RecordDecl → RezonkAll → Finalize → HoverAt.
 // Record after Finalize panics.
 type HoverIndex struct {
-	entries     []hoverEntry
-	pendingDocs map[span.Pos]string // span.Start → doc (set by AttachDoc, applied at Finalize)
-	finalized   bool
+	entries        []hoverEntry
+	pendingDocs    map[span.Pos]string // span.Start → doc (set by AttachDoc/AttachVarInfo, applied at Finalize)
+	pendingModules map[span.Pos]string // span.Start → module (set by AttachVarInfo, applied at Finalize)
+	pendingLabels  map[span.Pos]string // span.Start → var name (set by AttachVarInfo, applied at Finalize)
+	finalized      bool
 }
 
 // OperatorFixity holds the fixity information for an operator.
@@ -52,7 +54,7 @@ type hoverEntry struct {
 	ty     types.Type      // nil for imports
 	label  string          // "" for expressions
 	doc    string          // doc comment (empty for expressions)
-	module string          // non-empty only for HoverOperator
+	module string          // non-empty for HoverOperator and imported variable references
 	fixity *OperatorFixity // non-nil only for HoverOperator
 }
 
@@ -113,6 +115,33 @@ func (idx *HoverIndex) AttachDoc(sp span.Span, doc string) {
 	idx.pendingDocs[sp.Start] = doc
 }
 
+// AttachVarInfo associates documentation and module provenance with a
+// variable reference span. Applied during Finalize to the matching
+// HoverExpr entry.
+func (idx *HoverIndex) AttachVarInfo(sp span.Span, name, module, doc string) {
+	if sp.Start >= sp.End {
+		return
+	}
+	if doc != "" {
+		if idx.pendingDocs == nil {
+			idx.pendingDocs = make(map[span.Pos]string)
+		}
+		idx.pendingDocs[sp.Start] = doc
+	}
+	if module != "" {
+		if idx.pendingModules == nil {
+			idx.pendingModules = make(map[span.Pos]string)
+		}
+		idx.pendingModules[sp.Start] = module
+	}
+	if name != "" && module != "" {
+		if idx.pendingLabels == nil {
+			idx.pendingLabels = make(map[span.Pos]string)
+		}
+		idx.pendingLabels[sp.Start] = name
+	}
+}
+
 // RezonkAll applies a final zonk function to all recorded types,
 // replacing unresolved metavariables with their solutions. Must be
 // called after type checking completes and before Finalize.
@@ -130,16 +159,30 @@ func (idx *HoverIndex) RezonkAll(zonk func(types.Type) types.Type) {
 // Finalize applies pending doc comments and sorts entries for positional queries.
 // Must be called exactly once after all Record/RecordDecl calls and before any queries.
 func (idx *HoverIndex) Finalize() {
-	// Apply pending doc comments to matching expression entries.
+	// Apply pending doc comments and module provenance to matching expression entries.
 	for i := range idx.entries {
 		e := &idx.entries[i]
-		if e.kind == HoverExpr && e.doc == "" {
-			if doc, ok := idx.pendingDocs[e.span.Start]; ok {
-				e.doc = doc
+		if e.kind == HoverExpr {
+			if e.doc == "" {
+				if doc, ok := idx.pendingDocs[e.span.Start]; ok {
+					e.doc = doc
+				}
+			}
+			if mod, ok := idx.pendingModules[e.span.Start]; ok {
+				if e.module == "" {
+					e.module = mod
+				}
+			}
+			if label, ok := idx.pendingLabels[e.span.Start]; ok {
+				if e.label == "" {
+					e.label = label
+				}
 			}
 		}
 	}
 	idx.pendingDocs = nil
+	idx.pendingModules = nil
+	idx.pendingLabels = nil
 	idx.finalized = true
 	sort.SliceStable(idx.entries, func(i, j int) bool {
 		a, b := idx.entries[i].span, idx.entries[j].span
@@ -199,7 +242,11 @@ func formatHover(e *hoverEntry) string {
 	var sig string
 	switch e.kind {
 	case HoverExpr:
-		sig = types.PrettyDisplay(e.ty)
+		if e.module != "" && e.label != "" {
+			sig = e.module + "." + e.label + " :: " + types.PrettyDisplay(e.ty)
+		} else {
+			sig = types.PrettyDisplay(e.ty)
+		}
 	case HoverBinding:
 		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
 	case HoverForm:
