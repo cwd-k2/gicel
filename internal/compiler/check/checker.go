@@ -163,14 +163,24 @@ type Checker struct {
 	// Cached type resolver (lazy, constructed on first use).
 	cachedTypeResolver *typeResolver
 
-	// pendingMergeLabels records the pre-state row types of every Merge
-	// node emitted by inferMerge. Initialized by declPipeline.run(),
-	// drained by refineMergeLabels after constraint resolution.
-	pendingMergeLabels map[*ir.Merge]pendingMergePre
+	// pipeState holds phase-transient state that exists only during a
+	// declPipeline.run() invocation. Nil outside that scope. The pointer
+	// indirection makes the lifecycle explicit: inference code accesses
+	// phase state through ch.pipeState, and the nil case documents that
+	// the state is unavailable outside the declaration pipeline.
+	pipeState *declPipeState
+}
 
-	// currentBinding is the name being type-checked. Set/cleared by
-	// declPipeline.processValueDef for diagnostic hints.
+// declPipeState holds state whose lifetime is scoped to one
+// declPipeline.run() invocation. Created at run() entry, nil'd at exit.
+type declPipeState struct {
+	// currentBinding is the name being type-checked (Phase 7).
+	// Used by lookupVar to generate self-reference diagnostic hints.
 	currentBinding string
+
+	// pendingMergeLabels records pre-state row types of Merge nodes
+	// during inference. Drained by refineMergeLabels after constraint solving.
+	pendingMergeLabels map[*ir.Merge]pendingMergePre
 }
 
 // pendingMergePre carries the unresolved capability row types whose
@@ -241,7 +251,10 @@ func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConf
 // garbage collected; refineMergeLabels takes a *ir.Program argument only
 // for symmetry with the other passes (the IR is no longer walked).
 func (ch *Checker) refineMergeLabels(_ *ir.Program) {
-	for m, pre := range ch.pendingMergeLabels {
+	if ch.pipeState == nil {
+		return
+	}
+	for m, pre := range ch.pipeState.pendingMergeLabels {
 		if pre.Pre1 != nil {
 			labels := ch.extractRowLabels(ch.unifier.Zonk(pre.Pre1))
 			if labels != nil {
@@ -255,7 +268,7 @@ func (ch *Checker) refineMergeLabels(_ *ir.Program) {
 			}
 		}
 	}
-	clear(ch.pendingMergeLabels)
+	clear(ch.pipeState.pendingMergeLabels)
 }
 
 // newChecker initializes a Checker, imports modules, and returns it

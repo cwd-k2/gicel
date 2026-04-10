@@ -33,7 +33,7 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 	ps := types.PrepareSubst(freshSubst)
 	var dictExpr ir.Core
 	savedErrs := s.env.ErrorCount()
-	if !s.env.WithTrial(func() bool {
+	if !s.trialScope(func() bool {
 		// Head match.
 		for i := range args {
 			headArg := ps.Apply(qc.Head.Args[i])
@@ -97,7 +97,7 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 
 		psHead := types.PrepareSubst(freshSubst)
 		psInst := types.PrepareSubst(instSubst)
-		if !s.env.WithProbe(func() bool {
+		if !s.probeScope(func() bool {
 			for i := range qc.Head.Args {
 				headArg := psHead.Apply(qc.Head.Args[i])
 				instArg := psInst.Apply(inst.TypeArgs[i])
@@ -151,7 +151,7 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		}
 		psWanted := types.PrepareSubst(wantedSubst)
 		psEvidence := types.PrepareSubst(evidenceSubst)
-		if !s.env.WithProbe(func() bool {
+		if !s.probeScope(func() bool {
 			for i := range qc.Head.Args {
 				wantedArg := psWanted.Apply(qc.Head.Args[i])
 				evidenceArg := psEvidence.Apply(eq.Head.Args[i])

@@ -96,6 +96,10 @@ func (p *declPipeline) decomposeForm(d *syntax.DeclForm) formBodyParts {
 }
 
 func (p *declPipeline) run() *ir.Program {
+	// Initialize phase-transient state; clear on return.
+	p.ch.pipeState = &declPipeState{}
+	defer func() { p.ch.pipeState = nil }()
+
 	p.checkDuplicateBindings()
 
 	p.enterPhase(phaseRegisterTypes)
@@ -341,8 +345,8 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 	if ch.checkCancelled() {
 		return
 	}
-	ch.currentBinding = d.Name
-	defer func() { ch.currentBinding = "" }()
+	ch.pipeState.currentBinding = d.Name
+	defer func() { ch.pipeState.currentBinding = "" }()
 	annTy, hasAnn := annotations[d.Name]
 
 	// Check if it's an assumption.

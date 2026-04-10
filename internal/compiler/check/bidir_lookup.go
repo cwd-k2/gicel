@@ -20,7 +20,7 @@ func (ch *Checker) lookupVar(e *syntax.ExprVar) (types.Type, ir.Core, bool) {
 			msg += " (requires --recursion flag)"
 			ch.addCodedError(diagnostic.ErrUnboundVar, e.S, msg)
 		} else {
-			if ch.currentBinding != "" && e.Name == ch.currentBinding {
+			if ch.pipeState != nil && ch.pipeState.currentBinding != "" && e.Name == ch.pipeState.currentBinding {
 				msg += " (self-reference requires a type annotation or use of fix with --recursion)"
 			}
 			if hints := ch.suggestVar(e.Name); len(hints) > 0 {

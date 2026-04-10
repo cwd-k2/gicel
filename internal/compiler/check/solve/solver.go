@@ -34,6 +34,12 @@ type Solver struct {
 	// to avoid cascading diagnostics from a single root cause.
 	hasStructuralEqError bool
 
+	// inTrialOrProbe is true when execution is inside a WithTrial or
+	// WithProbe callback. Emit and EmitClassConstraint panic if called
+	// in this state, because the worklist has no save/restore mechanism
+	// and speculative constraints would persist after rollback.
+	inTrialOrProbe bool
+
 	env Env
 }
 
@@ -82,6 +88,9 @@ func (s *Solver) Reactivate(metaID int) {
 
 // Emit pushes a constraint to the worklist for processing.
 func (s *Solver) Emit(ct Ct) {
+	if s.inTrialOrProbe {
+		panic("solve: Emit called inside trial/probe scope — worklist has no rollback")
+	}
 	s.worklist.Push(ct)
 }
 
@@ -90,6 +99,25 @@ func (s *Solver) Emit(ct Ct) {
 // wanteds so that skolem solutions are available for kick-out.
 func (s *Solver) EmitGivenEq(ct *CtEq) {
 	s.worklist.PushFront(ct)
+}
+
+// trialScope wraps env.WithTrial, setting the inTrialOrProbe flag so
+// that Emit panics if accidentally called from the speculative callback.
+func (s *Solver) trialScope(fn func() bool) bool {
+	prev := s.inTrialOrProbe
+	s.inTrialOrProbe = true
+	result := s.env.WithTrial(fn)
+	s.inTrialOrProbe = prev
+	return result
+}
+
+// probeScope wraps env.WithProbe, setting the inTrialOrProbe flag.
+func (s *Solver) probeScope(fn func() bool) bool {
+	prev := s.inTrialOrProbe
+	s.inTrialOrProbe = true
+	result := s.env.WithProbe(fn)
+	s.inTrialOrProbe = prev
+	return result
 }
 
 // Level returns the current implication nesting depth for touchability.

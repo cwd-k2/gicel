@@ -209,10 +209,12 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 	}
 	// Stash the pre-state row types in the checker-local side table so
 	// refineMergeLabels can re-extract labels after constraint resolution.
-	if ch.pendingMergeLabels == nil {
-		ch.pendingMergeLabels = make(map[*ir.Merge]pendingMergePre)
+	if ch.pipeState != nil {
+		if ch.pipeState.pendingMergeLabels == nil {
+			ch.pipeState.pendingMergeLabels = make(map[*ir.Merge]pendingMergePre)
+		}
+		ch.pipeState.pendingMergeLabels[mergeNode] = pendingMergePre{Pre1: pre1, Pre2: pre2}
 	}
-	ch.pendingMergeLabels[mergeNode] = pendingMergePre{Pre1: pre1, Pre2: pre2}
 	return resultTy, mergeNode
 }
 

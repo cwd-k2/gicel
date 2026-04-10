@@ -87,7 +87,7 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 		// Wrap both head unification and context resolution in a single trial
 		// so that if context resolution fails, head solutions are rolled back.
 		savedErrs := s.env.ErrorCount()
-		if !s.env.WithTrial(func() bool {
+		if !s.trialScope(func() bool {
 			// Head match.
 			for i := range args {
 				instArg := ps.Apply(inst.TypeArgs[i])

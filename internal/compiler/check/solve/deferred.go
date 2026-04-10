@@ -88,7 +88,7 @@ func (s *Solver) isAmbiguousInstance(className string, args []types.Type) bool {
 		}
 		freshSubst := s.FreshInstanceSubst(inst)
 		ps := types.PrepareSubst(freshSubst)
-		matched := s.env.WithProbe(func() bool {
+		matched := s.probeScope(func() bool {
 			for i := range args {
 				instArg := ps.Apply(inst.TypeArgs[i])
 				if err := s.env.Unify(instArg, args[i]); err != nil {

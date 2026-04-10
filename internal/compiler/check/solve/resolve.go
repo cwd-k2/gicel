@@ -118,7 +118,7 @@ func (s *Solver) matchesDictVar(v *env.CtxVar, className string, args []types.Ty
 		if len(tyArgs) != len(args) {
 			return false
 		}
-		return s.env.WithTrial(func() bool {
+		return s.trialScope(func() bool {
 			for i := range args {
 				if err := s.env.Unify(tyArgs[i], args[i]); err != nil {
 					return false
@@ -201,7 +201,7 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 
 		// Direct match: this superclass IS the target.
 		if sup.ClassName == sd.targetClass && len(superArgs) == len(sd.targetArgs) {
-			if sd.solver.env.WithTrial(func() bool {
+			if sd.solver.trialScope(func() bool {
 				for j := range sd.targetArgs {
 					if err := sd.solver.env.Unify(superArgs[j], sd.targetArgs[j]); err != nil {
 						return false
