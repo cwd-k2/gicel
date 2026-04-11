@@ -45,18 +45,16 @@ const DefaultEntryPoint = "main"
 // Engine configures and compiles GICEL programs.
 // It is mutable and must not be shared across goroutines.
 type Engine struct {
-	host       HostEnv
-	store      ModuleStore
-	limits     Limits
-	compileCtx context.Context // module compilation context (default: Background)
+	host           HostEnv
+	store          ModuleStore
+	compilerLimits CompilerLimits
+	runtimeLimits  RuntimeLimits
+	pipelineFlags  PipelineFlags
+	compileCtx     context.Context // module compilation context (default: Background)
 
-	entryPoint      string               // entry binding name (default: "main")
-	denyAssumptions bool                 // when true, user code cannot use assumption declarations
-	noInline        bool                 // when true, skip selective inlining (e.g. for explain traces)
-	verifyIR        bool                 // when true, run structural IR verification in post-check
-	checkTraceHook  check.CheckTraceHook // diagnostic hook for type checking
-	typeRecorder    bool                 // when true, Analyze populates TypeIndex
-	warnFunc        func(string)         // warning callback (default: stderr)
+	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
+	typeRecorder   bool                 // when true, Analyze populates TypeIndex
+	warnFunc       func(string)         // warning callback (default: stderr)
 
 	// Cached cache-key fingerprints. Computing these is the dominant
 	// alloc source on the warm NewRuntime path (profiled at ~94% of
@@ -116,7 +114,7 @@ func NewEngine() *Engine {
 		store:      newModuleStore(),
 		compileCtx: context.Background(),
 		cacheStore: defaultCacheStore,
-		limits: Limits{
+		runtimeLimits: RuntimeLimits{
 			stepLimit:  1_000_000,
 			depthLimit: 1_000,
 		},
@@ -208,7 +206,7 @@ func (e *Engine) EnableRecursion() {
 // DenyAssumptions prevents user code from using `assumption` declarations.
 // Stdlib modules are unaffected. Use this in sandbox/agent contexts.
 func (e *Engine) DenyAssumptions() {
-	e.denyAssumptions = true
+	e.pipelineFlags.denyAssumptions = true
 	e.invalidateRuntimeFingerprint()
 }
 
@@ -216,7 +214,7 @@ func (e *Engine) DenyAssumptions() {
 // The verifier checks auto-force/auto-thunk invariants and Error node absence.
 // Intended for testing and debug builds; panics on first violation.
 func (e *Engine) EnableVerifyIR() {
-	e.verifyIR = true
+	e.pipelineFlags.verifyIR = true
 	e.invalidateRuntimeFingerprint()
 }
 
@@ -269,25 +267,25 @@ func (e *Engine) RegisterModuleRec(name, source string) error {
 
 // SetStepLimit sets the maximum number of evaluation steps.
 func (e *Engine) SetStepLimit(n int) {
-	e.limits.stepLimit = n
+	e.runtimeLimits.stepLimit = n
 	e.invalidateRuntimeFingerprint()
 }
 
 // SetDepthLimit sets the maximum call depth.
 func (e *Engine) SetDepthLimit(n int) {
-	e.limits.depthLimit = n
+	e.runtimeLimits.depthLimit = n
 	e.invalidateRuntimeFingerprint()
 }
 
 // SetNestingLimit sets the maximum structural nesting depth.
 func (e *Engine) SetNestingLimit(n int) {
-	e.limits.nestingLimit = n
+	e.compilerLimits.nestingLimit = n
 	e.invalidateFingerprints()
 }
 
 // SetAllocLimit sets the maximum cumulative allocation in bytes.
 func (e *Engine) SetAllocLimit(bytes int64) {
-	e.limits.allocLimit = bytes
+	e.runtimeLimits.allocLimit = bytes
 	e.invalidateRuntimeFingerprint()
 }
 
@@ -300,26 +298,26 @@ func (e *Engine) SetCheckTraceHook(hook check.CheckTraceHook) {
 
 // SetMaxTFSteps sets the type family reduction step limit.
 func (e *Engine) SetMaxTFSteps(n int) {
-	e.limits.maxTFSteps = n
+	e.compilerLimits.maxTFSteps = n
 	e.invalidateFingerprints()
 }
 
 // SetMaxSolverSteps sets the constraint solver step limit.
 func (e *Engine) SetMaxSolverSteps(n int) {
-	e.limits.maxSolverSteps = n
+	e.compilerLimits.maxSolverSteps = n
 	e.invalidateFingerprints()
 }
 
 // SetMaxResolveDepth sets the instance resolution depth limit.
 func (e *Engine) SetMaxResolveDepth(n int) {
-	e.limits.maxResolveDepth = n
+	e.compilerLimits.maxResolveDepth = n
 	e.invalidateFingerprints()
 }
 
 // SetEntryPoint sets the entry point name for bare Computation checking.
 // Non-entry top-level bindings with bare Computation type are rejected.
 func (e *Engine) SetEntryPoint(name string) {
-	e.entryPoint = name
+	e.pipelineFlags.entryPoint = name
 	e.invalidateRuntimeFingerprint()
 }
 
@@ -332,7 +330,7 @@ func (e *Engine) SetCompileContext(ctx context.Context) { e.compileCtx = ctx }
 // DisableInlining prevents selective inlining of user-defined bindings.
 // Use when explain traces must preserve function boundaries.
 func (e *Engine) DisableInlining() {
-	e.noInline = true
+	e.pipelineFlags.noInline = true
 	e.invalidateRuntimeFingerprint()
 }
 
@@ -370,25 +368,19 @@ func (e *Engine) RegisterModuleFile(path string) error {
 // fields from the current Engine state. The returned *pipelineCtx
 // MUST be used synchronously within the calling Engine method and
 func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
-	ep := e.entryPoint
-	if ep == "" {
-		ep = DefaultEntryPoint
-	}
 	return &pipelineCtx{
-		ctx:             ctx,
-		host:            &e.host,
-		store:           &e.store,
-		limits:          &e.limits,
-		cacheStore:      e.cacheStore,
-		modEnvFp:        e.moduleEnvFingerprint(),
-		runtimeFp:       e.runtimeFingerprint(),
-		warnFunc:        e.warnFunc,
-		traceHook:       e.checkTraceHook,
-		entryPoint:      ep,
-		denyAssumptions: e.denyAssumptions,
-		noInline:        e.noInline,
-		verifyIR:        e.verifyIR,
-		typeRecorder:    e.typeRecorder,
+		ctx:            ctx,
+		host:           &e.host,
+		store:          &e.store,
+		compilerLimits: &e.compilerLimits,
+		runtimeLimits:  &e.runtimeLimits,
+		pipelineFlags:  &e.pipelineFlags,
+		cacheStore:     e.cacheStore,
+		modEnvFp:       e.moduleEnvFingerprint(),
+		runtimeFp:      e.runtimeFingerprint(),
+		warnFunc:       e.warnFunc,
+		traceHook:      e.checkTraceHook,
+		typeRecorder:   e.typeRecorder,
 	}
 }
 
@@ -564,7 +556,7 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 	}
 	cfg := pc.makeCheckConfig()
 	cfg.Context = ctx
-	cfg.EntryPoint = pc.entryPoint
+	cfg.EntryPoint = pc.pipelineFlags.effectiveEntryPoint()
 	prog, _, checkErrs := check.CheckModule(ast, src, cfg)
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{errs: checkErrs}

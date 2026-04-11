@@ -115,7 +115,6 @@ func (e *Engine) runtimeFingerprint() [32]byte {
 }
 
 func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
-	var numBuf [20]byte
 	writeTypesMap(b, e.host.registeredTys)
 	b.WriteByte(0)
 	writeTypesMap(b, e.host.assumptions)
@@ -136,13 +135,7 @@ func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
 		b.WriteByte(0)
 	}
 	b.WriteByte(0)
-	b.Write(strconv.AppendInt(numBuf[:0], int64(e.limits.nestingLimit), 10))
-	b.WriteByte('/')
-	b.Write(strconv.AppendInt(numBuf[:0], int64(e.limits.maxTFSteps), 10))
-	b.WriteByte('/')
-	b.Write(strconv.AppendInt(numBuf[:0], int64(e.limits.maxSolverSteps), 10))
-	b.WriteByte('/')
-	b.Write(strconv.AppendInt(numBuf[:0], int64(e.limits.maxResolveDepth), 10))
+	e.compilerLimits.writeKey(b)
 }
 
 // writeRuntimeSpecificSection writes runtime-only state into b.
@@ -152,13 +145,7 @@ func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
 func (e *Engine) writeRuntimeSpecificSection(b *bytes.Buffer) {
 	var numBuf [20]byte
 
-	b.WriteString("rl:")
-	b.Write(strconv.AppendInt(numBuf[:0], int64(e.limits.stepLimit), 10))
-	b.WriteByte('/')
-	b.Write(strconv.AppendInt(numBuf[:0], int64(e.limits.depthLimit), 10))
-	b.WriteByte('/')
-	b.Write(strconv.AppendInt(numBuf[:0], e.limits.allocLimit, 10))
-	b.WriteByte(0)
+	e.runtimeLimits.writeKey(b)
 
 	if e.store.recursion {
 		b.WriteString("rec:1")
@@ -167,19 +154,7 @@ func (e *Engine) writeRuntimeSpecificSection(b *bytes.Buffer) {
 	}
 	b.WriteByte(0)
 
-	ep := e.entryPoint
-	if ep == "" {
-		ep = DefaultEntryPoint
-	}
-	b.WriteString("pf:")
-	b.WriteString(ep)
-	b.WriteByte('/')
-	writeBool(b, e.denyAssumptions)
-	b.WriteByte('/')
-	writeBool(b, e.noInline)
-	b.WriteByte('/')
-	writeBool(b, e.verifyIR)
-	b.WriteByte(0)
+	e.pipelineFlags.writeKey(b)
 
 	// Prim identity: per-prim function pointer or explicit key.
 	// When RegisterPrimWithKey was used, the key replaces the function

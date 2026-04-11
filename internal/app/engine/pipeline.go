@@ -21,20 +21,18 @@ import (
 // All fields are value snapshots taken at pipeline() time. There is no
 // back-pointer to Engine — the pipeline is a pure function of its inputs.
 type pipelineCtx struct {
-	ctx             context.Context
-	host            *HostEnv
-	store           *ModuleStore
-	limits          *Limits
-	cacheStore      *CacheStore  // cache for compiled modules and runtimes
-	modEnvFp        [32]byte     // pre-computed module environment fingerprint
-	runtimeFp       [32]byte     // pre-computed runtime fingerprint
-	warnFunc        func(string) // warning callback (nil = stderr)
-	traceHook       check.CheckTraceHook
-	entryPoint      string
-	denyAssumptions bool
-	noInline        bool
-	verifyIR        bool // when true, run structural IR verification after label erasure
-	typeRecorder    bool // when true, analyze() populates TypeIndex
+	ctx            context.Context
+	host           *HostEnv
+	store          *ModuleStore
+	compilerLimits *CompilerLimits
+	runtimeLimits  *RuntimeLimits
+	pipelineFlags  *PipelineFlags
+	cacheStore     *CacheStore  // cache for compiled modules and runtimes
+	modEnvFp       [32]byte     // pre-computed module environment fingerprint
+	runtimeFp      [32]byte     // pre-computed runtime fingerprint
+	warnFunc       func(string) // warning callback (nil = stderr)
+	traceHook      check.CheckTraceHook
+	typeRecorder   bool // when true, analyze() populates TypeIndex
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -99,10 +97,10 @@ func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
 		ImportedModules: imported,
 		ModuleDeps:      deps,
 		StrictTypeNames: true,
-		NestingLimit:    pc.limits.nestingLimit,
-		MaxTFSteps:      pc.limits.maxTFSteps,
-		MaxSolverSteps:  pc.limits.maxSolverSteps,
-		MaxResolveDepth: pc.limits.maxResolveDepth,
+		NestingLimit:    pc.compilerLimits.nestingLimit,
+		MaxTFSteps:      pc.compilerLimits.maxTFSteps,
+		MaxSolverSteps:  pc.compilerLimits.maxSolverSteps,
+		MaxResolveDepth: pc.compilerLimits.maxResolveDepth,
 	}
 }
 
@@ -172,7 +170,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 // Enable verifyIR (Engine.EnableVerifyIR) to assert these invariants.
 func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) *ir.FVAnnotations {
 	ir.EraseLabelArgsProgram(prog)
-	if pc.verifyIR {
+	if pc.pipelineFlags.verifyIR {
 		if errs := ir.VerifyProgram(prog); len(errs) > 0 {
 			panic("IR verification failed: " + errs[0].Error())
 		}
@@ -182,7 +180,7 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 	optimize.OptimizeProgram(pc.ctx, prog, pc.host.rewriteRules, userBindings, externalInline, externalDicts)
 	annots := ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog, annots)
-	if pc.verifyIR {
+	if pc.pipelineFlags.verifyIR {
 		if errs := ir.VerifyAnnotations(prog, annots); len(errs) > 0 {
 			panic("IR annotation verification failed: " + errs[0].Error())
 		}
@@ -207,8 +205,8 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 
 	cfg := pc.makeCheckConfig()
 	cfg.Context = pc.ctx
-	cfg.EntryPoint = pc.entryPoint
-	cfg.DenyAssumptions = pc.denyAssumptions
+	cfg.EntryPoint = pc.pipelineFlags.effectiveEntryPoint()
+	cfg.DenyAssumptions = pc.pipelineFlags.denyAssumptions
 
 	var idx *HoverIndex
 	if pc.typeRecorder {
@@ -287,7 +285,7 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *ir.FVAnnotation
 	}
 
 	var userBindings map[string]bool
-	if !pc.noInline {
+	if !pc.pipelineFlags.noInline {
 		userBindings = collectUserBindings(ar.Program)
 	}
 	annots := pc.postCheck(ar.Program, userBindings)
@@ -347,7 +345,7 @@ var transparentInlineWhitelist = map[string]bool{
 // inliner's VarKey lookup matches qualified references emitted by the
 // checker for imported identifiers.
 func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBinding {
-	if pc.noInline {
+	if pc.pipelineFlags.noInline {
 		return nil
 	}
 	entries := pc.store.Entries()
@@ -379,7 +377,7 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 // collectExternalDictionaries gathers instance dictionaries from imported
 // modules for demand-driven inlining at Case scrutinee sites.
 func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.ExternalBinding {
-	if pc.noInline {
+	if pc.pipelineFlags.noInline {
 		return nil
 	}
 	entries := pc.store.Entries()
@@ -430,7 +428,7 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotations, src *span.Source) (*Runtime, error) {
 	entries := pc.store.Entries()
 
-	entryName := pc.entryPoint
+	entryName := pc.pipelineFlags.effectiveEntryPoint()
 	sortedMain := ir.SortBindings(prog.Bindings)
 	var entryExpr ir.Core
 	for _, b := range sortedMain {
@@ -444,10 +442,10 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 		prog:               prog,
 		annots:             annots,
 		prims:              pc.host.prims.Clone(),
-		stepLimit:          pc.limits.stepLimit,
-		depthLimit:         pc.limits.depthLimit,
-		nestingLimit:       pc.limits.nestingLimit,
-		allocLimit:         pc.limits.allocLimit,
+		stepLimit:          pc.runtimeLimits.stepLimit,
+		depthLimit:         pc.runtimeLimits.depthLimit,
+		nestingLimit:       pc.compilerLimits.nestingLimit,
+		allocLimit:         pc.runtimeLimits.allocLimit,
 		source:             src,
 		warnFunc:           pc.warnFunc,
 		bindings:           maps.Clone(pc.host.bindings),
