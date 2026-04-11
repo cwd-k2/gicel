@@ -35,23 +35,31 @@ type resolvedGradeAlgebra struct {
 func (ch *Checker) resolveGradeAlgebra(gradeKind types.Type) resolvedGradeAlgebra {
 	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
 	if hasClass {
-		// Match grade kind against instance type args.
-		// GradeAlgebra takes a Kind-kinded parameter (g: Kind).
+		// Match grade kind against instance type args via the promoted kind
+		// registry. GradeAlgebra takes a Kind-kinded parameter (g: Kind).
 		// Instance: impl GradeAlgebra Mult := ...
-		// Instance TypeArgs[0] = TyCon("Mult"), which is a type constructor (kind Type).
-		// Grade kind = PromotedDataKind("Mult") (promoted kind from DataKinds).
-		// Match by comparing the type arg name with the promoted data kind name.
+		// Instance TypeArgs[0] = TyCon("Mult") at L0 (value-level type).
+		// Grade kind = PromotedDataKind("Mult") at L1 (promoted kind).
+		// The promotion relationship is established by DataKinds and stored
+		// in the registry. We look up each instance type arg's promoted form
+		// and compare structurally with the grade kind.
 		instances := ch.reg.InstancesForClass(gradeAlgebraClassName)
 		for _, inst := range instances {
 			if len(inst.TypeArgs) == 0 {
 				continue
 			}
-			if con, ok := inst.TypeArgs[0].(*types.TyCon); ok {
-				if dk, ok := gradeKind.(*types.TyCon); ok && types.IsKindLevel(dk.Level) && dk.Name == con.Name {
-					result := ch.extractGradeAlgebra(classInfo, inst)
-					result.valid = true
-					return result
-				}
+			con, ok := inst.TypeArgs[0].(*types.TyCon)
+			if !ok {
+				continue
+			}
+			promoted, hasPromoted := ch.reg.LookupPromotedKind(con.Name)
+			if !hasPromoted {
+				continue
+			}
+			if types.Equal(promoted, gradeKind) {
+				result := ch.extractGradeAlgebra(classInfo, inst)
+				result.valid = true
+				return result
 			}
 		}
 	}
@@ -92,6 +100,175 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 	return result
 }
 
+// verifyAllGradeAxioms checks GradeAlgebra axioms for all registered
+// GradeAlgebra instances with closed (finite-domain) grade kinds.
+// Called once at the end of the declaration pipeline, after all instances
+// and type family equations are fully elaborated.
+//
+// Verified axioms:
+//   - Commutativity of Join: Join(a, b) = Join(b, a)
+//   - Drop is left identity of Join: Join(Drop, a) = a
+//
+// Violations are reported as errors (ErrBadInstance).
+func (ch *Checker) verifyAllGradeAxioms() {
+	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
+	if !hasClass || classInfo == nil {
+		return
+	}
+	instances := ch.reg.InstancesForClass(gradeAlgebraClassName)
+	for _, inst := range instances {
+		if len(inst.TypeArgs) == 0 {
+			continue
+		}
+		con, ok := inst.TypeArgs[0].(*types.TyCon)
+		if !ok {
+			continue
+		}
+		_, hasPromoted := ch.reg.LookupPromotedKind(con.Name)
+		if !hasPromoted {
+			continue
+		}
+		algebra := ch.extractGradeAlgebraStandalone(classInfo, inst)
+		if algebra.joinFamily == "" || algebra.dropValue == nil {
+			continue
+		}
+		ch.verifyGradeAxiomsFor(con.Name, algebra)
+	}
+}
+
+// extractGradeAlgebraStandalone extracts GradeAlgebra fields without
+// touching the checker's unifier or budget. Uses standalone pattern
+// matching against the family equations.
+func (ch *Checker) extractGradeAlgebraStandalone(classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
+	var result resolvedGradeAlgebra
+	for _, assocName := range classInfo.AssocTypes {
+		fam, ok := ch.reg.LookupFamily(assocName)
+		if !ok {
+			continue
+		}
+		// Try to reduce by matching equations against instance type args.
+		for _, eq := range fam.Equations {
+			if len(eq.Patterns) != len(inst.TypeArgs) {
+				continue
+			}
+			subst := make(map[string]types.Type)
+			matched := true
+			for i, pat := range eq.Patterns {
+				if !matchConcretePattern(pat, inst.TypeArgs[i], subst) {
+					matched = false
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+			reduced := substType(eq.RHS, subst)
+			switch assocName {
+			case "GradeJoin":
+				if c, ok := reduced.(*types.TyCon); ok {
+					result.joinFamily = c.Name
+				}
+			case "GradeCompose":
+				if c, ok := reduced.(*types.TyCon); ok {
+					result.composeFamily = c.Name
+				}
+			case "GradeDrop":
+				result.dropValue = reduced
+			}
+			break
+		}
+	}
+	return result
+}
+
+// verifyGradeAxiomsFor checks axioms for one grade kind by brute-force
+// enumeration of all constructor pairs. Uses family/reduce directly (not
+// ch.reduceTyFamily) to avoid polluting the checker's unifier/budget state
+// during cached module compilation.
+func (ch *Checker) verifyGradeAxiomsFor(kindName string, algebra resolvedGradeAlgebra) {
+	dt, ok := ch.reg.LookupDataType(kindName)
+	if !ok {
+		return
+	}
+
+	// Guard: only verify when the family has equations populated.
+	// During module compilation, the family's equations may not be available
+	// if the family definition is in a different module that hasn't been
+	// compiled yet (the family TyCon is registered but equations are empty).
+	fam, famOk := ch.reg.LookupFamily(algebra.joinFamily)
+	if !famOk || len(fam.Equations) == 0 {
+		return
+	}
+
+	// Collect promoted constructors (nullary only — grade kinds are enums).
+	var cons []types.Type
+	for _, ci := range dt.Constructors {
+		if ci.Arity == 0 {
+			cons = append(cons, &types.TyCon{Name: ci.Name})
+		}
+	}
+	if len(cons) == 0 {
+		return
+	}
+
+	// Reduce a type family with concrete (meta-free) args by matching
+	// equation patterns directly. Does not touch the checker's unifier,
+	// budget, or cached state — safe to call during module cache builds.
+	reduce := func(familyName string, args []types.Type) (types.Type, bool) {
+		fam, ok := ch.reg.LookupFamily(familyName)
+		if !ok {
+			return nil, false
+		}
+		for _, eq := range fam.Equations {
+			if len(eq.Patterns) != len(args) {
+				continue
+			}
+			subst := make(map[string]types.Type)
+			matched := true
+			for i, pat := range eq.Patterns {
+				if !matchConcretePattern(pat, args[i], subst) {
+					matched = false
+					break
+				}
+			}
+			if matched {
+				return substType(eq.RHS, subst), true
+			}
+		}
+		return nil, false
+	}
+
+	s := span.Span{} // no source location (axioms are structural)
+
+	// Check commutativity: Join(a, b) = Join(b, a)
+	for i, a := range cons {
+		for j := i + 1; j < len(cons); j++ {
+			b := cons[j]
+			ab, okAB := reduce(algebra.joinFamily, []types.Type{a, b})
+			ba, okBA := reduce(algebra.joinFamily, []types.Type{b, a})
+			if okAB && okBA && !types.Equal(ab, ba) {
+				ch.addDiag(diagnostic.ErrBadInstance, s,
+					diagFmt{Format: "%s axiom violation: %s(%s, %s) = %s but %s(%s, %s) = %s (commutativity)",
+						Args: []any{gradeAlgebraClassName,
+							algebra.joinFamily, types.Pretty(a), types.Pretty(b), types.Pretty(ab),
+							algebra.joinFamily, types.Pretty(b), types.Pretty(a), types.Pretty(ba)}})
+			}
+		}
+	}
+
+	// Check left identity: Join(Drop, a) = a
+	for _, a := range cons {
+		result, ok := reduce(algebra.joinFamily, []types.Type{algebra.dropValue, a})
+		if ok && !types.Equal(result, a) {
+			ch.addDiag(diagnostic.ErrBadInstance, s,
+				diagFmt{Format: "%s axiom violation: %s(%s, %s) = %s, expected %s (left identity of Drop)",
+					Args: []any{gradeAlgebraClassName,
+						algebra.joinFamily, types.Pretty(algebra.dropValue), types.Pretty(a),
+						types.Pretty(result), types.Pretty(a)}})
+		}
+	}
+}
+
 // gradeContainsMeta reports whether ty contains any unsolved metavariable.
 func gradeContainsMeta(ty types.Type) bool {
 	return types.AnyType(ty, func(t types.Type) bool {
@@ -101,6 +278,19 @@ func gradeContainsMeta(ty types.Type) bool {
 }
 
 // --- Grade boundary check ---
+//
+// Grade verification operates at two levels with distinct responsibilities:
+//
+// 1. Structural (unifier): row_unify.go ensures both sides of a unification
+//    agree on the same grade value. This is pure shape matching — it resolves
+//    grade metavariables but does not interpret them as algebraic elements.
+//
+// 2. Algebraic (this file): checkGradeBoundary verifies that resolved grades
+//    satisfy GradeAlgebra laws (e.g., Join(Drop, g) = g for preservation).
+//    This layer runs after unification and uses type family reduction.
+//
+// The two layers are complementary: (1) determines *what* the grade is,
+// (2) determines whether it *permits* the operation.
 
 // checkGradeBoundary verifies that capability fields with grade annotations
 // respect their grades across the computation boundary.
@@ -353,5 +543,54 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 		}
 		// No GradeAlgebra or no blocking metas: fall back to equality constraint.
 		ch.emitEq(a, b, s, nil)
+	}
+}
+
+// matchConcretePattern matches a TF equation pattern against a concrete
+// (meta-free) argument. Handles TyVar (pattern variable), TyCon
+// (constructor literal), and TyApp (type application, e.g. tuple patterns).
+func matchConcretePattern(pat, arg types.Type, subst map[string]types.Type) bool {
+	switch p := pat.(type) {
+	case *types.TyVar:
+		if p.Name == "_" {
+			return true
+		}
+		if existing, ok := subst[p.Name]; ok {
+			return types.Equal(existing, arg)
+		}
+		subst[p.Name] = arg
+		return true
+	case *types.TyCon:
+		c, ok := arg.(*types.TyCon)
+		return ok && p.Name == c.Name
+	case *types.TyApp:
+		a, ok := arg.(*types.TyApp)
+		if !ok {
+			return false
+		}
+		return matchConcretePattern(p.Fun, a.Fun, subst) &&
+			matchConcretePattern(p.Arg, a.Arg, subst)
+	default:
+		return types.Equal(pat, arg)
+	}
+}
+
+// substType substitutes pattern variables in a type family RHS.
+func substType(t types.Type, subst map[string]types.Type) types.Type {
+	switch x := t.(type) {
+	case *types.TyVar:
+		if s, ok := subst[x.Name]; ok {
+			return s
+		}
+		return t
+	case *types.TyApp:
+		newFun := substType(x.Fun, subst)
+		newArg := substType(x.Arg, subst)
+		if newFun == x.Fun && newArg == x.Arg {
+			return t
+		}
+		return &types.TyApp{Fun: newFun, Arg: newArg, IsGrade: x.IsGrade}
+	default:
+		return t
 	}
 }
