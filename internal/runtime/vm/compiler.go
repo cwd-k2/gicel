@@ -90,26 +90,12 @@ const (
 	poolInitLocals      = 32  // measured peak 13 (LIFO shrink keeps it tiny)
 )
 
-// sub*() returns a cap-clamped sub-slice of the corresponding pool.
+// subPool returns a cap-clamped sub-slice of a pool.
 // The cap clamp (pool[start:end:end]) prevents accidental append from
 // corrupting an adjacent frame's data — a finalized Proto can only grow
 // its slice fields by allocating its own backing array, leaving the pool
 // unchanged.
-func subMatchDescs(pool []MatchDesc, start, end int) []MatchDesc {
-	if start == end {
-		return nil
-	}
-	return pool[start:end:end]
-}
-
-func subRecordDescs(pool []RecordDesc, start, end int) []RecordDesc {
-	if start == end {
-		return nil
-	}
-	return pool[start:end:end]
-}
-
-func subMergeDescs(pool []MergeDesc, start, end int) []MergeDesc {
+func subPool[T any](pool []T, start, end int) []T {
 	if start == end {
 		return nil
 	}
@@ -245,9 +231,9 @@ func (c *Compiler) leaveFrame() *Proto {
 		IsThunk:     f.isThunk,
 		Params:      f.params,
 		FixSelfSlot: f.fixSelfSlot,
-		MatchDescs:  subMatchDescs(c.pool.matchDescs, f.matchDescsStart, f.matchDescsEnd),
-		RecordDescs: subRecordDescs(c.pool.recordDescs, f.recordDescsStart, f.recordDescsEnd),
-		MergeDescs:  subMergeDescs(c.pool.mergeDescs, f.mergeDescsStart, f.mergeDescsEnd),
+		MatchDescs:  subPool(c.pool.matchDescs, f.matchDescsStart, f.matchDescsEnd),
+		RecordDescs: subPool(c.pool.recordDescs, f.recordDescsStart, f.recordDescsEnd),
+		MergeDescs:  subPool(c.pool.mergeDescs, f.mergeDescsStart, f.mergeDescsEnd),
 		Spans:       f.spans,
 		Source:      c.source,
 		BindNames:   f.bindNames,

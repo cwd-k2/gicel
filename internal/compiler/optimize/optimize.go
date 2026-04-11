@@ -276,18 +276,20 @@ func collectPatSubs(pat ir.Pattern, val ir.Core, subs map[string]ir.Core, subsFV
 		// For each field in the record pattern, project the corresponding
 		// field from the value and recurse.
 		for _, f := range p.Fields {
-			proj := &ir.RecordProj{Record: val, Label: f.Label, S: val.Span()}
+			var fieldVal ir.Core
 			// If the value is a known RecordLit, extract the field directly.
 			if rec, ok := val.(*ir.RecordLit); ok {
 				for _, rf := range rec.Fields {
 					if rf.Label == f.Label {
-						collectPatSubs(f.Pattern, rf.Value, subs, subsFV)
-						goto nextField
+						fieldVal = rf.Value
+						break
 					}
 				}
 			}
-			collectPatSubs(f.Pattern, proj, subs, subsFV)
-		nextField:
+			if fieldVal == nil {
+				fieldVal = &ir.RecordProj{Record: val, Label: f.Label, S: val.Span()}
+			}
+			collectPatSubs(f.Pattern, fieldVal, subs, subsFV)
 		}
 	case *ir.PCon:
 		// Nested constructor pattern: only decompose if the value is

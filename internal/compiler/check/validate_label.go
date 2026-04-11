@@ -51,7 +51,7 @@ func hasLabelForall(ty types.Type) bool {
 
 // walkValidateLabel recursively walks Core IR, tracking the number of
 // enclosing TyLam nodes with Label kind.
-// All 19 Core node types are handled; default panics on unrecognized nodes
+// All 20 Core node types are handled; default panics on unrecognized nodes
 // to catch omissions when new formers are added.
 func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLamDepth int) {
 	if c == nil {

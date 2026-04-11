@@ -487,16 +487,9 @@ func extractQualifiedPrefix(text string, offset int) string {
 	if text[offset-1] != '.' {
 		return ""
 	}
-	// Walk backwards from the dot to find the module name (rune-level).
+	// Walk backwards from the dot to find the module name.
 	end := offset - 1
-	start := end
-	for start > 0 {
-		r, size := utf8.DecodeLastRuneInString(text[:start])
-		if !isIdentRune(r) {
-			break
-		}
-		start -= size
-	}
+	start := scanBackward(text, end, isIdentRune)
 	if start >= end {
 		return ""
 	}
@@ -600,47 +593,18 @@ func identifierAtOffset(source string, offset int) string {
 		return ""
 	}
 
-	if isIdentRune(r) {
-		start := offset
-		for start > 0 {
-			pr, size := utf8.DecodeLastRuneInString(source[:start])
-			if !isIdentRune(pr) {
-				break
-			}
-			start -= size
-		}
-		end := offset
-		for end < len(source) {
-			nr, size := utf8.DecodeRuneInString(source[end:])
-			if !isIdentRune(nr) {
-				break
-			}
-			end += size
-		}
-		return source[start:end]
+	var pred func(rune) bool
+	switch {
+	case isIdentRune(r):
+		pred = isIdentRune
+	case isOperatorRune(r):
+		pred = isOperatorRune
+	default:
+		return ""
 	}
-
-	if isOperatorRune(r) {
-		start := offset
-		for start > 0 {
-			pr, size := utf8.DecodeLastRuneInString(source[:start])
-			if !isOperatorRune(pr) {
-				break
-			}
-			start -= size
-		}
-		end := offset
-		for end < len(source) {
-			nr, size := utf8.DecodeRuneInString(source[end:])
-			if !isOperatorRune(nr) {
-				break
-			}
-			end += size
-		}
-		return source[start:end]
-	}
-
-	return ""
+	start := scanBackward(source, offset, pred)
+	end := scanForward(source, offset, pred)
+	return source[start:end]
 }
 
 func isIdentRune(r rune) bool {
@@ -651,4 +615,30 @@ func isOperatorRune(r rune) bool {
 	return r != '_' && r != '\'' && r != '(' && r != ')' &&
 		!unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsSpace(r) &&
 		r > ' ' && r != ',' && r != ';' && r != '{' && r != '}' && r != '[' && r != ']'
+}
+
+// scanBackward returns the start byte offset after scanning backwards from pos
+// while pred holds for each decoded rune.
+func scanBackward(text string, pos int, pred func(rune) bool) int {
+	for pos > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:pos])
+		if !pred(r) {
+			break
+		}
+		pos -= size
+	}
+	return pos
+}
+
+// scanForward returns the end byte offset after scanning forwards from pos
+// while pred holds for each decoded rune.
+func scanForward(text string, pos int, pred func(rune) bool) int {
+	for pos < len(text) {
+		r, size := utf8.DecodeRuneInString(text[pos:])
+		if !pred(r) {
+			break
+		}
+		pos += size
+	}
+	return pos
 }

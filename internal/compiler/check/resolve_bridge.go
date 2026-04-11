@@ -68,8 +68,8 @@ func (ch *Checker) typeResolver() *typeResolver {
 			reg:             ch.reg,
 			scope:           ch.scope,
 			unifier:         ch.unifier,
-			lookupAlias:     ch.scopedLookupAlias,
-			lookupFamily:    ch.scopedLookupFamily,
+			lookupAlias:     ch.lookupAlias,
+			lookupFamily:    ch.lookupFamily,
 			lookupTyVar:     ch.ctx.LookupTyVar,
 			emitEq:          ch.emitEq,
 			addDiag:         ch.addDiag,
@@ -81,10 +81,10 @@ func (ch *Checker) typeResolver() *typeResolver {
 
 // --- Scope-aware lookups (injected into typeResolver) ---
 
-// scopedLookupAlias searches for a type alias by name: first in the Registry
+// lookupAlias searches for a type alias by name: first in the Registry
 // (populated during declaration phases), then in Scope's injected aliases
 // (populated from qualified references).
-func (ch *Checker) scopedLookupAlias(name string) (*AliasInfo, bool) {
+func (ch *Checker) lookupAlias(name string) (*AliasInfo, bool) {
 	if info, ok := ch.reg.LookupAlias(name); ok {
 		return info, true
 	}
@@ -96,9 +96,9 @@ func (ch *Checker) scopedLookupAlias(name string) (*AliasInfo, bool) {
 	return nil, false
 }
 
-// scopedLookupFamily searches for a type family by name: first in the Registry,
+// lookupFamily searches for a type family by name: first in the Registry,
 // then in Scope's injected families.
-func (ch *Checker) scopedLookupFamily(name string) (*TypeFamilyInfo, bool) {
+func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
 	if info, ok := ch.reg.LookupFamily(name); ok {
 		return info, true
 	}
@@ -108,16 +108,6 @@ func (ch *Checker) scopedLookupFamily(name string) (*TypeFamilyInfo, bool) {
 		}
 	}
 	return nil, false
-}
-
-// --- Scope-aware lookup wrappers (used by alias.go, type_family.go, tests) ---
-
-func (ch *Checker) lookupAlias(name string) (*AliasInfo, bool) {
-	return ch.scopedLookupAlias(name)
-}
-
-func (ch *Checker) lookupFamily(name string) (*TypeFamilyInfo, bool) {
-	return ch.scopedLookupFamily(name)
 }
 
 // --- Thin wrappers — preserve existing Checker API ---
