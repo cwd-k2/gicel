@@ -1,0 +1,64 @@
+-- GICEL Example: Data.Sequence (Persistent Finger Trees)
+--
+-- Seq a is a persistent sequence with O(1) amortized cons/snoc
+-- and O(log n) index/update. Unlike List, it supports efficient
+-- operations on both ends.
+--
+-- Run: bin/gicel run examples/gicel/effects/sequence.gicel
+
+-- gicel: --packs prelude,console,seq
+import Prelude
+import Data.Sequence as Seq
+import Console
+
+-- Build a sequence from both ends.
+buildSeq := {
+  s0 := (Seq.empty :: Seq Int);
+  s1 := Seq.cons 1 s0;
+  s2 := Seq.snoc s1 2;
+  s3 := Seq.cons 0 s2;
+  s3
+}
+
+-- null checks emptiness.
+isEmpty :: Seq Int -> String
+isEmpty := \s.
+  if Seq.null s
+    then "empty"
+    else "non-empty (length " <> show (Seq.length s) <> ")"
+
+main := do {
+  putLine "=== Seq Construction ===";
+  s := buildSeq;
+  putLine ("seq:    " <> show s);
+  putLine ("length: " <> show (Seq.length s));
+
+  putLine "";
+  putLine "=== Indexing ===";
+  putLine ("index 0: " <> show (Seq.index 0 s));
+  putLine ("index 1: " <> show (Seq.index 1 s));
+  putLine ("index 2: " <> show (Seq.index 2 s));
+
+  putLine "";
+  putLine "=== Properties ===";
+  putLine ("empty?:  " <> isEmpty (Seq.empty :: Seq Int));
+  putLine ("non-e?:  " <> isEmpty s);
+  putLine ("singleton: " <> show (Seq.singleton 99 :: Seq Int));
+
+  putLine "";
+  putLine "=== Transformations ===";
+  doubled := fmap (* 2) s;
+  putLine ("doubled: " <> show doubled);
+  evens := Seq.filter even s;
+  putLine ("evens:   " <> show evens);
+  rev := Seq.reverse s;
+  putLine ("reverse: " <> show rev);
+
+  putLine "";
+  putLine "=== Append & FromList ===";
+  s2 := (fromList [10, 20, 30] :: Seq Int);
+  combined := Seq.append s s2;
+  putLine ("append:   " <> show combined);
+  total := Seq.foldl (+) 0 combined;
+  putLine ("foldl(+): " <> show total)
+}

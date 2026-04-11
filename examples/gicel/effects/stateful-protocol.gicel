@@ -1,0 +1,88 @@
+-- GICEL Example: Stateful Protocol (Session + State + Named Caps)
+--
+-- Combines three GICEL features in one program:
+--   1. Session types — protocol-safe Choose/closeAt lifecycle
+--   2. Named state   — @#balance and @#log for independent state
+--   3. List effects   — logging with mapM_ + string formatting
+--
+-- Simulates a simple bank: deposit/withdraw update balance,
+-- each operation is logged, and the session ensures the
+-- account is properly closed.
+--
+-- Run: bin/gicel run examples/gicel/effects/stateful-protocol.gicel
+
+-- gicel: --packs prelude,console,state,session
+import Prelude
+import Effect.State
+import Effect.Session
+import Console
+
+-- === Protocol types ===
+
+form Choose := \(choices: Row). { MkChoose: Choose choices }
+form End := { MkEnd: End }
+
+type BankOps := Choose { deposit: End, withdraw: End, close: End }
+
+-- === Banking operations ===
+
+-- Deposit: add amount to balance, log the action.
+-- Row-polymorphic: works in any row containing balance + log.
+deposit :: \(r: Row). Int -> Effect { balance: Int, log: List String | r } ()
+deposit := \amount. do {
+  bal <- getAt @#balance;
+  putAt @#balance (bal + amount);
+  entries <- getAt @#log;
+  putAt @#log (entries <> ["deposit " <> show amount])
+}
+
+-- Withdraw: subtract from balance if sufficient, log the result.
+withdraw :: \(r: Row). Int -> Effect { balance: Int, log: List String | r } ()
+withdraw := \amount. do {
+  bal <- getAt @#balance;
+  if bal >= amount
+    then do {
+      putAt @#balance (bal - amount);
+      entries <- getAt @#log;
+      putAt @#log (entries <> ["withdraw " <> show amount])
+    }
+    else do {
+      entries <- getAt @#log;
+      putAt @#log (entries <> ["REJECTED withdraw " <> show amount <> " (insufficient)"])
+    }
+}
+
+-- === Main: simulate a banking session ===
+
+main := do {
+  putLine "=== Stateful Protocol ===";
+  putLine "";
+
+  -- Initialize named state capabilities.
+  putAt @#balance (0 :: Int);
+  putAt @#log ([] :: List String);
+
+  -- Run a session that represents the bank account lifecycle.
+  -- The session capability ensures we close properly.
+  runSessionAt @#acct (MkChoose :: BankOps) (thunk do {
+    -- Perform operations (state is managed via @#balance/@#log).
+    deposit 1000;
+    deposit 500;
+    withdraw 200;
+    withdraw 9999;
+    deposit 100;
+
+    -- Close the session (required by protocol).
+    chooseAt @#acct @#close;
+    closeAt @#acct
+  });
+
+  -- Read final state.
+  finalBal <- getAt @#balance;
+  entries <- getAt @#log;
+
+  putLine "Transaction log:";
+  mapM_ (\entry. putLine ("  " <> entry)) entries;
+  putLine "";
+  putLine ("Final balance: " <> show finalBal)
+}

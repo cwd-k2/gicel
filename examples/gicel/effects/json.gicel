@@ -1,0 +1,45 @@
+-- GICEL Example: JSON Serialization
+--
+-- Data.JSON provides ToJSON/FromJSON type classes for converting
+-- GICEL values to and from JSON strings. Instances are provided
+-- for all primitive types, List, Maybe, Result, and tuples.
+--
+-- Run: bin/gicel run examples/gicel/effects/json.gicel
+
+-- gicel: --packs prelude,console,json
+import Prelude
+import Data.JSON
+import Console
+
+-- === Basic serialization ===
+
+main := do {
+  putLine "=== ToJSON ===";
+  putLine (toJSON 42);
+  putLine (toJSON 3.14);
+  putLine (toJSON "hello");
+  putLine (toJSON True);
+  putLine (toJSON (Nil :: List Int));
+
+  putLine "";
+  putLine "=== Compound types ===";
+  putLine (toJSON [1, 2, 3]);
+  putLine (toJSON (Just "world"));
+  putLine (toJSON (Nothing :: Maybe Int));
+  putLine (toJSON (Ok 42 :: Result String Int));
+  putLine (toJSON (Err "oops" :: Result String Int));
+  putLine (toJSON ("key", 100));
+
+  putLine "";
+  putLine "=== Nested structures ===";
+  putLine (toJSON [Just 1, Nothing, Just 3]);
+  putLine (toJSON [(1, "one"), (2, "two"), (3, "three")]);
+
+  putLine "";
+  putLine "=== FromJSON (parsing) ===";
+  putLine (show (fromJSON "42" :: Maybe Int));
+  putLine (show (fromJSON "3.14" :: Maybe Double));
+  putLine (show (fromJSON "\"hello\"" :: Maybe String));
+  putLine (show (fromJSON "true" :: Maybe Bool));
+  putLine (show (fromJSON "[1,2,3]" :: Maybe (List Int)))
+}

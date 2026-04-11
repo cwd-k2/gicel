@@ -1,0 +1,45 @@
+-- GICEL Example: Data.Math
+--
+-- Mathematical functions: integer power, bitwise operations,
+-- trigonometry, exponentials/logarithms, and special values.
+--
+-- Run: bin/gicel run examples/gicel/effects/math.gicel
+
+-- gicel: --packs prelude,console,math
+import Prelude
+import Data.Math
+import Console
+
+main := do {
+  putLine "=== Integer Operations ===";
+  putLine ("2^10:      " <> show (pow 2 10));
+  putLine ("17 mod 5:  " <> show (mod 17 5));
+
+  putLine "";
+  putLine "=== Bitwise ===";
+  putLine ("and 0xF0 0x0F: " <> show (bitAnd 240 15));
+  putLine ("or  0xF0 0x0F: " <> show (bitOr 240 15));
+  putLine ("xor 0xFF 0x0F: " <> show (bitXor 255 15));
+  putLine ("shiftL 1 8:    " <> show (shiftL 1 8));
+  putLine ("popCount 255:  " <> show (popCount 255));
+
+  putLine "";
+  putLine "=== Trigonometry ===";
+  putLine ("sin(pi/6):  " <> show (sin 0.5236));
+  putLine ("cos(pi/3):  " <> show (cos 1.0472));
+  putLine ("atan2(1,1): " <> show (atan2 1.0 1.0));
+
+  putLine "";
+  putLine "=== Exponentials & Logs ===";
+  putLine ("exp(1):   " <> show (exp 1.0));
+  putLine ("log(e):   " <> show (log 2.71828));
+  putLine ("log2(8):  " <> show (log2 8.0));
+  putLine ("log10(1000): " <> show (log10 1000.0));
+  putLine ("sqrt(2):  " <> show (sqrt 2.0));
+  putLine ("cbrt(27): " <> show (cbrt 27.0));
+
+  putLine "";
+  putLine "=== Special values ===";
+  putLine ("isNaN(0/0):   " <> show (isNaN (0.0 / 0.0)));
+  putLine ("isInfinite:   " <> show (isInfinite (1.0 / 0.0)))
+}

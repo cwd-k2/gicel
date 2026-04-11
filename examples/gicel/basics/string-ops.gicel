@@ -1,49 +1,72 @@
--- GICEL Example: String Operations
+-- GICEL Example: Text Processing Patterns
 --
--- Demonstrates the string manipulation functions available in Prelude.
--- Includes search, transform, split/join, prefix/suffix, and rune ops.
+-- Builds on strings.gicel by showing practical text processing:
+-- CSV parsing, word frequency counting, and text formatting.
+-- Combines string operations with list combinators.
 --
--- Run: bin/gicel run examples/gicel/basics/string-ops.gicel
+-- Run: bin/gicel run --recursion examples/gicel/basics/string-ops.gicel
 
 -- gicel: --packs prelude,console
+-- gicel: --recursion
 import Prelude
 import Console
 
+-- === CSV parsing ===
+
+-- Parse a CSV line into fields (split on comma, trim each field).
+parseCSV :: String -> List String
+parseCSV := \line. map trim (split "," line)
+
+-- === Word frequency ===
+
+-- Count occurrences of each word (case-insensitive).
+wordFreq :: String -> List (String, Int)
+wordFreq := \text. {
+  ws := map toLower (words text);
+  unique := nub ws;
+  map (\w. (w, length (filter (eq w) ws))) unique
+}
+
+-- === Text formatting ===
+
+-- Right-pad a string to a fixed width.
+padRight :: Int -> String -> String
+padRight := \w s.
+  if strlen s >= w
+    then s
+    else s <> replicateStr (w - strlen s) " "
+
+-- Format a two-column table from (key, value) pairs.
+formatTable :: List (String, String) -> String
+formatTable := \rows.
+  join "\n" (map (\pair. case pair { (k, v) => padRight 12 k <> v }) rows)
+
+-- === Main ===
+
 main := do {
-  putLine "=== String Operations ===";
+  putLine "=== CSV Parsing ===";
+  csv := "name, age, city\nAlice, 30, Tokyo\nBob, 25, Osaka";
+  mapM_ (\line. putLine (show (parseCSV line))) (lines csv);
 
-  -- Case conversion
-  putLine (toUpper "hello world");
-  putLine (toLower "HELLO WORLD");
+  putLine "";
+  putLine "=== Word Frequency ===";
+  text := "the cat sat on the mat the cat";
+  freq := wordFreq text;
+  mapM_ (\pair. case pair { (w, n) => putLine (padRight 8 w <> show n) }) freq;
 
-  -- Trimming
-  putLine (trim "  spaces  ");
+  putLine "";
+  putLine "=== Formatted Table ===";
+  table := formatTable [
+    ("Name", "Alice"),
+    ("Role", "Engineer"),
+    ("City", "Tokyo")
+  ];
+  putLine table;
 
-  -- Search
-  putLine (show (contains "ell" "hello"));
-  putLine (show (indexOf "world" "hello world"));
-  putLine (show (count "l" "hello world"));
-
-  -- Split and join
-  putLine (show (split "," "a,b,c"));
-  putLine (join "-" ["x", "y", "z"]);
-  putLine (show (words "one two three"));
-
-  -- Lines
-  putLine (show (lines "first\nsecond\nthird"));
-  putLine (unlines ["alpha", "beta"]);
-  putLine (unwords ["one", "two", "three"]);
-
-  -- Prefix/suffix
-  putLine (show (startsWith "hel" "hello"));
-  putLine (show (endsWith "rld" "world"));
-  putLine (show (stripPrefix "pre-" "pre-fix"));
-  putLine (show (stripSuffix "-fix" "pre-fix"));
-
-  -- Transform
-  putLine (reverseStr "abcde");
-  putLine (replicateStr 3 "ha");
-  putLine (replace "o" "0" "foo boo");
-
-  pure ()
+  putLine "";
+  putLine "=== String Transforms ===";
+  putLine ("reverse:  " <> reverseStr "functional");
+  putLine ("replace:  " <> replace "o" "0" "foo boo moo");
+  putLine ("strip:    " <> show (stripPrefix "pre-" "pre-fix"));
+  putLine ("count:    " <> show (count "the" "the cat and the dog"))
 }

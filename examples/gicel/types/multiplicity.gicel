@@ -1,21 +1,24 @@
 -- GICEL Example: Multiplicity Annotations
 --
--- Row fields can carry multiplicity annotations using @Mult.
+-- Row fields carry multiplicity annotations via @Mult:
 --   @Linear       — must be consumed exactly once
 --   @Affine       — may be consumed at most once
---   @Unrestricted — no usage restriction (default)
+--   @Unrestricted — no usage restriction (default, can be omitted)
 --
 -- Multiplicities constrain how capabilities flow through
--- computations without affecting runtime behavior.
+-- computations. The type checker enforces these at every
+-- bind site in do-notation.
+--
 -- Run: bin/gicel run examples/gicel/types/multiplicity.gicel
 
 -- gicel: --packs prelude,console
 import Prelude
 import Console
 
+-- === Multiplicity grades ===
+
 form Mult := Unrestricted | Affine | Linear
 
--- Mult values describe resource usage disciplines.
 describe :: Mult -> String
 describe := \m. case m {
   Linear => "linear: must use exactly once";
@@ -23,8 +26,11 @@ describe := \m. case m {
   Unrestricted => "unrestricted: use freely"
 }
 
--- LUB (least upper bound): the strictest of two multiplicities.
--- Definable as a closed type family over promoted Mult constructors.
+-- === LUB: join of two multiplicities ===
+--
+-- When case branches produce different post-states, the type
+-- checker computes the LUB (least upper bound) per field.
+
 type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Linear, _) => Linear;
   (_, Linear) => Linear;
@@ -33,28 +39,6 @@ type LUB :: Mult := \(m1: Mult) (m2: Mult). case (m1, m2) {
   (Unrestricted, Unrestricted) => Unrestricted
 }
 
--- @Mult annotates row fields with a usage discipline.
--- These type signatures show how capability rows carry multiplicities:
---
---   open  :: Computation {} { handle: Unit @Linear } Unit
---   use   :: Computation { handle: Unit @Linear } { handle: Unit @Linear } Unit
---   close :: Computation { handle: Unit @Linear } {} Unit
---
--- The Atkey-indexed monad threads row types:
---   open  introduces { handle @Linear } into the post-state
---   use   preserves it in both pre- and post-state
---   close consumes it (removes from post-state)
---
--- Composing via do-notation:
---   lifecycle :: Computation {} {} Unit
---   lifecycle := do { open; use; close }
---
--- Opening without closing is a type error:
---   bad := do { open }   -- post-state { handle @Linear } ≠ {}
---
--- See examples/go/assumption for host-provided primitive bindings.
-
--- Mirror LUB at the value level for demonstration.
 lub :: Mult -> Mult -> Mult
 lub := \a b. case a {
   Linear => Linear;
@@ -62,11 +46,50 @@ lub := \a b. case a {
   Unrestricted => b
 }
 
+-- === How @Linear works in capability rows ===
+--
+-- The following type signatures illustrate the lifecycle pattern.
+-- (These require host-provided primitives; see examples/go/session)
+--
+--   open     :: Computation {} { h: Handle @Linear } ()
+--   readFile :: Computation { h: Handle @Linear } { h: Handle @Linear } String
+--   close    :: Computation { h: Handle @Linear } {} ()
+--
+-- Composing them:
+--   lifecycle :: Computation {} {} String
+--   lifecycle := do { open; content <- readFile; close; pure content }
+--
+-- The type checker enforces:
+--   ✓ open → readFile → close  (well-typed)
+--   ✗ do { open }              (error: @Linear "h" not consumed)
+--   ✗ do { open; close; close }(error: "h" already consumed)
+--
+-- === Nil grades as identity ===
+--
+-- Operations without grade annotations (nil grades) unify
+-- transparently with any grade. This lets generic stdlib
+-- operations work with @Linear capabilities:
+--
+--   getAt :: \(l: Label) s r. Effect { l: s | r } s
+--     ↑ nil grades (no @...)
+--
+-- When unified with { ch: Int @Linear }, nil acts as
+-- the identity element: unify(nil, Linear) = OK.
+
 main := do {
-  putLine $ "Linear:       " <> describe Linear;
-  putLine $ "Affine:       " <> describe Affine;
-  putLine $ "Unrestricted: " <> describe Unrestricted;
-  putLine $ "lub L A:      " <> describe (lub Linear Affine);
-  putLine $ "lub A U:      " <> describe (lub Affine Unrestricted);
-  putLine $ "lub U U:      " <> describe (lub Unrestricted Unrestricted)
+  putLine "=== Multiplicity Annotations ===";
+  putLine "";
+  putLine ("Linear:       " <> describe Linear);
+  putLine ("Affine:       " <> describe Affine);
+  putLine ("Unrestricted: " <> describe Unrestricted);
+  putLine "";
+  putLine "=== LUB (Least Upper Bound) ===";
+  putLine ("LUB Linear Affine:       " <> describe (lub Linear Affine));
+  putLine ("LUB Affine Unrestricted: " <> describe (lub Affine Unrestricted));
+  putLine ("LUB Linear Linear:       " <> describe (lub Linear Linear));
+  putLine "";
+  putLine "=== @Linear lifecycle (type-level) ===";
+  putLine "open -> readFile -> close   ✓  well-typed";
+  putLine "open                        ✗  @Linear not consumed";
+  putLine "open -> close -> close      ✗  already consumed"
 }

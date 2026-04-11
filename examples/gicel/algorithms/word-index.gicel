@@ -1,0 +1,84 @@
+-- GICEL Example: Word Index (Inverted Index)
+--
+-- Builds an inverted index from a multi-line text document:
+-- for each word, records which line numbers it appears on.
+-- Combines Data.Map, string operations, and list combinators.
+--
+-- Demonstrates:
+--   - Data.Map for ordered key-value storage
+--   - String splitting and normalization (toLower, words, nub)
+--   - List combinators (zip, foldl, concatMap, mapMaybe)
+--   - Functional accumulation (pure fold, no mutation)
+--
+-- Run: bin/gicel run examples/gicel/algorithms/word-index.gicel
+
+-- gicel: --packs prelude,console,map
+import Prelude
+import Data.Map as M
+import Console
+
+-- A small document as a list of lines.
+document := [
+  "the quick brown fox jumps over the lazy dog",
+  "the dog barked at the fox",
+  "a quick red fox ran past the lazy dog",
+  "the fox and the dog became friends"
+]
+
+-- Tag each line with its 1-based line number.
+numbered :: List (Int, String)
+numbered := zip [1, 2, 3, 4] document
+
+-- Extract (word, lineNum) pairs from all lines.
+-- Each line produces pairs of (lowered-word, lineNum).
+wordPairs :: List (String, Int)
+wordPairs := concatMap (\pair. case pair {
+  (lineNum, line) =>
+    map (\w. (toLower w, lineNum)) (nub (words line))
+}) numbered
+
+-- Build the inverted index by folding over word pairs.
+-- For each (word, lineNum), insert or append to the map.
+buildIndex :: List (String, Int) -> M.Map String (List Int)
+buildIndex := \pairs. foldl (\acc pair. case pair {
+  (word, lineNum) => case M.lookup word acc {
+    Nothing   => M.insert word [lineNum] acc;
+    Just prev => M.insert word (prev <> [lineNum]) acc
+  }
+}) M.empty pairs
+
+-- Lookup helper for display.
+queryIndex :: String -> M.Map String (List Int) -> String
+queryIndex := \word idx. case M.lookup word idx {
+  Nothing => "(not found)";
+  Just lineNums => join ", " (map show lineNums)
+}
+
+-- Right-pad a string for alignment.
+padRight :: Int -> String -> String
+padRight := \w s.
+  if strlen s >= w
+    then s
+    else s <> replicateStr (w - strlen s) " "
+
+main := do {
+  putLine "=== Document ===";
+  mapM_ (\pair. case pair {
+    (n, line) => putLine (show n <> ": " <> line)
+  }) numbered;
+
+  idx := buildIndex wordPairs;
+
+  putLine "";
+  putLine "=== Inverted Index (sample) ===";
+  mapM_ (\w.
+    putLine (padRight 10 w <> "→ lines " <> queryIndex w idx)
+  ) ["fox", "dog", "the", "quick", "lazy", "friends"];
+
+  putLine "";
+  putLine "=== Queries ===";
+  putLine ("'fox':     " <> queryIndex "fox" idx);
+  putLine ("'cat':     " <> queryIndex "cat" idx);
+  putLine ("'became':  " <> queryIndex "became" idx);
+  putLine ("total unique words: " <> show (M.size idx))
+}
