@@ -1,0 +1,74 @@
+-- GICEL Example: Session Types with Choice (Offer/Choose)
+--
+-- Demonstrates session type branching using Offer (external choice)
+-- and Choose (internal choice). The protocol is an ATM-like service:
+-- the client can check balance, deposit, or quit.
+--
+-- Key concepts:
+--   - Choose: internal choice — this side selects a branch by label
+--   - Offer/Variant: external choice — the peer selects, we dispatch
+--   - Dual/DualRow/MapRow: compute the complementary protocol
+--   - #label patterns: match Variant values in case expressions
+--
+-- Run: bin/gicel run examples/gicel/effects/session-choice.gicel
+
+-- gicel: --packs prelude,console,state,session
+import Prelude
+import Effect.State
+import Effect.Session
+import Console
+
+-- === Protocol definition ===
+
+-- ATM protocol from the client's perspective:
+-- the client Chooses one of three branches.
+type ATM := Choose { balance: Recv End, deposit: Send (Recv End), quit: End }
+
+-- DualATM is the server's view: Offer the same branches.
+-- Dual (Choose r) = Offer (MapRow Dual r)
+--   = Offer { balance: Send End, deposit: Recv (Send End), quit: End }
+type DualATM := Dual ATM
+
+-- === Internal choice (Choose) ===
+
+-- Client: select "balance", receive acknowledgement, close.
+checkBalance := runSessionAt @#atm (MkChoose :: ATM) (thunk do {
+  chooseAt @#atm @#balance;
+  closeAt @#atm;
+  pure "balance checked"
+})
+
+-- Client: select "quit", close immediately.
+quitSession := runSessionAt @#atm (MkChoose :: ATM) (thunk do {
+  chooseAt @#atm @#quit;
+  closeAt @#atm;
+  pure ()
+})
+
+-- === Variant and inject (pure coproduct) ===
+
+-- inject creates a Variant value outside of session context.
+-- This shows Variant as a general-purpose labeled coproduct.
+dispatchTag := case (inject @#a 42 :: Variant { a: Int, b: String } Int) {
+  #a => "got a";
+  #b => "got b"
+}
+
+-- === Main ===
+
+main := do {
+  putLine "=== Session Choice Examples ===";
+
+  -- Internal choice: check balance
+  result <- checkBalance;
+  putLine ("balance: " <> result);
+
+  -- Internal choice: quit
+  quitSession;
+  putLine "quit: ok";
+
+  -- Pure variant dispatch
+  putLine ("variant: " <> dispatchTag);
+
+  pure ()
+}
