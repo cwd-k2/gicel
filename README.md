@@ -191,25 +191,25 @@ See [`examples/go/`](examples/go/) for full patterns.
 
 ## Stdlib Packs
 
-| Pack          | Module         | Highlights                                  |
-| ------------- | -------------- | ------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List, 15 type classes             |
-| `EffectFail`  | `Effect.Fail`  | `fail`, `failWith`, `fromMaybe`             |
-| `EffectState` | `Effect.State` | `get`, `put`, `modify`                      |
-| `EffectIO`    | `Effect.IO`    | `log`, `dbg` (CapEnv buffer, not stdout)    |
-| `EffectArray` | `Effect.Array` | Mutable fixed-size arrays                   |
-| `EffectMap`   | `Effect.Map`   | Mutable ordered maps (AVL)                  |
-| `EffectSet`   | `Effect.Set`   | Mutable ordered sets (AVL)                  |
-| `DataStream`  | `Data.Stream`  | Lazy streams with `Foldable`                |
-| `DataSlice`   | `Data.Slice`   | O(1) index/length immutable arrays          |
-| `DataMap`     | `Data.Map`     | Immutable ordered map                       |
-| `DataSet`     | `Data.Set`     | Immutable ordered set                       |
-| `EffectRef`   | `Effect.Ref`   | Mutable reference cells                     |
-| `DataJSON`    | `Data.JSON`    | `ToJSON`/`FromJSON` type classes            |
-| `EffectSession` | `Effect.Session` | Session type handler primitives          |
-| `DataMath`    | `Data.Math`    | pow, bitwise, sqrt/trig/exp/log             |
-| `DataSequence`| `Data.Sequence`| 2-3 finger tree — O(1) cons/snoc            |
-| `Console`     | `Console`      | `putLine`, `getLine` (CLI-only, real stdio) |
+| Pack            | Module           | Highlights                                  |
+| --------------- | ---------------- | ------------------------------------------- |
+| `Prelude`       | `Prelude`        | Num, Str, List, 15 type classes             |
+| `EffectFail`    | `Effect.Fail`    | `fail`, `failWith`, `fromMaybe`             |
+| `EffectState`   | `Effect.State`   | `get`, `put`, `modify`                      |
+| `EffectIO`      | `Effect.IO`      | `log`, `dbg` (CapEnv buffer, not stdout)    |
+| `EffectArray`   | `Effect.Array`   | Mutable fixed-size arrays                   |
+| `EffectMap`     | `Effect.Map`     | Mutable ordered maps (AVL)                  |
+| `EffectSet`     | `Effect.Set`     | Mutable ordered sets (AVL)                  |
+| `DataStream`    | `Data.Stream`    | Lazy streams with `Foldable`                |
+| `DataSlice`     | `Data.Slice`     | O(1) index/length immutable arrays          |
+| `DataMap`       | `Data.Map`       | Immutable ordered map                       |
+| `DataSet`       | `Data.Set`       | Immutable ordered set                       |
+| `EffectRef`     | `Effect.Ref`     | Mutable reference cells                     |
+| `DataJSON`      | `Data.JSON`      | `ToJSON`/`FromJSON` type classes            |
+| `EffectSession` | `Effect.Session` | Session type handler primitives             |
+| `DataMath`      | `Data.Math`      | pow, bitwise, sqrt/trig/exp/log             |
+| `DataSequence`  | `Data.Sequence`  | 2-3 finger tree — O(1) cons/snoc            |
+| `Console`       | `Console`        | `putLine`, `getLine` (CLI-only, real stdio) |
 
 ## Documentation
 

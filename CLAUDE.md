@@ -41,45 +41,45 @@ Build first: `go build -o bin/gicel ./cmd/gicel/`
 bin/gicel run [flags] <file>.gicel
 ```
 
-| Flag                 | Default   | Description                                      |
-| -------------------- | --------- | ------------------------------------------------ |
+| Flag                 | Default    | Description                                                |
+| -------------------- | ---------- | ---------------------------------------------------------- |
 | `--packs <packs>`    | header/all | Stdlib packs (see table below); header directive overrides |
-| `--module Name=path` | —         | Register user module (repeatable, order matters) |
-| `--recursion`        | off       | Enable `fix`/`rec`                               |
-| `-e <source>`        | —         | Evaluate source string directly                  |
-| `--entry <name>`     | `main`    | Entry point binding                              |
-| `--timeout <dur>`    | `5s`      | Execution timeout                                |
-| `--max-steps <n>`    | `100000`  | Step limit                                       |
-| `--max-depth <n>`    | `10000`   | Depth limit                                      |
-| `--max-nesting <n>`  | `512`     | Structural nesting depth limit                   |
-| `--max-alloc <n>`    | `100 MiB` | Allocation byte limit                            |
-| `--json`             | off       | Output result as JSON                            |
-| `--explain`          | off       | Show semantic evaluation trace                   |
-| `--explain-all`      | off       | Trace stdlib internals (with `--explain`)        |
-| `--verbose`          | off       | Show source context in explain trace             |
-| `--no-color`         | off       | Disable color output                             |
+| `--module Name=path` | —          | Register user module (repeatable, order matters)           |
+| `--recursion`        | off        | Enable `fix`/`rec`                                         |
+| `-e <source>`        | —          | Evaluate source string directly                            |
+| `--entry <name>`     | `main`     | Entry point binding                                        |
+| `--timeout <dur>`    | `5s`       | Execution timeout                                          |
+| `--max-steps <n>`    | `100000`   | Step limit                                                 |
+| `--max-depth <n>`    | `10000`    | Depth limit                                                |
+| `--max-nesting <n>`  | `512`      | Structural nesting depth limit                             |
+| `--max-alloc <n>`    | `100 MiB`  | Allocation byte limit                                      |
+| `--json`             | off        | Output result as JSON                                      |
+| `--explain`          | off        | Show semantic evaluation trace                             |
+| `--explain-all`      | off        | Trace stdlib internals (with `--explain`)                  |
+| `--verbose`          | off        | Show source context in explain trace                       |
+| `--no-color`         | off        | Disable color output                                       |
 
 #### Stdlib packs
 
-| CLI name  | Module name    | Notes                  |
-| --------- | -------------- | ---------------------- |
-| `prelude` | `Prelude`      |                        |
-| `fail`    | `Effect.Fail`  |                        |
-| `state`   | `Effect.State` |                        |
-| `io`      | `Effect.IO`    |                        |
-| `stream`  | `Data.Stream`  |                        |
-| `slice`   | `Data.Slice`   |                        |
-| `array`   | `Effect.Array` |                        |
-| `ref`     | `Effect.Ref`   |                        |
-| `map`     | `Data.Map`     |                        |
-| `set`     | `Data.Set`     |                        |
-| `json`    | `Data.JSON`    |                        |
-| `mmap`    | `Effect.Map`   |                        |
-| `mset`    | `Effect.Set`   |                        |
-| `session` | `Effect.Session` |                      |
-| `math`    | `Data.Math`    |                        |
-| `seq`     | `Data.Sequence`|                        |
-| `console` | `Console`      | CLI-only               |
+| CLI name  | Module name      | Notes    |
+| --------- | ---------------- | -------- |
+| `prelude` | `Prelude`        |          |
+| `fail`    | `Effect.Fail`    |          |
+| `state`   | `Effect.State`   |          |
+| `io`      | `Effect.IO`      |          |
+| `stream`  | `Data.Stream`    |          |
+| `slice`   | `Data.Slice`     |          |
+| `array`   | `Effect.Array`   |          |
+| `ref`     | `Effect.Ref`     |          |
+| `map`     | `Data.Map`       |          |
+| `set`     | `Data.Set`       |          |
+| `json`    | `Data.JSON`      |          |
+| `mmap`    | `Effect.Map`     |          |
+| `mset`    | `Effect.Set`     |          |
+| `session` | `Effect.Session` |          |
+| `math`    | `Data.Math`      |          |
+| `seq`     | `Data.Sequence`  |          |
+| `console` | `Console`        | CLI-only |
 
 ### check — type-check only
 
@@ -97,10 +97,10 @@ bin/gicel lsp [flags]
 
 Starts the LSP server over stdio. Supports diagnostics and hover.
 
-| Flag              | Default | Description                  |
-| ----------------- | ------- | ---------------------------- |
-| `--packs <packs>` | `all`   | Stdlib packs                 |
-| `--recursion`     | off     | Enable `fix`/`rec`           |
+| Flag              | Default | Description        |
+| ----------------- | ------- | ------------------ |
+| `--packs <packs>` | `all`   | Stdlib packs       |
+| `--recursion`     | off     | Enable `fix`/`rec` |
 
 ### File header directives
 
