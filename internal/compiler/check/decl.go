@@ -133,6 +133,11 @@ func (p *declPipeline) run() *ir.Program {
 	// Previously caller convention; now structurally guaranteed.
 	p.ch.refineMergeLabels()
 
+	emitGradeAxiomViolations(
+		collectGradeAxiomViolations(p.ch.reg, p.ch.scope.CurrentModule()),
+		p.ch.errors,
+	)
+
 	return p.prog
 }
 

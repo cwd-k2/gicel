@@ -1,6 +1,7 @@
 package check
 
 import (
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -100,23 +101,33 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 	return result
 }
 
-// verifyAllGradeAxioms checks GradeAlgebra axioms for all registered
-// GradeAlgebra instances with closed (finite-domain) grade kinds.
-// Called once at the end of the declaration pipeline, after all instances
-// and type family equations are fully elaborated.
+// gradeAxiomViolation records a detected axiom violation for deferred reporting.
+type gradeAxiomViolation struct {
+	kindName   string
+	violations int
+}
+
+// collectGradeAxiomViolations checks GradeAlgebra axioms for all registered
+// instances with closed (finite-domain) grade kinds in the current module.
+// Returns violation records without touching the Checker's diagnostic state.
 //
-// Verified axioms:
-//   - Commutativity of Join: Join(a, b) = Join(b, a)
-//   - Drop is left identity of Join: Join(Drop, a) = a
-//
-// Violations are reported as errors (ErrBadInstance).
-func (ch *Checker) verifyAllGradeAxioms() {
-	classInfo, hasClass := ch.reg.LookupClass(gradeAlgebraClassName)
+// This is a standalone function (not a Checker method) because the Go
+// compiler's escape analysis is sensitive to addDiag call sites in Checker
+// methods: even a conditional addDiag path causes the Checker to heap-escape,
+// altering allocation patterns enough to perturb budget-sensitive module
+// compilations. By collecting violations as data and deferring diagnostic
+// emission to the caller, the axiom checker is invisible to escape analysis.
+func collectGradeAxiomViolations(reg *Registry, currentMod string) []gradeAxiomViolation {
+	classInfo, hasClass := reg.LookupClass(gradeAlgebraClassName)
 	if !hasClass || classInfo == nil {
-		return
+		return nil
 	}
-	instances := ch.reg.InstancesForClass(gradeAlgebraClassName)
+	instances := reg.InstancesForClass(gradeAlgebraClassName)
+	var result []gradeAxiomViolation
 	for _, inst := range instances {
+		if inst.Module != currentMod {
+			continue
+		}
 		if len(inst.TypeArgs) == 0 {
 			continue
 		}
@@ -124,29 +135,51 @@ func (ch *Checker) verifyAllGradeAxioms() {
 		if !ok {
 			continue
 		}
-		_, hasPromoted := ch.reg.LookupPromotedKind(con.Name)
+		_, hasPromoted := reg.LookupPromotedKind(con.Name)
 		if !hasPromoted {
 			continue
 		}
-		algebra := ch.extractGradeAlgebraStandalone(classInfo, inst)
+		algebra := extractGradeAlgebraFromRegistry(reg, classInfo, inst)
 		if algebra.joinFamily == "" || algebra.dropValue == nil {
 			continue
 		}
-		ch.verifyGradeAxiomsFor(con.Name, algebra)
+		dt, dtOk := reg.LookupDataType(con.Name)
+		if !dtOk {
+			continue
+		}
+		fam, famOk := reg.LookupFamily(algebra.joinFamily)
+		if !famOk || len(fam.Equations) == 0 {
+			continue
+		}
+		if v := verifyGradeAxiomsForKind(dt, fam.Equations, algebra.dropValue); v > 0 {
+			result = append(result, gradeAxiomViolation{kindName: con.Name, violations: v})
+		}
+	}
+	return result
+}
+
+// emitGradeAxiomViolations reports collected violations as diagnostics.
+// Takes *diagnostic.Errors directly (not *Checker) to avoid escape analysis
+// interaction with the Checker receiver in the calling pipeline.
+func emitGradeAxiomViolations(violations []gradeAxiomViolation, errs *diagnostic.Errors) {
+	for _, v := range violations {
+		errs.Add(&diagnostic.Error{
+			Code:    diagnostic.ErrBadInstance,
+			Phase:   diagnostic.PhaseCheck,
+			Message: "GradeAlgebra axiom violation for " + v.kindName,
+		})
 	}
 }
 
-// extractGradeAlgebraStandalone extracts GradeAlgebra fields without
-// touching the checker's unifier or budget. Uses standalone pattern
-// matching against the family equations.
-func (ch *Checker) extractGradeAlgebraStandalone(classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
+// extractGradeAlgebraFromRegistry extracts GradeAlgebra fields without
+// touching any Checker state. Uses standalone pattern matching.
+func extractGradeAlgebraFromRegistry(reg *Registry, classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
 	var result resolvedGradeAlgebra
 	for _, assocName := range classInfo.AssocTypes {
-		fam, ok := ch.reg.LookupFamily(assocName)
+		fam, ok := reg.LookupFamily(assocName)
 		if !ok {
 			continue
 		}
-		// Try to reduce by matching equations against instance type args.
 		for _, eq := range fam.Equations {
 			if len(eq.Patterns) != len(inst.TypeArgs) {
 				continue
@@ -185,88 +218,51 @@ func (ch *Checker) extractGradeAlgebraStandalone(classInfo *ClassInfo, inst *Ins
 // enumeration of all constructor pairs. Uses family/reduce directly (not
 // ch.reduceTyFamily) to avoid polluting the checker's unifier/budget state
 // during cached module compilation.
-func (ch *Checker) verifyGradeAxiomsFor(kindName string, algebra resolvedGradeAlgebra) {
-	dt, ok := ch.reg.LookupDataType(kindName)
-	if !ok {
-		return
-	}
-
-	// Guard: only verify when the family has equations populated.
-	// During module compilation, the family's equations may not be available
-	// if the family definition is in a different module that hasn't been
-	// compiled yet (the family TyCon is registered but equations are empty).
-	fam, famOk := ch.reg.LookupFamily(algebra.joinFamily)
-	if !famOk || len(fam.Equations) == 0 {
-		return
-	}
-
-	// Collect promoted constructors (nullary only — grade kinds are enums).
-	var cons []types.Type
+// verifyGradeAxiomsForKind checks axioms for one grade kind and returns
+// the number of violations. Not a Checker method — deliberately avoids
+// any reference to the Checker to prevent escape analysis side effects.
+func verifyGradeAxiomsForKind(
+	dt *DataTypeInfo,
+	joinEqs []env.TFEquation,
+	dropValue types.Type,
+) int {
+	var cons []*types.TyCon
 	for _, ci := range dt.Constructors {
 		if ci.Arity == 0 {
-			cons = append(cons, &types.TyCon{Name: ci.Name})
+			cons = append(cons, &types.TyCon{Name: ci.Name, Level: types.L0})
 		}
 	}
-	if len(cons) == 0 {
-		return
+	if len(cons) < 2 {
+		return 0
 	}
+	return checkGradeAxiomsConcrete(joinEqs, cons, dropValue)
+}
 
-	// Reduce a type family with concrete (meta-free) args by matching
-	// equation patterns directly. Does not touch the checker's unifier,
-	// budget, or cached state — safe to call during module cache builds.
-	reduce := func(familyName string, args []types.Type) (types.Type, bool) {
-		fam, ok := ch.reg.LookupFamily(familyName)
-		if !ok {
-			return nil, false
-		}
-		for _, eq := range fam.Equations {
-			if len(eq.Patterns) != len(args) {
-				continue
-			}
-			subst := make(map[string]types.Type)
-			matched := true
-			for i, pat := range eq.Patterns {
-				if !matchConcretePattern(pat, args[i], subst) {
-					matched = false
-					break
-				}
-			}
-			if matched {
-				return substType(eq.RHS, subst), true
-			}
-		}
-		return nil, false
-	}
-
-	s := span.Span{} // no source location (axioms are structural)
-
-	// Check commutativity: Join(a, b) = Join(b, a)
+// checkGradeAxiomsConcrete verifies commutativity and left-identity axioms
+// for a concrete (finite-domain) grade kind. Returns the number of violations.
+// Standalone function — no Checker dependency, no budget/unifier interaction.
+func checkGradeAxiomsConcrete(joinEqs []env.TFEquation, cons []*types.TyCon, _ types.Type) int {
+	violations := 0
+	// Commutativity: Join(a, b) = Join(b, a)
+	//
+	// Note: left-identity (Join(Drop, a) = a for all a) is NOT checked.
+	// GradeDrop is the "zero usage" element, but it is not the identity
+	// of GradeJoin in a resource-consumption lattice. For example,
+	// MultJoin(Zero, Linear) = Affine — this is correct semantics
+	// (0 + 1 = at-most-1), not an axiom violation. The condition
+	// Join(Drop, grade) = grade is used per-field in checkGradeBoundary
+	// as a preservation test, not as a universal algebraic identity.
 	for i, a := range cons {
 		for j := i + 1; j < len(cons); j++ {
 			b := cons[j]
-			ab, okAB := reduce(algebra.joinFamily, []types.Type{a, b})
-			ba, okBA := reduce(algebra.joinFamily, []types.Type{b, a})
-			if okAB && okBA && !types.Equal(ab, ba) {
-				ch.addDiag(diagnostic.ErrBadInstance, s,
-					diagFmt{Format: "%s axiom violation: %s(%s, %s) = %s but %s(%s, %s) = %s (commutativity)",
-						Args: []any{gradeAlgebraClassName,
-							algebra.joinFamily, types.Pretty(a), types.Pretty(b), types.Pretty(ab),
-							algebra.joinFamily, types.Pretty(b), types.Pretty(a), types.Pretty(ba)}})
+			ab, okAB := reduceConcreteEqs(joinEqs, []types.Type{a, b})
+			ba, okBA := reduceConcreteEqs(joinEqs, []types.Type{b, a})
+			if okAB && okBA && !gradeConEqual(ab, ba) {
+				violations++
 			}
 		}
 	}
-
-	// Check left identity: Join(Drop, a) = a
-	for _, a := range cons {
-		result, ok := reduce(algebra.joinFamily, []types.Type{algebra.dropValue, a})
-		if ok && !types.Equal(result, a) {
-			ch.addDiag(diagnostic.ErrBadInstance, s,
-				diagFmt{Format: "%s axiom violation: %s(%s, %s) = %s, expected %s (left identity of Drop)",
-					Args: []any{gradeAlgebraClassName,
-						algebra.joinFamily, types.Pretty(algebra.dropValue), types.Pretty(a),
-						types.Pretty(result), types.Pretty(a)}})
-		}
-	}
+	return violations
 }
 
 // gradeContainsMeta reports whether ty contains any unsolved metavariable.
@@ -544,6 +540,42 @@ func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span
 		// No GradeAlgebra or no blocking metas: fall back to equality constraint.
 		ch.emitEq(a, b, s, nil)
 	}
+}
+
+// reduceConcreteEqs matches type family equations against concrete
+// (meta-free) args. Pure function — no side effects.
+func reduceConcreteEqs(eqs []env.TFEquation, args []types.Type) (types.Type, bool) {
+	for _, eq := range eqs {
+		if len(eq.Patterns) != len(args) {
+			continue
+		}
+		subst := make(map[string]types.Type)
+		matched := true
+		for i, pat := range eq.Patterns {
+			if !matchConcretePattern(pat, args[i], subst) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return substType(eq.RHS, subst), true
+		}
+	}
+	return nil, false
+}
+
+// gradeConEqual compares two grade constructor values by name only.
+// Grade constructors in axiom verification come from two sources with
+// potentially different Level fields (equation RHS vs freshly constructed).
+// Since grade constructors are always nullary promoted data constructors,
+// name equality is sufficient and correct.
+func gradeConEqual(a, b types.Type) bool {
+	ac, ok1 := a.(*types.TyCon)
+	bc, ok2 := b.(*types.TyCon)
+	if ok1 && ok2 {
+		return ac.Name == bc.Name
+	}
+	return types.Equal(a, b)
 }
 
 // matchConcretePattern matches a TF equation pattern against a concrete
