@@ -36,7 +36,7 @@ All names accessible only through the alias:
 ```
 import Data.Map as M
 
-main := M.empty
+main := M.insert "a" 1 (M.empty :: M.Map String Int)
 ```
 
 Operators cannot be qualified (`M.+` is not valid). Qualified names use adjacency: `M.x` (no whitespace) is qualified; `M . x` (whitespace) is composition.
