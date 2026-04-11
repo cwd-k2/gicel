@@ -240,3 +240,187 @@ form ToList := \l. FromList l => {
 | `Bifunctor`   | `Result`                                                                                                        |
 | `FromList`    | `List a`, `Maybe a`, `String`                                                                                   |
 | `ToList`      | `List a`, `Maybe a`, `String`                                                                                   |
+
+### Function Utilities
+
+| Name      | Type                                               | Description              |
+| --------- | -------------------------------------------------- | ------------------------ |
+| `id`      | `\a. a -> a`                                       | Identity function        |
+| `const`   | `\a b. a -> b -> a`                                | Constant function        |
+| `flip`    | `\a b c. (a -> b -> c) -> b -> a -> c`             | Flip first two arguments |
+| `on`      | `\a b c. (b -> b -> c) -> (a -> b) -> a -> a -> c` | Apply then combine       |
+| `curry`   | `\a b c. ((a, b) -> c) -> a -> b -> c`             | Curry a pair function    |
+| `uncurry` | `\a b c. (a -> b -> c) -> (a, b) -> c`             | Uncurry to pair function |
+
+Operators: `(.)` (composition, infixr 9), `($)` (apply, infixr 0), `(&)` (reverse apply, infixl 1).
+
+### Boolean
+
+| Name   | Type                      | Description             |
+| ------ | ------------------------- | ----------------------- |
+| `not`  | `Bool -> Bool`            | Logical negation        |
+| `bool` | `\a. a -> a -> Bool -> a` | Church-style eliminator |
+
+Operators: `(&&)` (infixr 3), `(||)` (infixr 2).
+
+### Numeric
+
+| Name        | Type                                            | Description             |
+| ----------- | ----------------------------------------------- | ----------------------- |
+| `mod`       | `Int -> Int -> Int`                             | Integer modulus         |
+| `even`      | `Int -> Bool`                                   | Test if even            |
+| `odd`       | `Int -> Bool`                                   | Test if odd             |
+| `gcd`       | `Int -> Int -> Int`                             | Greatest common divisor |
+| `lcm`       | `Int -> Int -> Int`                             | Least common multiple   |
+| `min`       | `\a. Ord a => a -> a -> a`                      | Minimum of two values   |
+| `max`       | `\a. Ord a => a -> a -> a`                      | Maximum of two values   |
+| `clamp`     | `\a. Ord a => (a, a) -> a -> a`                 | Clamp to (lo, hi) range |
+| `comparing` | `\a b. Ord b => (a -> b) -> a -> a -> Ordering` | Compare by projection   |
+| `equating`  | `\a b. Eq b => (a -> b) -> a -> a -> Bool`      | Equality by projection  |
+
+### Tuple
+
+| Name         | Type                                                 | Description        |
+| ------------ | ---------------------------------------------------- | ------------------ |
+| `fst`        | `\a (r: Row). Record { _1: a \| r } -> a`            | First element      |
+| `snd`        | `\a (r: Row). Record { _2: a \| r } -> a`            | Second element     |
+| `swap`       | `\a b. (a, b) -> (b, a)`                             | Swap pair elements |
+| `bimapPair`  | `\a b c d. (a -> c) -> (b -> d) -> (a, b) -> (c, d)` | Map both elements  |
+| `firstPair`  | `\a b c. (a -> c) -> (a, b) -> (c, b)`               | Map first element  |
+| `secondPair` | `\a b d. (b -> d) -> (a, b) -> (a, d)`               | Map second element |
+
+### Maybe
+
+| Name          | Type                                  | Description             |
+| ------------- | ------------------------------------- | ----------------------- |
+| `maybe`       | `\a b. b -> (a -> b) -> Maybe a -> b` | Eliminator with default |
+| `isJust`      | `\a. Maybe a -> Bool`                 | True if `Just`          |
+| `isNothing`   | `\a. Maybe a -> Bool`                 | True if `Nothing`       |
+| `listToMaybe` | `\a. List a -> Maybe a`               | Head or `Nothing`       |
+| `maybeToList` | `\a. Maybe a -> List a`               | Singleton or empty      |
+
+### Result
+
+| Name               | Type                                                 | Description                   |
+| ------------------ | ---------------------------------------------------- | ----------------------------- |
+| `result`           | `\e a b. (e -> b) -> (a -> b) -> Result e a -> b`    | Eliminator                    |
+| `isOk`             | `\e a. Result e a -> Bool`                           | True if `Ok`                  |
+| `isErr`            | `\e a. Result e a -> Bool`                           | True if `Err`                 |
+| `fromOk`           | `\e a. a -> Result e a -> a`                         | Extract `Ok` with default     |
+| `fromErr`          | `\e a. e -> Result e a -> e`                         | Extract `Err` with default    |
+| `mapErr`           | `\e1 e2 a. (e1 -> e2) -> Result e1 a -> Result e2 a` | Map over error side           |
+| `partitionResults` | `\e a. List (Result e a) -> (List e, List a)`        | Separate errors and successes |
+| `rights`           | `\e a. List (Result e a) -> List a`                  | Collect successes             |
+| `lefts`            | `\e a. List (Result e a) -> List e`                  | Collect errors                |
+
+### List
+
+| Name            | Type                                                                     | Description                           |
+| --------------- | ------------------------------------------------------------------------ | ------------------------------------- |
+| `head`          | `\a. List a -> Maybe a`                                                  | First element                         |
+| `tail`          | `\a. List a -> Maybe (List a)`                                           | All but first                         |
+| `uncons`        | `\a. List a -> Maybe (a, List a)`                                        | Split head and tail                   |
+| `null`          | `\a. List a -> Bool`                                                     | True if empty                         |
+| `singleton`     | `\a. a -> List a`                                                        | Wrap in single-element list           |
+| `map`           | `\a b. (a -> b) -> List a -> List b`                                     | Map a function over elements          |
+| `filter`        | `\a. (a -> Bool) -> List a -> List a`                                    | Keep elements satisfying predicate    |
+| `find`          | `\a. (a -> Bool) -> List a -> Maybe a`                                   | First element satisfying predicate    |
+| `elem`          | `\a. Eq a => a -> List a -> Bool`                                        | Membership test                       |
+| `notElem`       | `\a. Eq a => a -> List a -> Bool`                                        | Non-membership test                   |
+| `any`           | `\a. (a -> Bool) -> List a -> Bool`                                      | True if any element satisfies         |
+| `all`           | `\a. (a -> Bool) -> List a -> Bool`                                      | True if all elements satisfy          |
+| `and`           | `List Bool -> Bool`                                                      | Conjunction of all elements           |
+| `or`            | `List Bool -> Bool`                                                      | Disjunction of all elements           |
+| `lookup`        | `\a b. Eq a => a -> List (a, b) -> Maybe b`                              | Association list lookup               |
+| `concatMap`     | `\a b. (a -> List b) -> List a -> List b`                                | Map then flatten                      |
+| `flatten`       | `\a. List (List a) -> List a`                                            | Flatten nested lists                  |
+| `catMaybes`     | `\a. List (Maybe a) -> List a`                                           | Collect `Just` values                 |
+| `mapMaybe`      | `\a b. (a -> Maybe b) -> List a -> List b`                               | Filter-map                            |
+| `partition`     | `\a. (a -> Bool) -> List a -> (List a, List a)`                          | Split by predicate                    |
+| `takeWhile`     | `\a. (a -> Bool) -> List a -> List a`                                    | Take prefix while predicate holds     |
+| `intersperse`   | `\a. a -> List a -> List a`                                              | Insert separator between elements     |
+| `nub`           | `\a. Eq a => List a -> List a`                                           | Remove duplicates                     |
+| `minimum`       | `\a. Ord a => List a -> Maybe a`                                         | Smallest element                      |
+| `maximum`       | `\a. Ord a => List a -> Maybe a`                                         | Largest element                       |
+| `minimumBy`     | `\a. (a -> a -> Ordering) -> List a -> Maybe a`                          | Smallest by comparator                |
+| `maximumBy`     | `\a. (a -> a -> Ordering) -> List a -> Maybe a`                          | Largest by comparator                 |
+| `sum`           | `List Int -> Int`                                                        | Sum of integers                       |
+| `product`       | `List Int -> Int`                                                        | Product of integers                   |
+| `sumDouble`     | `List Double -> Double`                                                  | Sum of doubles                        |
+| `productDouble` | `List Double -> Double`                                                  | Product of doubles                    |
+| `groupBy`       | `\a. (a -> a -> Bool) -> List a -> List (List a)`                        | Group consecutive equal elements      |
+| `group`         | `\a. Eq a => List a -> List (List a)`                                    | Group consecutive equal elements (Eq) |
+| `isPrefixOf`    | `\a. Eq a => List a -> List a -> Bool`                                   | Prefix check                          |
+| `isSuffixOf`    | `\a. Eq a => List a -> List a -> Bool`                                   | Suffix check                          |
+| `foldMap`       | `\(t: Type -> Type) a m. (Foldable t, Monoid m) => (a -> m) -> t a -> m` | Map then fold with Monoid             |
+| `collectList`   | `\(t: Type -> Type) a. Foldable t => t a -> List a`                      | Convert any Foldable to List          |
+
+Operators: `(<+)` (cons, infixr 5).
+
+### String
+
+| Name           | Type                                   | Description                       |
+| -------------- | -------------------------------------- | --------------------------------- |
+| `strlen`       | `String -> Int`                        | String length (UTF-8 byte count)  |
+| `charAt`       | `Int -> String -> Maybe Rune`          | Character at byte index           |
+| `substring`    | `Int -> Int -> String -> String`       | Byte-range substring              |
+| `toUpper`      | `String -> String`                     | Convert to uppercase              |
+| `toLower`      | `String -> String`                     | Convert to lowercase              |
+| `trim`         | `String -> String`                     | Strip leading/trailing whitespace |
+| `contains`     | `String -> String -> Bool`             | Substring containment test        |
+| `split`        | `String -> String -> List String`      | Split by separator                |
+| `join`         | `String -> List String -> String`      | Join with separator               |
+| `words`        | `String -> List String`                | Split on whitespace               |
+| `lines`        | `String -> List String`                | Split on newlines                 |
+| `unlines`      | `List String -> String`                | Join with newlines                |
+| `unwords`      | `List String -> String`                | Join with spaces                  |
+| `startsWith`   | `String -> String -> Bool`             | Prefix test                       |
+| `endsWith`     | `String -> String -> Bool`             | Suffix test                       |
+| `indexOf`      | `String -> String -> Maybe Int`        | First occurrence index            |
+| `lastIndexOf`  | `String -> String -> Maybe Int`        | Last occurrence index             |
+| `count`        | `String -> String -> Int`              | Count occurrences                 |
+| `replace`      | `String -> String -> String -> String` | Replace all occurrences           |
+| `reverseStr`   | `String -> String`                     | Reverse string                    |
+| `replicateStr` | `Int -> String -> String`              | Repeat n times                    |
+| `stripPrefix`  | `String -> String -> Maybe String`     | Remove prefix if present          |
+| `stripSuffix`  | `String -> String -> Maybe String`     | Remove suffix if present          |
+| `toRunes`      | `String -> List Rune`                  | Decode to rune list               |
+| `fromRunes`    | `List Rune -> String`                  | Encode from rune list             |
+
+### Applicative / Functor Utilities
+
+| Name     | Type                                                                                          | Description           |
+| -------- | --------------------------------------------------------------------------------------------- | --------------------- |
+| `liftA2` | `\(f: Type -> Type) a b c. Applicative f => (a -> b -> c) -> f a -> f b -> f c`               | Lift binary function  |
+| `liftA3` | `\(f: Type -> Type) a b c d. Applicative f => (a -> b -> c -> d) -> f a -> f b -> f c -> f d` | Lift ternary function |
+| `guard`  | `\(f: Type -> Type). Alternative f => Bool -> f ()`                                           | Fail if false         |
+| `void`   | `\(f: Type -> Type) a. Functor f => f a -> f ()`                                              | Discard result        |
+| `thenA`  | `\(f: Type -> Type) a b. Applicative f => f a -> f b -> f b`                                  | Sequence, keep second |
+
+Operators: `(<$>)` (fmap, infixl 4), `(<&>)` (flipped fmap, infixl 1), `(<*>)` (ap, infixl 4), `(*>)` (sequence, infixl 4), `(<*)` (discard, infixl 4), `(<|>)` (alt, infixl 3).
+
+### Monad Utilities
+
+| Name     | Type                                                  | Description                   |
+| -------- | ----------------------------------------------------- | ----------------------------- |
+| `mjoin`  | `\(m: Type -> Type) a. Monad m => m (m a) -> m a`     | Flatten nested monad          |
+| `when`   | `\(m: Type -> Type). Monad m => Bool -> m () -> m ()` | Conditional execution         |
+| `unless` | `\(m: Type -> Type). Monad m => Bool -> m () -> m ()` | Negated conditional execution |
+
+Operators: `(>>=)` (bind, infixl 1), `(>>)` (sequence, infixl 1), `(=<<)` (flipped bind, infixr 1), `(>=>)` (Kleisli L→R, infixr 1), `(<=<)` (Kleisli R→L, infixr 1).
+
+### Effectful List Combinators
+
+These operate on `List` within an `Effect r` computation:
+
+| Name         | Type                                                                 | Description                       |
+| ------------ | -------------------------------------------------------------------- | --------------------------------- |
+| `mapM`       | `\a b (r: Row). (a -> Effect r b) -> List a -> Effect r (List b)`    | Map with effect                   |
+| `mapM_`      | `\a b (r: Row). (a -> Effect r b) -> List a -> Effect r ()`          | Map with effect, discard results  |
+| `forM`       | `\a b (r: Row). List a -> (a -> Effect r b) -> Effect r (List b)`    | Flipped mapM                      |
+| `forM_`      | `\a b (r: Row). List a -> (a -> Effect r b) -> Effect r ()`          | Flipped mapM\_                    |
+| `sequence`   | `\a (r: Row). List (Suspended r a) -> Effect r (List a)`             | Execute list of suspended effects |
+| `sequence_`  | `\a (r: Row). List (Suspended r a) -> Effect r ()`                   | Execute, discard results          |
+| `foldM`      | `\a b (r: Row). (b -> a -> Effect r b) -> b -> List a -> Effect r b` | Effectful left fold               |
+| `filterM`    | `\a (r: Row). (a -> Effect r Bool) -> List a -> Effect r (List a)`   | Filter with effect                |
+| `replicateM` | `\a (r: Row). Int -> Suspended r a -> Effect r (List a)`             | Execute n times, collect results  |
