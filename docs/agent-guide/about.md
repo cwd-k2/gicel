@@ -69,23 +69,23 @@ bin/gicel run --explain --verbose program.gicel
 
 CLI flags:
 
-| Flag            | Default   | Description                                                                                                     |
-| --------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
-| `--packs`       | `all`     | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set, array, ref, mmap, mset, json, console |
-| `--module`      | --        | Register user module: `Name=path` (repeatable, run & check)                                                     |
-| `--recursion`   |           | Enable recursive definitions (run, check)                                                                       |
-| `--entry`       | `main`    | Entry point binding name                                                                                        |
-| `--timeout`     | `5s`      | Execution/compilation timeout (run, check)                                                                      |
-| `--max-steps`   | `100000`  | Step limit (run only)                                                                                           |
-| `--max-depth`   | `10000`   | Depth limit (run only)                                                                                          |
-| `--max-nesting` | `512`     | Structural nesting depth limit (run, check)                                                                     |
-| `--max-alloc`   | `100 MiB` | Allocation byte limit (run only)                                                                                |
-| `--json`        | `false`   | Output result as JSON (run, check)                                                                              |
-| `--explain`     | `false`   | Show semantic evaluation trace (run only)                                                                       |
-| `--explain-all` | `false`   | Trace stdlib internals too (with --explain)                                                                     |
-| `--verbose`     | `false`   | Show source context in explain trace (run only)                                                                 |
-| `--no-color`    | `false`   | Disable color output; also respects `NO_COLOR` env var                                                          |
-| `-e <source>`   | --        | Evaluate source string directly (run, check)                                                                    |
+| Flag            | Default   | Description                                                                                                                         |
+| --------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `--packs`       | `all`     | Comma-separated packs: prelude, fail, state, io, stream, slice, map, set, array, ref, mmap, mset, json, session, math, seq, console |
+| `--module`      | --        | Register user module: `Name=path` (repeatable, run & check)                                                                         |
+| `--recursion`   |           | Enable recursive definitions (run, check)                                                                                           |
+| `--entry`       | `main`    | Entry point binding name                                                                                                            |
+| `--timeout`     | `5s`      | Execution/compilation timeout (run, check)                                                                                          |
+| `--max-steps`   | `100000`  | Step limit (run only)                                                                                                               |
+| `--max-depth`   | `10000`   | Depth limit (run only)                                                                                                              |
+| `--max-nesting` | `512`     | Structural nesting depth limit (run, check)                                                                                         |
+| `--max-alloc`   | `100 MiB` | Allocation byte limit (run only)                                                                                                    |
+| `--json`        | `false`   | Output result as JSON (run, check)                                                                                                  |
+| `--explain`     | `false`   | Show semantic evaluation trace (run only)                                                                                           |
+| `--explain-all` | `false`   | Trace stdlib internals too (with --explain)                                                                                         |
+| `--verbose`     | `false`   | Show source context in explain trace (run only)                                                                                     |
+| `--no-color`    | `false`   | Disable color output; also respects `NO_COLOR` env var                                                                              |
+| `-e <source>`   | --        | Evaluate source string directly (run, check)                                                                                        |
 
 **Inline source (`-e`):** Semicolons and newlines are interchangeable separators.
 Use `;` when writing inline: `bin/gicel run -e 'import Prelude; main := 1 + 2'`.

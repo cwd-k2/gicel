@@ -40,21 +40,24 @@ result, err := rt.RunWith(ctx, &gicel.RunOptions{Caps: caps, Bindings: bindings}
 
 ### Available Packs
 
-| Pack                | Module         | Provides                                         |
-| ------------------- | -------------- | ------------------------------------------------ |
-| `gicel.Prelude`     | `Prelude`      | Int, String, List — arithmetic, strings, lists   |
-| `gicel.EffectFail`  | `Effect.Fail`  | Failure effect                                   |
-| `gicel.EffectState` | `Effect.State` | Get/put state + runState/evalState/execState     |
-| `gicel.EffectIO`    | `Effect.IO`    | Log/dbg output                                   |
-| `gicel.DataStream`  | `Data.Stream`  | Lazy lists                                       |
-| `gicel.DataSlice`   | `Data.Slice`   | O(1) contiguous arrays                           |
-| `gicel.EffectArray` | `Effect.Array` | Mutable fixed-size arrays ({ array: () } effect) |
-| `gicel.DataMap`     | `Data.Map`     | Ordered immutable map (AVL)                      |
-| `gicel.DataSet`     | `Data.Set`     | Ordered immutable set                            |
-| `gicel.EffectMap`   | `Effect.Map`   | Mutable ordered maps ({ mmap: () } effect)       |
-| `gicel.EffectSet`   | `Effect.Set`   | Mutable ordered sets ({ mset: () } effect)       |
-| `gicel.EffectRef`   | `Effect.Ref`   | Mutable reference cells ({ ref: () } effect)     |
-| `gicel.DataJSON`    | `Data.JSON`    | ToJSON/FromJSON type classes                     |
+| Pack                  | Module           | Provides                                         |
+| --------------------- | ---------------- | ------------------------------------------------ |
+| `gicel.Prelude`       | `Prelude`        | Int, String, List — arithmetic, strings, lists   |
+| `gicel.EffectFail`    | `Effect.Fail`    | Failure effect                                   |
+| `gicel.EffectState`   | `Effect.State`   | Get/put state + runState/evalState/execState     |
+| `gicel.EffectIO`      | `Effect.IO`      | Log/dbg output                                   |
+| `gicel.DataStream`    | `Data.Stream`    | Lazy lists                                       |
+| `gicel.DataSlice`     | `Data.Slice`     | O(1) contiguous arrays                           |
+| `gicel.EffectArray`   | `Effect.Array`   | Mutable fixed-size arrays ({ array: () } effect) |
+| `gicel.DataMap`       | `Data.Map`       | Ordered immutable map (AVL)                      |
+| `gicel.DataSet`       | `Data.Set`       | Ordered immutable set                            |
+| `gicel.EffectMap`     | `Effect.Map`     | Mutable ordered maps ({ mmap: () } effect)       |
+| `gicel.EffectSet`     | `Effect.Set`     | Mutable ordered sets ({ mset: () } effect)       |
+| `gicel.EffectRef`     | `Effect.Ref`     | Mutable reference cells ({ ref: () } effect)     |
+| `gicel.DataJSON`      | `Data.JSON`      | ToJSON/FromJSON type classes                     |
+| `gicel.EffectSession` | `Effect.Session` | Linear session channels                          |
+| `gicel.DataMath`      | `Data.Math`      | Integer power, bitwise, transcendental ops       |
+| `gicel.DataSequence`  | `Data.Sequence`  | 2-3 finger tree sequences                        |
 
 ### Custom Primitives (RegisterPrim)
 

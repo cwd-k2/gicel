@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.30.0 — 2026-04-11
+
+Stdlib expansion (5 new/extended packs, 100+ new bindings), type checker soundness fixes, and LSP diagnostic correctness.
+
+### Stdlib
+
+- **Data.Math** — New pack: integer power (`pow`, `powMod`), bitwise operations (`band`, `bor`, `bxor`, `bshl`, `bshr`), transcendental functions (`sqrt`, `exp`, `log`, `sin`, `cos`, `tan`, `atan2`, `pi`), and conversion (`toFloat`, `round`, `floor`, `ceil`).
+- **Data.Sequence** — New pack: 2-3 finger tree sequences with O(1) amortized cons/snoc, O(log n) split/index. Includes `Functor`, `Foldable`, and `Monoid` instances.
+- **Data.Map / Data.Set** — New utility operations: `keys`, `values`, `mapValues`, `filterMap`, `intersectWith`, `differenceMap`, `isSubmapOf`, `findMin`, `findMax` (Map); `isSubsetOf`, `difference`, `findMin`, `findMax` (Set). Added `Foldable Set` and `Functor`/`Foldable (Map k)` instances.
+- **Data.Slice** — Extended: `filter`, `sort`, `zip`, `generate`, `range`, `Monoid` instance.
+- **Data.Sequence** — `Functor`, `Foldable`, and `Monoid` instances.
+- **Prelude** — New: `Applicative` utility (`*>`, `<*`, `when`, `unless`, `sequenceList`), `Result` combinators (`mapError`, `fromResult`, `resultToMaybe`, `maybeToResult`), string search & transform (`isPrefixOf`, `isSuffixOf`, `isInfixOf`, `indexOf`, `splitStr`, `trimStr`, `replaceStr`, `padLeft`, `padRight`, `toUpper`, `toLower`, `intercalate`).
+
+### Type Checker
+
+- **Fix: LSP false positives on `fix` + class constraints** — Generalization's temporary meta→TyVar solutions now live in a separate overlay (`tempSoln`), preventing Zonk path compression from contaminating permanent outer-scope entries. Previously, the HoverRecorder's Rezonk pass could propagate transient `TyVar` values into the permanent solution map, causing spurious type mismatch errors in the LSP for any `fix`-based recursion involving type class constraints (`Ord`, etc.).
+- **Fix: kind check in explicit type application** — `-|` operator now validates kind compatibility.
+- **Fix: capture-avoiding substitution in `TyForall` unification** — Prevents variable capture when unifying quantified types.
+- **Fix: conflicting type family equation detection on `merge`** — Rejects contradictory equations.
+- **Fix: equality premises in quantified constraint resolution** — Verifies `~` premises before discharging.
+- **Fix: `GradeAlgebra` instance enforcement** — Grade parameters now require a `GradeAlgebra` instance.
+- **Fix: snapshotDepth leak, CBPV solver coercion** — Cleaned up unifier state management.
+
+### LSP
+
+- **Cross-module go-to-definition** — Jump to definitions in imported user modules.
+- **Qualified completion** — `M.` triggers completion from module `M`'s exports.
+- **Module name in variable hover** — Hover shows `(Prelude.map)` provenance.
+
+### CLI
+
+- **File header `--packs` directive** — Source files can declare `-- gicel: --packs prelude,state` to select stdlib packs.
+- **Exit code fix** — `gicel` with no arguments now exits 1.
+
+### Internal
+
+- **Unifier**: `tempSoln` overlay separates generalization-time temporary solutions from permanent unification state; `lookupSoln` checks overlay first; path compression suppressed while overlay is active.
+- **Engine**: `Limits` split into `CompilerLimits`/`RuntimeLimits`; `PipelineFlags` extracted.
+- **Solver**: `Env` decomposed into 5 role-specific sub-interfaces.
+- **IR**: `Transform` no longer mutates original tree in Bind chains; `transformBindChain` rewrite.
+- **HoverRecorder** interface consolidates 6 callback fields.
+- **LSP**: debounce state cleanup on `didClose`; rune-level qualified prefix scanning.
+- **VM**: allocation charging for closure captures and temporaries.
+
 ## v0.29.0 — 2026-04-11
 
 LSP hover and completion overhaul: richer type display, doc comments on usage sites, exhaustive coverage.
