@@ -388,22 +388,16 @@ func (s *Solver) processCtEq(ct *CtEq) {
 func (s *Solver) tryCBPVComponentUnify(lhs, rhs types.Type) bool {
 	l, ok1 := lhs.(*types.TyCBPV)
 	r, ok2 := rhs.(*types.TyCBPV)
-	if !ok1 || !ok2 || l.Tag == r.Tag {
+	if !ok1 || !ok2 {
+		return false
+	}
+	pairs, ok := types.CBPVAdjunctionParts(l, r)
+	if !ok {
 		return false
 	}
 	return s.trialScope(func() bool {
-		if err := s.env.Unify(l.Pre, r.Pre); err != nil {
-			return false
-		}
-		if err := s.env.Unify(l.Post, r.Post); err != nil {
-			return false
-		}
-		if err := s.env.Unify(l.Result, r.Result); err != nil {
-			return false
-		}
-		// Grade duality: nil grade (ungraded form) is compatible with any grade.
-		if l.Grade != nil && r.Grade != nil {
-			if err := s.env.Unify(l.Grade, r.Grade); err != nil {
+		for _, p := range pairs {
+			if err := s.env.Unify(p[0], p[1]); err != nil {
 				return false
 			}
 		}

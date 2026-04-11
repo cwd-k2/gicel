@@ -364,7 +364,8 @@ func (ch *Checker) tryCBPVCoercion(inferred, expected types.Type, expr ir.Core, 
 	if !ok2 {
 		return nil, false
 	}
-	if iCBPV.Tag == eCBPV.Tag {
+	pairs, ok := types.CBPVAdjunctionParts(iCBPV, eCBPV)
+	if !ok {
 		return nil, false
 	}
 
@@ -373,22 +374,8 @@ func (ch *Checker) tryCBPVCoercion(inferred, expected types.Type, expr ir.Core, 
 	// untouched types.
 	saved := ch.saveState()
 
-	if err := ch.unifier.Unify(iCBPV.Pre, eCBPV.Pre); err != nil {
-		ch.restoreState(saved)
-		return nil, false
-	}
-	if err := ch.unifier.Unify(iCBPV.Post, eCBPV.Post); err != nil {
-		ch.restoreState(saved)
-		return nil, false
-	}
-	if err := ch.unifier.Unify(iCBPV.Result, eCBPV.Result); err != nil {
-		ch.restoreState(saved)
-		return nil, false
-	}
-	// Grade: ungraded sides are compatible with any grade (see the
-	// CBPV grade duality notes in the types package).
-	if iCBPV.Grade != nil && eCBPV.Grade != nil {
-		if err := ch.unifier.Unify(iCBPV.Grade, eCBPV.Grade); err != nil {
+	for _, p := range pairs {
+		if err := ch.unifier.Unify(p[0], p[1]); err != nil {
 			ch.restoreState(saved)
 			return nil, false
 		}

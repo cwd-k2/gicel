@@ -97,6 +97,30 @@ type TyCBPV struct {
 	S                 span.Span
 }
 
+// CBPVAdjunctionParts checks whether two TyCBPV types are adjunction-compatible:
+// opposite tags with structurally unifiable components. Returns the component
+// pairs that need unification and true, or nil and false if the types are not
+// adjunction-compatible. Grade duality: nil grade is compatible with any grade.
+//
+// This is the shared predicate used by tryCBPVCoercion (subsCheck),
+// tryCBPVComponentUnify (solver), and autoForceIfThunk (inferBind).
+// The caller is responsible for unifying the returned pairs and wrapping
+// the expression in Thunk/Force as needed.
+func CBPVAdjunctionParts(a, b *TyCBPV) (pairs [][2]Type, ok bool) {
+	if a.Tag == b.Tag {
+		return nil, false
+	}
+	pairs = [][2]Type{
+		{a.Pre, b.Pre},
+		{a.Post, b.Post},
+		{a.Result, b.Result},
+	}
+	if a.Grade != nil && b.Grade != nil {
+		pairs = append(pairs, [2]Type{a.Grade, b.Grade})
+	}
+	return pairs, true
+}
+
 // RowField is a single label:type pair in a row, with optional grade annotations.
 // Grades is nil/empty for unrestricted (the default); each element is a grade
 // from a potentially different grade algebra (e.g., TyCon("Linear"), TyCon("Secret")).
@@ -129,10 +153,17 @@ type TyEvidence struct {
 }
 
 // TyMeta is a unification metavariable (created by the checker).
-// Level tracks the implication nesting depth at creation time.
-// Used for touchability: a meta at level k is touchable only when
-// the solver is operating at level k (OutsideIn).
-// Currently all metas are created at level 0.
+//
+// Level tracks the implication nesting depth at creation time. Used for
+// touchability: a meta at level k is touchable only when the solver is
+// operating at level ≥ k (OutsideIn). Metas created at the top level
+// have Level 0; those created inside implication scopes (GADT branches)
+// have the solver's current level at creation time.
+//
+// Generalization uses a separate mechanism (ID-based watermarks in
+// decl_generalize.go) to determine which metas to quantify. The two
+// systems are complementary: Level controls unification permission,
+// watermarks control generalization scope.
 type TyMeta struct {
 	ID    int
 	Kind  Type

@@ -62,7 +62,15 @@ func (u *Unifier) unifyEvCapRows(
 		if err := u.Unify(aField.Type, bField.Type); err != nil {
 			return err
 		}
-		// Unify grade annotations pairwise.
+		// Unify grade annotations pairwise (structural shape match only).
+		//
+		// This path ensures both sides agree on the same grade value via
+		// structural unification. It does NOT verify algebraic properties
+		// (e.g., whether the grade permits preservation across a computation
+		// boundary). Algebraic grade checking is the responsibility of
+		// checkGradeBoundary in grade.go, which uses GradeAlgebra type
+		// family reduction (GradeJoin, GradeCompose, GradeDrop).
+		//
 		// nil grades (len=0) act as the identity element: compatible with
 		// any grade. This allows grade-unaware operations (getAt, receiveAt,
 		// etc.) to work with graded capabilities (@Linear, @Affine, ...).
@@ -154,12 +162,28 @@ func (u *Unifier) unifyEvConRows(
 	shared, onlyLeft, onlyRight := types.ClassifyConstraints(aN.ConEntries(), bN.ConEntries())
 
 	for _, m := range shared {
-		// ClassifyConstraints pairs entries by head class name; in the
-		// class/class case we unify the class args pairwise. For other
-		// variant pairs (equality ~ equality, etc.) fall back on a
-		// catch-all: compare structurally via head args if both carry a
-		// class head, otherwise skip — such pairings only arise from
-		// injection at tests and are not produced by the checker.
+		// Dispatch by variant: each constraint entry kind carries different
+		// fields that need pairwise unification.
+		switch a := m.A.(type) {
+		case *types.EqualityEntry:
+			if b, ok := m.B.(*types.EqualityEntry); ok {
+				if err := u.Unify(a.Lhs, b.Lhs); err != nil {
+					return err
+				}
+				if err := u.Unify(a.Rhs, b.Rhs); err != nil {
+					return err
+				}
+				continue
+			}
+		case *types.VarEntry:
+			if b, ok := m.B.(*types.VarEntry); ok {
+				if err := u.Unify(a.Var, b.Var); err != nil {
+					return err
+				}
+				continue
+			}
+		}
+		// ClassEntry / QuantifiedConstraint: unify class args pairwise.
 		aArgs := types.HeadClassArgs(m.A)
 		bArgs := types.HeadClassArgs(m.B)
 		if len(aArgs) != len(bArgs) {
