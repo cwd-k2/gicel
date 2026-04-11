@@ -40,7 +40,7 @@ impl Symantics Eval := {
   add  := \x y. MkEval (runEval x + runEval y);
   mul  := \x y. MkEval (runEval x * runEval y);
   leq  := \x y. MkEval (runEval x <= runEval y);
-  if_  := \c t f. MkEval (case runEval c { True => runEval t; False => runEval f })
+  if_  := \c t f. MkEval (if runEval c then runEval t else runEval f)
 }
 
 -- ── Interpreter 2: Pretty-printer ──────────────────────────

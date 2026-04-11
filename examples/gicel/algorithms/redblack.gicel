@@ -97,7 +97,7 @@ rbInsert := \key tree. case ins key tree {
 rbToList :: \a. RBTree a -> List a
 rbToList := fix (\self tree. case tree {
   Leaf => Nil;
-  Node _ left val right => concat (self left) (Cons val (self right))
+  Node _ left val right => self left <> Cons val (self right)
 })
 
 -- ── Size ────────────────────────────────────────────────────

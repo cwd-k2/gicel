@@ -55,7 +55,7 @@ dfs := \g start. {
         else {
           visited2 := Set.insert node visited;
           nbrs := neighbors node g;
-          stack2 := concat (reverse nbrs) rest;
+          stack2 := reverse nbrs <> rest;
           self stack2 visited2 (Cons node result)
         }
   });
@@ -77,7 +77,7 @@ bfs := \g start. {
           visited2 := Set.insert node visited;
           nbrs := neighbors node g;
           newNbrs := filter (\n. not (Set.member n visited2)) nbrs;
-          queue2 := concat rest (reverse newNbrs);
+          queue2 := rest <> reverse newNbrs;
           self queue2 visited2 (Cons node result)
         }
   });

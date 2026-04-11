@@ -24,7 +24,7 @@ wordFreq :: String -> List (String, Int)
 wordFreq := \text. {
   ws := map toLower (words text);
   unique := nub ws;
-  map (\w. (w, length (filter (eq w) ws))) unique
+  map (\w. (w, length (filter (== w) ws))) unique
 }
 
 -- === Text formatting ===

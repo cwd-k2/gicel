@@ -41,7 +41,7 @@ pythag := do {
   a <- range 1 10;
   b <- range a 10;
   c <- range b 10;
-  guard (eq (a * a + b * b) (c * c));
+  guard (a * a + b * b == c * c);
   pure (MkTriple a b c)
 }
 -- [(3, 4, 5), (6, 8, 10)]
@@ -51,7 +51,7 @@ sumPairs :: List (Int, Int)
 sumPairs := do {
   x <- range 1 6;
   y <- range 1 6;
-  guard (eq (x + y) 7);
+  guard (x + y == 7);
   pure (x, y)
 }
 -- [(1,6),(2,5),(3,4),(4,3),(5,2),(6,1)]
@@ -75,7 +75,7 @@ impl Monad NDFree := {
 runND :: \a. NDFree a -> List a
 runND := fix (\self m. case m {
   NDPure a     => [a];
-  NDChoice l r => concat (self l) (self r);
+  NDChoice l r => self l <> self r;
   NDFail       => []
 })
 
@@ -98,15 +98,17 @@ safe :: Int -> List Int -> Int -> Bool
 safe := fix (\self col qs d. case qs {
   Nil => True;
   Cons q rest =>
-    case eq col q   { True => False;
-    False => case eq (abs (col - q)) d { True => False;
-    False => self col rest (d + 1) }}
+    if col == q
+      then False
+    else if abs (col - q) == d
+      then False
+    else self col rest (d + 1)
 })
 
 -- do-notation on NDFree: fromList provides choices, guardND prunes.
 nqueens :: Int -> List Int -> NDFree (List Int)
 nqueens := fix (\self n placed.
-  if eq (length placed) n
+  if length placed == n
     then mpure (reverse placed)
     else (do {
       col <- fromList $ range 0 (n - 1);

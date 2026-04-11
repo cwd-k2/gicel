@@ -2,7 +2,7 @@
 --
 -- Import Prelude for String and Rune types and operations.
 -- Demonstrates: literals, charAt, substring, case conversion,
--- contains, split, join, append, eq, compare, show, read.
+-- contains, split, join, append, ==, compare, show, read.
 --
 -- String length uses `strlen` (not `length`) to avoid collision
 -- with Prelude's `length`.
@@ -45,8 +45,8 @@ parts := split "," "a,b,c"          -- ["a", "b", "c"]
 joined := join "-" ["x", "y", "z"]  -- "x-y-z"
 
 -- Eq String
-same := eq "abc" "abc"               -- True
-diff := eq "abc" "xyz"               -- False
+same := "abc" == "abc"               -- True
+diff := "abc" /= "xyz"              -- True
 
 -- Ord String: lexicographic comparison
 cmpStr := compare "apple" "banana"   -- LT

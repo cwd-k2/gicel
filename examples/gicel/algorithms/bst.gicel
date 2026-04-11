@@ -45,7 +45,7 @@ bstLookup := fix $ \self x t. case t {
 bstInorder :: \a. BST a -> List a
 bstInorder := fix $ \self t. case t {
   Tip => [];
-  Bin left val right => concat (self left) $ Cons val (self right)
+  Bin left val right => self left <> Cons val (self right)
 }
 
 -- ── Minimum element ─────────────────────────────────────────

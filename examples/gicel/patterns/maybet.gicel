@@ -35,7 +35,7 @@ failT := MkMaybeT $ mpure Nothing
 
 safeDivM :: Int -> Int -> MaybeT Maybe Int
 safeDivM := \x y.
-  if eq y 0
+  if y == 0
     then failT
     else MkMaybeT $ Just $ Just (x / y)
 

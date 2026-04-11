@@ -93,7 +93,7 @@ dijkstraLoop := fix (\self graph worklist dist. case extractMin worklist {
       else do {
         nbrs := wNeighbors node graph;
         newEntries <- relaxNeighbors d nbrs dist;
-        self graph (concat newEntries rest) dist
+        self graph (newEntries <> rest) dist
       }
   }
 })

@@ -9,25 +9,25 @@
 import Prelude
 import Console
 
--- Eq: structural equality
-eqBool := eq True True                    -- True
-neqBool := eq True False                  -- False
-eqUnit := eq () ()                        -- True
-eqOrdering := eq LT LT                   -- True
+-- Eq: structural equality (== and /=)
+eqBool := True == True                    -- True
+neqBool := True /= False                  -- True
+eqUnit := () == ()                        -- True
+eqOrdering := LT == LT                   -- True
 
 -- Eq Maybe: delegates to inner Eq
-eqJust := eq (Just 1) (Just 1)           -- True
-eqJustDiff := eq (Just 1) (Just 2)       -- False
-eqNothing := eq Nothing (Nothing :: Maybe Int)  -- True
-eqMixed := eq (Just 1) Nothing           -- False
+eqJust := Just 1 == Just 1               -- True
+eqJustDiff := Just 1 /= Just 2           -- True
+eqNothing := Nothing == (Nothing :: Maybe Int)  -- True
+eqMixed := Just 1 /= Nothing             -- True
 
 -- Eq List: element-wise
-eqList := eq [1, 2] [1, 2]              -- True
-neqList := eq [1] [2]                    -- False
+eqList := [1, 2] == [1, 2]              -- True
+neqList := [1] /= [2]                    -- True
 
 -- Eq Tuple
-eqTuple := eq (1, True) (1, True)        -- True
-neqTuple := eq (1, True) (1, False)      -- False
+eqTuple := (1, True) == (1, True)        -- True
+neqTuple := (1, True) /= (1, False)      -- True
 
 -- Ord: comparison
 cmpBool := compare False True            -- LT
@@ -73,9 +73,7 @@ wrapMaybe := wrap 42 :: Maybe Int        -- Just 42
 apMaybe := ap (Just (+ 1)) (Just 10)          -- Just 11
 apFail := ap Nothing (Just 10 :: Maybe Int)     -- Nothing
 
--- Comparison operators (==, /=, <, >, <=, >=)
-eqOp := 5 == 5                           -- True
-neOp := 5 /= 3                           -- True
+-- Ord operators (<, >, <=, >=)
 ltOp := 1 < 2                            -- True
 gtOp := 2 > 1                            -- True
 leOp := 5 <= 5                           -- True

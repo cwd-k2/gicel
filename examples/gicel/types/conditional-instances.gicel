@@ -17,10 +17,7 @@ form Eq' := \a. {
 
 -- Base instance: Bool equality
 impl Eq' Bool := {
-  eq' := \x y. case x {
-    True  => case y { True => True;  False => False };
-    False => case y { True => False; False => True }
-  }
+  eq' := \x y. if x then y else not y
 }
 
 -- Base instance: Ordering equality

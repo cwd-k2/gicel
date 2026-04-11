@@ -39,7 +39,7 @@ second := snd pair
 unit := ()
 
 -- Tuple equality and ordering (uses derived instances)
-eqTest := eq (1, 2) (1, 2)
+eqTest := (1, 2) == (1, 2)
 cmpTest := compare (1, 2) (1, 3)
 
 -- Lambda pattern matching on tuples

@@ -38,7 +38,7 @@ eval := fix (\self e. case e {
   LitInt n  => n;
   Not inner => not (self inner);
   Add x y   => self x + self y;
-  If c t f  => case self c { True => self t; False => self f }
+  If c t f  => if self c then self t else self f
 })
 
 -- ── Shallow extractors ───────────────────────────────────────

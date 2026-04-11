@@ -53,7 +53,7 @@ runKV :: \a. KV a -> Int -> a
 runKV := fix $ \self prog bVal. case prog {
   KVDone a           => a;
   KVGet key k        =>
-    if eq key "a"
+    if key == "a"
       then self (k 10) bVal
       else self (k bVal) bVal;
   KVPut _ v next => self next v

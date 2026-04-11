@@ -14,7 +14,7 @@ addOne := \x. x + 1
 
 -- Mixed equality and class constraints.
 showIfInt :: \a. (a ~ Int, Eq a) => a -> Bool
-showIfInt := \x. eq x 0
+showIfInt := \x. x == 0
 
 -- Both directions: Int ~ a also works.
 identity :: \a. Int ~ a => a -> Int

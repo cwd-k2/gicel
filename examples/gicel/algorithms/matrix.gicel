@@ -65,7 +65,7 @@ matMul := \a b. {
 -- ── Determinant (cofactor expansion along first row) ────────
 
 removeCol :: Int -> List Int -> List Int
-removeCol := \j row. concat (take j row) $ drop (j + 1) row
+removeCol := \j row. take j row <> drop (j + 1) row
 
 minor :: Int -> List (List Int) -> List (List Int)
 minor := \j m. map (removeCol j) $ maybe [] id $ tail m

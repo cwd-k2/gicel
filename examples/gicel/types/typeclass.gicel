@@ -19,7 +19,7 @@ form Warm := \a. {
 
 -- Instance for Bool: True is warm, False is cold
 impl Warm Bool := {
-  isWarm := \b. case b { True => True; False => False }
+  isWarm := id
 }
 
 -- Instance for Season
@@ -50,10 +50,10 @@ test2 := isWarm Winter             -- False
 test3 := isWarm (Just Spring)      -- True (Warm Season => Warm (Maybe Season))
 test4 := isWarm (Nothing :: Maybe Bool)  -- False
 
--- Using Prelude's Eq class
-test5 := eq (Just True) (Just True)   -- True
-test6 := eq (Just True) (Just False)  -- False
-test7 := eq Nothing (Nothing :: Maybe Bool) -- True
+-- Using Prelude's Eq class (== operator)
+test5 := Just True == Just True           -- True
+test6 := Just True /= Just False          -- True
+test7 := Nothing == (Nothing :: Maybe Bool) -- True
 
 -- Polymorphic usage: warmOrCold works on any Warm type
 test8 := warmOrCold True           -- True
@@ -63,8 +63,8 @@ main := do {
   putLine $ "isWarm Spring:    " <> show test1;
   putLine $ "isWarm Winter:    " <> show test2;
   putLine $ "isWarm Summer:    " <> show test3;
-  putLine $ "eq Just T Just T: " <> show test5;
-  putLine $ "eq Just T Just F: " <> show test6;
+  putLine $ "Just T == Just T: " <> show test5;
+  putLine $ "Just T /= Just F: " <> show test6;
   putLine $ "warmOrCold True:  " <> show test8;
   putLine $ "warmOrCold False: " <> show test9
 }
