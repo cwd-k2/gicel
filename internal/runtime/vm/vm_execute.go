@@ -425,6 +425,13 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			}
 			vm.push(rv.Update(updates))
 
+		case OpVariant:
+			tagIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			tag := frame.proto.Strings[tagIdx]
+			payload := vm.pop()
+			vm.push(&eval.VariantVal{Tag: tag, Value: payload})
+
 		case OpMatchCon:
 			descIdx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2

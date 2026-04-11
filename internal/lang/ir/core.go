@@ -23,7 +23,7 @@ const (
 func (g GenKind) IsGenerated() bool { return g != 0 }
 
 // Core is a term in the core intermediate representation.
-// 19 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, Merge, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate, Error.
+// 20 formers: Var, Lam, App, TyApp, TyLam, Con, Case, Fix, Pure, Bind, Thunk, Force, Merge, PrimOp, Lit, RecordLit, RecordProj, RecordUpdate, VariantLit, Error.
 type Core interface {
 	coreNode()
 	Span() span.Span
@@ -196,6 +196,13 @@ type RecordUpdate struct {
 	S       span.Span
 }
 
+// VariantLit — variant construction (elaborated from inject @#tag expr).
+type VariantLit struct {
+	Tag   string
+	Value Core
+	S     span.Span
+}
+
 // Error — placeholder for erroneous expressions that failed type checking.
 // Never reaches the evaluator; present only so downstream IR passes
 // can propagate without crashing after errors have been reported.
@@ -222,6 +229,7 @@ func (*Lit) coreNode()          {}
 func (*RecordLit) coreNode()    {}
 func (*RecordProj) coreNode()   {}
 func (*RecordUpdate) coreNode() {}
+func (*VariantLit) coreNode()   {}
 func (*Error) coreNode()        {}
 
 // --- Span accessors ---
@@ -243,4 +251,5 @@ func (c *Lit) Span() span.Span          { return c.S }
 func (c *RecordLit) Span() span.Span    { return c.S }
 func (c *RecordProj) Span() span.Span   { return c.S }
 func (c *RecordUpdate) Span() span.Span { return c.S }
+func (c *VariantLit) Span() span.Span   { return c.S }
 func (c *Error) Span() span.Span        { return c.S }

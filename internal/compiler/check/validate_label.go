@@ -127,6 +127,8 @@ func (ch *Checker) walkValidateLabel(c ir.Core, bindingType types.Type, labelLam
 		for _, f := range n.Updates {
 			w(f.Value)
 		}
+	case *ir.VariantLit:
+		w(n.Value)
 	default:
 		panic(fmt.Sprintf("walkValidateLabel: unhandled Core node %T", c))
 	}

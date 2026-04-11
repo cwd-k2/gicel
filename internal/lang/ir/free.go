@@ -104,6 +104,8 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 		for _, f := range n.Updates {
 			freeVarsRec(f.Value, bound, fv, depth+1)
 		}
+	case *VariantLit:
+		freeVarsRec(n.Value, bound, fv, depth+1)
 	default:
 		panic(fmt.Sprintf("freeVarsRec: unhandled Core node %T", c))
 	}
@@ -492,6 +494,8 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 			result = mergeFV(result, traverseFV(f.Value, depth+1, obs))
 		}
 		return result
+	case *VariantLit:
+		return traverseFV(n.Value, depth+1, obs)
 	default:
 		panic(fmt.Sprintf("traverseFV: unhandled Core node %T", c))
 	}

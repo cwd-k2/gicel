@@ -80,6 +80,9 @@ const (
 	// OpRecordUpdate performs copy-on-write record update.
 	// Operand: u16 descriptor index (encodes update labels).
 	OpRecordUpdate
+	// OpVariant builds a VariantVal from a tag string and payload value.
+	// Operand: u16 tag (string pool index). Pops payload from stack.
+	OpVariant
 
 	// --- Pattern matching ---
 
@@ -206,7 +209,7 @@ func InstructionSize(op Opcode) int {
 	switch op {
 	case OpLoadLocal, OpLoadGlobal, OpStoreLocal,
 		OpConst, OpClosure, OpThunk,
-		OpRecordProj, OpRecord, OpRecordUpdate,
+		OpRecordProj, OpRecord, OpRecordUpdate, OpVariant,
 		OpFixClosure, OpFixThunk,
 		OpPrimPartial,
 		OpBind, OpMerge:
@@ -262,6 +265,7 @@ var opNames = [opcodeCount]string{
 	OpRecord:          "RECORD",
 	OpRecordProj:      "RECORD_PROJ",
 	OpRecordUpdate:    "RECORD_UPDATE",
+	OpVariant:         "VARIANT",
 	OpMatchCon:        "MATCH_CON",
 	OpMatchLit:        "MATCH_LIT",
 	OpMatchRecord:     "MATCH_RECORD",

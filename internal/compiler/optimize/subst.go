@@ -228,6 +228,12 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 			updates[i] = ir.Field{Label: f.Label, Value: substMany(f.Value, subs, subsFV)}
 		}
 		return &ir.RecordUpdate{Record: substMany(n.Record, subs, subsFV), Updates: updates, S: n.S}
+	case *ir.VariantLit:
+		newValue := substMany(n.Value, subs, subsFV)
+		if newValue == n.Value {
+			return n
+		}
+		return &ir.VariantLit{Tag: n.Tag, Value: newValue, S: n.S}
 	}
 	panic(fmt.Sprintf("substMany: unhandled Core node %T", expr))
 }
@@ -453,6 +459,12 @@ func substTyVarInCore(c ir.Core, tyVar string, ty types.Type) ir.Core {
 				return c
 			}
 			return &ir.RecordUpdate{Record: newRecord, Updates: updates, S: n.S}
+		case *ir.VariantLit:
+			newValue := walk(n.Value)
+			if newValue == n.Value {
+				return c
+			}
+			return &ir.VariantLit{Tag: n.Tag, Value: newValue, S: n.S}
 		}
 		return c
 	}

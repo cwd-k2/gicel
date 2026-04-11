@@ -71,6 +71,8 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 		for _, f := range n.Updates {
 			walkRec(f.Value, visit, depth+1)
 		}
+	case *VariantLit:
+		walkRec(n.Value, visit, depth+1)
 	default:
 		panic(fmt.Sprintf("Walk: unhandled Core node %T", c))
 	}
@@ -278,6 +280,12 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 			updates = n.Updates
 		}
 		return f(&RecordUpdate{Record: newRecord, Updates: updates, S: n.S})
+	case *VariantLit:
+		newValue := transformRec(n.Value, f, depth+1)
+		if newValue == n.Value {
+			return f(n)
+		}
+		return f(&VariantLit{Tag: n.Tag, Value: newValue, S: n.S})
 	default:
 		panic(fmt.Sprintf("Transform: unhandled Core node %T", c))
 	}
@@ -507,6 +515,9 @@ func transformMutRec(c Core, f func(Core) Core, depth int) Core {
 		for i := range n.Updates {
 			n.Updates[i].Value = transformMutRec(n.Updates[i].Value, f, depth+1)
 		}
+		return f(n)
+	case *VariantLit:
+		n.Value = transformMutRec(n.Value, f, depth+1)
 		return f(n)
 	default:
 		panic(fmt.Sprintf("TransformMut: unhandled Core node %T", c))

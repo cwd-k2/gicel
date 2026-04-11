@@ -42,6 +42,8 @@ func irNodeKind(n ir.Core) string {
 		return "RecordProj"
 	case *ir.RecordUpdate:
 		return "RecordUpdate"
+	case *ir.VariantLit:
+		return "VariantLit"
 	default:
 		return "?"
 	}

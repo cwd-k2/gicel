@@ -79,6 +79,8 @@ func (c *Compiler) compileExpr(expr ir.Core, tail bool) {
 		c.compileRecordProj(node)
 	case *ir.RecordUpdate:
 		c.compileRecordUpdate(node)
+	case *ir.VariantLit:
+		c.compileVariantLit(node)
 	default:
 		panic(fmt.Sprintf("vm/compiler: unhandled Core node %T", expr))
 	}
@@ -444,6 +446,12 @@ func (c *Compiler) compileRecordUpdate(upd *ir.RecordUpdate) {
 	}
 	descIdx := c.addRecordDesc(RecordDesc{Labels: labels})
 	c.emitU16(OpRecordUpdate, descIdx)
+}
+
+func (c *Compiler) compileVariantLit(v *ir.VariantLit) {
+	c.compileExpr(v.Value, false)
+	tagIdx := c.addString(v.Tag)
+	c.emitU16(OpVariant, tagIdx)
 }
 
 // --- child proto compilation ---
