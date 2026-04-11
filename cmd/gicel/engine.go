@@ -253,7 +253,6 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	return source, eng, nil
 }
 
-
 func handleCompileError(err error, jsonOut bool) int {
 	if jsonOut {
 		outputJSON(compileErrorJSON(err))
