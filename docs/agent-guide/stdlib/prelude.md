@@ -446,3 +446,44 @@ These operate on `List` within an `Effect r` computation:
 | `foldM`      | `\a b (r: Row). (b -> a -> Effect r b) -> b -> List a -> Effect r b` | Effectful left fold               |
 | `filterM`    | `\a (r: Row). (a -> Effect r Bool) -> List a -> Effect r (List a)`   | Filter with effect                |
 | `replicateM` | `\a (r: Row). Int -> Suspended r a -> Effect r (List a)`             | Execute n times, collect results  |
+
+### Operator Quick Reference
+
+All operators sorted by precedence (highest binds tightest):
+
+| Prec | Op     | Assoc | Meaning              | Source      |
+| ---- | ------ | ----- | -------------------- | ----------- |
+| 9    | `.`    | right | function composition | Prelude     |
+| 7    | `*`    | left  | multiplication       | Prelude     |
+| 7    | `/`    | left  | division (Div)       | Prelude     |
+| 6    | `+`    | left  | addition             | Prelude     |
+| 6    | `-`    | left  | subtraction          | Prelude     |
+| 6    | `<>`   | right | semigroup append     | Prelude     |
+| 5    | `<+`   | right | list cons            | Prelude     |
+| 5    | `+>`   | right | stream cons          | Data.Stream |
+| 4    | `<$>`  | left  | functor map          | Prelude     |
+| 4    | `<*>`  | left  | applicative apply    | Prelude     |
+| 4    | `*>`   | left  | applicative then     | Prelude     |
+| 4    | `<*`   | left  | applicative but      | Prelude     |
+| 4    | `==`   | none  | equality             | Prelude     |
+| 4    | `/=`   | none  | inequality           | Prelude     |
+| 4    | `<`    | none  | less than            | Prelude     |
+| 4    | `>`    | none  | greater than         | Prelude     |
+| 4    | `<=`   | none  | less or equal        | Prelude     |
+| 4    | `>=`   | none  | greater or equal     | Prelude     |
+| 3    | `&&`   | right | boolean and          | Prelude     |
+| 3    | `***`  | right | parallel composition | Core        |
+| 3    | `<\|>` | left  | alternative choice   | Prelude     |
+| 2    | `\|\|` | right | boolean or           | Prelude     |
+| 1    | `<&>`  | left  | flipped fmap         | Prelude     |
+| 1    | `>>=`  | left  | monad bind           | Prelude     |
+| 1    | `>>`   | left  | monad sequence       | Prelude     |
+| 1    | `&`    | left  | reverse application  | Prelude     |
+| 1    | `=<<`  | right | flipped bind         | Prelude     |
+| 1    | `>=>`  | right | Kleisli composition  | Prelude     |
+| 1    | `<=<`  | right | flipped Kleisli      | Prelude     |
+| 0    | `$`    | right | low-precedence apply | Prelude     |
+
+Undeclared operators default to `infixl 9`.
+
+Non-associative (`infixn`) operators cannot be chained: `a == b == c` is a parse error.

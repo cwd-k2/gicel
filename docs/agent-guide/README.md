@@ -48,11 +48,10 @@ Typical agent workflow:
 
 ### Standard Library
 
-| Topic              | Content                              |
-| ------------------ | ------------------------------------ |
-| `stdlib.prelude`   | Prelude types, classes, instances    |
-| `stdlib.functions` | Prelude functions + operator table   |
-| `stdlib.packs`     | Prelude, Effect._, Data._ pack guide |
+| Topic            | Content                              |
+| ---------------- | ------------------------------------ |
+| `stdlib.prelude` | Prelude types, functions + operators |
+| `stdlib.packs`   | Prelude, Effect._, Data._ pack guide |
 
 ### Host Integration
 

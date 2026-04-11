@@ -22,4 +22,4 @@ Stdlib packs are loaded on the host side via `eng.Use(pack)` and imported in sou
 | `seq`     | `Data.Sequence`  | [data-sequence.md](data-sequence.md)   |          |
 | `console` | `Console`        | [console.md](console.md)               | CLI-only |
 
-See also: [functions.md](functions.md) for Prelude combinators and operators.
+See also: [prelude.md](prelude.md) for all Prelude types, functions, and operators.
