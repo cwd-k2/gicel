@@ -128,6 +128,8 @@ var Prelude Pack = func(e Registrar) error {
 	// --- Variant primitive ---
 	e.RegisterPrim("inject", injectImpl)
 
+	// Rewrite rules.
+	e.RegisterRewriteRule(injectToVariantLit)
 	// Fusion rules.
 	e.RegisterRewriteRule(strPackedRoundtrip)
 	e.RegisterRewriteRule(listPackedRoundtrip)

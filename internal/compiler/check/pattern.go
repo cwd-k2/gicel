@@ -146,16 +146,20 @@ func (ch *Checker) checkLabelPattern(p *syntax.PatLabel, scrutTy types.Type) pat
 	}
 
 	// Payload binding: #tag x binds x to the Variant payload (type = fieldTy).
+	// #tag _ discards the payload (PatWild). Other patterns are rejected.
 	if p.Payload != nil {
-		if pv, ok := p.Payload.(*syntax.PatVar); ok {
+		switch pv := p.Payload.(type) {
+		case *syntax.PatVar:
 			result.Pattern = &ir.PLabel{Label: p.Label, PayloadVar: pv.Name, S: p.S}
 			if result.Bindings == nil {
 				result.Bindings = make(map[string]types.Type)
 			}
 			result.Bindings[pv.Name] = fieldTy
-		} else {
+		case *syntax.PatWild:
+			// Wildcard: payload is discarded (PayloadVar stays "")
+		default:
 			ch.addDiag(diagnostic.ErrInvalidPattern, p.Payload.Span(),
-				diagMsg("label payload pattern must be a variable"))
+				diagMsg("label payload pattern must be a variable or wildcard"))
 		}
 	}
 

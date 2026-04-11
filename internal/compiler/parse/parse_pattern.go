@@ -48,9 +48,9 @@ func (p *Parser) parsePattern() syn.Pattern {
 	case syn.TokLabelLit:
 		tok := p.peek()
 		p.advance()
-		// #tag x — optional payload variable.
+		// #tag x or #tag _ — optional payload pattern.
 		var payload syn.Pattern
-		if p.peek().Kind == syn.TokLower {
+		if k := p.peek().Kind; k == syn.TokLower || k == syn.TokUnderscore {
 			payload = p.parsePatternAtom()
 		}
 		s := tok.S
