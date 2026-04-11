@@ -23,6 +23,10 @@ var Sequence Pack = func(e Registrar) error {
 	e.RegisterPrim("_seqToList", seqToListImpl)
 	e.RegisterPrim("_seqFromList", seqFromListImpl)
 	e.RegisterPrim("_seqFoldl", seqFoldlImpl)
+	e.RegisterPrim("_seqFoldr", seqFoldrImpl)
+	e.RegisterPrim("_seqMap", seqMapImpl)
+	e.RegisterPrim("_seqFilter", seqFilterImpl)
+	e.RegisterPrim("_seqReverse", seqReverseImpl)
 	return e.RegisterModule("Data.Sequence", seqSource)
 }
 
@@ -175,4 +179,131 @@ func seqFoldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply ev
 		return nil, ce, err
 	}
 	return ftFoldl(sv.tree, f, acc, ce, apply)
+}
+
+func seqFoldrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	z := args[1]
+	sv, err := asSeqVal(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	// Convert to list and fold right — O(n) but correct.
+	items := ftToSlice(sv.tree)
+	acc := z
+	var err2 error
+	for i := len(items) - 1; i >= 0; i-- {
+		acc, ce, err2 = apply.ApplyN(f, []eval.Value{items[i], acc}, ce)
+		if err2 != nil {
+			return nil, ce, err2
+		}
+	}
+	return acc, ce, nil
+}
+
+func seqMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	sv, err := asSeqVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	items := ftToSlice(sv.tree)
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costFTNode); err != nil {
+		return nil, ce, err
+	}
+	result := ftree(ftEmpty{})
+	for _, item := range items {
+		mapped, newCe, err := apply.Apply(f, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		result = ftSnoc(result, mapped)
+	}
+	return seqWrap(result), ce, nil
+}
+
+func seqFilterImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	sv, err := asSeqVal(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	items := ftToSlice(sv.tree)
+	result := ftree(ftEmpty{})
+	for _, item := range items {
+		val, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
+			result = ftSnoc(result, item)
+		}
+	}
+	if err := budget.ChargeAlloc(ctx, int64(result.ftreeSize())*costFTNode); err != nil {
+		return nil, ce, err
+	}
+	return seqWrap(result), ce, nil
+}
+
+func seqReverseImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	sv, err := asSeqVal(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	items := ftToSlice(sv.tree)
+	result := ftree(ftEmpty{})
+	for i := len(items) - 1; i >= 0; i-- {
+		result = ftSnoc(result, items[i])
+	}
+	return seqWrap(result), ce, nil
+}
+
+// ftToSlice extracts all elements from a finger tree into a Go slice.
+func ftToSlice(t ftree) []eval.Value {
+	var items []eval.Value
+	ftCollect(t, &items)
+	return items
+}
+
+func ftCollect(t ftree, acc *[]eval.Value) {
+	switch t := t.(type) {
+	case ftEmpty:
+	case ftSingle:
+		*acc = append(*acc, t.elem)
+	case *ftDeep:
+		for _, v := range t.left {
+			*acc = append(*acc, v)
+		}
+		ftCollectSpine(t.mid, acc)
+		for _, v := range t.right {
+			*acc = append(*acc, v)
+		}
+	}
+}
+
+func ftCollectSpine(t ftree, acc *[]eval.Value) {
+	switch t := t.(type) {
+	case ftEmpty:
+	case ftSingle:
+		nd := asNode(t.elem)
+		for _, e := range nd.elems {
+			*acc = append(*acc, e)
+		}
+	case *ftDeep:
+		for _, v := range t.left {
+			nd := asNode(v)
+			for _, e := range nd.elems {
+				*acc = append(*acc, e)
+			}
+		}
+		ftCollectSpine(t.mid, acc)
+		for _, v := range t.right {
+			nd := asNode(v)
+			for _, e := range nd.elems {
+				*acc = append(*acc, e)
+			}
+		}
+	}
 }

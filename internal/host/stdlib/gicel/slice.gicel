@@ -47,8 +47,13 @@ index := _sliceIndex
 foldl :: \a b. (b -> a -> b) -> b -> Slice a -> b
 foldl := _sliceFoldl
 
+_sliceAppend :: \a. Slice a -> Slice a -> Slice a
+_sliceAppend := assumption
+
 impl Functor Slice := { fmap := _sliceMap }
 impl Foldable Slice := { foldr := _sliceFoldr }
+impl Semigroup (Slice a) := { append := _sliceAppend }
+impl Monoid (Slice a) := { empty := _sliceEmpty }
 
 impl FromList (Slice a) := {
   type Elem := a;

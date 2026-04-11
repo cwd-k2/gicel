@@ -33,6 +33,18 @@ _seqFromList := assumption
 _seqFoldl :: \a b. (b -> a -> b) -> b -> Seq a -> b
 _seqFoldl := assumption
 
+_seqFoldr :: \a b. (a -> b -> b) -> b -> Seq a -> b
+_seqFoldr := assumption
+
+_seqMap :: \a b. (a -> b) -> Seq a -> Seq b
+_seqMap := assumption
+
+_seqFilter :: \a. (a -> Bool) -> Seq a -> Seq a
+_seqFilter := assumption
+
+_seqReverse :: \a. Seq a -> Seq a
+_seqReverse := assumption
+
 empty :: \a. Seq a
 empty := _seqEmpty
 
@@ -59,6 +71,21 @@ length := _seqLength
 
 foldl :: \a b. (b -> a -> b) -> b -> Seq a -> b
 foldl := _seqFoldl
+
+foldr :: \a b. (a -> b -> b) -> b -> Seq a -> b
+foldr := _seqFoldr
+
+filter :: \a. (a -> Bool) -> Seq a -> Seq a
+filter := _seqFilter
+
+reverse :: \a. Seq a -> Seq a
+reverse := _seqReverse
+
+impl Functor Seq := { fmap := _seqMap }
+impl Foldable Seq := { foldr := _seqFoldr }
+
+impl Semigroup (Seq a) := { append := _seqAppend }
+impl Monoid (Seq a) := { empty := _seqEmpty }
 
 impl FromList (Seq a) := {
   type Elem := a;

@@ -70,15 +70,15 @@ difference :: \k. Ord k => Set k -> Set k -> Set k
 difference := _setDifference compare
 
 -- Left fold over elements.
+-- Left fold over elements.
+-- Named `fold` (not `foldl`) to avoid shadowing Prelude.foldl,
+-- which is needed in the definition body. Same for `setFoldr`.
 fold :: \k b. (b -> k -> b) -> b -> Set k -> b
 fold := \f z s. foldl f z (_setToList s)
 
-_setFoldr :: \k b. (k -> b -> b) -> b -> Set k -> b
-_setFoldr := \f z s. foldr f z (_setToList s)
-
 -- Right fold over elements.
 setFoldr :: \k b. (k -> b -> b) -> b -> Set k -> b
-setFoldr := _setFoldr
+setFoldr := \f z s. foldr f z (_setToList s)
 
 -- Keep elements satisfying the predicate.
 filter :: \k. Ord k => (k -> Bool) -> Set k -> Set k

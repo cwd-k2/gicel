@@ -35,6 +35,7 @@ var Slice Pack = func(e Registrar) error {
 	e.RegisterPrim(primSliceFoldr, sliceFoldrImpl)
 	e.RegisterPrim(primSliceMap, sliceMapImpl)
 	e.RegisterPrim("_sliceFoldl", sliceFoldlImpl)
+	e.RegisterPrim("_sliceAppend", sliceAppendImpl)
 	e.RegisterPrim("_sliceFilter", sliceFilterImpl)
 	e.RegisterPrim("_sliceReverse", sliceReverseImpl)
 	e.RegisterPrim("_sliceZipWith", sliceZipWithImpl)
@@ -241,6 +242,24 @@ func sliceFoldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply 
 }
 
 // --- Slice enhancement (2026-04-11) ---
+
+func sliceAppendImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	a, err := asSlice(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	b, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(a)+len(b))*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	result := make([]eval.Value, 0, len(a)+len(b))
+	result = append(result, a...)
+	result = append(result, b...)
+	return sliceVal(result), ce, nil
+}
 
 func sliceFilterImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	pred := args[0]

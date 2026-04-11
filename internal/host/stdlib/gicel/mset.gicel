@@ -53,6 +53,7 @@ fromList :: \k r. Ord k => List k -> Effect { mset: () | r } (MSet k)
 fromList := _msetFromList compare
 
 -- Left fold over elements.
+-- Named `fold` (not `foldl`) to avoid shadowing Prelude.foldl.
 fold :: \k b r. (b -> k -> b) -> b -> MSet k -> Effect { mset: () | r } b
 fold := _msetFold
 
