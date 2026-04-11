@@ -49,9 +49,10 @@ quitSession := runSessionAt @#atm (MkChoose :: ATM) (thunk do {
 
 -- inject creates a Variant value outside of session context.
 -- This shows Variant as a general-purpose labeled coproduct.
+-- Payload binding (#tag x) extracts the variant's inner value.
 dispatchTag := case (inject @#a 42 :: Variant { a: Int, b: String } Int) {
-  #a => "got a";
-  #b => "got b"
+  #a n => "got a=" <> show n;
+  #b _ => "got b"
 }
 
 -- === Main ===

@@ -858,7 +858,9 @@ _                -- wildcard
 "hello"          -- string literal pattern
 'a'              -- rune literal pattern
 3.14             -- double literal pattern
-#tag             -- label pattern (matches Variant by tag)
+#tag             -- label pattern (matches Variant by tag, discards payload)
+#tag x           -- label pattern with payload binding
+#tag _           -- label pattern with wildcard payload
 [x, y, z]        -- list pattern (desugars to Cons/Nil)
 Con              -- nullary constructor
 Con x y          -- constructor with arguments
@@ -891,14 +893,17 @@ case m { Just (Just (Just True)) => "deep"; _ => "other" }
 
 ### Label Patterns
 
-Label literals (`#tag`) match `Variant` values by tag. Used with `case` to dispatch on externally chosen branches (e.g., session type offers):
+Label literals (`#tag`) match `Variant` values by tag. A label pattern can optionally bind the variant payload to a variable (`#tag x`) or discard it with a wildcard (`#tag _`):
 
 ```
 case v {
-  #ping => handlePing;
-  #quit => handleQuit
+  #foo x => x + 1;
+  #bar _ => 0;
+  #quit  => handleQuit
 }
 ```
+
+The payload type is determined from the `Variant` row: for `Variant {foo: Int, bar: String} _`, `#foo x` binds `x : Int`.
 
 The scrutinee must have type `Variant choices s`, where `choices` is a row enumerating the valid labels. Exhaustiveness checking verifies that all labels in the row are covered. A wildcard catch-all is not required when all labels are listed.
 
