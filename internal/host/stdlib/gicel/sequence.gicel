@@ -1,0 +1,88 @@
+import Prelude
+
+_seqEmpty :: \a. Seq a
+_seqEmpty := assumption
+
+_seqCons :: \a. a -> Seq a -> Seq a
+_seqCons := assumption
+
+_seqSnoc :: \a. Seq a -> a -> Seq a
+_seqSnoc := assumption
+
+_seqUncons :: \a. Seq a -> Maybe (a, Seq a)
+_seqUncons := assumption
+
+_seqUnsnoc :: \a. Seq a -> Maybe (Seq a, a)
+_seqUnsnoc := assumption
+
+_seqAppend :: \a. Seq a -> Seq a -> Seq a
+_seqAppend := assumption
+
+_seqIndex :: \a. Int -> Seq a -> Maybe a
+_seqIndex := assumption
+
+_seqLength :: \a. Seq a -> Int
+_seqLength := assumption
+
+_seqToList :: \a. Seq a -> List a
+_seqToList := assumption
+
+_seqFromList :: \a. List a -> Seq a
+_seqFromList := assumption
+
+_seqFoldl :: \a b. (b -> a -> b) -> b -> Seq a -> b
+_seqFoldl := assumption
+
+empty :: \a. Seq a
+empty := _seqEmpty
+
+cons :: \a. a -> Seq a -> Seq a
+cons := _seqCons
+
+snoc :: \a. Seq a -> a -> Seq a
+snoc := _seqSnoc
+
+uncons :: \a. Seq a -> Maybe (a, Seq a)
+uncons := _seqUncons
+
+unsnoc :: \a. Seq a -> Maybe (Seq a, a)
+unsnoc := _seqUnsnoc
+
+append :: \a. Seq a -> Seq a -> Seq a
+append := _seqAppend
+
+index :: \a. Int -> Seq a -> Maybe a
+index := _seqIndex
+
+length :: \a. Seq a -> Int
+length := _seqLength
+
+foldl :: \a b. (b -> a -> b) -> b -> Seq a -> b
+foldl := _seqFoldl
+
+impl FromList (Seq a) := {
+  type Elem := a;
+  fromList := _seqFromList
+}
+
+impl ToList (Seq a) := { toList := _seqToList }
+
+impl Show a => Show (Seq a) := {
+  show := \s. "Seq.fromList " <> show (toList s)
+}
+
+-- Singleton sequence.
+singleton :: \a. a -> Seq a
+singleton := \x. cons x empty
+
+-- True if the sequence has no elements.
+null :: \a. Seq a -> Bool
+null := \s. _seqLength s == 0
+
+-- Head element.
+head :: \a. Seq a -> Maybe a
+head := \s. fmap fst (uncons s)
+
+-- Last element.
+last :: \a. Seq a -> Maybe a
+last := \s. fmap snd (unsnoc s)

@@ -295,3 +295,6 @@ var EffectSession Pack = stdlib.Session
 // DataMath provides mathematical functions: integer power, bitwise ops,
 // and transcendental functions on Double.
 var DataMath Pack = stdlib.Math
+
+// DataSequence provides a double-ended sequence backed by a 2-3 finger tree.
+var DataSequence Pack = stdlib.Sequence

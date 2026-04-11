@@ -41,5 +41,6 @@ func newHostEnv() HostEnv {
 	h.registeredTys["MMap"] = types.MkArrow(types.TypeOfTypes, types.MkArrow(types.TypeOfTypes, types.TypeOfTypes))
 	h.registeredTys["MSet"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
 	h.registeredTys["Ref"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Seq"] = types.MkArrow(types.TypeOfTypes, types.TypeOfTypes)
 	return h
 }
