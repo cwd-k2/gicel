@@ -127,6 +127,18 @@ partition := \p s. fold (\acc k. if p k
   else (fst acc, _setInsert compare k (snd acc))
 ) (_setEmpty compare, _setEmpty compare) s
 
+-- Ascending element list (same as toList).
+toAscList :: \k. Set k -> List k
+toAscList := _setToList
+
+-- Descending element list.
+toDescList :: \k. Set k -> List k
+toDescList := \s. reverse (toAscList s)
+
+-- True if the two sets share no elements.
+disjoint :: \k. Ord k => Set k -> Set k -> Bool
+disjoint := \a b. null (intersection a b)
+
 impl (Ord k, Show k) => Show (Set k) := {
   show := \s. "Set.fromList " <> show (toList s)
 }

@@ -166,6 +166,34 @@ intersection := intersectionWith (\_ b. b)
 difference :: \k v. Ord k => Map k v -> Map k v -> Map k v
 difference := \m1 m2. foldlWithKey (\acc k _. delete k acc) m1 m2
 
+-- Ascending key-value pairs (same as toList).
+toAscList :: \k v. Map k v -> List (k, v)
+toAscList := _mapToList
+
+-- Descending key-value pairs.
+toDescList :: \k v. Map k v -> List (k, v)
+toDescList := \m. reverse (toAscList m)
+
+-- Update, insert, or delete a key based on an update function.
+-- f receives (Just v) if the key exists, Nothing otherwise.
+-- If f returns Just v', the key is inserted/updated; if Nothing, deleted.
+alter :: \k v. Ord k => (Maybe v -> Maybe v) -> k -> Map k v -> Map k v
+alter := \f k m. case f (lookup k m) {
+  Nothing => delete k m;
+  Just v  => insert k v m
+}
+
+-- Test whether all keys in the first map exist in the second.
+isSubmapOfBy :: \k v w. Ord k => (v -> w -> Bool) -> Map k v -> Map k w -> Bool
+isSubmapOfBy := \p sub sup.
+  foldlWithKey (\acc k v. case acc {
+    False => False;
+    True => case lookup k sup {
+      Nothing => False;
+      Just w  => p v w
+    }
+  }) True sub
+
 impl (Ord k, Show k, Show v) => Show (Map k v) := {
   show := \m. "Map.fromList " <> show (toList m)
 }
