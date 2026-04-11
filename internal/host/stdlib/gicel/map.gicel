@@ -194,6 +194,9 @@ isSubmapOfBy := \p sub sup.
     }
   }) True sub
 
+impl Functor (Map k) := { fmap := _mapMapValues }
+impl Foldable (Map k) := { foldr := \f z m. foldrWithKey (\_ v acc. f v acc) z m }
+
 impl (Ord k, Show k, Show v) => Show (Map k v) := {
   show := \m. "Map.fromList " <> show (toList m)
 }

@@ -139,6 +139,8 @@ toDescList := \s. reverse (toAscList s)
 disjoint :: \k. Ord k => Set k -> Set k -> Bool
 disjoint := \a b. null (intersection a b)
 
+impl Foldable Set := { foldr := setFoldr }
+
 impl (Ord k, Show k) => Show (Set k) := {
   show := \s. "Set.fromList " <> show (toList s)
 }
