@@ -22,17 +22,24 @@ import (
 // =====================================================================
 
 // TestProbeD_Zonk_MetaChainPathCompression — a chain m1 -> m2 -> m3 -> Int
-// should be compressed so m1 points directly to Int after Zonk.
+// (via permanent solutions) should be compressed so m1 points directly to
+// Int after Zonk.
 func TestProbeD_Zonk_MetaChainPathCompression(t *testing.T) {
 	u := unify.NewUnifier()
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	m3 := &types.TyMeta{ID: 3, Kind: types.TypeOfTypes}
 
-	// Build chain: m1 -> m2 -> m3 -> Int
-	u.InstallTempSolution(1, m2)
-	u.InstallTempSolution(2, m3)
-	u.InstallTempSolution(3, types.Con("Int"))
+	// Build chain via permanent solutions: m1 -> m2 -> m3 -> Int
+	if err := u.Unify(m1, m2); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.Unify(m2, m3); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.Unify(m3, types.Con("Int")); err != nil {
+		t.Fatal(err)
+	}
 
 	result := u.Zonk(m1)
 	if con, ok := result.(*types.TyCon); !ok || con.Name != "Int" {
