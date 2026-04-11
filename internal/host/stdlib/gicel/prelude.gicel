@@ -1522,3 +1522,34 @@ replicateM := \n action. case n <= 0 {
     pure (Cons x xs)
   }
 }
+
+-- ─── Applicative utility ─────────────────────────────────────────────────────
+
+-- Lift a ternary function over three applicative values.
+liftA3 :: \(f: Type -> Type) a b c d. Applicative f => (a -> b -> c -> d) -> f a -> f b -> f c -> f d
+liftA3 := \g fa fb fc. ap (ap (fmap g fa) fb) fc
+
+-- Sequence two applicative actions, discarding the first result.
+thenA :: \(f: Type -> Type) a b. Applicative f => f a -> f b -> f b
+thenA := \fa fb. liftA2 (\_ b. b) fa fb
+
+-- ─── Result utility ──────────────────────────────────────────────────────────
+
+-- Map over the error component of a Result.
+mapErr :: \e1 e2 a. (e1 -> e2) -> Result e1 a -> Result e2 a
+mapErr := \f r. case r { Err e => Err (f e); Ok a => Ok a }
+
+-- Partition a list of Results into errors and successes.
+partitionResults :: \e a. List (Result e a) -> (List e, List a)
+partitionResults := \rs. foldr (\r acc. case r {
+  Err e => (Cons e (fst acc), snd acc);
+  Ok  a => (fst acc, Cons a (snd acc))
+}) (Nil, Nil) rs
+
+-- Collect only the Ok values from a list of Results.
+rights :: \e a. List (Result e a) -> List a
+rights := \rs. snd (partitionResults rs)
+
+-- Collect only the Err values from a list of Results.
+lefts :: \e a. List (Result e a) -> List e
+lefts := \rs. fst (partitionResults rs)
