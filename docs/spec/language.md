@@ -506,6 +506,7 @@ Pattern   ::= Con PatArg*                                    -- constructor
             | DoubleLit                                      -- double literal
             | StringLit                                      -- string literal
             | RuneLit                                        -- rune literal
+            | '#' LowerName                                  -- label pattern (Variant)
             | '[' Pattern (',' Pattern)* ']'                 -- list pattern
             | '(' Pattern ')'                                -- parenthesized
             | '(' Pattern ',' Pattern (',' Pattern)* ')'     -- tuple pattern
@@ -537,6 +538,14 @@ case ch { 'a' => True; _ => False }
 Literal types are open — the exhaustiveness checker cannot enumerate all values of `Int`, `String`, or `Rune`, so a wildcard or variable catch-all is required.
 
 Record patterns are **open** — partial match is permitted. Unmentioned fields are ignored.
+
+Label patterns (`#tag`) match `Variant` values by tag. The scrutinee must have type `Variant choices s`. Exhaustiveness checking verifies all labels in the `choices` row are covered:
+
+```
+case tag { #ping => handlePing; #quit => handleQuit }
+```
+
+When used in a `case` on a `Variant choices s` inside a computation, the type checker refines the pre-state per branch by substituting the shared index `s` with `Lookup tag choices` for each branch (see §18).
 
 ## 3.8 Declaration Syntax
 
@@ -685,7 +694,25 @@ RowExpr  ::= '{' '}'                                          -- empty row
 RowField ::= Label ':' Type ('@' TypeAtom)?                   -- optional multiplicity
 ```
 
-The optional `@Mult` suffix annotates a field with a multiplicity grade (`@Zero`, `@Linear`, `@Affine`, or `@Unrestricted`). Without annotation, fields default to `@Unrestricted`.
+The optional `@Mult` suffix annotates a field with a multiplicity grade (`@Zero`, `@Linear`, `@Affine`, or `@Unrestricted`). Without annotation, fields carry nil grades. Nil grades act as the identity element for row field unification: a nil-graded field is compatible with any graded field, enabling grade-unaware generic operations to work transparently with graded capabilities.
+
+**Row type constructors:**
+
+| Constructor | Kind                | Description                        |
+| ----------- | ------------------- | ---------------------------------- |
+| `Record`    | `Row → Type`        | Product (record type)              |
+| `Variant`   | `Row → Type → Type` | Coproduct (labeled disjoint union) |
+
+`Variant choices s` represents a value tagged with one label from `choices`, where `s` is the type associated with the selected label. Introduction is via `inject @#tag value`; elimination is via `case` with `#label` patterns.
+
+**Builtin row type families:**
+
+| Family    | Kind                        | Description                                      |
+| --------- | --------------------------- | ------------------------------------------------ |
+| `Merge`   | `Row → Row → Row`           | Disjoint merge (overlapping labels are an error) |
+| `Without` | `Label → Row → Row`         | Remove a field by label                          |
+| `Lookup`  | `Label → Row → Type`        | Extract field type by label                      |
+| `MapRow`  | `(Type → Type) → Row → Row` | Apply a type function to every field type        |
 
 ## 3.10 Operator Fixity
 
@@ -850,7 +877,7 @@ Given rows `{ l₁: T₁, ... | r₁ }` and `{ m₁: S₁, ... | r₂ }`:
 
 1. **Normalize** both rows by collecting labels and tail.
 2. **Classify** labels into three groups: shared (in both), left-only, right-only.
-3. For shared labels, unify corresponding types: `Tᵢ ~ Sⱼ`.
+3. For shared labels, unify corresponding types: `Tᵢ ~ Sⱼ` and unify grade annotations pairwise. **Nil-as-identity rule**: when one field has nil grades (no annotation) and the other has concrete grades, the unification succeeds — nil acts as the identity element for grade composition. When both sides have concrete grades, their counts must match and each pair is unified.
 4. **Tail resolution**:
    - Both closed, no excess → done.
    - One side has excess, other has open tail → solve tail = excess fields.
@@ -1700,22 +1727,25 @@ snd :: \a b. (a, b) -> b
 
 Each Go-side pack bundles type registration, module source, and primitive implementations. The pack is loaded with `eng.Use(pack)` and imported in source by its module name.
 
-| Go Pack       | Module         | Provides                                                                           |
-| ------------- | -------------- | ---------------------------------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs                 |
-| `EffectFail`  | `Effect.Fail`  | `fail` capability, `fromMaybe`, `fromResult`, `failWithAt`                         |
-| `EffectState` | `Effect.State` | `get`/`put`/`modify`/`runState`/`evalState`/`execState` + `*At` named cap variants |
-| `EffectIO`    | `Effect.IO`    | `log`/`dbg` via CapEnv buffer                                                      |
-| `EffectArray` | `Effect.Array` | Mutable arrays: `new`, `read`, `write` + `*At` named cap variants                  |
-| `EffectRef`   | `Effect.Ref`   | Mutable refs: `new`, `read`, `write`, `modify` + `*At` named caps                  |
-| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL) + `*At` named cap variants                               |
-| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL) + `*At` named cap variants                               |
-| `DataStream`  | `Data.Stream`  | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`                          |
-| `DataSlice`   | `Data.Slice`   | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`                      |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL): `insert`, `lookup`, `delete`                          |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map): `insert`, `member`                          |
-| `DataJSON`    | `Data.JSON`    | JSON serialization: `ToJSON`/`FromJSON` type classes                               |
-| `Console`     | `Console`      | CLI-only stdio: `putLine`, `getLine`                                               |
+| Go Pack         | Module           | Provides                                                                           |
+| --------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| `Prelude`       | `Prelude`        | Num/Str/List: arithmetic, string ops, list ops, type classes, ADTs                 |
+| `EffectFail`    | `Effect.Fail`    | `fail` capability, `fromMaybe`, `fromResult`, `failWithAt`                         |
+| `EffectState`   | `Effect.State`   | `get`/`put`/`modify`/`runState`/`evalState`/`execState` + `*At` named cap variants |
+| `EffectIO`      | `Effect.IO`      | `log`/`dbg` via CapEnv buffer                                                      |
+| `EffectArray`   | `Effect.Array`   | Mutable arrays: `new`, `read`, `write` + `*At` named cap variants                  |
+| `EffectRef`     | `Effect.Ref`     | Mutable refs: `new`, `read`, `write`, `modify` + `*At` named caps                  |
+| `EffectMap`     | `Effect.Map`     | Mutable ordered map (AVL) + `*At` named cap variants                               |
+| `EffectSet`     | `Effect.Set`     | Mutable ordered set (AVL) + `*At` named cap variants                               |
+| `DataStream`    | `Data.Stream`    | Lazy list: `LCons`/`LNil`, `head`, `tail`, `take`, `drop`                          |
+| `DataSlice`     | `Data.Slice`     | Contiguous array: O(1) `length`/`index`, `Functor`/`Foldable`                      |
+| `DataMap`       | `Data.Map`       | Ordered immutable map (AVL): `insert`, `lookup`, `delete`                          |
+| `DataSet`       | `Data.Set`       | Ordered immutable set (backed by Map): `insert`, `member`                          |
+| `DataJSON`      | `Data.JSON`      | JSON serialization: `ToJSON`/`FromJSON` type classes                               |
+| `DataMath`      | `Data.Math`      | Math functions: sqrt, sin, cos, log, exp, pow, bitwise ops                         |
+| `DataSeq`       | `Data.Sequence`  | Persistent finger-tree sequence: O(log n) index/update, Functor/Foldable/Monoid    |
+| `EffectSession` | `Effect.Session` | Session types: `closeAt`, `chooseAt`, `receiveAt`, `inject`, `runSessionAt`        |
+| `Console`       | `Console`        | CLI-only stdio: `putLine`, `getLine`                                               |
 
 Types (`Int`, `Double`, `Byte`, `String`, `Rune`, `Slice`, `Array`, `Ref`, `Map`, `Set`, `MMap`, `MSet`) are checker built-ins registered in `NewEngine()`. Runtime representation: `HostVal` wrapping Go values.
 
@@ -1962,6 +1992,43 @@ send  :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } T
 recv  :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } T
 close :: Computation { ch: End @Linear } {} ()
 ```
+
+### 18.1.1 External and Internal Choice
+
+Session protocols support branching via `Offer` (external choice — peer selects) and `Choose` (internal choice — this side selects):
+
+```
+form Offer  := \(choices: Row). MkOffer
+form Choose := \(choices: Row). MkChoose
+
+type DualRow :: Row := \(r: Row). MapRow Dual r
+
+type Dual :: Type := \(s: Type). case s {
+  Send s   => Recv (Dual s);
+  Recv s   => Send (Dual s);
+  Offer r  => Choose (DualRow r);
+  Choose r => Offer (DualRow r);
+  End      => End
+}
+```
+
+**Internal choice** (`chooseAt`): The caller selects a branch by label. The session capability transitions from `Choose choices` to `Lookup tag choices`:
+
+```
+chooseAt :: \(l: Label) (tag: Label) (choices: Row) r.
+  Computation { l: Choose choices | r } { l: Lookup tag choices | r } ()
+```
+
+**External choice** (`receiveAt`): Returns a `Variant choices s` where the index `s` is shared with the post-state capability. The caller must `case` on the result to refine `s` per branch:
+
+```
+receiveAt :: \(l: Label) (choices: Row) (s: Type) r.
+  Computation { l: Offer choices | r } { l: s | r } (Variant choices s)
+```
+
+Per-branch pre-state refinement: in `case tag { #ping => body₁; #quit => body₂ }`, the checker substitutes the index meta `s` in the pre-state with `Lookup #ping choices` for `body₁` and `Lookup #quit choices` for `body₂`. Exhaustiveness checking ensures all labels in `choices` are covered.
+
+**Duality involution** extends to branching: `Dual (Offer r) = Choose (MapRow Dual r)` and vice versa, preserving the involution property `Dual (Dual S) ≡ S`.
 
 ## 18.2 Session Fidelity Theorem
 

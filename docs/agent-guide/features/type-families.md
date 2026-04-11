@@ -63,21 +63,23 @@ type Effects :: Row := \(mode: AppMode). case mode {
 
 ### Builtin Row Type Families
 
-Three builtin type families operate on capability rows:
+Four builtin type families operate on capability rows:
 
-| Family    | Signature              | Description                           |
-| --------- | ---------------------- | ------------------------------------- |
-| `Merge`   | `Row -> Row -> Row`    | Disjoint merge of two capability rows |
-| `Without` | `Label -> Row -> Row`  | Remove a label from a capability row  |
-| `Lookup`  | `Label -> Row -> Type` | Extract the type at a label in a row  |
+| Family    | Signature                      | Description                               |
+| --------- | ------------------------------ | ----------------------------------------- |
+| `Merge`   | `Row -> Row -> Row`            | Disjoint merge of two capability rows     |
+| `Without` | `Label -> Row -> Row`          | Remove a label from a capability row      |
+| `Lookup`  | `Label -> Row -> Type`         | Extract the type at a label in a row      |
+| `MapRow`  | `(Type -> Type) -> Row -> Row` | Apply a type function to every field type |
 
 ```
 Merge { a: Int } { b: String }         -- { a: Int, b: String }
 Without #a { a: Int, b: String }       -- { b: String }
 Lookup #a { a: Int, b: String }        -- Int
+MapRow Dual { a: Send End, b: End }    -- { a: Recv End, b: End }
 ```
 
-`Without` and `Lookup` require their first argument to have `Label` kind. In type application context (`@#name`), `#name` is a label literal.
+`Without` and `Lookup` require their first argument to have `Label` kind. In type application context (`@#name`), `#name` is a label literal. `MapRow` requires both `f` and the row to be concrete (not unsolved metavariables); open rows cause stuck reduction.
 
 ### Reduction
 

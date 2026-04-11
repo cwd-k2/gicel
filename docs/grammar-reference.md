@@ -337,6 +337,20 @@ type Combined :: Row := Merge { a: Int } { b: Bool }
 -- Combined reduces to { a: Int, b: Bool }
 ```
 
+`Without :: Label -> Row -> Row` removes a field from a capability row. `Lookup :: Label -> Row -> Type` extracts the type of a field.
+
+```
+type Rest :: Row := Without #a { a: Int, b: Bool }   -- { b: Bool }
+type ATy  :: Type := Lookup #a { a: Int, b: Bool }   -- Int
+```
+
+`MapRow :: (Type -> Type) -> Row -> Row` applies a type function to every field type in a row. Used to define duality for session types.
+
+```
+type DualRow :: Row := \(r: Row). MapRow Dual r
+-- MapRow Dual { a: Send End, b: Recv End } reduces to { a: Recv End, b: Send End }
+```
+
 ### DataKinds: Non-Nullary Constructor Promotion
 
 All constructors are promoted to the type level, including those with fields. Non-nullary constructors receive kind arrows:
@@ -751,7 +765,7 @@ RowField
   = LowerName ':' TypeExpr ['@' GradeExpr]
 ```
 
-The `@Grade` suffix annotates a field with a grade. Without annotation, fields are unrestricted.
+The `@Grade` suffix annotates a field with a grade. Without annotation, fields are unrestricted (nil grades). Nil grades act as the identity element: a field without grade annotation unifies with any graded field. This allows grade-unaware operations (e.g., `getAt`, `receiveAt`) to work transparently with graded capabilities like `@Linear`.
 
 ```
 { x: Int @Linear }           -- grade annotation
@@ -844,6 +858,7 @@ _                -- wildcard
 "hello"          -- string literal pattern
 'a'              -- rune literal pattern
 3.14             -- double literal pattern
+#tag             -- label pattern (matches Variant by tag)
 [x, y, z]        -- list pattern (desugars to Cons/Nil)
 Con              -- nullary constructor
 Con x y          -- constructor with arguments
@@ -873,6 +888,19 @@ case m { Just True => "yes"; Just False => "no"; Nothing => "none" }
 case xs { Cons Nothing rest => rest; Cons (Just x) rest => rest; Nil => Nil }
 case m { Just (Just (Just True)) => "deep"; _ => "other" }
 ```
+
+### Label Patterns
+
+Label literals (`#tag`) match `Variant` values by tag. Used with `case` to dispatch on externally chosen branches (e.g., session type offers):
+
+```
+case v {
+  #ping => handlePing;
+  #quit => handleQuit
+}
+```
+
+The scrutinee must have type `Variant choices s`, where `choices` is a row enumerating the valid labels. Exhaustiveness checking verifies that all labels in the row are covered. A wildcard catch-all is not required when all labels are listed.
 
 ---
 
@@ -918,6 +946,7 @@ Inside braces (`do`, `case`, block expressions, GADT declarations), both semicol
 | --------------------------- | ----------------------------- | ---------------------------- |
 | `Computation @g pre post a` | `g → Row → Row → Type → Type` | Graded effectful computation |
 | `Thunk @g pre post a`       | `g → Row → Row → Type → Type` | Graded suspended computation |
+| `Variant choices s`         | `Row → Type → Type`           | Labeled coproduct (row dual) |
 | `Int`                       | `Type`                        | 64-bit integer               |
 | `Double`                    | `Type`                        | 64-bit floating point        |
 | `Byte`                      | `Type`                        | 8-bit unsigned integer       |
@@ -1027,19 +1056,22 @@ FromList ──→ ToList
 
 Stdlib packs are loaded via `Engine.Use(pack)` on the host side and imported in source. `NewEngine()` returns a bare engine with only Core. Full reference: [agent-guide/stdlib.md](agent-guide/stdlib.md).
 
-| Pack          | Module         | Provides                                                                                     |
-| ------------- | -------------- | -------------------------------------------------------------------------------------------- |
-| `Prelude`     | `Prelude`      | Num, Str, List — arithmetic, string ops, list operations                                     |
-| `EffectFail`  | `Effect.Fail`  | Fail effect (`failWith`, `fromMaybe`, `fromResult`)                                          |
-| `EffectState` | `Effect.State` | State effect (`get`, `put`, `modify`, `runState`/`evalState`/`execState` + `*At` named caps) |
-| `EffectIO`    | `Effect.IO`    | IO effect (`log`, `dbg`)                                                                     |
-| `EffectArray` | `Effect.Array` | Mutable arrays (`new`, `read`, `write` + `*At` named caps)                                   |
-| `EffectRef`   | `Effect.Ref`   | Mutable refs (`new`, `read`, `write` + `*At` named caps)                                     |
-| `EffectMap`   | `Effect.Map`   | Mutable ordered map (AVL, `*At` named caps)                                                  |
-| `EffectSet`   | `Effect.Set`   | Mutable ordered set (AVL, `*At` named caps)                                                  |
-| `DataStream`  | `Data.Stream`  | Lazy streams (`Stream a`)                                                                    |
-| `DataSlice`   | `Data.Slice`   | Contiguous arrays (`Slice a`), O(1) length/index                                             |
-| `DataMap`     | `Data.Map`     | Ordered immutable map (AVL), requires `Ord k`                                                |
-| `DataSet`     | `Data.Set`     | Ordered immutable set (backed by Map), requires `Ord k`                                      |
-| `DataJSON`    | `Data.JSON`    | JSON serialization (`ToJSON`, `FromJSON`)                                                    |
-| `Console`     | `Console`      | CLI-only stdio (`putLine`, `getLine`)                                                        |
+| Pack            | Module           | Provides                                                                                     |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| `Prelude`       | `Prelude`        | Num, Str, List — arithmetic, string ops, list operations                                     |
+| `EffectFail`    | `Effect.Fail`    | Fail effect (`failWith`, `fromMaybe`, `fromResult`)                                          |
+| `EffectState`   | `Effect.State`   | State effect (`get`, `put`, `modify`, `runState`/`evalState`/`execState` + `*At` named caps) |
+| `EffectIO`      | `Effect.IO`      | IO effect (`log`, `dbg`)                                                                     |
+| `EffectArray`   | `Effect.Array`   | Mutable arrays (`new`, `read`, `write` + `*At` named caps)                                   |
+| `EffectRef`     | `Effect.Ref`     | Mutable refs (`new`, `read`, `write` + `*At` named caps)                                     |
+| `EffectMap`     | `Effect.Map`     | Mutable ordered map (AVL, `*At` named caps)                                                  |
+| `EffectSet`     | `Effect.Set`     | Mutable ordered set (AVL, `*At` named caps)                                                  |
+| `DataStream`    | `Data.Stream`    | Lazy streams (`Stream a`)                                                                    |
+| `DataSlice`     | `Data.Slice`     | Contiguous arrays (`Slice a`), O(1) length/index                                             |
+| `DataMap`       | `Data.Map`       | Ordered immutable map (AVL), requires `Ord k`                                                |
+| `DataSet`       | `Data.Set`       | Ordered immutable set (backed by Map), requires `Ord k`                                      |
+| `DataJSON`      | `Data.JSON`      | JSON serialization (`ToJSON`, `FromJSON`)                                                    |
+| `DataMath`      | `Data.Math`      | Math functions (sqrt, sin, cos, log, exp, pow, bitwise)                                      |
+| `DataSeq`       | `Data.Sequence`  | Persistent finger-tree sequence (O(log n) index/update)                                      |
+| `EffectSession` | `Effect.Session` | Session types (`closeAt`, `chooseAt`, `receiveAt`, `inject`, `runSessionAt`)                 |
+| `Console`       | `Console`        | CLI-only stdio (`putLine`, `getLine`)                                                        |

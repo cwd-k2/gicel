@@ -24,18 +24,50 @@ type Dual :: Type := \(s: Type). case s {
 
 `Dual (Dual S)` reduces to `S` for all closed protocol states.
 
-### Operations (type-check only)
+### Branching (Offer / Choose)
 
-The following operations are type-checked but **not provided by the stdlib**.
-They must be supplied as host primitives via `RegisterPrim`:
+Session protocols support branching. `Choose` (internal choice) lets this side select a branch; `Offer` (external choice) lets the peer select:
 
 ```
-send  :: \s. Computation { ch: Send s @Linear } { ch: s @Linear } T
-recv  :: \s. Computation { ch: Recv s @Linear } { ch: s @Linear } T
-close :: Computation { ch: End @Linear } {} ()
+form Offer  := \(choices: Row). { MkOffer: Offer choices }
+form Choose := \(choices: Row). { MkChoose: Choose choices }
 ```
 
-Each operation advances the protocol state. The pre/post indices enforce the correct sequence. The stdlib provides `closeAt` and `runSessionAt` for session lifecycle management; the actual send/recv transport must be implemented by the host.
+Duality maps `Offer` ↔ `Choose` with `MapRow Dual` applied to each branch:
+
+```
+type DualRow :: Row := \(r: Row). MapRow Dual r
+-- Dual (Offer { a: Send End }) = Choose { a: Recv End }
+```
+
+### Variant Type
+
+`Variant :: Row -> Type -> Type` is the labeled coproduct dual of `Record`. It represents a value tagged with one label from a row. Used by `receiveAt` to dispatch on externally chosen branches:
+
+```
+-- receiveAt returns Variant choices s; case with #label patterns dispatches:
+tag <- receiveAt @#ch;
+case tag {
+  #ping => do { ... };
+  #quit => do { ... }
+}
+```
+
+The `inject` function creates a `Variant` value: `inject @#tag value`.
+
+### Operations
+
+The `Effect.Session` stdlib pack provides session lifecycle operations. See the [stdlib reference](../stdlib/effect-session.md) for full type signatures.
+
+| Operation      | Description                                           |
+| -------------- | ----------------------------------------------------- |
+| `closeAt`      | Close a session capability, removing it from the row  |
+| `chooseAt`     | Select a branch (internal choice)                     |
+| `receiveAt`    | Receive a choice (external choice), returns `Variant` |
+| `inject`       | Create a `Variant` value from a label and payload     |
+| `runSessionAt` | Introduce a session capability, run, close            |
+
+The actual send/recv transport for message-passing must be implemented by the host via `RegisterPrim`.
 
 ### Multiplicity Annotations
 
