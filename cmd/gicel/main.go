@@ -63,7 +63,7 @@ Commands:
 
 Use 'gicel <command> --help' for flag details.
 
-Packs: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console`)
+Packs: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,session,math,seq,console`)
 }
 
 // normalizeFlagError rewrites Go flag error messages to use -- prefix for
