@@ -478,6 +478,7 @@ func (s *Server) handleCompletion(msg *jsonrpc.Message) {
 // extractQualifiedPrefix returns the module name if the cursor is immediately
 // after "Module." (an uppercase identifier followed by a dot). Returns "" if
 // no qualified prefix is detected. offset is the byte position of the cursor.
+// Uses rune-level scanning consistent with identifierAtOffset.
 func extractQualifiedPrefix(text string, offset int) string {
 	if offset <= 0 || offset > len(text) {
 		return ""
@@ -486,21 +487,23 @@ func extractQualifiedPrefix(text string, offset int) string {
 	if text[offset-1] != '.' {
 		return ""
 	}
-	// Walk backwards from the dot to find the module name.
+	// Walk backwards from the dot to find the module name (rune-level).
 	end := offset - 1
 	start := end
-	for start > 0 && (text[start-1] >= 'a' && text[start-1] <= 'z' ||
-		text[start-1] >= 'A' && text[start-1] <= 'Z' ||
-		text[start-1] >= '0' && text[start-1] <= '9' ||
-		text[start-1] == '_') {
-		start--
+	for start > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:start])
+		if !isIdentRune(r) {
+			break
+		}
+		start -= size
 	}
 	if start >= end {
 		return ""
 	}
 	name := text[start:end]
 	// Module names start with an uppercase letter.
-	if name[0] < 'A' || name[0] > 'Z' {
+	firstRune, _ := utf8.DecodeRuneInString(name)
+	if !unicode.IsUpper(firstRune) {
 		return ""
 	}
 	return name
