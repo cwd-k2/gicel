@@ -1390,6 +1390,56 @@ startsWith := _isPrefixOfStr
 endsWith :: String -> String -> Bool
 endsWith := _isSuffixOfStr
 
+-- ─── String search & transform ──────────────────────────────────────────────
+
+_indexOfStr :: String -> String -> Maybe Int
+_indexOfStr := assumption
+
+_lastIndexOfStr :: String -> String -> Maybe Int
+_lastIndexOfStr := assumption
+
+_countStr :: String -> String -> Int
+_countStr := assumption
+
+_replaceStr :: String -> String -> String -> String
+_replaceStr := assumption
+
+_reverseStr :: String -> String
+_reverseStr := assumption
+
+_replicateStr :: Int -> String -> String
+_replicateStr := assumption
+
+_stripPrefixStr :: String -> String -> Maybe String
+_stripPrefixStr := assumption
+
+_stripSuffixStr :: String -> String -> Maybe String
+_stripSuffixStr := assumption
+
+indexOf :: String -> String -> Maybe Int
+indexOf := _indexOfStr
+
+lastIndexOf :: String -> String -> Maybe Int
+lastIndexOf := _lastIndexOfStr
+
+count :: String -> String -> Int
+count := _countStr
+
+replace :: String -> String -> String -> String
+replace := _replaceStr
+
+reverseStr :: String -> String
+reverseStr := _reverseStr
+
+replicateStr :: Int -> String -> String
+replicateStr := _replicateStr
+
+stripPrefix :: String -> String -> Maybe String
+stripPrefix := _stripPrefixStr
+
+stripSuffix :: String -> String -> Maybe String
+stripSuffix := _stripSuffixStr
+
 -- ─── Monadic combinators (Effect / Suspended scope) ─────────────────────────
 
 -- Map an effectful function over a list, collecting results.

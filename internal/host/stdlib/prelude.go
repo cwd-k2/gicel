@@ -113,6 +113,14 @@ var Prelude Pack = func(e Registrar) error {
 	e.RegisterPrim("_unlines", unlinesImpl)
 	e.RegisterPrim("_isPrefixOfStr", isPrefixOfStrImpl)
 	e.RegisterPrim("_isSuffixOfStr", isSuffixOfStrImpl)
+	e.RegisterPrim("_indexOfStr", indexOfStrImpl)
+	e.RegisterPrim("_lastIndexOfStr", lastIndexOfStrImpl)
+	e.RegisterPrim("_countStr", countStrImpl)
+	e.RegisterPrim("_replaceStr", replaceStrImpl)
+	e.RegisterPrim("_reverseStr", reverseStrImpl)
+	e.RegisterPrim("_replicateStr", replicateStrImpl)
+	e.RegisterPrim("_stripPrefixStr", stripPrefixStrImpl)
+	e.RegisterPrim("_stripSuffixStr", stripSuffixStrImpl)
 
 	// --- Additional List primitives ---
 	e.RegisterPrim("_listGroupBy", groupByImpl)

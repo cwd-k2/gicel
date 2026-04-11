@@ -625,3 +625,129 @@ func intToByteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	}
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: byte(n)}}}, ce, nil
 }
+
+// --- String enhancement (2026-04-11) ---
+
+func indexOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	needle, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	haystack, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	idx := strings.Index(haystack, needle)
+	if idx < 0 {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{eval.IntVal(int64(idx))}}, ce, nil
+}
+
+func lastIndexOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	needle, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	haystack, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	idx := strings.LastIndex(haystack, needle)
+	if idx < 0 {
+		return &eval.ConVal{Con: "Nothing"}, ce, nil
+	}
+	return &eval.ConVal{Con: "Just", Args: []eval.Value{eval.IntVal(int64(idx))}}, ce, nil
+}
+
+func countStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	needle, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	haystack, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	return eval.IntVal(int64(strings.Count(haystack, needle))), ce, nil
+}
+
+func replaceStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	old, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	new_, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asString(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	result := strings.ReplaceAll(s, old, new_)
+	if err := budget.ChargeAlloc(context.Background(), int64(len(result))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: result}, ce, nil
+}
+
+func reverseStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return &eval.HostVal{Inner: string(runes)}, ce, nil
+}
+
+func replicateStrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	n, err := asInt64(args[0], "str")
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if n <= 0 {
+		return &eval.HostVal{Inner: ""}, ce, nil
+	}
+	if err := budget.ChargeAlloc(ctx, int64(n)*int64(len(s))*costPerByte); err != nil {
+		return nil, ce, err
+	}
+	return &eval.HostVal{Inner: strings.Repeat(s, int(n))}, ce, nil
+}
+
+func stripPrefixStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	prefix, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if result, ok := strings.CutPrefix(s, prefix); ok {
+		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: result}}}, ce, nil
+	}
+	return &eval.ConVal{Con: "Nothing"}, ce, nil
+}
+
+func stripSuffixStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	suffix, err := asString(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asString(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if result, ok := strings.CutSuffix(s, suffix); ok {
+		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: result}}}, ce, nil
+	}
+	return &eval.ConVal{Con: "Nothing"}, ce, nil
+}
