@@ -132,6 +132,14 @@ func compilePLabel(c *Compiler, p *ir.PLabel, failPatches *[]int) {
 	if failPatches != nil {
 		*failPatches = append(*failPatches, pos)
 	}
+	// OpMatchLabel pushes the payload on match success.
+	// Bind or discard it depending on whether the pattern names a variable.
+	if p.PayloadVar != "" {
+		slot := c.allocLocal(p.PayloadVar)
+		c.emitU16(OpStoreLocal, uint16(slot))
+	} else {
+		c.emit(OpPop)
+	}
 }
 
 func compilePRecord(c *Compiler, p *ir.PRecord, failPatches *[]int) {

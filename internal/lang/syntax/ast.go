@@ -381,11 +381,13 @@ type PatLit struct {
 	S     span.Span
 }
 
-// PatLabel is a label literal pattern: #tag
+// PatLabel is a label literal pattern: #tag or #tag x
 // Used to match Variant labels in case expressions.
+// Payload is non-nil when the user wrote #tag x — binds the payload.
 type PatLabel struct {
-	Label string
-	S     span.Span
+	Label   string
+	Payload Pattern // nil = discard payload
+	S       span.Span
 }
 
 func (*PatVar) patternNode()     {}

@@ -48,7 +48,16 @@ func (p *Parser) parsePattern() syn.Pattern {
 	case syn.TokLabelLit:
 		tok := p.peek()
 		p.advance()
-		return &syn.PatLabel{Label: tok.Text, S: tok.S}
+		// #tag x — optional payload variable.
+		var payload syn.Pattern
+		if p.peek().Kind == syn.TokLower {
+			payload = p.parsePatternAtom()
+		}
+		s := tok.S
+		if payload != nil {
+			s.End = payload.Span().End
+		}
+		return &syn.PatLabel{Label: tok.Text, Payload: payload, S: s}
 	default:
 		p.addErrorCode(diagnostic.ErrInvalidPattern, "expected pattern")
 		tok := p.peek()

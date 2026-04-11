@@ -140,10 +140,26 @@ func (ch *Checker) checkLabelPattern(p *syntax.PatLabel, scrutTy types.Type) pat
 		return patternResult{Pattern: &ir.PLabel{Label: p.Label, S: p.S}}
 	}
 
-	return patternResult{
+	result := patternResult{
 		Pattern:        &ir.PLabel{Label: p.Label, S: p.S},
 		VariantFieldTy: fieldTy,
 	}
+
+	// Payload binding: #tag x binds x to the Variant payload (type = fieldTy).
+	if p.Payload != nil {
+		if pv, ok := p.Payload.(*syntax.PatVar); ok {
+			result.Pattern = &ir.PLabel{Label: p.Label, PayloadVar: pv.Name, S: p.S}
+			if result.Bindings == nil {
+				result.Bindings = make(map[string]types.Type)
+			}
+			result.Bindings[pv.Name] = fieldTy
+		} else {
+			ch.addDiag(diagnostic.ErrInvalidPattern, p.Payload.Span(),
+				diagMsg("label payload pattern must be a variable"))
+		}
+	}
+
+	return result
 }
 
 // decomposeVariantType extracts (choices, s) from Variant choices s.

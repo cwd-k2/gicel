@@ -489,6 +489,9 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				frame.ip = int(failOffset)
 				continue
 			}
+			// Push payload for binding. Compiler emits OpPop when
+			// the pattern discards the payload (PayloadVar == "").
+			vm.push(vv.Value)
 
 		case OpMatchRecord:
 			descIdx := DecodeU16(frame.proto.Code, frame.ip)
