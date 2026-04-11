@@ -60,3 +60,93 @@ impl ToList (Slice a) := { toList := _sliceToList }
 impl Show a => Show (Slice a) := {
   show := \s. "Slice.fromList " <> show (toList s)
 }
+
+-- Filtering & searching
+_sliceFilter :: \a. (a -> Bool) -> Slice a -> Slice a
+_sliceFilter := assumption
+
+_sliceAny :: \a. (a -> Bool) -> Slice a -> Bool
+_sliceAny := assumption
+
+_sliceAll :: \a. (a -> Bool) -> Slice a -> Bool
+_sliceAll := assumption
+
+_sliceFind :: \a. (a -> Bool) -> Slice a -> Maybe a
+_sliceFind := assumption
+
+_sliceFindIndex :: \a. (a -> Bool) -> Slice a -> Maybe Int
+_sliceFindIndex := assumption
+
+filter :: \a. (a -> Bool) -> Slice a -> Slice a
+filter := _sliceFilter
+
+any :: \a. (a -> Bool) -> Slice a -> Bool
+any := _sliceAny
+
+all :: \a. (a -> Bool) -> Slice a -> Bool
+all := _sliceAll
+
+find :: \a. (a -> Bool) -> Slice a -> Maybe a
+find := _sliceFind
+
+findIndex :: \a. (a -> Bool) -> Slice a -> Maybe Int
+findIndex := _sliceFindIndex
+
+-- Transform & construction
+_sliceReverse :: \a. Slice a -> Slice a
+_sliceReverse := assumption
+
+_sliceZipWith :: \a b c. (a -> b -> c) -> Slice a -> Slice b -> Slice c
+_sliceZipWith := assumption
+
+_sliceConcat :: \a. Slice (Slice a) -> Slice a
+_sliceConcat := assumption
+
+_sliceReplicate :: \a. Int -> a -> Slice a
+_sliceReplicate := assumption
+
+_sliceGenerate :: \a. Int -> (Int -> a) -> Slice a
+_sliceGenerate := assumption
+
+_sliceRange :: Int -> Int -> Slice Int
+_sliceRange := assumption
+
+_sliceSlice :: \a. Int -> Int -> Slice a -> Slice a
+_sliceSlice := assumption
+
+_sliceSortBy :: \a. (a -> a -> Ordering) -> Slice a -> Slice a
+_sliceSortBy := assumption
+
+reverse :: \a. Slice a -> Slice a
+reverse := _sliceReverse
+
+zipWith :: \a b c. (a -> b -> c) -> Slice a -> Slice b -> Slice c
+zipWith := _sliceZipWith
+
+concat :: \a. Slice (Slice a) -> Slice a
+concat := _sliceConcat
+
+replicate :: \a. Int -> a -> Slice a
+replicate := _sliceReplicate
+
+generate :: \a. Int -> (Int -> a) -> Slice a
+generate := _sliceGenerate
+
+range :: Int -> Int -> Slice Int
+range := _sliceRange
+
+slice :: \a. Int -> Int -> Slice a -> Slice a
+slice := _sliceSlice
+
+sortBy :: \a. (a -> a -> Ordering) -> Slice a -> Slice a
+sortBy := _sliceSortBy
+
+sort :: \a. Ord a => Slice a -> Slice a
+sort := sortBy compare
+
+-- Head / last (safe)
+head :: \a. Slice a -> Maybe a
+head := index 0
+
+last :: \a. Slice a -> Maybe a
+last := \s. index (length s - 1) s

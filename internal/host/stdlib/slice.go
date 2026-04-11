@@ -35,6 +35,19 @@ var Slice Pack = func(e Registrar) error {
 	e.RegisterPrim(primSliceFoldr, sliceFoldrImpl)
 	e.RegisterPrim(primSliceMap, sliceMapImpl)
 	e.RegisterPrim("_sliceFoldl", sliceFoldlImpl)
+	e.RegisterPrim("_sliceFilter", sliceFilterImpl)
+	e.RegisterPrim("_sliceReverse", sliceReverseImpl)
+	e.RegisterPrim("_sliceZipWith", sliceZipWithImpl)
+	e.RegisterPrim("_sliceConcat", sliceConcatImpl)
+	e.RegisterPrim("_sliceReplicate", sliceReplicateImpl)
+	e.RegisterPrim("_sliceGenerate", sliceGenerateImpl)
+	e.RegisterPrim("_sliceRange", sliceRangeImpl)
+	e.RegisterPrim("_sliceSlice", sliceSliceImpl)
+	e.RegisterPrim("_sliceSortBy", sliceSortByImpl)
+	e.RegisterPrim("_sliceAny", sliceAnyImpl)
+	e.RegisterPrim("_sliceAll", sliceAllImpl)
+	e.RegisterPrim("_sliceFind", sliceFindImpl)
+	e.RegisterPrim("_sliceFindIndex", sliceFindIndexImpl)
 	// Fusion rules: domain-specific rewrites for this pack's primitives.
 	e.RegisterRewriteRule(sliceMapMapFusion)
 	e.RegisterRewriteRule(sliceFoldrMapFusion)
@@ -225,4 +238,315 @@ func sliceFoldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply 
 		}
 	}
 	return acc, ce, nil
+}
+
+// --- Slice enhancement (2026-04-11) ---
+
+func sliceFilterImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	s, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	var result []eval.Value
+	for _, item := range s {
+		val, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
+			result = append(result, item)
+		}
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceReverseImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	s, err := asSlice(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	n := len(s)
+	result := make([]eval.Value, n)
+	for i, v := range s {
+		result[n-1-i] = v
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceZipWithImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	f := args[0]
+	sa, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	sb, err := asSlice(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	n := len(sa)
+	if len(sb) < n {
+		n = len(sb)
+	}
+	if err := budget.ChargeAlloc(ctx, int64(n)*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	result := make([]eval.Value, n)
+	for i := range n {
+		val, newCe, err := apply.ApplyN(f, []eval.Value{sa[i], sb[i]}, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		result[i] = val
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceConcatImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	outer, err := asSlice(args[0])
+	if err != nil {
+		return nil, ce, err
+	}
+	total := 0
+	for _, item := range outer {
+		inner, err := asSlice(item)
+		if err != nil {
+			return nil, ce, err
+		}
+		total += len(inner)
+	}
+	if err := budget.ChargeAlloc(ctx, int64(total)*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	result := make([]eval.Value, 0, total)
+	for _, item := range outer {
+		inner, _ := asSlice(item)
+		result = append(result, inner...)
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceReplicateImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	n, err := asInt64(args[0], "slice")
+	if err != nil {
+		return nil, ce, err
+	}
+	if n <= 0 {
+		return sliceVal(nil), ce, nil
+	}
+	if err := budget.ChargeAlloc(ctx, n*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	result := make([]eval.Value, n)
+	for i := range result {
+		result[i] = args[1]
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceGenerateImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	n, err := asInt64(args[0], "slice")
+	if err != nil {
+		return nil, ce, err
+	}
+	f := args[1]
+	if n <= 0 {
+		return sliceVal(nil), ce, nil
+	}
+	if err := budget.ChargeAlloc(ctx, n*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	result := make([]eval.Value, n)
+	for i := range result {
+		val, newCe, err := apply.Apply(f, eval.IntVal(int64(i)), ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		result[i] = val
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceRangeImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	lo, err := asInt64(args[0], "slice")
+	if err != nil {
+		return nil, ce, err
+	}
+	hi, err := asInt64(args[1], "slice")
+	if err != nil {
+		return nil, ce, err
+	}
+	if lo > hi {
+		return sliceVal(nil), ce, nil
+	}
+	n := hi - lo
+	if err := budget.ChargeAlloc(ctx, n*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	result := make([]eval.Value, n)
+	for i := range result {
+		result[i] = eval.IntVal(lo + int64(i))
+	}
+	return sliceVal(result), ce, nil
+}
+
+func sliceSliceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	start, err := asInt64(args[0], "slice")
+	if err != nil {
+		return nil, ce, err
+	}
+	end, err := asInt64(args[1], "slice")
+	if err != nil {
+		return nil, ce, err
+	}
+	s, err := asSlice(args[2])
+	if err != nil {
+		return nil, ce, err
+	}
+	n := int64(len(s))
+	if start < 0 {
+		start = 0
+	}
+	if end > n {
+		end = n
+	}
+	if start >= end {
+		return sliceVal(nil), ce, nil
+	}
+	return sliceVal(s[start:end]), ce, nil
+}
+
+func sliceSortByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	cmp := args[0]
+	s, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	if len(s) <= 1 {
+		return sliceVal(s), ce, nil
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(s))*costSlotSize); err != nil {
+		return nil, ce, err
+	}
+	// Copy to avoid mutating original.
+	sorted := make([]eval.Value, len(s))
+	copy(sorted, s)
+	// Insertion sort (stable, simple, good for small slices).
+	var sortErr error
+	for i := 1; i < len(sorted); i++ {
+		key := sorted[i]
+		j := i - 1
+		for j >= 0 {
+			val, newCe, err := apply.ApplyN(cmp, []eval.Value{sorted[j], key}, ce)
+			if err != nil {
+				sortErr = err
+				break
+			}
+			ce = newCe
+			// Ordering: LT=-1, EQ=0, GT=1
+			ord := int64(1) // default: GT (don't move)
+			if con, ok := val.(*eval.ConVal); ok {
+				switch con.Con {
+				case "LT":
+					ord = -1
+				case "EQ":
+					ord = 0
+				case "GT":
+					ord = 1
+				}
+			}
+			if ord <= 0 {
+				break
+			}
+			sorted[j+1] = sorted[j]
+			j--
+		}
+		if sortErr != nil {
+			return nil, ce, sortErr
+		}
+		sorted[j+1] = key
+	}
+	return sliceVal(sorted), ce, nil
+}
+
+func sliceAnyImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	s, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	for _, item := range s {
+		val, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
+			return &eval.ConVal{Con: "True"}, ce, nil
+		}
+	}
+	return &eval.ConVal{Con: "False"}, ce, nil
+}
+
+func sliceAllImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	s, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	for _, item := range s {
+		val, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := val.(*eval.ConVal); ok && con.Con == "False" {
+			return &eval.ConVal{Con: "False"}, ce, nil
+		}
+	}
+	return &eval.ConVal{Con: "True"}, ce, nil
+}
+
+func sliceFindImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	s, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	for _, item := range s {
+		val, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
+			return &eval.ConVal{Con: "Just", Args: []eval.Value{item}}, ce, nil
+		}
+	}
+	return &eval.ConVal{Con: "Nothing"}, ce, nil
+}
+
+func sliceFindIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
+	pred := args[0]
+	s, err := asSlice(args[1])
+	if err != nil {
+		return nil, ce, err
+	}
+	for i, item := range s {
+		val, newCe, err := apply.Apply(pred, item, ce)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
+			return &eval.ConVal{Con: "Just", Args: []eval.Value{eval.IntVal(int64(i))}}, ce, nil
+		}
+	}
+	return &eval.ConVal{Con: "Nothing"}, ce, nil
 }
