@@ -4,6 +4,7 @@
 --   case, do, form, type, infixl, infixr, infixn, impl, import, if, then, else
 -- Run: bin/gicel run examples/gicel/effects/full-grammar.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

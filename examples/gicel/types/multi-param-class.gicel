@@ -5,6 +5,7 @@
 -- compose constraints in function signatures.
 -- Run: bin/gicel run examples/gicel/types/multi-param-class.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

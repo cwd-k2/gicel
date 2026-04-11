@@ -5,6 +5,7 @@
 --
 -- Run: bin/gicel run examples/gicel/effects/state-effect.gicel
 
+-- gicel: --packs prelude,console,state
 import Prelude
 import Effect.State
 import Console

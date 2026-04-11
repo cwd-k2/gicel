@@ -4,12 +4,13 @@
 // declare structural options such as module dependencies and recursion.
 // These are recognized by both the CLI and the LSP server.
 //
-// Only structural options are allowed in headers:
-//   - --module Name=path  (module dependency)
-//   - --recursion         (enable fix/rec)
+// Allowed structural options:
+//   - --module Name=path     (module dependency)
+//   - --recursion            (enable fix/rec)
+//   - --packs prelude,state  (stdlib packs to load)
 //
-// Resource limits (--timeout, --max-steps, etc.), output flags (--json,
-// --explain), and --packs are NOT allowed — they are caller-side concerns.
+// Resource limits (--timeout, --max-steps, etc.) and output flags (--json,
+// --explain) are NOT allowed — they are caller-side concerns.
 // Unknown flags produce warnings for forward compatibility.
 package header
 
@@ -22,6 +23,7 @@ import (
 type Directives struct {
 	Modules   []Module
 	Recursion bool
+	Packs     string   // comma-separated pack names ("" = not specified in header)
 	Warnings  []string // unknown or invalid directives
 }
 
@@ -33,7 +35,7 @@ type Module struct {
 
 // disallowed flags are recognized but not permitted in headers.
 var disallowedFlags = map[string]bool{
-	"--packs": true, "--timeout": true, "--max-steps": true,
+	"--timeout": true, "--max-steps": true,
 	"--max-depth": true, "--max-nesting": true, "--max-alloc": true,
 	"--json": true, "--explain": true, "--explain-all": true,
 	"--verbose": true, "--no-color": true, "--entry": true,
@@ -86,6 +88,13 @@ func parseDirective(args string, hd *Directives) {
 			}
 		case fields[i] == "--recursion":
 			hd.Recursion = true
+		case fields[i] == "--packs":
+			if i+1 < len(fields) {
+				i++
+				hd.Packs = fields[i]
+			} else {
+				hd.Warnings = append(hd.Warnings, "--packs requires an argument (e.g., prelude,console)")
+			}
 		case disallowedFlags[fields[i]]:
 			hd.Warnings = append(hd.Warnings,
 				fmt.Sprintf("%s is not allowed in file headers (it is a CLI-only option)", fields[i]))

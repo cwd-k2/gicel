@@ -5,6 +5,7 @@
 -- the container — not guessed by instance search.
 -- Run: bin/gicel run examples/gicel/types/associated-types.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

@@ -11,6 +11,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/algorithms/dijkstra.gicel
 
+-- gicel: --packs prelude,console,map,mmap
 import Prelude
 import Data.Map as G
 import Effect.Map as MMap

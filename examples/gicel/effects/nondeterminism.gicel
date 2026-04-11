@@ -7,6 +7,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/effects/nondeterminism.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

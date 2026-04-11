@@ -43,7 +43,7 @@ bin/gicel run [flags] <file>.gicel
 
 | Flag                 | Default   | Description                                      |
 | -------------------- | --------- | ------------------------------------------------ |
-| `--packs <packs>`    | `all`     | Stdlib packs (see table below)                   |
+| `--packs <packs>`    | header/all | Stdlib packs (see table below); header directive overrides |
 | `--module Name=path` | —         | Register user module (repeatable, order matters) |
 | `--recursion`        | off       | Enable `fix`/`rec`                               |
 | `-e <source>`        | —         | Evaluate source string directly                  |
@@ -101,9 +101,10 @@ Starts the LSP server over stdio. Supports diagnostics and hover.
 
 ### File header directives
 
-Source files can declare `--module` and `--recursion` in leading comments:
+Source files can declare `--packs`, `--module`, and `--recursion` in leading comments:
 
 ```gicel
+-- gicel: --packs prelude,console
 -- gicel: --module Lib=./lib/Lib.gicel
 -- gicel: --recursion
 import Prelude
@@ -111,7 +112,7 @@ import Lib
 main := ...
 ```
 
-Paths resolve relative to the declaring file. Transitive dependencies are discovered recursively. CLI flags override header directives. Recognized by `run`, `check`, and `lsp`.
+Paths resolve relative to the declaring file. Transitive dependencies are discovered recursively. CLI flags override header directives. When `--packs` is not specified on the CLI, the header value is used; if neither is specified, all packs are loaded. Recognized by `run`, `check`, and `lsp`.
 
 ### docs / example — reference & examples
 

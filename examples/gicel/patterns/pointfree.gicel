@@ -4,6 +4,7 @@
 -- composition (.), flip, const, on, and pipeline-style programming.
 -- Run: bin/gicel run --recursion examples/gicel/patterns/pointfree.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

@@ -6,6 +6,7 @@
 -- to pass a function that works for ALL types, not just one.
 -- Run: bin/gicel run examples/gicel/types/higher-rank.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

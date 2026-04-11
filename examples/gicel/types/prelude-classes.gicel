@@ -5,6 +5,7 @@
 -- and Applicative on Bool, Maybe, List, Ordering, and tuples.
 -- Run: bin/gicel run examples/gicel/types/prelude-classes.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

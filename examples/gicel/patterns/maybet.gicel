@@ -4,6 +4,7 @@
 -- Demonstrates HKT, monad transformer, do-notation composition.
 -- Run: bin/gicel run examples/gicel/patterns/maybet.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

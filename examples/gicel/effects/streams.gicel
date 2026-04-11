@@ -10,6 +10,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/effects/streams.gicel
 
+-- gicel: --packs prelude,console,stream
 import Prelude
 import Data.Stream
 import Console

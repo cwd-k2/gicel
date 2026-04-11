@@ -6,6 +6,7 @@
 -- function requiring Ord' can use Show' and Eq' methods too.
 -- Run: bin/gicel run examples/gicel/types/typeclass-hierarchy.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

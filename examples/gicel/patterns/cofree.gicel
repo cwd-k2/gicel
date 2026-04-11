@@ -4,6 +4,7 @@
 -- Cofree List = rose tree, Cofree Maybe = non-empty list.
 -- Run: bin/gicel run examples/gicel/patterns/cofree.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

@@ -9,6 +9,7 @@
 --
 -- Run: bin/gicel run examples/gicel/basics/strings.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

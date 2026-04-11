@@ -5,6 +5,7 @@
 -- the remaining type parameters, ambiguity is resolved automatically.
 -- Run: bin/gicel run examples/gicel/types/fundeps.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

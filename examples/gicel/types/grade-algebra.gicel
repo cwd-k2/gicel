@@ -9,6 +9,7 @@
 --
 -- Run: bin/gicel run examples/gicel/types/grade-algebra.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

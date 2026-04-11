@@ -8,6 +8,7 @@
 --
 -- Run: bin/gicel run examples/gicel/types/type-level-nat.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

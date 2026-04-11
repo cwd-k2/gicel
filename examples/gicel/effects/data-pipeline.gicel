@@ -4,6 +4,7 @@
 -- Process a list of exam scores: filter, transform, and summarize.
 -- Run: bin/gicel run examples/gicel/effects/data-pipeline.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

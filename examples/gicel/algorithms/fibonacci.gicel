@@ -4,6 +4,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/algorithms/fibonacci.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

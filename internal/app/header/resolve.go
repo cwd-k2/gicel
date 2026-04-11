@@ -23,6 +23,7 @@ type ResolvedModule struct {
 type ResolveResult struct {
 	Modules   []ResolvedModule // topological order (dependencies first)
 	Recursion bool             // true if any file declared --recursion
+	Packs     string           // from entry file's --packs ("" = not specified)
 	Warnings  []string         // unknown or disallowed directives encountered
 }
 
@@ -74,6 +75,10 @@ func (r *resolver) resolve(source, filePath string, depth int) error {
 	directives := Parse(source)
 	if directives.Recursion {
 		r.result.Recursion = true
+	}
+	// --packs from the entry file only (depth 0); dependency files don't set packs.
+	if depth == 0 && directives.Packs != "" {
+		r.result.Packs = directives.Packs
 	}
 	for _, w := range directives.Warnings {
 		r.result.Warnings = append(r.result.Warnings, fmt.Sprintf("%s: %s", filepath.Base(filePath), w))

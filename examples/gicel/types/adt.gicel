@@ -4,6 +4,7 @@
 -- nested case expressions, and converting between types.
 -- Run: bin/gicel run examples/gicel/types/adt.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

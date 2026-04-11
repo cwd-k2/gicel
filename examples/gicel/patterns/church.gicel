@@ -3,6 +3,7 @@
 -- Natural numbers encoded as higher-order functions (rank-2 polymorphism).
 -- Run: bin/gicel run examples/gicel/patterns/church.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

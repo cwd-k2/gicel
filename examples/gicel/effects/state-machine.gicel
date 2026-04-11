@@ -11,6 +11,7 @@
 --
 -- Run: bin/gicel run examples/gicel/effects/state-machine.gicel
 
+-- gicel: --packs prelude,console,state
 import Prelude
 import Effect.State
 import Console

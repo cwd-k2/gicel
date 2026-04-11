@@ -5,6 +5,7 @@
 -- At the call site, it becomes a wanted (must be discharged).
 -- Run: bin/gicel run examples/gicel/types/equality-constraints.gicel
 
+-- gicel: --packs prelude
 import Prelude
 
 -- Simple equality constraint: a must be Int.

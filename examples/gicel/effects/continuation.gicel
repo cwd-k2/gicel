@@ -6,6 +6,7 @@
 -- and early exit via abort.
 -- Run: bin/gicel run examples/gicel/effects/continuation.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

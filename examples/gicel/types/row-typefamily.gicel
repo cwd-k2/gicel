@@ -7,6 +7,7 @@
 --
 -- Run: bin/gicel run examples/gicel/types/row-typefamily.gicel
 
+-- gicel: --packs prelude
 import Prelude
 
 -- ── Merge ──────────────────────────────────────────────────

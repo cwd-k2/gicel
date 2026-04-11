@@ -4,6 +4,7 @@
 -- that write to the CapEnv io buffer.
 -- Run: bin/gicel run examples/gicel/effects/io.gicel
 
+-- gicel: --packs prelude,console,io
 import Prelude
 import Effect.IO
 import Console

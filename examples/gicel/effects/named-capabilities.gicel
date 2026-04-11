@@ -8,6 +8,7 @@
 --
 -- Run: bin/gicel run examples/gicel/effects/named-capabilities.gicel
 
+-- gicel: --packs prelude,console,array,mmap,ref,state
 import Prelude
 import Effect.State
 import Effect.Ref as Ref

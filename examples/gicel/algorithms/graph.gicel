@@ -5,6 +5,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/algorithms/graph.gicel
 
+-- gicel: --packs prelude,console,map,set
 import Prelude
 import Data.Map as Map
 import Data.Set as Set

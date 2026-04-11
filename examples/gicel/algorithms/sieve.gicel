@@ -5,6 +5,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/algorithms/sieve.gicel
 
+-- gicel: --packs prelude,console,array
 import Prelude
 import Effect.Array
 import Console

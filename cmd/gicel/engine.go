@@ -197,7 +197,31 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	if err != nil {
 		return nil, nil, err
 	}
-	eng, err := setupEngine(packs)
+
+	// Resolve header directives early so that --packs from the header
+	// can be used when the CLI flag is not explicitly specified.
+	var headerResult *header.ResolveResult
+	if expr == "" && fs.NArg() > 0 && fs.Arg(0) != "-" {
+		headerResult, err = header.Resolve(string(source), fs.Arg(0))
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, w := range headerResult.Warnings {
+			fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		}
+	}
+
+	// Determine effective packs: CLI flag > header directive > "all" (default).
+	effectivePacks := packs
+	if effectivePacks == "" {
+		if headerResult != nil && headerResult.Packs != "" {
+			effectivePacks = headerResult.Packs
+		} else {
+			effectivePacks = "all"
+		}
+	}
+
+	eng, err := setupEngine(effectivePacks)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -212,40 +236,23 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 		return nil, nil, err
 	}
 
-	// Apply file header directives when source is from a file.
-	// Modules already registered by CLI flags are skipped.
-	if expr == "" && fs.NArg() > 0 && fs.Arg(0) != "-" {
-		if err := applyHeaderDirectives(eng, string(source), fs.Arg(0)); err != nil {
-			return nil, nil, err
+	// Apply remaining header directives (modules, recursion).
+	if headerResult != nil {
+		if headerResult.Recursion {
+			eng.EnableRecursion()
+		}
+		for _, mod := range headerResult.Modules {
+			if eng.HasModule(mod.Name) {
+				continue // CLI --module flag takes precedence
+			}
+			if err := eng.RegisterModule(mod.Name, mod.Source); err != nil {
+				return nil, nil, fmt.Errorf("header module %s: %w", mod.Name, err)
+			}
 		}
 	}
 	return source, eng, nil
 }
 
-// applyHeaderDirectives recursively resolves -- gicel: directives from the
-// source header and registers discovered modules. Modules already registered
-// by CLI --module flags are skipped, ensuring CLI flags take precedence.
-func applyHeaderDirectives(eng *gicel.Engine, source, filePath string) error {
-	res, err := header.Resolve(source, filePath)
-	if err != nil {
-		return err
-	}
-	for _, w := range res.Warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
-	}
-	if res.Recursion {
-		eng.EnableRecursion()
-	}
-	for _, mod := range res.Modules {
-		if eng.HasModule(mod.Name) {
-			continue // CLI --module flag takes precedence
-		}
-		if err := eng.RegisterModule(mod.Name, mod.Source); err != nil {
-			return fmt.Errorf("header module %s: %w", mod.Name, err)
-		}
-	}
-	return nil
-}
 
 func handleCompileError(err error, jsonOut bool) int {
 	if jsonOut {

@@ -5,6 +5,7 @@
 -- the Prelude's Eq class.
 -- Run: bin/gicel run examples/gicel/types/typeclass.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

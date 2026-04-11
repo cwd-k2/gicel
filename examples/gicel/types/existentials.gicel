@@ -7,6 +7,7 @@
 -- quantified when pattern matching.
 -- Run: bin/gicel run examples/gicel/types/existentials.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

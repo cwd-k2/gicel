@@ -11,6 +11,7 @@
 --   What is your name?
 --   Hello, Alice!
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

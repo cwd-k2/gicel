@@ -4,6 +4,7 @@
 -- Demonstrates HKT and multi-parameter constraints.
 -- Run: bin/gicel run examples/gicel/patterns/compose.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

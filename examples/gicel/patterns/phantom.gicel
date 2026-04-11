@@ -4,6 +4,7 @@
 -- Invalid transitions are compile-time errors.
 -- Run: bin/gicel run examples/gicel/patterns/phantom.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

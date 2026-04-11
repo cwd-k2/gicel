@@ -4,6 +4,7 @@
 -- during type checking, and are fully erased at runtime.
 -- Run: bin/gicel run examples/gicel/types/type-families.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

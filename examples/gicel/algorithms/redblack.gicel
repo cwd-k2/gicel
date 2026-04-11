@@ -15,6 +15,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/algorithms/redblack.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

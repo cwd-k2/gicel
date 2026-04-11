@@ -6,6 +6,7 @@
 --
 -- Run: bin/gicel run examples/gicel/effects/mutable-map.gicel
 
+-- gicel: --packs prelude,console,mmap
 import Prelude
 import Effect.Map as MMap
 import Console

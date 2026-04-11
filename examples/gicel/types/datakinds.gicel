@@ -6,6 +6,7 @@
 -- preventing invalid transitions statically.
 -- Run: bin/gicel run examples/gicel/types/datakinds.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

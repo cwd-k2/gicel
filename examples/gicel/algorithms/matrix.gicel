@@ -4,6 +4,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/algorithms/matrix.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

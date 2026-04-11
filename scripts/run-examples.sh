@@ -43,14 +43,14 @@ fi
 
 while IFS= read -r f; do
   name="${f#examples/gicel/}"
-  # Header directives (-- gicel: --recursion) handle flags automatically.
+  # Header directives (-- gicel: --packs, --recursion) handle flags automatically.
   # stdin from /dev/null: prevents examples with getLine from blocking.
-  if "$GICEL" run --packs all --timeout 10s "$f" </dev/null >/dev/null 2>&1; then
+  if "$GICEL" run --timeout 10s "$f" </dev/null >/dev/null 2>&1; then
     pass "$name"
   else
     # Some examples are check-only (no main that produces output).
     # Fall back to check if run fails.
-    if "$GICEL" check --packs all "$f" >/dev/null 2>&1; then
+    if "$GICEL" check "$f" >/dev/null 2>&1; then
       pass "$name (check-only)"
     else
       fail "$name"

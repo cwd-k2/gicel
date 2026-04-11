@@ -29,7 +29,7 @@ func cmdCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.Usage = func() {}
-	packs := fs.String("packs", "all", "comma-separated stdlib packs")
+	packs := fs.String("packs", "", "comma-separated stdlib packs (default: from header or all)")
 	recursion := fs.Bool("recursion", false, "enable recursive definitions (fix/rec)")
 	var modules moduleFlags
 	fs.Var(&modules, "module", "register module: Name=path (repeatable)")

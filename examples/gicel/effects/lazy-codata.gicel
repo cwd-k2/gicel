@@ -14,6 +14,7 @@
 -- gicel: --recursion
 -- Run: bin/gicel run examples/gicel/effects/lazy-codata.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

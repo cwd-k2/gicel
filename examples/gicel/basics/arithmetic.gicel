@@ -5,6 +5,7 @@
 --
 -- Run: bin/gicel run examples/gicel/basics/arithmetic.gicel
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

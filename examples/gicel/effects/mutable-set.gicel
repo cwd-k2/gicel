@@ -6,6 +6,7 @@
 --
 -- Run: bin/gicel run examples/gicel/effects/mutable-set.gicel
 
+-- gicel: --packs prelude,console,mset
 import Prelude
 import Effect.Set as MSet
 import Console

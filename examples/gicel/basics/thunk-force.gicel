@@ -5,6 +5,7 @@
 --   force t      runs a suspended computation (unwraps the Thunk)
 -- Thunks are first-class values: store them, pass them, choose which to force.
 
+-- gicel: --packs prelude,console
 import Prelude
 import Console
 

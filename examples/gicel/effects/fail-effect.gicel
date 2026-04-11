@@ -8,6 +8,7 @@
 -- If the value is Just or Ok, the inner value is extracted and returned.
 -- Run: bin/gicel run examples/gicel/effects/fail-effect.gicel
 
+-- gicel: --packs prelude,console,fail
 import Prelude
 import Effect.Fail
 import Console

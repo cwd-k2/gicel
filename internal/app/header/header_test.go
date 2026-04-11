@@ -87,10 +87,20 @@ func TestParse_UnknownDirectiveWarning(t *testing.T) {
 	}
 }
 
+func TestParse_PacksDirective(t *testing.T) {
+	hd := Parse("-- gicel: --packs prelude,console\nmain := 42\n")
+	if len(hd.Warnings) != 0 {
+		t.Fatalf("expected 0 warnings, got %d: %v", len(hd.Warnings), hd.Warnings)
+	}
+	if hd.Packs != "prelude,console" {
+		t.Fatalf("expected Packs=prelude,console, got %q", hd.Packs)
+	}
+}
+
 func TestParse_DisallowedFlagWarning(t *testing.T) {
-	hd := Parse("-- gicel: --packs prelude\nmain := 42\n")
+	hd := Parse("-- gicel: --timeout 5s\nmain := 42\n")
 	if len(hd.Warnings) != 1 {
-		t.Fatalf("expected 1 warning for --packs, got %d", len(hd.Warnings))
+		t.Fatalf("expected 1 warning for --timeout, got %d", len(hd.Warnings))
 	}
 }
 

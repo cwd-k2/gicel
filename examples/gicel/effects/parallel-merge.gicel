@@ -9,6 +9,7 @@
 --
 -- Run: bin/gicel run examples/gicel/effects/parallel-merge.gicel
 
+-- gicel: --packs prelude,console,state
 import Prelude
 import Effect.State
 import Console
