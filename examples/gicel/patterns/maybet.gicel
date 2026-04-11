@@ -35,8 +35,9 @@ failT := MkMaybeT $ mpure Nothing
 
 safeDivM :: Int -> Int -> MaybeT Maybe Int
 safeDivM := \x y.
-  if eq y 0 then failT
-  else MkMaybeT $ Just $ Just (x / y)
+  if eq y 0
+    then failT
+    else MkMaybeT $ Just $ Just (x / y)
 
 -- 10 / 2 = 5, then 5 / 0 → Nothing (short-circuits)
 test_fail_inner :: MaybeT Maybe Int

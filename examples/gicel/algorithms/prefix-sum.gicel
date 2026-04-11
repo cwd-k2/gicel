@@ -37,11 +37,12 @@ rangeSum := \prefix lo hi. do {
 showArray := \arr. do {
   n := size arr;
   flip fix (0, Nil) $ \loop (i, acc).
-    if i >= n then pure $ show (reverse acc)
-    else do {
-      v <- read i arr;
-      loop (i + 1, Cons (maybe 0 id v) acc)
-    }
+    if i >= n
+      then pure $ show (reverse acc)
+      else do {
+        v <- read i arr;
+        loop (i + 1, Cons (maybe 0 id v) acc)
+      }
 }
 
 main := do {

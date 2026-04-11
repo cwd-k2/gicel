@@ -17,26 +17,29 @@ sieve := \limit. do {
 
   -- Mark composites
   flip fix 2 $ \outer i.
-    if i * i > limit then pure ()
-    else do {
-      v <- read i is;
-      case v {
-        Just True =>
-          flip fix (i * i) $ \inner j.
-            if j > limit then pure ()
-            else do {
-              write j False is;
-              inner $ j + i
-            };
-        _ => pure ()
+    if i * i > limit
+      then pure ()
+      else do {
+        v <- read i is;
+        case v {
+          Just True =>
+            flip fix (i * i) $ \inner j.
+              if j > limit
+                then pure ()
+                else do {
+                  write j False is;
+                  inner $ j + i
+                };
+          _ => pure ()
+        };
+        outer $ i + 1
       };
-      outer $ i + 1
-    };
 
   -- Collect primes by reading directly from the Array
   flip fix (2, Nil) $ \collect (i, acc).
-    if i > limit then pure $ reverse acc
-    else do {
+    if i > limit
+      then pure $ reverse acc
+      else do {
       v <- read i is;
       collect (i + 1,
         if maybe False id v

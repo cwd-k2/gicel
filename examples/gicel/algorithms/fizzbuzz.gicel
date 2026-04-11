@@ -18,8 +18,9 @@ fizzbuzz := \n. case (mod n 3 == 0, mod n 5 == 0) {
 }
 
 main := flip fix 1 $ \loop i.
-  if i > 30 then pure ()
-  else do {
-    putLine $ fizzbuzz i;
-    loop $ i + 1
-  }
+  if i > 30
+    then pure ()
+    else do {
+      putLine $ fizzbuzz i;
+      loop $ i + 1
+    }
