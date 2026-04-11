@@ -50,13 +50,14 @@ dfs := \g start. {
   go := fix (\self stack visited result. case stack {
     Nil => reverse result;
     Cons node rest =>
-      if Set.member node visited then self rest visited result
-      else {
-        visited2 := Set.insert node visited;
-        nbrs := neighbors node g;
-        stack2 := concat (reverse nbrs) rest;
-        self stack2 visited2 (Cons node result)
-      }
+      if Set.member node visited
+        then self rest visited result
+        else {
+          visited2 := Set.insert node visited;
+          nbrs := neighbors node g;
+          stack2 := concat (reverse nbrs) rest;
+          self stack2 visited2 (Cons node result)
+        }
   });
   go [start] (Set.empty :: Set Int) Nil
 }
@@ -70,14 +71,15 @@ bfs := \g start. {
   go := fix (\self queue visited result. case queue {
     Nil => reverse result;
     Cons node rest =>
-      if Set.member node visited then self rest visited result
-      else {
-        visited2 := Set.insert node visited;
-        nbrs := neighbors node g;
-        newNbrs := filter (\n. not (Set.member n visited2)) nbrs;
-        queue2 := concat rest (reverse newNbrs);
-        self queue2 visited2 (Cons node result)
-      }
+      if Set.member node visited
+        then self rest visited result
+        else {
+          visited2 := Set.insert node visited;
+          nbrs := neighbors node g;
+          newNbrs := filter (\n. not (Set.member n visited2)) nbrs;
+          queue2 := concat rest (reverse newNbrs);
+          self queue2 visited2 (Cons node result)
+        }
   });
   go [start] (Set.empty :: Set Int) Nil
 }
@@ -90,12 +92,14 @@ topoSort := \g nodes. {
   go := fix (\self remaining visited order. case remaining {
     Nil => order;
     Cons node rest =>
-      if Set.member node visited then self rest visited order
-      else {
+      if Set.member node visited
+        then self rest visited order
+        else {
         -- DFS post-order: visit children first, then self
         dfsPost := fix (\dfs2 n vis ord.
-          if Set.member n vis then (vis, ord)
-          else {
+          if Set.member n vis
+            then (vis, ord)
+            else {
             vis2 := Set.insert n vis;
             nbrs := neighbors n g;
             afterNbrs := foldl (\(v, o) nb. dfs2 nb v o) (vis2, ord) nbrs;
@@ -123,7 +127,7 @@ hasPath := \g start end. elem end (dfs g start)
 --   3 -> 5
 graph1 := mkGraph [(1, 2), (1, 3), (2, 4), (2, 5), (3, 5)]
 
-testDFS := dfs graph1 1                         -- [1, 3, 5, 2, 4] or similar
+testDFS := dfs graph1 1                         -- [1, 2, 4, 5, 3]
 testBFS := bfs graph1 1                         -- [1, 2, 3, 4, 5] or similar
 
 -- Undirected graph:
@@ -143,7 +147,7 @@ testPath2 := hasPath graph1 5 1                 -- False (directed)
 --   A(1) -> B(2) -> D(4)
 --   A(1) -> C(3) -> D(4)
 dag := mkGraph [(1, 2), (1, 3), (2, 4), (3, 4)]
-testTopo := topoSort dag [1, 2, 3, 4]          -- [4, 2, 3, 1] or valid topo order
+testTopo := topoSort dag [1, 2, 3, 4]          -- [1, 2, 3, 4] (valid topo order)
 
 main := do {
   putLine $ "DFS from 1:     " <> show testDFS;
