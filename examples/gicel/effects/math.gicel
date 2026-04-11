@@ -13,7 +13,7 @@ import Console
 main := do {
   putLine "=== Integer Operations ===";
   putLine ("2^10:      " <> show (pow 2 10));
-  putLine ("17 mod 5:  " <> show (mod 17 5));
+  putLine ("divMod:    " <> show (divMod 17 5 :: (Int, Int)));
 
   putLine "";
   putLine "=== Bitwise ===";

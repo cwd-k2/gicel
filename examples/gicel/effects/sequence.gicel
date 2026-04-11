@@ -43,6 +43,8 @@ main := do {
   putLine "=== Properties ===";
   putLine ("empty?:  " <> isEmpty (Seq.empty :: Seq Int));
   putLine ("non-e?:  " <> isEmpty s);
+  putLine ("head:      " <> show (Seq.head s));
+  putLine ("last:      " <> show (Seq.last s));
   putLine ("singleton: " <> show (Seq.singleton 99 :: Seq Int));
 
   putLine "";

@@ -540,25 +540,6 @@ func (s *CheckState) tryUnify(a, b types.Type) bool {
 	})
 }
 
-func (s *CheckState) addCodedError(code diagnostic.Code, sp span.Span, msg string) {
-	s.errors.Add(&diagnostic.Error{
-		Code:    code,
-		Phase:   diagnostic.PhaseCheck,
-		Span:    sp,
-		Message: msg,
-	})
-}
-
-func (s *CheckState) addCodedErrorWithHints(code diagnostic.Code, sp span.Span, msg string, hints []diagnostic.Hint) {
-	s.errors.Add(&diagnostic.Error{
-		Code:    code,
-		Phase:   diagnostic.PhaseCheck,
-		Span:    sp,
-		Message: msg,
-		Hints:   hints,
-	})
-}
-
 func (s *CheckState) trace(kind CheckTraceKind, sp span.Span, format string, args ...any) {
 	if s.config.Trace != nil {
 		line, col := s.source.Location(sp.Start)

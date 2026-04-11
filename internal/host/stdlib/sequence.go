@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -90,7 +91,10 @@ func seqUnconsImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if view == nil {
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
-	pair := &eval.ConVal{Con: "Tuple2", Args: []eval.Value{view.head, seqWrap(view.tail)}}
+	pair := eval.NewRecordFromMap(map[string]eval.Value{
+		types.TupleLabel(1): view.head,
+		types.TupleLabel(2): seqWrap(view.tail),
+	})
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
 }
 
@@ -103,7 +107,10 @@ func seqUnsnocImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	if view == nil {
 		return &eval.ConVal{Con: "Nothing"}, ce, nil
 	}
-	pair := &eval.ConVal{Con: "Tuple2", Args: []eval.Value{seqWrap(view.init), view.last}}
+	pair := eval.NewRecordFromMap(map[string]eval.Value{
+		types.TupleLabel(1): seqWrap(view.init),
+		types.TupleLabel(2): view.last,
+	})
 	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
 }
 

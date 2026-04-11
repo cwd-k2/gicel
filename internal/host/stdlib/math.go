@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/bits"
 
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -122,7 +123,11 @@ func divModImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 			m -= b
 		}
 	}
-	return &eval.ConVal{Con: "Tuple2", Args: []eval.Value{eval.IntVal(d), eval.IntVal(m)}}, ce, nil
+	tuple := eval.NewRecordFromMap(map[string]eval.Value{
+		types.TupleLabel(1): eval.IntVal(d),
+		types.TupleLabel(2): eval.IntVal(m),
+	})
+	return tuple, ce, nil
 }
 
 // --- Bitwise operations ---
