@@ -112,10 +112,10 @@ form Unit := { Unit: Unit; }
 f :: { x: Unit @Linear } -> { x: Unit }
 f := \r. r
 `
-	// Grade-count mismatch: { x: Unit @Linear } has 1 grade, { x: Unit } has 0.
-	// Unification requires matching grade counts — a graded field cannot unify
-	// with an ungraded field because they represent different capability constraints.
-	checkSourceExpectCode(t, source, nil, diagnostic.ErrTypeMismatch)
+	// nil grades act as the identity element: { x: Unit } (nil grades) is
+	// compatible with { x: Unit @Linear }. This allows grade-unaware generic
+	// operations to work transparently with graded capabilities.
+	checkSource(t, source, nil)
 }
 
 func TestTypeFamilyPosition_InArgument(t *testing.T) {

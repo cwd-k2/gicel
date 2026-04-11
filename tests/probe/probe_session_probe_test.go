@@ -592,3 +592,54 @@ main := runSessionAt @#ch (MkChoose :: Choose { done: End }) (thunk do {
 		t.Fatalf("expected 42, got %s", result)
 	}
 }
+
+// ===================================================================
+// Probe: @Linear grade + Variant — nil-as-identity grade unification.
+// Verifies that grade-unaware stdlib operations (receiveAt, closeAt)
+// work transparently with @Linear-graded capabilities.
+// ===================================================================
+
+func TestProbeS_VariantReceiveWithLinearGrade(t *testing.T) {
+	// receiveAt and closeAt have nil grades in their type signatures.
+	// With nil-as-identity, they unify with @Linear capabilities.
+	errs := sessionCheck(t, `
+receiveAt :: \(l: Label) (choices: Row) (s: Type) r.
+  Computation { l: Offer choices | r } { l: s | r } (Variant choices s)
+receiveAt := assumption
+
+closeNG :: Computation { ch: End } {} ()
+closeNG := assumption
+
+type Proto := Offer { ping: End, quit: End }
+
+main :: Computation { ch: Proto @Linear } {} ()
+main := do {
+  tag <- receiveAt @#ch;
+  case tag {
+    #ping => do { closeNG };
+    #quit => do { closeNG }
+  }
+}
+`)
+	if errs != "" {
+		t.Fatalf("expected no error for @Linear + receiveAt, got: %s", errs)
+	}
+}
+
+func TestProbeS_ChooseWithLinearGrade(t *testing.T) {
+	errs := sessionCheck(t, `
+closeNG :: Computation { ch: End } {} ()
+closeNG := assumption
+
+type ATM := Choose { balance: Recv End, deposit: Send (Recv End), quit: End }
+
+main :: Computation { ch: ATM @Linear } {} ()
+main := do {
+  chooseTag @#quit;
+  closeNG
+}
+`)
+	if errs != "" {
+		t.Fatalf("expected no error for @Linear + chooseTag, got: %s", errs)
+	}
+}

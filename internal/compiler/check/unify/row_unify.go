@@ -62,13 +62,18 @@ func (u *Unifier) unifyEvCapRows(
 		if err := u.Unify(aField.Type, bField.Type); err != nil {
 			return err
 		}
-		// Unify grade annotations pairwise — count must match.
-		if len(aField.Grades) != len(bField.Grades) {
-			return &GradeMismatchError{Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
-		}
-		for i := range aField.Grades {
-			if err := u.Unify(aField.Grades[i], bField.Grades[i]); err != nil {
-				return err
+		// Unify grade annotations pairwise.
+		// nil grades (len=0) act as the identity element: compatible with
+		// any grade. This allows grade-unaware operations (getAt, receiveAt,
+		// etc.) to work with graded capabilities (@Linear, @Affine, ...).
+		if len(aField.Grades) > 0 && len(bField.Grades) > 0 {
+			if len(aField.Grades) != len(bField.Grades) {
+				return &GradeMismatchError{Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
+			}
+			for i := range aField.Grades {
+				if err := u.Unify(aField.Grades[i], bField.Grades[i]); err != nil {
+					return err
+				}
 			}
 		}
 	}
