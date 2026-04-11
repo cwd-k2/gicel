@@ -150,6 +150,19 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 				gk = gradeAlgebraKind(ch)
 			}
 
+			// Verify that GradeAlgebra exists for the grade kind.
+			// Without an algebra, Join/Compose/Drop are undefined and
+			// grade enforcement cannot operate — the annotation is
+			// semantically vacuous. Report this explicitly rather than
+			// silently treating the field as unrestricted.
+			algebra := ch.resolveGradeAlgebra(gk)
+			if !algebra.valid {
+				ch.addDiag(diagnostic.ErrMultiplicity, s,
+					diagFmt{Format: "grade @%s on capability %q requires impl %s %s",
+						Args: []any{types.Pretty(grade), f.Label, gradeAlgebraClassName, types.Pretty(gk)}})
+				continue
+			}
+
 			if gradeContainsMeta(grade) {
 				// Deferred path: emit CtFunEq for Join(Drop, grade) ~ grade.
 				// When the meta is solved, the solver re-processes the constraint

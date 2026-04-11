@@ -1,6 +1,7 @@
 package check
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -261,14 +262,14 @@ func TestGradeAnnotationPretty(t *testing.T) {
 	}
 }
 
-// --- Grade boundary: no GradeAlgebra → no enforcement ---
+// --- Grade boundary: no GradeAlgebra → error ---
 
-func TestGradeBoundaryNoAlgebra_LinearAccepted(t *testing.T) {
-	// Without a GradeAlgebra instance, grade enforcement is skipped.
-	// A @Linear field preserved unchanged across a do-block boundary
-	// is accepted (treated as unrestricted).
-	// Grade enforcement is tested via the engine with Prelude in
-	// engine/engine_grade_test.go.
+func TestGradeBoundaryNoAlgebra_LinearRejected(t *testing.T) {
+	// Without a GradeAlgebra instance, grade annotations cannot be
+	// enforced. The checker reports an error requiring the user to
+	// define the algebra before using grade annotations.
+	// Grade enforcement with Prelude (which defines GradeAlgebra Mult)
+	// is tested in engine/engine_grade_test.go.
 	source := `
 form Mult := { Unrestricted: Mult; Affine: Mult; Linear: Mult; Zero: Mult; }
 form Unit := { Unit: Unit; }
@@ -277,7 +278,10 @@ noop := assumption
 main :: Computation { h: Unit @Linear } { h: Unit @Linear } Unit
 main := do { noop }
 `
-	checkSource(t, source, nil)
+	errText := checkSourceExpectError(t, source, nil)
+	if !strings.Contains(errText, "GradeAlgebra") {
+		t.Errorf("expected error mentioning GradeAlgebra, got: %s", errText)
+	}
 }
 
 // --- Unit: gradeContainsMeta ---
