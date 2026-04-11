@@ -41,15 +41,16 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 	}
 	switch ty := t.(type) {
 	case *types.TyMeta:
-		soln, ok := u.soln[ty.ID]
+		soln, ok := u.lookupSoln(ty.ID)
 		if !ok {
 			return ty
 		}
 		result := u.zonkInner(soln)
-		if result != soln {
-			// Path compression: only trail when a snapshot is active
-			// (trail entries outside snapshot scopes are never restored
-			// and would leak memory over long compilations).
+		if result != soln && u.tempSoln == nil {
+			// Path compression: shorten meta→…→value chains in the
+			// permanent solution map. Suppressed when the temp overlay
+			// is active (generalization) because the resolved value may
+			// contain transient TyVar nodes that must not leak into soln.
 			if u.snapshotDepth > 0 {
 				u.trailSolnWrite(ty.ID)
 			}

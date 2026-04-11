@@ -367,11 +367,15 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 
 func TestZonkPathCompression(t *testing.T) {
 	u := unify.NewUnifier()
-	// Chain: m1 → m2 → Int
+	// Chain via permanent solutions: m1 → m2 → Int.
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
-	u.InstallTempSolution(1, m2)
-	u.InstallTempSolution(2, types.Con("Int"))
+	if err := u.Unify(m1, m2); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.Unify(m2, types.Con("Int")); err != nil {
+		t.Fatal(err)
+	}
 
 	result := u.Zonk(m1)
 	if con, ok := result.(*types.TyCon); !ok || con.Name != "Int" {
@@ -381,6 +385,39 @@ func TestZonkPathCompression(t *testing.T) {
 	direct := u.Solve(1)
 	if con, ok := direct.(*types.TyCon); !ok || con.Name != "Int" {
 		t.Errorf("path compression failed: Solve(1) = %v, expected Int", direct)
+	}
+}
+
+func TestZonkTempSolutionNoCompression(t *testing.T) {
+	u := unify.NewUnifier()
+	// Chain via temp solutions: m1 → m2 → Int.
+	// Temp solutions must resolve correctly but NOT path-compress
+	// into the permanent solution map.
+	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
+	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
+	if err := u.Unify(m1, m2); err != nil {
+		t.Fatal(err)
+	}
+	// m2 is "unsolved" (generalization target); install temp TyVar.
+	u.InstallTempSolution(2, &types.TyVar{Name: "a"})
+
+	// Zonk resolves through the overlay: m1 → m2(soln) → TyVar{a}(temp).
+	result := u.Zonk(m1)
+	if tv, ok := result.(*types.TyVar); !ok || tv.Name != "a" {
+		t.Fatalf("expected TyVar a, got %v", result)
+	}
+	// Permanent soln[1] must NOT be compressed to TyVar{a}.
+	direct := u.Solve(1)
+	if _, ok := direct.(*types.TyVar); ok {
+		t.Error("temp TyVar leaked into permanent solution via path compression")
+	}
+
+	// After removing the temp solution, m1 should resolve to m2 (the
+	// original chain target, not the transient TyVar).
+	u.RemoveTempSolution(2)
+	after := u.Zonk(m1)
+	if meta, ok := after.(*types.TyMeta); !ok || meta.ID != 2 {
+		t.Errorf("after temp removal, expected ?2, got %v", after)
 	}
 }
 

@@ -47,6 +47,7 @@ type TryReduceFamily func(name string, args []types.Type, s span.Span) (types.Ty
 // Unifier manages type unification.
 type Unifier struct {
 	soln       map[int]types.Type
+	tempSoln   map[int]types.Type // generalization overlay (see InstallTempSolution)
 	labels     map[int]map[string]struct{}
 	levelSoln  map[int]types.LevelExpr // level metavar solutions
 	skolemSoln map[int]types.Type      // GADT given equalities: skolem → type
@@ -136,17 +137,41 @@ func (u *Unifier) Solve(id int) types.Type {
 	return u.soln[id]
 }
 
-// InstallTempSolution registers a temporary solution for a metavariable.
-// The caller must call RemoveTempSolution when done. Used by let-generalization
-// to substitute metas with type variables for Zonk, then clean up.
-// NOT trailed: callers manage the lifecycle manually outside trial scopes.
+// InstallTempSolution registers a temporary solution in the generalization
+// overlay. Temp solutions shadow the main solution map during Zonk so that
+// generalized metavariables resolve to TyVar names (a, b, ...) in hover
+// entries and the generalized type itself.
+//
+// Temp solutions live in a separate map (tempSoln) rather than soln to
+// prevent Zonk path compression from propagating transient TyVar values
+// into permanent outer-scope entries. Without separation, Zonk's path
+// compression can rewrite soln[outer] = TyVar{a} when resolving a chain
+// outer→inner→TyVar{a}, and RemoveTempSolution only deletes soln[inner],
+// leaving the contaminated outer entry.
 func (u *Unifier) InstallTempSolution(id int, ty types.Type) {
-	u.soln[id] = ty
+	if u.tempSoln == nil {
+		u.tempSoln = make(map[int]types.Type, 4)
+	}
+	u.tempSoln[id] = ty
 }
 
-// RemoveTempSolution removes a previously installed temporary solution.
+// RemoveTempSolution removes a temporary solution from the overlay.
 func (u *Unifier) RemoveTempSolution(id int) {
-	delete(u.soln, id)
+	delete(u.tempSoln, id)
+	if len(u.tempSoln) == 0 {
+		u.tempSoln = nil
+	}
+}
+
+// lookupSoln resolves a meta ID, checking the temp overlay first.
+func (u *Unifier) lookupSoln(id int) (types.Type, bool) {
+	if u.tempSoln != nil {
+		if ty, ok := u.tempSoln[id]; ok {
+			return ty, true
+		}
+	}
+	ty, ok := u.soln[id]
+	return ty, ok
 }
 
 // Solutions returns the current solution map for introspection (e.g., skolem escape check).

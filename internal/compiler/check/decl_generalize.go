@@ -106,6 +106,11 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 	// (meta → TyVar) are still active. This ensures that hover
 	// entries for sub-expressions of this binding show type variable
 	// names (a, b, ...) rather than unsolved meta placeholders (_).
+	//
+	// Safety: temp solutions live in the Unifier's tempSoln overlay,
+	// separate from the permanent soln map. Zonk's path compression
+	// is suppressed while the overlay is active, so transient TyVar
+	// values cannot leak into permanent outer-scope solutions.
 	if ch.config.HoverRecorder != nil {
 		ch.config.HoverRecorder.Rezonk(ch.unifier.Zonk)
 	}
