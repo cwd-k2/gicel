@@ -291,3 +291,7 @@ var DataJSON Pack = stdlib.JSON
 
 // EffectSession provides session type handler primitives.
 var EffectSession Pack = stdlib.Session
+
+// DataMath provides mathematical functions: integer power, bitwise ops,
+// and transcendental functions on Double.
+var DataMath Pack = stdlib.Math

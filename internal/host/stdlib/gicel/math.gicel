@@ -1,0 +1,184 @@
+import Prelude
+
+-- Int
+_powInt :: Int -> Int -> Int
+_powInt := assumption
+
+_clampInt :: Int -> Int -> Int -> Int
+_clampInt := assumption
+
+_divMod :: Int -> Int -> (Int, Int)
+_divMod := assumption
+
+pow :: Int -> Int -> Int
+pow := _powInt
+
+clamp :: Int -> Int -> Int -> Int
+clamp := _clampInt
+
+divMod :: Int -> Int -> (Int, Int)
+divMod := _divMod
+
+-- Bitwise (Int)
+_bitAnd :: Int -> Int -> Int
+_bitAnd := assumption
+
+_bitOr :: Int -> Int -> Int
+_bitOr := assumption
+
+_bitXor :: Int -> Int -> Int
+_bitXor := assumption
+
+_bitNot :: Int -> Int
+_bitNot := assumption
+
+_shiftL :: Int -> Int -> Int
+_shiftL := assumption
+
+_shiftR :: Int -> Int -> Int
+_shiftR := assumption
+
+_popCount :: Int -> Int
+_popCount := assumption
+
+bitAnd :: Int -> Int -> Int
+bitAnd := _bitAnd
+
+bitOr :: Int -> Int -> Int
+bitOr := _bitOr
+
+bitXor :: Int -> Int -> Int
+bitXor := _bitXor
+
+bitNot :: Int -> Int
+bitNot := _bitNot
+
+shiftL :: Int -> Int -> Int
+shiftL := _shiftL
+
+shiftR :: Int -> Int -> Int
+shiftR := _shiftR
+
+popCount :: Int -> Int
+popCount := _popCount
+
+-- Double (transcendental)
+_sqrt :: Double -> Double
+_sqrt := assumption
+
+_cbrt :: Double -> Double
+_cbrt := assumption
+
+_sin :: Double -> Double
+_sin := assumption
+
+_cos :: Double -> Double
+_cos := assumption
+
+_tan :: Double -> Double
+_tan := assumption
+
+_asin :: Double -> Double
+_asin := assumption
+
+_acos :: Double -> Double
+_acos := assumption
+
+_atan :: Double -> Double
+_atan := assumption
+
+_atan2 :: Double -> Double -> Double
+_atan2 := assumption
+
+_exp :: Double -> Double
+_exp := assumption
+
+_log :: Double -> Double
+_log := assumption
+
+_log2 :: Double -> Double
+_log2 := assumption
+
+_log10 :: Double -> Double
+_log10 := assumption
+
+_powDouble :: Double -> Double -> Double
+_powDouble := assumption
+
+_floor :: Double -> Double
+_floor := assumption
+
+_ceil :: Double -> Double
+_ceil := assumption
+
+_round :: Double -> Double
+_round := assumption
+
+_isNaN :: Double -> Bool
+_isNaN := assumption
+
+_isInfinite :: Double -> Bool
+_isInfinite := assumption
+
+_clampDouble :: Double -> Double -> Double -> Double
+_clampDouble := assumption
+
+sqrt :: Double -> Double
+sqrt := _sqrt
+
+cbrt :: Double -> Double
+cbrt := _cbrt
+
+sin :: Double -> Double
+sin := _sin
+
+cos :: Double -> Double
+cos := _cos
+
+tan :: Double -> Double
+tan := _tan
+
+asin :: Double -> Double
+asin := _asin
+
+acos :: Double -> Double
+acos := _acos
+
+atan :: Double -> Double
+atan := _atan
+
+atan2 :: Double -> Double -> Double
+atan2 := _atan2
+
+exp :: Double -> Double
+exp := _exp
+
+log :: Double -> Double
+log := _log
+
+log2 :: Double -> Double
+log2 := _log2
+
+log10 :: Double -> Double
+log10 := _log10
+
+powDouble :: Double -> Double -> Double
+powDouble := _powDouble
+
+floor :: Double -> Double
+floor := _floor
+
+ceil :: Double -> Double
+ceil := _ceil
+
+round :: Double -> Double
+round := _round
+
+isNaN :: Double -> Bool
+isNaN := _isNaN
+
+isInfinite :: Double -> Bool
+isInfinite := _isInfinite
+
+clampDouble :: Double -> Double -> Double -> Double
+clampDouble := _clampDouble
