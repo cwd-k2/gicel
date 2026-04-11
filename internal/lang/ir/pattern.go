@@ -59,21 +59,31 @@ type PLit struct {
 	S     span.Span
 }
 
+// PLabel — label literal pattern (#tag). Matches a Variant by tag.
+// At runtime, compares the VariantVal.Tag against Label.
+type PLabel struct {
+	Label string
+	S     span.Span
+}
+
 func (*PVar) patternNode()    {}
 func (*PWild) patternNode()   {}
 func (*PCon) patternNode()    {}
 func (*PRecord) patternNode() {}
 func (*PLit) patternNode()    {}
+func (*PLabel) patternNode()  {}
 
 func (p *PVar) Span() span.Span    { return p.S }
 func (p *PWild) Span() span.Span   { return p.S }
 func (p *PCon) Span() span.Span    { return p.S }
 func (p *PRecord) Span() span.Span { return p.S }
 func (p *PLit) Span() span.Span    { return p.S }
+func (p *PLabel) Span() span.Span  { return p.S }
 
-func (p *PVar) Bindings() []string  { return []string{p.Name} }
-func (p *PWild) Bindings() []string { return nil }
-func (p *PLit) Bindings() []string  { return nil }
+func (p *PVar) Bindings() []string   { return []string{p.Name} }
+func (p *PWild) Bindings() []string  { return nil }
+func (p *PLit) Bindings() []string   { return nil }
+func (p *PLabel) Bindings() []string { return nil }
 func (p *PCon) Bindings() []string {
 	var bs []string
 	for _, arg := range p.Args {

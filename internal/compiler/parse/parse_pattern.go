@@ -45,6 +45,10 @@ func (p *Parser) parsePattern() syn.Pattern {
 		return p.parseRecordPattern()
 	case syn.TokLBracket:
 		return p.parseListPattern()
+	case syn.TokLabelLit:
+		tok := p.peek()
+		p.advance()
+		return &syn.PatLabel{Label: tok.Text, S: tok.S}
 	default:
 		p.addErrorCode(diagnostic.ErrInvalidPattern, "expected pattern")
 		tok := p.peek()
@@ -153,6 +157,10 @@ func (p *Parser) parsePatternAtom() syn.Pattern {
 		return p.parseRecordPattern()
 	case syn.TokLBracket:
 		return p.parseListPattern()
+	case syn.TokLabelLit:
+		tok := p.peek()
+		p.advance()
+		return &syn.PatLabel{Label: tok.Text, S: tok.S}
 	default:
 		return nil
 	}
@@ -183,7 +191,7 @@ func (p *Parser) isPatternAtomStart() bool {
 		return false
 	}
 	k := p.peek().Kind
-	return k == syn.TokLower || k == syn.TokUnderscore || k == syn.TokLParen || k == syn.TokUpper || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBrace || k == syn.TokLBracket
+	return k == syn.TokLower || k == syn.TokUnderscore || k == syn.TokLParen || k == syn.TokUpper || k == syn.TokIntLit || k == syn.TokDoubleLit || k == syn.TokStrLit || k == syn.TokRuneLit || k == syn.TokLBrace || k == syn.TokLBracket || k == syn.TokLabelLit
 }
 
 func (p *Parser) parseListPattern() syn.Pattern {

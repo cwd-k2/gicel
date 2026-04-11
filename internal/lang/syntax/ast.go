@@ -381,6 +381,13 @@ type PatLit struct {
 	S     span.Span
 }
 
+// PatLabel is a label literal pattern: #tag
+// Used to match Variant labels in case expressions.
+type PatLabel struct {
+	Label string
+	S     span.Span
+}
+
 func (*PatVar) patternNode()     {}
 func (*PatWild) patternNode()    {}
 func (*PatCon) patternNode()     {}
@@ -389,6 +396,7 @@ func (*PatParen) patternNode()   {}
 func (*PatRecord) patternNode()  {}
 func (*PatLit) patternNode()     {}
 func (*PatList) patternNode()    {}
+func (*PatLabel) patternNode()   {}
 
 func (p *PatVar) Span() span.Span     { return p.S }
 func (p *PatWild) Span() span.Span    { return p.S }
@@ -398,6 +406,7 @@ func (p *PatRecord) Span() span.Span  { return p.S }
 func (p *PatParen) Span() span.Span   { return p.S }
 func (p *PatLit) Span() span.Span     { return p.S }
 func (p *PatList) Span() span.Span    { return p.S }
+func (p *PatLabel) Span() span.Span   { return p.S }
 
 // PatVarName extracts the variable name from a simple pattern.
 // Returns the name and true for PatVar, "_" and true for PatWild,

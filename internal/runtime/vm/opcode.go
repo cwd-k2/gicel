@@ -94,6 +94,9 @@ const (
 	// OpMatchRecord tests TOS against a record pattern.
 	// Operand: u16 match descriptor index, u16 fail offset.
 	OpMatchRecord
+	// OpMatchLabel tests TOS (VariantVal) against a label tag.
+	// Operand: u16 constant pool index (tag string), u16 fail offset.
+	OpMatchLabel
 	// OpMatchWild always succeeds. No operands.
 	OpMatchWild
 	// OpMatchFail raises a non-exhaustive pattern match error.
@@ -218,7 +221,7 @@ func InstructionSize(op Opcode) int {
 	case OpMatchCon, OpMatchRecord:
 		return 5 // opcode + u16 + u16
 
-	case OpMatchLit:
+	case OpMatchLit, OpMatchLabel:
 		return 5 // opcode + u16 + u16
 
 	case OpJump:
@@ -262,6 +265,7 @@ var opNames = [opcodeCount]string{
 	OpMatchCon:        "MATCH_CON",
 	OpMatchLit:        "MATCH_LIT",
 	OpMatchRecord:     "MATCH_RECORD",
+	OpMatchLabel:      "MATCH_LABEL",
 	OpMatchWild:       "MATCH_WILD",
 	OpMatchFail:       "MATCH_FAIL",
 	OpJump:            "JUMP",

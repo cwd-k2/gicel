@@ -13,6 +13,7 @@ const (
 	RowFamilyMerge   = "Merge"
 	RowFamilyWithout = "Without"
 	RowFamilyLookup  = "Lookup"
+	RowFamilyMapRow  = "MapRow"
 )
 
 // reduceBuiltinRowFamily dispatches to builtin row family reducers.
@@ -26,6 +27,8 @@ func (e *ReduceEnv) reduceBuiltinRowFamily(name string, args []types.Type, s spa
 		return e.reduceWithout(args, s)
 	case RowFamilyLookup:
 		return e.reduceLookup(args, s)
+	case RowFamilyMapRow:
+		return e.reduceMapRow(args, s)
 	default:
 		return nil, false
 	}
@@ -153,4 +156,46 @@ func (e *ReduceEnv) reduceLookup(args []types.Type, s span.Span) (types.Type, bo
 		return nil, false
 	}
 	return ty, true
+}
+
+// reduceMapRow implements MapRow :: (Type -> Type) -> Row -> Row.
+// Applies a type function f to every field type in a capability row.
+// Both f and the row must be concrete for reduction to proceed.
+func (e *ReduceEnv) reduceMapRow(args []types.Type, s span.Span) (types.Type, bool) {
+	if len(args) != 2 {
+		return nil, false
+	}
+	fArg := e.Unifier.Zonk(args[0])
+	rowArg := e.Unifier.Zonk(args[1])
+
+	// f must be concrete (not a meta).
+	if _, isMeta := fArg.(*types.TyMeta); isMeta {
+		return nil, false // stuck: f not resolved
+	}
+
+	row, ok := rowArg.(*types.TyEvidenceRow)
+	if !ok || !row.IsCapabilityRow() {
+		return nil, false // stuck: not a concrete capability row
+	}
+	if row.Tail != nil {
+		return nil, false // stuck: open row
+	}
+
+	fields := row.CapFields()
+	if len(fields) == 0 {
+		return types.ClosedRow(), true // MapRow f {} = {}
+	}
+
+	newFields := make([]types.RowField, len(fields))
+	for i, field := range fields {
+		applied := &types.TyApp{Fun: fArg, Arg: field.Type, S: s}
+		reduced := e.reduceFamilyAppsN(applied)
+		newFields[i] = types.RowField{
+			Label:  field.Label,
+			Type:   reduced,
+			Grades: field.Grades,
+			S:      field.S,
+		}
+	}
+	return types.ClosedRow(newFields...), true
 }

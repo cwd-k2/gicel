@@ -212,6 +212,10 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	}
 	var branchPosts []types.Type
 
+	// Variant scrutinee: extract the index meta s from Variant choices s.
+	// Per branch, the pre-state is refined by substituting s → Lookup tag choices.
+	_, variantSMeta, isVariantCase := decomposeVariantType(ch.unifier.Zonk(scrutTy))
+
 	var alts []ir.Alt
 	for _, alt := range e.Alts {
 		pr := ch.checkPattern(alt.Pattern, scrutTy)
@@ -229,6 +233,15 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 			// meta tails in comp.Pre (e.g., failWith solving the fail label into
 			// the tail). Re-zonking ensures each branch sees the current state.
 			zonkedPre := ch.unifier.Zonk(comp.Pre)
+
+			// Variant per-branch pre-state: the index s in the pre-state
+			// (from receiveAt's post-state) must become the specific field
+			// type for this branch. We create a fresh pre-state meta per
+			// branch and unify it with the field-type-substituted row.
+			if isVariantCase && pr.VariantFieldTy != nil && variantSMeta != nil {
+				zonkedPre = variantSubstPreState(zonkedPre, variantSMeta, pr.VariantFieldTy)
+			}
+
 			branchExpected = &types.TyCBPV{
 				Tag: types.TagComp, Pre: zonkedPre, Post: freshPost, Result: comp.Result, S: comp.S,
 			}
@@ -275,6 +288,38 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 
 	ch.checkExhaustive(scrutTy, alts, e.S)
 	return &ir.Case{Scrutinee: scrutCore, Alts: alts, S: e.S}
+}
+
+// variantSubstPreState replaces the Variant index meta in a pre-state row
+// with the concrete field type for this branch. Walks the TyEvidenceRow
+// fields, replacing any field type that is pointer-equal to sMeta.
+// Preserves grade annotations on the field.
+func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) types.Type {
+	row, ok := pre.(*types.TyEvidenceRow)
+	if !ok || !row.IsCapabilityRow() {
+		return pre
+	}
+	fields := row.CapFields()
+	var changed bool
+	newFields := make([]types.RowField, len(fields))
+	for i, f := range fields {
+		newFields[i] = f
+		// Check pointer equality OR structural equality after zonking for the
+		// same meta. The meta s from receiveAt's post-state may have been
+		// wrapped in a TyApp (e.g., Variant choices s → post { l: s | r }).
+		// In the pre-state, the field type IS s (the meta).
+		if f.Type == sMeta || types.Equal(f.Type, sMeta) {
+			newFields[i].Type = fieldTy
+			changed = true
+		}
+	}
+	if !changed {
+		return pre
+	}
+	if row.Tail != nil {
+		return types.OpenRow(newFields, row.Tail)
+	}
+	return types.ClosedRow(newFields...)
 }
 
 // autoForceLazy handles lazy co-data pattern matching. For lazy constructors,

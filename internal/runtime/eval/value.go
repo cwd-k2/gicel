@@ -84,6 +84,12 @@ type PrimVal struct {
 	Impl      PrimImpl  // resolved impl, or nil to fall back to registry lookup
 }
 
+// VariantVal is a variant (labeled coproduct) value — one tag selected from a row.
+type VariantVal struct {
+	Tag   string // selected label
+	Value Value  // payload value
+}
+
 // UnitVal is the unit value () — an empty record.
 var UnitVal Value = &RecordVal{}
 
@@ -230,6 +236,7 @@ func (*Closure) valueNode()     {}
 func (*ConVal) valueNode()      {}
 func (*PrimVal) valueNode()     {}
 func (*RecordVal) valueNode()   {}
+func (*VariantVal) valueNode()  {}
 func (*VMClosure) valueNode()   {}
 func (*VMThunkVal) valueNode()  {}
 func (*PAPVal) valueNode()      {}
@@ -370,6 +377,10 @@ func (v *RecordVal) String() string {
 		parts[i] = f.Label + " = " + f.Value.String()
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
+func (v *VariantVal) String() string {
+	return "@#" + v.Tag + " " + v.Value.String()
 }
 
 func (v *VMClosure) String() string {

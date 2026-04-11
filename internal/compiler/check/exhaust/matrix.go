@@ -61,6 +61,9 @@ func coreToPat(p ir.Pattern) pat {
 		return pRecord{fields: fields}
 	case *ir.PLit:
 		return pLit{value: pp.Value}
+	case *ir.PLabel:
+		// Label patterns in Variant case are like 0-arity constructors.
+		return pCon{con: pp.Label, arity: 0}
 	default:
 		return pWild{}
 	}

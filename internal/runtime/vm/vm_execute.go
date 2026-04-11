@@ -470,6 +470,19 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				continue
 			}
 
+		case OpMatchLabel:
+			tagIdx := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			failOffset := DecodeU16(frame.proto.Code, frame.ip)
+			frame.ip += 2
+			expected := frame.proto.Constants[tagIdx].(*eval.HostVal).Inner.(string)
+			scrut := vm.pop()
+			vv, ok := scrut.(*eval.VariantVal)
+			if !ok || vv.Tag != expected {
+				frame.ip = int(failOffset)
+				continue
+			}
+
 		case OpMatchRecord:
 			descIdx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2

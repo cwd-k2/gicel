@@ -183,6 +183,17 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 			ResultKind: types.TypeOfTypes,
 		})
 	}
+	// MapRow :: (Type -> Type) -> Row -> Row
+	if _, exists := ch.reg.LookupFamily("MapRow"); !exists {
+		_ = ch.reg.RegisterFamily("MapRow", &TypeFamilyInfo{
+			Name: "MapRow",
+			Params: []TFParam{
+				{Name: "f", Kind: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}},
+				{Name: "r", Kind: types.TypeOfRows},
+			},
+			ResultKind: types.TypeOfRows,
+		})
+	}
 }
 
 // reduceFamilyInType reduces type family applications within a type.

@@ -79,6 +79,8 @@ func compilePatternCollect(c *Compiler, pat ir.Pattern, failPatches *[]int) {
 		compilePLit(c, p, failPatches)
 	case *ir.PRecord:
 		compilePRecord(c, p, failPatches)
+	case *ir.PLabel:
+		compilePLabel(c, p, failPatches)
 	default:
 		panic("vm/compiler: unhandled pattern type")
 	}
@@ -119,6 +121,14 @@ func compilePCon(c *Compiler, p *ir.PCon, failPatches *[]int) {
 func compilePLit(c *Compiler, p *ir.PLit, failPatches *[]int) {
 	litIdx := c.addConstant(&eval.HostVal{Inner: p.Value})
 	pos := c.emitU16U16(OpMatchLit, litIdx, 0)
+	if failPatches != nil {
+		*failPatches = append(*failPatches, pos)
+	}
+}
+
+func compilePLabel(c *Compiler, p *ir.PLabel, failPatches *[]int) {
+	tagIdx := c.addConstant(&eval.HostVal{Inner: p.Label})
+	pos := c.emitU16U16(OpMatchLabel, tagIdx, 0)
 	if failPatches != nil {
 		*failPatches = append(*failPatches, pos)
 	}

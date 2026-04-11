@@ -16,11 +16,12 @@ import (
 
 // patternResult holds the outputs of pattern checking.
 type patternResult struct {
-	Pattern     ir.Pattern
-	Bindings    map[string]types.Type
-	SkolemIDs   map[int]string
-	GivenEqs    map[int]types.Type // GADT given equalities: skolem ID → type
-	HasEvidence bool
+	Pattern        ir.Pattern
+	Bindings       map[string]types.Type
+	SkolemIDs      map[int]string
+	GivenEqs       map[int]types.Type // GADT given equalities: skolem ID → type
+	HasEvidence    bool
+	VariantFieldTy types.Type // non-nil for label patterns: the Lookup result for this branch
 }
 
 // mergePatternBindings merges a child pattern's bindings into a parent
@@ -69,6 +70,8 @@ func (ch *Checker) checkPattern(pat syntax.Pattern, scrutTy types.Type) patternR
 		// desugaring requires type-directed elaboration — the desugar pass
 		// operates on syntax.Expr only, without type information.
 		return ch.checkPattern(desugarListPattern(p), scrutTy)
+	case *syntax.PatLabel:
+		return ch.checkLabelPattern(p, scrutTy)
 	default:
 		ch.addDiag(diagnostic.ErrTypeMismatch, pat.Span(), diagFmt{Format: "unsupported pattern form: %T", Args: []any{pat}})
 		return patternResult{Pattern: &ir.PWild{S: pat.Span()}}
@@ -107,6 +110,59 @@ func parseLitValue(kind syntax.LitKind, raw string) (types.Type, any, error) {
 	default:
 		panic(fmt.Sprintf("parseLitValue: unknown LitKind %d", kind))
 	}
+}
+
+// checkLabelPattern checks a label literal pattern (#tag) against a Variant scrutinee.
+// The scrutinee should have type Variant choices s. The label must be present
+// in choices. The VariantFieldTy is set on the result so that checkCaseAlts
+// can compute per-branch pre-states (substituting s with the field type).
+func (ch *Checker) checkLabelPattern(p *syntax.PatLabel, scrutTy types.Type) patternResult {
+	scrutTy = ch.unifier.Zonk(scrutTy)
+	choices, _, ok := decomposeVariantType(scrutTy)
+	if !ok {
+		ch.addDiag(diagnostic.ErrTypeMismatch, p.S,
+			diagFmt{Format: "label pattern #%s requires Variant scrutinee, got %s", Args: []any{p.Label, types.Pretty(scrutTy)}})
+		return patternResult{Pattern: &ir.PLabel{Label: p.Label, S: p.S}}
+	}
+
+	choices = ch.unifier.Zonk(choices)
+	row, rowOk := choices.(*types.TyEvidenceRow)
+	if !rowOk || !row.IsCapabilityRow() {
+		ch.addDiag(diagnostic.ErrTypeMismatch, p.S,
+			diagFmt{Format: "label pattern #%s: choices is not a concrete row", Args: []any{p.Label}})
+		return patternResult{Pattern: &ir.PLabel{Label: p.Label, S: p.S}}
+	}
+
+	fieldTy := types.RowFieldType(row.CapFields(), p.Label)
+	if fieldTy == nil {
+		ch.addDiag(diagnostic.ErrTypeMismatch, p.S,
+			diagFmt{Format: "label #%s not present in Variant row %s", Args: []any{p.Label, types.Pretty(choices)}})
+		return patternResult{Pattern: &ir.PLabel{Label: p.Label, S: p.S}}
+	}
+
+	return patternResult{
+		Pattern:        &ir.PLabel{Label: p.Label, S: p.S},
+		VariantFieldTy: fieldTy,
+	}
+}
+
+// decomposeVariantType extracts (choices, s) from Variant choices s.
+// Returns (choices, s, true) or (nil, nil, false).
+func decomposeVariantType(ty types.Type) (choices types.Type, s types.Type, ok bool) {
+	// Variant choices s = TyApp(TyApp(TyCon("Variant"), choices), s)
+	outer, ok1 := ty.(*types.TyApp)
+	if !ok1 {
+		return nil, nil, false
+	}
+	inner, ok2 := outer.Fun.(*types.TyApp)
+	if !ok2 {
+		return nil, nil, false
+	}
+	con, ok3 := inner.Fun.(*types.TyCon)
+	if !ok3 || con.Name != types.TyConVariant {
+		return nil, nil, false
+	}
+	return inner.Arg, outer.Arg, true
 }
 
 // pendingCV tracks a constraint variable entry whose class/args are unknown

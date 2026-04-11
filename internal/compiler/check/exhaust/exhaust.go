@@ -138,6 +138,10 @@ func (e *CheckEnv) subPatternTypes(conName string, scrutTy types.Type, arity int
 // constructorSigs returns the signature for a type, filtering by GADT
 // applicability. Returns nil if the type is not a known ADT.
 func (e *CheckEnv) constructorSigs(scrutTy types.Type) []conSig {
+	// Variant choices s: each label in choices is a 0-arity "constructor".
+	if sigs := e.variantLabelSigs(scrutTy); sigs != nil {
+		return sigs
+	}
 	tyName := headTyCon(scrutTy)
 	if tyName == "" {
 		return nil
@@ -152,6 +156,35 @@ func (e *CheckEnv) constructorSigs(scrutTy types.Type) []conSig {
 			continue
 		}
 		sigs = append(sigs, conSig{name: c.Name, arity: c.Arity})
+	}
+	return sigs
+}
+
+// variantLabelSigs extracts label signatures from a Variant type.
+// Variant choices s → one 0-arity conSig per label in choices.
+func (e *CheckEnv) variantLabelSigs(scrutTy types.Type) []conSig {
+	scrutTy = e.Unifier.Zonk(scrutTy)
+	outer, ok := scrutTy.(*types.TyApp)
+	if !ok {
+		return nil
+	}
+	inner, ok := outer.Fun.(*types.TyApp)
+	if !ok {
+		return nil
+	}
+	con, ok := inner.Fun.(*types.TyCon)
+	if !ok || con.Name != types.TyConVariant {
+		return nil
+	}
+	choices := e.Unifier.Zonk(inner.Arg)
+	row, ok := choices.(*types.TyEvidenceRow)
+	if !ok || !row.IsCapabilityRow() {
+		return nil
+	}
+	fields := row.CapFields()
+	sigs := make([]conSig, len(fields))
+	for i, f := range fields {
+		sigs[i] = conSig{name: f.Label, arity: 0}
 	}
 	return sigs
 }

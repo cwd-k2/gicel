@@ -396,6 +396,11 @@ func (ch *Checker) initContext() {
 	}
 	// Built-in type constructors.
 	ch.reg.RegisterTypeKind(types.TyConRecord, &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes})
+	// Variant :: Row -> Type -> Type (labeled coproduct, dual of Record)
+	ch.reg.RegisterTypeKind(types.TyConVariant, &types.TyArrow{
+		From: types.TypeOfRows,
+		To:   &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes},
+	})
 }
 
 func (s *CheckState) fresh() int {

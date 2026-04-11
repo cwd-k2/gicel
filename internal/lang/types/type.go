@@ -74,6 +74,7 @@ const (
 	TyConComputation = "Computation"
 	TyConThunk       = "Thunk"
 	TyConRecord      = "Record"
+	TyConVariant     = "Variant"
 )
 
 // TyCBPV is a CBPV computation or thunk type. It has two surface forms:

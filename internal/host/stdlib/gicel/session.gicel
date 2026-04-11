@@ -12,11 +12,23 @@ form Recv := \s. { MkRecv: Recv s }
 -- Session state: the protocol has ended.
 form End := { MkEnd: End }
 
+-- Session state: external choice — the peer selects a branch from choices.
+form Offer := \(choices: Row). { MkOffer: Offer choices }
+
+-- Session state: internal choice — this side selects a branch from choices.
+form Choose := \(choices: Row). { MkChoose: Choose choices }
+
+-- DualRow maps Dual over each field in a choice row.
+-- Uses the builtin MapRow :: (Type -> Type) -> Row -> Row.
+type DualRow :: Row := \(r: Row). MapRow Dual r
+
 -- Dual computes the peer's session type.
 type Dual :: Type := \(s: Type). case s {
-  Send s => Recv (Dual s);
-  Recv s => Send (Dual s);
-  End    => End
+  Send s   => Recv (Dual s);
+  Recv s   => Send (Dual s);
+  Offer r  => Choose (DualRow r);
+  Choose r => Offer (DualRow r);
+  End      => End
 }
 
 -- ─── Session capability operations ──────────────────────────────────────────
@@ -24,6 +36,24 @@ type Dual :: Type := \(s: Type). case s {
 -- Close a session capability, removing it from the environment.
 closeAt :: \(l: Label) s r. Computation { l: s | r } r ()
 closeAt := assumption
+
+-- Select a branch in an internal choice (Choose) session.
+-- Transitions the session from Choose choices to Lookup tag choices.
+chooseAt :: \(l: Label) (tag: Label) (choices: Row) r.
+  Computation { l: Choose choices | r } { l: Lookup tag choices | r } ()
+chooseAt := assumption
+
+-- Receive a choice from the peer (external choice).
+-- Returns a Variant whose index s is shared with the post-state capability.
+-- The caller must case on the result to refine s per branch.
+receiveAt :: \(l: Label) (choices: Row) (s: Type) r.
+  Computation { l: Offer choices | r } { l: s | r } (Variant choices s)
+receiveAt := assumption
+
+-- Inject a value into a Variant at the given label.
+inject :: \(tag: Label) (choices: Row).
+  Lookup tag choices -> Variant choices (Lookup tag choices)
+inject := assumption
 
 -- Re-export from Effect.State for convenience — these already support
 -- type-changing capabilities (putAt has s1 ≠ s2 in pre/post).
