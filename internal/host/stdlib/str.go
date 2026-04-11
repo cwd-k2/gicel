@@ -672,7 +672,7 @@ func countStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	return eval.IntVal(int64(strings.Count(haystack, needle))), ce, nil
 }
 
-func replaceStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func replaceStrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	old, err := asString(args[0])
 	if err != nil {
 		return nil, ce, err
@@ -686,7 +686,7 @@ func replaceStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	result := strings.ReplaceAll(s, old, new_)
-	if err := budget.ChargeAlloc(context.Background(), int64(len(result))*costPerByte); err != nil {
+	if err := budget.ChargeAlloc(ctx, int64(len(result))*costPerByte); err != nil {
 		return nil, ce, err
 	}
 	return &eval.HostVal{Inner: result}, ce, nil

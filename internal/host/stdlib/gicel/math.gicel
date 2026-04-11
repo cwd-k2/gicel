@@ -165,14 +165,14 @@ log10 := _log10
 powDouble :: Double -> Double -> Double
 powDouble := _powDouble
 
-floor :: Double -> Double
-floor := _floor
+floorF :: Double -> Double
+floorF := _floor
 
-ceil :: Double -> Double
-ceil := _ceil
+ceilF :: Double -> Double
+ceilF := _ceil
 
-round :: Double -> Double
-round := _round
+roundF :: Double -> Double
+roundF := _round
 
 isNaN :: Double -> Bool
 isNaN := _isNaN

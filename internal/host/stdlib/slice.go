@@ -265,12 +265,15 @@ func sliceFilterImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 	return sliceVal(result), ce, nil
 }
 
-func sliceReverseImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func sliceReverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	s, err := asSlice(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
 	n := len(s)
+	if err := budget.ChargeAlloc(ctx, int64(n)*costSlotSize); err != nil {
+		return nil, ce, err
+	}
 	result := make([]eval.Value, n)
 	for i, v := range s {
 		result[n-1-i] = v

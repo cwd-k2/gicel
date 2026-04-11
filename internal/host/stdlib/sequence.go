@@ -112,7 +112,17 @@ func seqAppendImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eva
 	if err != nil {
 		return nil, ce, err
 	}
-	if err := budget.ChargeAlloc(ctx, costFTNode*4); err != nil {
+	// Append creates O(log(min(m,n))) intermediate spine nodes.
+	// Charge proportional to the smaller tree's depth.
+	minSize := a.tree.ftreeSize()
+	if bs := b.tree.ftreeSize(); bs < minSize {
+		minSize = bs
+	}
+	nodes := int64(4) // base cost for digit recombination
+	for s := minSize; s > 1; s /= 3 {
+		nodes++
+	}
+	if err := budget.ChargeAlloc(ctx, costFTNode*nodes); err != nil {
 		return nil, ce, err
 	}
 	return seqWrap(ftAppend(a.tree, b.tree)), ce, nil
