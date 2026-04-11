@@ -206,6 +206,9 @@ See [`examples/go/`](examples/go/) for full patterns.
 | `DataSet`     | `Data.Set`     | Immutable ordered set                       |
 | `EffectRef`   | `Effect.Ref`   | Mutable reference cells                     |
 | `DataJSON`    | `Data.JSON`    | `ToJSON`/`FromJSON` type classes            |
+| `EffectSession` | `Effect.Session` | Session type handler primitives          |
+| `DataMath`    | `Data.Math`    | pow, bitwise, sqrt/trig/exp/log             |
+| `DataSequence`| `Data.Sequence`| 2-3 finger tree — O(1) cons/snoc            |
 | `Console`     | `Console`      | `putLine`, `getLine` (CLI-only, real stdio) |
 
 ## Documentation

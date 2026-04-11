@@ -76,6 +76,9 @@ bin/gicel run [flags] <file>.gicel
 | `json`    | `Data.JSON`    |                        |
 | `mmap`    | `Effect.Map`   |                        |
 | `mset`    | `Effect.Set`   |                        |
+| `session` | `Effect.Session` |                      |
+| `math`    | `Data.Math`    |                        |
+| `seq`     | `Data.Sequence`|                        |
 | `console` | `Console`      | CLI-only               |
 
 ### check — type-check only
