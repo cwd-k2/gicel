@@ -7,22 +7,22 @@ GICEL is a typed, pure functional language embedded in Go. It exists so that AI 
 Key properties for agents:
 
 - **Safe by construction.** No file I/O, no network, no system calls unless the host explicitly provides them as capabilities.
-- **Typed.** The type checker catches errors before execution. Use `gicel check` to validate without running.
+- **Typed.** The type checker catches errors before execution. Use `bin/gicel check` to validate without running.
 - **Resource-bounded.** Step limits, depth limits, and allocation limits prevent runaway programs.
 - **Deterministic.** Same source + same bindings = same result. No implicit state.
 
 ## How to use this guide
 
-Use `gicel docs` to list available topics, then `gicel docs <topic>` to read one. Topics use dot-separated names for subcategories (e.g., `gicel docs features.records`). Use `gicel example` to browse example programs.
+Use `bin/gicel docs` to list available topics, then `bin/gicel docs <topic>` to read one. Topics use dot-separated names for subcategories (e.g., `bin/gicel docs features.records`). Use `bin/gicel example` to browse example programs.
 
 Typical agent workflow:
 
-1. `gicel example` -- browse example programs to learn patterns
-2. `gicel docs stdlib.packs` -- check what operations are available
+1. `bin/gicel example` -- browse example programs to learn patterns
+2. `bin/gicel docs stdlib.packs` -- check what operations are available
 3. Write a `.gicel` file with a `main` binding
-4. `gicel check program.gicel` -- validate types
-5. `gicel run program.gicel` -- execute and read the result
-6. `gicel run --json program.gicel` -- machine-readable output
+4. `bin/gicel check program.gicel` -- validate types
+5. `bin/gicel run program.gicel` -- execute and read the result
+6. `bin/gicel run --json program.gicel` -- machine-readable output
 
 ## Topics
 
@@ -100,22 +100,22 @@ main := putLine "Hello, world!"
 
 ```sh
 # Run with all stdlib packs (default)
-gicel run program.gicel
+bin/gicel run program.gicel
 
 # Type-check only
-gicel check program.gicel
+bin/gicel check program.gicel
 
 # Select specific packs
-gicel run --packs prelude,state program.gicel
+bin/gicel run --packs prelude,state program.gicel
 
 # Custom entry point, limits, JSON output
-gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
+bin/gicel run --entry myFunc --timeout 10s --max-steps 500000 --json program.gicel
 
 # Semantic evaluation trace -- shows effects, binds, and pattern matches
-gicel run --explain program.gicel
+bin/gicel run --explain program.gicel
 
 # Verbose trace with source context
-gicel run --explain --verbose program.gicel
+bin/gicel run --explain --verbose program.gicel
 ```
 
 CLI flags:
@@ -139,7 +139,7 @@ CLI flags:
 | `-e <source>`   | --        | Evaluate source string directly (run, check)                                                                    |
 
 **Inline source (`-e`):** Semicolons and newlines are interchangeable separators.
-Use `;` when writing inline: `gicel run -e 'import Prelude; main := 1 + 2'`.
+Use `;` when writing inline: `bin/gicel run -e 'import Prelude; main := 1 + 2'`.
 
 **`--explain-all`** is only effective when `--explain` is also set.
 

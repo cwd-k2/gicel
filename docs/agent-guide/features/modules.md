@@ -58,7 +58,7 @@ publicFn := \x. _helper x
 Register user modules with `--module Name=path`:
 
 ```sh
-gicel run \
+bin/gicel run \
   --module Geometry=lib/Geometry.gicel \
   --module Color=lib/Color.gicel \
   main.gicel
@@ -88,7 +88,7 @@ main := ...
 - All resolved paths must be within the entry file's directory (security constraint).
 - The header region ends at the first non-comment, non-blank line.
 
-Header directives work with both `gicel run` and `gicel check`.
+Header directives work with both `bin/gicel run` and `bin/gicel check`.
 
 ### Multi-File Projects (Go API)
 
