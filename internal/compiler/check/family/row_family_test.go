@@ -350,3 +350,137 @@ func TestReduceBuiltinRowFamily_LookupDispatch(t *testing.T) {
 		t.Fatalf("expected String, got %v", result)
 	}
 }
+
+// --- MapRow tests ---
+
+func TestReduceMapRow_EmptyRow(t *testing.T) {
+	h := newTestHarness(nil)
+	f := con("Dual") // any concrete function
+	row := capRow()
+
+	result, ok := h.env.reduceMapRow([]types.Type{f, row}, span.Span{})
+	if !ok {
+		t.Fatal("expected MapRow on empty row to succeed")
+	}
+	rRow := result.(*types.TyEvidenceRow)
+	if len(rRow.CapFields()) != 0 {
+		t.Fatal("expected empty result row")
+	}
+}
+
+func TestReduceMapRow_MultiField(t *testing.T) {
+	h := newTestHarness(nil)
+	f := con("Dual")
+	row := capRow("a", con("Send"), "b", con("Recv"))
+
+	result, ok := h.env.reduceMapRow([]types.Type{f, row}, span.Span{})
+	if !ok {
+		t.Fatal("expected MapRow on multi-field row to succeed")
+	}
+	rRow := result.(*types.TyEvidenceRow)
+	fields := rRow.CapFields()
+	if len(fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(fields))
+	}
+	// Each field type should be TyApp(Dual, original).
+	for _, field := range fields {
+		a, ok := field.Type.(*types.TyApp)
+		if !ok {
+			t.Fatalf("expected TyApp for field %s, got %T", field.Label, field.Type)
+		}
+		if !types.Equal(a.Fun, f) {
+			t.Fatalf("expected Dual as function, got %v", a.Fun)
+		}
+	}
+	// Verify specific args.
+	if !types.Equal(fields[0].Type.(*types.TyApp).Arg, con("Send")) {
+		t.Fatalf("field 'a' should have arg Send")
+	}
+	if !types.Equal(fields[1].Type.(*types.TyApp).Arg, con("Recv")) {
+		t.Fatalf("field 'b' should have arg Recv")
+	}
+}
+
+func TestReduceMapRow_PreservesGrades(t *testing.T) {
+	h := newTestHarness(nil)
+	f := con("Dual")
+	graded := types.ClosedRow(types.RowField{
+		Label:  "ch",
+		Type:   con("Send"),
+		Grades: []types.Type{con("Linear")},
+	})
+
+	result, ok := h.env.reduceMapRow([]types.Type{f, graded}, span.Span{})
+	if !ok {
+		t.Fatal("expected MapRow to succeed")
+	}
+	rRow := result.(*types.TyEvidenceRow)
+	fields := rRow.CapFields()
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	if len(fields[0].Grades) != 1 || !types.Equal(fields[0].Grades[0], con("Linear")) {
+		t.Fatal("grade annotation not preserved")
+	}
+}
+
+func TestReduceMapRow_OpenRowStuck(t *testing.T) {
+	h := newTestHarness(nil)
+	f := con("Dual")
+	openRow := types.OpenRow([]types.RowField{{Label: "a", Type: con("Send")}}, meta(1))
+
+	_, ok := h.env.reduceMapRow([]types.Type{f, openRow}, span.Span{})
+	if ok {
+		t.Fatal("expected stuck for open row")
+	}
+}
+
+func TestReduceMapRow_MetaFStuck(t *testing.T) {
+	h := newTestHarness(nil)
+	row := capRow("a", con("Send"))
+
+	_, ok := h.env.reduceMapRow([]types.Type{meta(1), row}, span.Span{})
+	if ok {
+		t.Fatal("expected stuck when f is a meta")
+	}
+}
+
+func TestReduceMapRow_WrongArity(t *testing.T) {
+	h := newTestHarness(nil)
+
+	_, ok := h.env.reduceMapRow([]types.Type{con("Dual")}, span.Span{})
+	if ok {
+		t.Fatal("expected stuck for wrong arity")
+	}
+}
+
+func TestReduceMapRow_NonRowStuck(t *testing.T) {
+	h := newTestHarness(nil)
+
+	_, ok := h.env.reduceMapRow([]types.Type{con("Dual"), con("Int")}, span.Span{})
+	if ok {
+		t.Fatal("expected stuck when row arg is not a row")
+	}
+}
+
+func TestReduceBuiltinRowFamily_MapRowDispatch(t *testing.T) {
+	h := newTestHarness(nil)
+	row := capRow("a", con("Send"))
+
+	result, ok := h.env.reduceBuiltinRowFamily("MapRow", []types.Type{con("Dual"), row}, span.Span{})
+	if !ok {
+		t.Fatal("expected MapRow to dispatch successfully")
+	}
+	rRow := result.(*types.TyEvidenceRow)
+	fields := rRow.CapFields()
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	a, ok := fields[0].Type.(*types.TyApp)
+	if !ok {
+		t.Fatalf("expected TyApp, got %T", fields[0].Type)
+	}
+	if !types.Equal(a.Fun, con("Dual")) || !types.Equal(a.Arg, con("Send")) {
+		t.Fatalf("expected Dual Send, got %v %v", a.Fun, a.Arg)
+	}
+}

@@ -291,9 +291,8 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 }
 
 // variantSubstPreState replaces the Variant index meta in a pre-state row
-// with the concrete field type for this branch. Walks the TyEvidenceRow
-// fields, replacing any field type that is pointer-equal to sMeta.
-// Preserves grade annotations on the field.
+// with the concrete field type for this branch. Comparison uses the meta
+// variable's ID (stable across zonking) rather than pointer equality.
 func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) types.Type {
 	row, ok := pre.(*types.TyEvidenceRow)
 	if !ok || !row.IsCapabilityRow() {
@@ -304,11 +303,7 @@ func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) 
 	newFields := make([]types.RowField, len(fields))
 	for i, f := range fields {
 		newFields[i] = f
-		// Check pointer equality OR structural equality after zonking for the
-		// same meta. The meta s from receiveAt's post-state may have been
-		// wrapped in a TyApp (e.g., Variant choices s → post { l: s | r }).
-		// In the pre-state, the field type IS s (the meta).
-		if f.Type == sMeta || types.Equal(f.Type, sMeta) {
+		if sameMetaOrEqual(f.Type, sMeta) {
 			newFields[i].Type = fieldTy
 			changed = true
 		}
@@ -320,6 +315,18 @@ func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) 
 		return types.OpenRow(newFields, row.Tail)
 	}
 	return types.ClosedRow(newFields...)
+}
+
+// sameMetaOrEqual compares two types for identity. When both are TyMeta,
+// uses the stable ID (survives zonking). Otherwise falls back to
+// types.Equal for structural comparison.
+func sameMetaOrEqual(a, b types.Type) bool {
+	if ma, ok := a.(*types.TyMeta); ok {
+		if mb, ok := b.(*types.TyMeta); ok {
+			return ma.ID == mb.ID
+		}
+	}
+	return types.Equal(a, b)
 }
 
 // autoForceLazy handles lazy co-data pattern matching. For lazy constructors,
