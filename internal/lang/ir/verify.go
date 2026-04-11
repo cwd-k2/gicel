@@ -26,6 +26,7 @@ func (e *VerifyError) Error() string {
 //   - V4a: No double-Force: Force{Expr: Force{...}}.
 //   - V4b: No double-Thunk: Thunk{Comp: Thunk{...}} (generalizes former V3).
 //   - V6: No label-kinded TyApp after label erasure.
+//   - V7: Fix.Body (after peeling TyLam) must be Lam or Thunk.
 func VerifyProgram(prog *Program) []VerifyError {
 	var errs []VerifyError
 	for _, b := range prog.Bindings {
@@ -49,6 +50,8 @@ func verifyCore(c Core, errs []VerifyError) []VerifyError {
 			errs = verifyForce(n, errs)
 		case *Thunk:
 			errs = verifyThunk(n, errs)
+		case *Fix:
+			errs = verifyFix(n, errs)
 		case *TyApp:
 			errs = verifyTyApp(n, errs)
 		}
@@ -75,6 +78,21 @@ func verifyBind(b *Bind, errs []VerifyError) []VerifyError {
 		errs = append(errs, VerifyError{
 			Node:    b,
 			Message: "generated Bind{Force{...}} — Force argument is not a Var",
+		})
+	}
+	return errs
+}
+
+// verifyFix checks V7: Fix.Body must be Lam or Thunk after peeling TyLam.
+func verifyFix(f *Fix, errs []VerifyError) []VerifyError {
+	body := PeelTyLam(f.Body)
+	switch body.(type) {
+	case *Lam, *Thunk:
+		// OK
+	default:
+		errs = append(errs, VerifyError{
+			Node:    f,
+			Message: fmt.Sprintf("Fix body must be Lam or Thunk (got %T)", body),
 		})
 	}
 	return errs

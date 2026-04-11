@@ -1,6 +1,8 @@
 package check
 
 import (
+	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -54,6 +56,7 @@ func (ch *Checker) inferFix(e *syntax.ExprApp, lam *syntax.ExprLam, isRec bool) 
 			S: e.S,
 		}
 	}
+	ch.checkFixBodyForm(bodyCore, e.S)
 	return resultTy, &ir.Fix{
 		Name: selfName,
 		Body: bodyCore,
@@ -108,9 +111,25 @@ func (ch *Checker) checkFix(e *syntax.ExprApp, lam *syntax.ExprLam, expected typ
 		}
 	}
 
+	ch.checkFixBodyForm(bodyCore, e.S)
 	return &ir.Fix{
 		Name: selfName,
 		Body: bodyCore,
 		S:    e.S,
+	}
+}
+
+// checkFixBodyForm verifies that a Fix body (after peeling TyLam) is a Lam
+// or Thunk. In CBV evaluation, fix creates a self-referential closure and
+// requires the body to be a closure-forming node.
+func (ch *Checker) checkFixBodyForm(body ir.Core, s span.Span) {
+	inner := ir.PeelTyLam(body)
+	switch inner.(type) {
+	case *ir.Lam, *ir.Thunk:
+		// OK
+	default:
+		ch.addDiag(diagnostic.ErrSpecialForm, s,
+			diagMsg("fix requires a function body (\\self args. ...); "+
+				"wrap the body in a lambda or use rec for computation-level recursion"))
 	}
 }

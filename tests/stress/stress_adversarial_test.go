@@ -664,7 +664,7 @@ main := runReader ((ask >>= \x. mpure (append "port=" (show x))) :: Reader Int S
 // ===========================================================================
 
 // TestAdversarial_FixConValErrorMessage verifies that applying fix to a constructor
-// body produces a clear error message mentioning "requires a lambda body".
+// body produces a compile-time error mentioning "requires a function body".
 func TestAdversarial_FixConValErrorMessage(t *testing.T) {
 	src := `
 import Prelude
@@ -678,16 +678,12 @@ main := getFirst (fix (\self. MkPair 1 2))
 	eng.EnableRecursion()
 	eng.SetStepLimit(100_000)
 
-	rt, err := eng.NewRuntime(context.Background(), src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = rt.RunWith(context.Background(), nil)
+	_, err := eng.NewRuntime(context.Background(), src)
 	if err == nil {
-		t.Fatal("expected runtime error from fix applied to constructor body")
+		t.Fatal("expected compile error from fix applied to constructor body")
 	}
-	if !strings.Contains(err.Error(), "requires a lambda") {
-		t.Errorf("expected error containing %q, got: %v", "requires a lambda", err)
+	if !strings.Contains(err.Error(), "requires a function body") {
+		t.Errorf("expected error containing %q, got: %v", "requires a function body", err)
 	}
 }
 
