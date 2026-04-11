@@ -3,7 +3,7 @@
 **G**o's **I**ndexed **C**apability **E**ffect **L**ibrary /
 **G**ICEL's **I**ndexed **C**apability **E**ffect **L**anguage
 
-**v0.30.0** — [Changelog](CHANGELOG.md)
+**v0.31.0** — [Changelog](CHANGELOG.md)
 
 > **Pre-1.0 notice:** GICEL is pre-1.0. Breaking changes to syntax or API may occur between minor versions.
 
@@ -168,7 +168,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 - Full type inference with higher-rank polymorphism
 - Type classes (via unified `form`/`impl`) with superclasses, associated types
 - Type families — closed, associated, form families with recursive reduction
-- Row polymorphism — extensible records and capability environments
+- Row polymorphism — extensible records, capability environments, and variants
 - GADTs with refined return types and existential types
 - Grade annotations (`@Linear`, `@Affine`) for resource tracking
 - DataKinds — all constructors promoted to type level
@@ -177,7 +177,7 @@ See [`examples/go/`](examples/go/) for full patterns.
 ### Language
 
 - 15 keywords: `case do form lazy type impl import infixl infixr infixn if then else as assumption`
-- ADTs with exhaustive pattern matching (pipe shorthand and GADT styles)
+- ADTs with exhaustive pattern matching (pipe shorthand, GADT styles, label patterns)
 - Do-notation for monadic sequencing
 - Records, tuples, module system (open, selective, qualified imports)
 - Scoped evidence injection (`value => expr`) with private instances

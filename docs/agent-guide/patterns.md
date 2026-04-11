@@ -44,6 +44,29 @@ greet := \name. case name { "Alice" => "hello"; _ => "hi" }
 
 Literal types are open (cannot enumerate all values), so a wildcard or variable catch-all is always required.
 
+### Label Patterns (Variants)
+
+Label patterns match `Variant` values by tag. Bind the payload or discard it with a wildcard:
+
+```
+import Prelude
+import Effect.Session
+
+-- Bind the payload
+handler := \v. case v {
+  #ping x => "pinged with " <> show x;
+  #quit _ => "quitting"
+}
+
+-- Wildcard payload
+handler2 := \v. case v {
+  #ping _ => "pinged";
+  #quit _ => "quitting"
+}
+```
+
+Label patterns require exhaustiveness: all labels in the variant's choice row must be covered.
+
 ### List Processing
 
 ```

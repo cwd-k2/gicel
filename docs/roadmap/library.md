@@ -6,7 +6,7 @@ GICEL のライブラリ、CLI、ツーリング、ホスト API の方向性。
 
 ### 現状
 
-Packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, Effect.Array, Data.Map, Data.Set, Effect.Map, Effect.Set, Data.JSON, Console
+Packs: Prelude, Effect.Fail, Effect.State, Effect.IO, Data.Stream, Data.Slice, Effect.Array, Effect.Ref, Data.Map, Data.Set, Effect.Map, Effect.Set, Data.JSON, Effect.Session, Data.Math, Data.Sequence, Console
 
 ### 方向性
 

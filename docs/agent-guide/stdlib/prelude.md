@@ -241,6 +241,28 @@ form ToList := \l. FromList l => {
 | `FromList`    | `List a`, `Maybe a`, `String`                                                                                   |
 | `ToList`      | `List a`, `Maybe a`, `String`                                                                                   |
 
+### Variant Construction
+
+| Name     | Type                                                                                       | Description                                    |
+| -------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `inject` | `\(tag: Label) (choices: Row). Lookup tag choices -> Variant choices (Lookup tag choices)` | Construct a `Variant` value at the given label |
+
+`Variant :: Row -> Type -> Type` is the labeled coproduct dual of `Record`. It represents a value tagged with one label from a row:
+
+```
+v := inject @#ping 42   -- Variant { ping: Int } Int
+```
+
+Use with session types (`receiveAt`) and external choice dispatch:
+
+```
+tag <- receiveAt @#ch;
+case tag {
+  #ping x => handle x;
+  #quit   => pure ()
+}
+```
+
 ### Function Utilities
 
 | Name      | Type                                               | Description              |

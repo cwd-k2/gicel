@@ -2,7 +2,7 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.29.0 (2026-04-11)._
+_Last updated: v0.31.0 (2026-04-12)._
 
 ## Layer Model
 

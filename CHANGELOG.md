@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.31.0 — 2026-04-12
+
+Variant types with label patterns, GradeAlgebra axiom verification, and compiler hardening.
+
+### Language
+
+- **Variant type** — `Variant :: Row -> Type -> Type`, the labeled coproduct dual of `Record`. Constructed via `inject @#tag value`, dispatched via label patterns in `case`.
+- **Label patterns** — `#tag x` binds the variant payload; `#tag _` discards it. Exhaustiveness checking covers all labels in the choice row.
+- **`inject` moved to Prelude** — Previously in `Effect.Session`, now available to all programs that import Prelude.
+
+### Type Checker
+
+- **GradeAlgebra axiom verification** — `GradeAlgebra` instances for closed grade kinds are now validated against semiring axioms (associativity, identity, distributivity) at compile time. Invalid instances produce a compile error.
+- **Fix body form validation (V7 invariant)** — `fix` bodies must be lambdas; non-lambda bodies are now rejected at compile time with a clear diagnostic.
+- **Fix: nil grades as identity in row unification** — Nil grades (`@Zero`, absent annotations) now unify as identity elements, fixing false mismatches in session-typed and graded code.
+- **Fix: `variantSubstPreState` uses meta ID** — Prevents incorrect pre-state substitution during Variant elaboration.
+
+### IR & Runtime
+
+- **`VariantLit` IR node and `OpVariant` opcode** — `inject` is now elaborated to a dedicated `VariantLit` IR node (rewrite rule), compiled to `OpVariant` in the VM. Eliminates the prior closure-based encoding.
+
+### Stdlib
+
+- **`divMod`, `Seq.uncons`, `Seq.unsnoc`** — Fixed to return record-based tuples instead of positional constructors.
+
+### Internal
+
+- **`CBPVAdjunctionParts`** — Extracted typed constraint dispatch structure from the CBPV coercion pass.
+
+### Docs & Examples
+
+- 7 new examples (96 total), 120+ Prelude function signatures documented.
+- Variant, MapRow, session choice, nil-as-identity documented in spec and agent guide.
+
 ## v0.30.0 — 2026-04-11
 
 Stdlib expansion (5 new/extended packs, 100+ new bindings), type checker soundness fixes, and LSP diagnostic correctness.
