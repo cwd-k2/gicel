@@ -50,10 +50,7 @@ receiveAt :: \(l: Label) (choices: Row) (s: Type) r.
   Computation { l: Offer choices | r } { l: s | r } (Variant choices s)
 receiveAt := assumption
 
--- Inject a value into a Variant at the given label.
-inject :: \(tag: Label) (choices: Row).
-  Lookup tag choices -> Variant choices (Lookup tag choices)
-inject := assumption
+-- inject is defined in Prelude (available via `import Prelude`).
 
 -- Re-export from Effect.State for convenience — these already support
 -- type-changing capabilities (putAt has s1 ≠ s2 in pre/post).

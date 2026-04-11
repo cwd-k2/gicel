@@ -1553,3 +1553,10 @@ rights := \rs. snd (partitionResults rs)
 -- Collect only the Err values from a list of Results.
 lefts :: \e a. List (Result e a) -> List e
 lefts := \rs. fst (partitionResults rs)
+
+-- ─── Variant construction ───────────────────────────────────────────────────
+
+-- Inject a value into a row-polymorphic variant at the given label.
+inject :: \(tag: Label) (choices: Row).
+  Lookup tag choices -> Variant choices (Lookup tag choices)
+inject := assumption

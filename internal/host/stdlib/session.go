@@ -11,7 +11,7 @@ var Session Pack = func(e Registrar) error {
 	e.RegisterPrim("closeAt", closeAtImpl)
 	e.RegisterPrim("chooseAt", chooseAtImpl)
 	e.RegisterPrim("receiveAt", receiveAtImpl)
-	e.RegisterPrim("inject", injectImpl)
+	// inject is registered in Prelude (not session-specific).
 	e.RegisterPrim("runSessionAt", runSessionAtImpl)
 	return e.RegisterModule("Effect.Session", sessionSource)
 }

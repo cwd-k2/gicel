@@ -125,6 +125,9 @@ var Prelude Pack = func(e Registrar) error {
 	// --- Additional List primitives ---
 	e.RegisterPrim("_listGroupBy", groupByImpl)
 
+	// --- Variant primitive ---
+	e.RegisterPrim("inject", injectImpl)
+
 	// Fusion rules.
 	e.RegisterRewriteRule(strPackedRoundtrip)
 	e.RegisterRewriteRule(listPackedRoundtrip)
