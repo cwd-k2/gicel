@@ -567,10 +567,9 @@ func transformMutLeftSpineOrRec(c Core, f func(Core) Core) Core {
 // on deeply nested do-blocks that exceed maxTraversalDepth.
 func transformBindChain(c Core, f func(Core) Core) Core {
 	type bindNode struct {
-		orig      *Bind
-		comp      Core
-		compChg   bool
-		savedBody Core // original Body, for restoring after tentative mutation
+		orig    *Bind
+		comp    Core
+		compChg bool
 	}
 	var chain []bindNode
 
@@ -582,7 +581,7 @@ func transformBindChain(c Core, f func(Core) Core) Core {
 			break
 		}
 		newComp := transformRec(b.Comp, f, 0)
-		chain = append(chain, bindNode{orig: b, comp: newComp, compChg: newComp != b.Comp, savedBody: b.Body})
+		chain = append(chain, bindNode{orig: b, comp: newComp, compChg: newComp != b.Comp})
 		cur = b.Body
 	}
 
@@ -603,16 +602,15 @@ func transformBindChain(c Core, f func(Core) Core) Core {
 
 	cur = newTail
 	if !anyChange {
-		// No structural change — pass original nodes through f; rebuild if f rewrites.
+		// No structural change — pass original nodes through f without mutation.
+		// Unlike the previous implementation, we do NOT mutate bn.orig.Body
+		// to avoid a data race window when concurrent readers (e.g., LSP hover)
+		// access the IR tree.
 		for i := len(chain) - 1; i >= 0; i-- {
 			bn := chain[i]
-			bn.orig.Body = cur // tentative (needed if f inspects children)
 			r := f(bn.orig)
 			if r != bn.orig {
-				// f rewrote this node. Restore the original Body (undo the
-				// tentative mutation) and fall through to the rebuild path
-				// for the remaining chain elements.
-				bn.orig.Body = bn.savedBody
+				// f rewrote this node. Rebuild remaining elements.
 				cur = r
 				for j := i - 1; j >= 0; j-- {
 					bnj := chain[j]
