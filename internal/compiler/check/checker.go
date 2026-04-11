@@ -507,6 +507,7 @@ func (s *CheckState) withTrial(fn func() bool) bool {
 	result := fn()
 	s.unifier.SolverLevel = savedLevel
 	if result {
+		s.unifier.AbandonSnapshot()
 		return true
 	}
 	s.restoreState(saved)

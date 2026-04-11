@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -184,12 +185,11 @@ func (idx *HoverIndex) Finalize() {
 	idx.pendingModules = nil
 	idx.pendingLabels = nil
 	idx.finalized = true
-	sort.SliceStable(idx.entries, func(i, j int) bool {
-		a, b := idx.entries[i].span, idx.entries[j].span
-		if a.Start != b.Start {
-			return a.Start < b.Start
+	slices.SortStableFunc(idx.entries, func(a, b hoverEntry) int {
+		if a.span.Start != b.span.Start {
+			return int(a.span.Start - b.span.Start)
 		}
-		return (a.End - a.Start) < (b.End - b.Start)
+		return int((a.span.End - a.span.Start) - (b.span.End - b.span.Start))
 	})
 }
 

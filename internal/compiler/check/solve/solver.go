@@ -354,6 +354,14 @@ func (s *Solver) processCtEq(ct *CtEq) {
 		// If both heads are known (not metas), this is a genuine structural
 		// mismatch — report immediately even if decomposition metas exist.
 		if !headIsMeta(lhs) && !headIsMeta(rhs) {
+			// CBPV adjunction: opposite-tag TyCBPV types (Computation vs Thunk)
+			// are coercible when their structural components match. subsCheck
+			// handles this at expression sites (inserting ir.Thunk / ir.Force);
+			// here we handle the same coercion at the constraint level where
+			// no IR wrapping is needed.
+			if s.tryCBPVComponentUnify(lhs, rhs) {
+				return
+			}
 			s.reportEqError(ct, lhs, rhs)
 			return
 		}
@@ -369,6 +377,38 @@ func (s *Solver) processCtEq(ct *CtEq) {
 		}
 		s.reportEqError(ct, lhs, rhs)
 	}
+}
+
+// tryCBPVComponentUnify handles the CBPV adjunction at the constraint level.
+// When an equality constraint involves opposite-tag TyCBPV types
+// (Computation vs Thunk), the structural components (Pre, Post, Result,
+// Grade) are unified in a trial scope. This mirrors tryCBPVCoercion in
+// subsCheck but operates purely on types — no IR wrapping is needed
+// because the bidirectional checker inserts Thunk/Force at expression sites.
+func (s *Solver) tryCBPVComponentUnify(lhs, rhs types.Type) bool {
+	l, ok1 := lhs.(*types.TyCBPV)
+	r, ok2 := rhs.(*types.TyCBPV)
+	if !ok1 || !ok2 || l.Tag == r.Tag {
+		return false
+	}
+	return s.trialScope(func() bool {
+		if err := s.env.Unify(l.Pre, r.Pre); err != nil {
+			return false
+		}
+		if err := s.env.Unify(l.Post, r.Post); err != nil {
+			return false
+		}
+		if err := s.env.Unify(l.Result, r.Result); err != nil {
+			return false
+		}
+		// Grade duality: nil grade (ungraded form) is compatible with any grade.
+		if l.Grade != nil && r.Grade != nil {
+			if err := s.env.Unify(l.Grade, r.Grade); err != nil {
+				return false
+			}
+		}
+		return true
+	})
 }
 
 // headIsMeta returns true if the type's outermost head constructor is an

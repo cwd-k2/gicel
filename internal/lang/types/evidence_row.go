@@ -2,7 +2,7 @@ package types
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 )
 
 // --- Capability row operations ---
@@ -76,8 +76,15 @@ func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 	}
 	sorted := make([]ConstraintEntry, len(entries))
 	copy(sorted, entries)
-	sort.Slice(sorted, func(i, j int) bool {
-		return ConstraintKey(sorted[i]) < ConstraintKey(sorted[j])
+	slices.SortFunc(sorted, func(a, b ConstraintEntry) int {
+		ka, kb := ConstraintKey(a), ConstraintKey(b)
+		if ka < kb {
+			return -1
+		}
+		if ka > kb {
+			return 1
+		}
+		return 0
 	})
 	ce := &ConstraintEntries{Entries: sorted}
 	return &TyEvidenceRow{

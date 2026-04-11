@@ -225,9 +225,9 @@ func TestProbeD_ImportEmptyParens(t *testing.T) {
 	}
 	imp := prog.Imports[0]
 	if imp.Names == nil {
-		// BUG: low — import M () should produce non-nil empty Names to distinguish from import M
-		t.Log("BUG: low — import M () produced nil Names, indistinguishable from open import")
-	} else if len(imp.Names) != 0 {
+		t.Fatal("import M () produced nil Names, indistinguishable from open import")
+	}
+	if len(imp.Names) != 0 {
 		t.Errorf("expected 0 names in import M (), got %d", len(imp.Names))
 	}
 }

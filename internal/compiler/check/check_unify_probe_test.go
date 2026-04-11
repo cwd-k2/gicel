@@ -23,13 +23,9 @@ import (
 // =====================================================================
 
 // TestProbeA_RowUnify_EmptyRows — two empty records should unify trivially.
-// BUG: medium — Record type annotation syntax uses `Record {}` not bare `{}`.
-// However, `()` in type position IS parsed as `Record {}` (unit type).
-// Bare `{}` in type annotation position is parsed as empty row, not Record {}.
-// This means `{} -> {}` as a type annotation fails to unify with the inferred
-// `Record {} -> Record {}` from the record literal. This is arguably a syntax
-// inconsistency: `{}` in expression position creates a Record, but `{}` in
-// type position is not `Record {}`.
+// Note: uses `()` (unit type) in type position, which is `Record {}`.
+// Bare `{}` in type position produces an evidence row, not `Record {}`.
+// This is a known syntax distinction, not a bug.
 func TestProbeA_RowUnify_EmptyRows(t *testing.T) {
 	// Use () in type position for empty record (unit type).
 	// Note: => is the constraint arrow in unified syntax, -> is the function arrow.
@@ -75,13 +71,8 @@ main := f { x: True, y: 42 }
 
 // TestProbeA_RowUnify_OrderInsensitivity — records with fields in different
 // order should unify (row unification is order-insensitive).
-// BUG: medium — Row-polymorphic projection (`r.#a`) on a Record type
-// annotated as `Record { a: Bool, b: Int }` fails with "expected record
-// with field a". This occurs because the type annotation creates a closed
-// row type that is not decomposed correctly when the projection tries to
-// match a specific field. The bare `{ a: Bool, b: Int }` in type position
-// does not produce a `Record { a: Bool, b: Int }` — it produces a bare
-// evidence row. Using `Record { a: Bool, b: Int }` is the correct syntax.
+// Uses explicit `Record { ... }` in type position (bare `{ ... }` produces
+// an evidence row, not a Record type — same distinction as in EmptyRows).
 func TestProbeA_RowUnify_OrderInsensitivity(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }

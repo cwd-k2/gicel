@@ -1,6 +1,6 @@
 package diagnostic
 
-import "sort"
+import "slices"
 
 // Suggest returns up to maxResults names from candidates that are within
 // edit distance threshold of target. Results are sorted by distance, then
@@ -24,11 +24,17 @@ func Suggest(target string, candidates []string, threshold int, maxResults int) 
 			hits = append(hits, hit{c, d})
 		}
 	}
-	sort.Slice(hits, func(i, j int) bool {
-		if hits[i].dist != hits[j].dist {
-			return hits[i].dist < hits[j].dist
+	slices.SortFunc(hits, func(a, b hit) int {
+		if a.dist != b.dist {
+			return a.dist - b.dist
 		}
-		return hits[i].name < hits[j].name
+		if a.name < b.name {
+			return -1
+		}
+		if a.name > b.name {
+			return 1
+		}
+		return 0
 	})
 	out := make([]string, 0, maxResults)
 	for i := 0; i < len(hits) && i < maxResults; i++ {
@@ -63,22 +69,9 @@ func levenshtein(a, b string) int {
 			ins := curr[j-1] + 1
 			del := prev[j] + 1
 			sub := prev[j-1] + cost
-			curr[j] = min3(ins, del, sub)
+			curr[j] = min(ins, del, sub)
 		}
 		prev = curr
 	}
 	return prev[lb]
-}
-
-func min3(a, b, c int) int {
-	if a < b {
-		if a < c {
-			return a
-		}
-		return c
-	}
-	if b < c {
-		return b
-	}
-	return c
 }

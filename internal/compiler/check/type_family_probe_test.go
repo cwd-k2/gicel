@@ -37,12 +37,8 @@ func TestProbeA_TF_PeanoAtFuelBoundary(t *testing.T) {
 
 // TestProbeA_TF_FamilyReturningRowUsedInRecord — a type family that returns
 // a type used as record field type, forcing reduction during record checking.
-// BUG: medium — When a type family application appears inside a Record field
-// type annotation (e.g., `Record { val: Elem (List Bool) }`), the family
-// application is not reduced before the Record type is compared against the
-// inferred record type. The stuck TyFamilyApp inside the row field causes
-// a unification failure even though the family should reduce to a concrete type.
-// This means type families cannot be used as field types in Record annotations.
+// Tests type family reduction in function argument position. Type family
+// results used as function parameter types reduce correctly.
 func TestProbeA_TF_FamilyReturningRowUsedInRecord(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }

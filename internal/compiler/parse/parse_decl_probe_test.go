@@ -458,23 +458,14 @@ func TestProbeD_FixityPrecMax(t *testing.T) {
 }
 
 // TestProbeD_FixityNoneConflict verifies that two infixn operators of same precedence
-// applied without grouping produce an error or well-defined behavior.
-// BUG: low — infixn (non-associative) operators at the same precedence should reject
-// `a == b /= c` because neither can associate with the other.
+// applied without grouping produce an error.
 func TestProbeD_FixityNoneConflict(t *testing.T) {
 	source := "infixn 5 ==\ninfixn 5 /=\n(==) := \\a b. a\n(/=) := \\a b. b\nmain := 1 == 2 /= 3"
-	prog, es := parse(source)
-	// Non-associative operators at same precedence should ideally error.
-	if es.HasErrors() {
-		t.Logf("infixn conflict produced error (expected): %s", es.Format())
-		return
+	_, es := parse(source)
+	if !es.HasErrors() {
+		t.Fatal("expected error for non-associative operators at same precedence")
 	}
-	for _, d := range prog.Decls {
-		if vd, ok := d.(*DeclValueDef); ok && vd.Name == "main" {
-			// BUG: low — silently left-groups instead of rejecting
-			t.Logf("BUG: low — infixn conflict silently parsed as %T (left-grouped)", vd.Expr)
-		}
-	}
+	t.Logf("infixn conflict produced error (expected): %s", es.Format())
 }
 
 // TestProbeD_FixityNegativePrec verifies negative precedence does not crash.

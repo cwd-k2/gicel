@@ -1,7 +1,7 @@
 package types
 
 import (
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -141,10 +141,10 @@ func prettyTuple(app *TyApp, render func(Type) string) (string, bool) {
 		return "()", true
 	}
 	// Sort fields by _N index so { _2: Int, _1: Bool } → (Bool, Int).
-	sort.Slice(fields, func(i, j int) bool {
-		ni, _ := strconv.Atoi(fields[i].Label[1:])
-		nj, _ := strconv.Atoi(fields[j].Label[1:])
-		return ni < nj
+	slices.SortFunc(fields, func(a, b RowField) int {
+		na, _ := strconv.Atoi(a.Label[1:])
+		nb, _ := strconv.Atoi(b.Label[1:])
+		return na - nb
 	})
 	// Check all fields are _1, _2, ..., _N consecutively.
 	for i, f := range fields {

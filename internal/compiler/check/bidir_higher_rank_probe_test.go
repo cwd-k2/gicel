@@ -70,17 +70,9 @@ main := apply notId
 }
 
 // TestProbeA_HigherRank_ReturnPolyFn — a function that returns a
-// polymorphic function.
-// BUG: high — When a function is annotated to return a higher-rank type
-// (e.g., `\ a. a -> a`), and the result is parenthesized and applied
-// `(mkId True) False`, the checker emits "expected function type, got
-// \a. a -> a" (E0204). The issue is that the inferred result type from
-// the application `mkId True` is `\ a. a -> a` (a forall), but
-// `matchArrow` does not instantiate the forall before trying to decompose
-// it into an arrow type. In check mode, the subsumption path through
-// `checkApp` -> `matchArrow` should instantiate the returned forall to
-// produce a monomorphic arrow, but `matchArrow` sees the forall and tries
-// to unify it with `?m1 -> ?m2`, which fails.
+// polymorphic function. Uses an intermediate binding as the original
+// motivation for the matchArrow forall-instantiation fix.
+// See TestProbeA_HigherRank_ReturnPolyFnDirect for the direct application test.
 func TestProbeA_HigherRank_ReturnPolyFn(t *testing.T) {
 	source := `
 form Bool := { True: Bool; False: Bool; }

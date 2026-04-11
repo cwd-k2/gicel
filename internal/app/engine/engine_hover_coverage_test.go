@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -339,7 +339,7 @@ main := add (double 3) 4`
 		for c := range groups {
 			sorted = append(sorted, c)
 		}
-		sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+		slices.Sort(sorted)
 		for _, c := range sorted {
 			texts := groups[c]
 			t.Logf("missing %s hover: %s", c, strings.Join(unique(texts), ", "))

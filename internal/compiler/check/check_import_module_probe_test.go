@@ -267,18 +267,9 @@ main := foo
 
 // TestProbeA_Ambiguity_TwoOpenImportsSameConstructor — two modules both
 // export a constructor named "MkVal". Should trigger ambiguity.
-// BUG: medium — Constructor ambiguity is not detected when two modules
-// export constructors with the same name via open import. The
-// checkAmbiguousName function is called for ConTypes during importOpen,
-// but the moduleOwnsName check looks for constructors in OwnedNames.
-// If OwnedNames are populated (which they should be for real modules),
-// the ambiguity IS detected. However, this test reveals that constructor
-// names pushed to the context via CtxVar are silently overwritten when
-// the second import pushes the same name — the last import wins.
-// The ambiguity detection relies on moduleOwnsName, which correctly
-// identifies ownership when OwnedNames are present. With OwnedNames,
-// this test passes. The root issue is that incomplete ModuleExports
-// (missing OwnedNames) bypass the ownership check.
+// Ambiguity detection requires OwnedNames to be populated in ModuleExports
+// so that moduleOwnsName can identify which module owns the constructor.
+// With properly populated OwnedNames, the ambiguity IS detected.
 func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 	makeModWithCon := func(typeName string) *ModuleExports {
 		info := &DataTypeInfo{

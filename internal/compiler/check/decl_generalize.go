@@ -2,7 +2,7 @@ package check
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -61,7 +61,7 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 			unique = append(unique, m)
 		}
 	}
-	sort.Slice(unique, func(i, j int) bool { return unique[i].id < unique[j].id })
+	slices.SortFunc(unique, func(a, b metaInfo) int { return a.id - b.id })
 
 	// Ambiguity check: reject type variables that appear only in constraints,
 	// not in the result type. These cannot be determined at any call site.
@@ -189,7 +189,7 @@ func quantifyFreeVars(ty types.Type) types.Type {
 	for v := range fv {
 		vars = append(vars, v)
 	}
-	sort.Strings(vars)
+	slices.Sort(vars)
 	for i := len(vars) - 1; i >= 0; i-- {
 		k := kinds[vars[i]]
 		if k == nil {

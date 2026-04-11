@@ -42,6 +42,15 @@ func (u *Unifier) Snapshot() Snapshot {
 	return Snapshot{pos: len(u.trail)}
 }
 
+// AbandonSnapshot decrements the snapshot depth counter without rolling
+// back any mutations. Use when a Snapshot was taken but the caller decides
+// to keep (commit) the changes rather than restore. This balances the
+// snapshotDepth increment from Snapshot(), so path-compression trailing
+// is correctly disabled when no active snapshot remains.
+func (u *Unifier) AbandonSnapshot() {
+	u.snapshotDepth--
+}
+
 // Restore rolls back the unifier to a previously saved snapshot by replaying
 // the trail in reverse. O(k) where k = number of mutations since snapshot.
 func (u *Unifier) Restore(snap Snapshot) {

@@ -2,7 +2,7 @@ package types
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
@@ -279,8 +279,14 @@ func NormalizeRow(r *TyEvidenceRow) (*TyEvidenceRow, error) {
 	}
 	sorted := make([]RowField, len(cap.Fields))
 	copy(sorted, cap.Fields)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Label < sorted[j].Label
+	slices.SortFunc(sorted, func(a, b RowField) int {
+		if a.Label < b.Label {
+			return -1
+		}
+		if a.Label > b.Label {
+			return 1
+		}
+		return 0
 	})
 	for i := 1; i < len(sorted); i++ {
 		if sorted[i].Label == sorted[i-1].Label {
