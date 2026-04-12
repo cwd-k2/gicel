@@ -55,7 +55,7 @@ var importHints = map[string]string{
 	"+": "Prelude", "-": "Prelude", "*": "Prelude", "/": "Prelude",
 	"==": "Prelude", "/=": "Prelude", "<": "Prelude", ">": "Prelude",
 	"<=": "Prelude", ">=": "Prelude", "&&": "Prelude", "||": "Prelude",
-	".": "Prelude", "$": "Prelude", "<>": "Prelude", "++": "Prelude",
+	".": "Prelude", "$": "Prelude", "<>": "Prelude",
 	">>": "Prelude", ">>=": "Prelude", "compare": "Prelude",
 	"show": "Prelude", "read": "Prelude", "id": "Prelude",
 	"const": "Prelude", "flip": "Prelude", "map": "Prelude",

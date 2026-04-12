@@ -26,10 +26,9 @@ round     :: Double -> Int
 floor     :: Double -> Int
 ceiling   :: Double -> Int
 truncate  :: Double -> Int
-readDouble :: String -> Maybe Double
 ```
 
-Arithmetic via `Num Double` (`+`, `-`, `*`, `negate`) and `Div Double` (`/`). Instances: `Eq`, `Ord`, `Num`, `Div`, `Semigroup`, `Monoid`, `Show`, `Read`.
+Arithmetic via `Num Double` (`+`, `-`, `*`, `negate`) and `Div Double` (`/`). Instances: `Eq`, `Ord`, `Num`, `Div`, `Semigroup`, `Monoid`, `Show`, `Read`. Use `read :: String -> Maybe Double` (from the `Read` instance) to parse strings.
 
 **Byte** — 8-bit unsigned integer (0--255). Conversions:
 

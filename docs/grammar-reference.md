@@ -772,7 +772,7 @@ The `@Grade` suffix annotates a field with a grade. Without annotation, fields a
 { h: Handle @Linear | r }    -- graded field in open row
 ```
 
-The standard grade algebra uses `Mult` (Zero, Linear, Affine, Unrestricted), defined in Prelude. The `GradeAlgebra` class is defined in Core with three associated type families: `GradeJoin` (join/LUB), `GradeCompose` (sequential composition), and `GradeDrop` (identity). User-defined grades are supported by implementing `GradeAlgebra` for a custom promoted kind:
+The standard grade algebra uses `Mult` (Zero, Linear, Affine, Unrestricted), defined in Prelude. The `GradeAlgebra` class is defined in Core with four associated type families: `GradeJoin` (join/LUB), `GradeCompose` (sequential composition), `GradeDrop` (zero element), and `GradeUnit` (identity of Compose). User-defined grades are supported by implementing `GradeAlgebra` for a custom promoted kind:
 
 ```
 form Level := { Public: Level; Secret: Level }
@@ -1032,29 +1032,29 @@ Packed
 FromList ──→ ToList
 ```
 
-| Class           | Key Methods                                                  |
-| --------------- | ------------------------------------------------------------ |
-| `GradeAlgebra`  | assoc types: `GradeJoin`, `GradeCompose`, `GradeDrop` (Core) |
-| `UsageSemiring` | `zero`, `one`, `plus`, `mult` (Core)                         |
-| `GIMonad`       | `gipure`, `gibind` (Core)                                    |
-| `Eq`            | `eq: a -> a -> Bool`                                         |
-| `Ord`           | `compare: a -> a -> Ordering`                                |
-| `Num`           | `add`, `sub`, `mul`, `negate`                                |
-| `Div`           | `div: a -> a -> a`                                           |
-| `Show`          | `show: a -> String`                                          |
-| `Read`          | `read: String -> Maybe a`                                    |
-| `Semigroup`     | `append: a -> a -> a`                                        |
-| `Monoid`        | `empty: a`                                                   |
-| `Functor`       | `fmap: (a -> b) -> f a -> f b`                               |
-| `Foldable`      | `foldr: (a -> b -> b) -> b -> t a -> b`                      |
-| `Applicative`   | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`             |
-| `Alternative`   | `none: f a`, `alt: f a -> f a -> f a`                        |
-| `Monad`         | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`         |
-| `Traversable`   | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)`    |
-| `Bifunctor`     | `bimap: (a -> c) -> (b -> d) -> f a b -> f c d`              |
-| `Packed`        | `pack: Slice e -> c`, `unpack: c -> Slice e`                 |
-| `FromList`      | `fromList: List (Elem l) -> l` (assoc type: `Elem`)          |
-| `ToList`        | `toList: l -> List (Elem l)`                                 |
+| Class           | Key Methods                                                               |
+| --------------- | ------------------------------------------------------------------------- |
+| `GradeAlgebra`  | assoc types: `GradeJoin`, `GradeCompose`, `GradeDrop`, `GradeUnit` (Core) |
+| `UsageSemiring` | `zero`, `one`, `plus`, `mult` (Core)                                      |
+| `GIMonad`       | `gipure`, `gibind` (Core)                                                 |
+| `Eq`            | `eq: a -> a -> Bool`                                                      |
+| `Ord`           | `compare: a -> a -> Ordering`                                             |
+| `Num`           | `add`, `sub`, `mul`, `negate`                                             |
+| `Div`           | `div: a -> a -> a`                                                        |
+| `Show`          | `show: a -> String`                                                       |
+| `Read`          | `read: String -> Maybe a`                                                 |
+| `Semigroup`     | `append: a -> a -> a`                                                     |
+| `Monoid`        | `empty: a`                                                                |
+| `Functor`       | `fmap: (a -> b) -> f a -> f b`                                            |
+| `Foldable`      | `foldr: (a -> b -> b) -> b -> t a -> b`                                   |
+| `Applicative`   | `wrap: a -> f a`, `ap: f (a -> b) -> f a -> f b`                          |
+| `Alternative`   | `none: f a`, `alt: f a -> f a -> f a`                                     |
+| `Monad`         | `mpure: a -> m a`, `mbind: m a -> (a -> m b) -> m b`                      |
+| `Traversable`   | `traverse: Applicative f => (a -> f b) -> t a -> f (t b)`                 |
+| `Bifunctor`     | `bimap: (a -> c) -> (b -> d) -> f a b -> f c d`                           |
+| `Packed`        | `pack: Slice e -> c`, `unpack: c -> Slice e`                              |
+| `FromList`      | `fromList: List (Elem l) -> l` (assoc type: `Elem`)                       |
+| `ToList`        | `toList: l -> List (Elem l)`                                              |
 
 ---
 

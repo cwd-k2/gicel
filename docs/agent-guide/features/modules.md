@@ -81,7 +81,7 @@ main := ...
 
 **Rules:**
 
-- Only `--module Name=path` and `--recursion` are recognized in headers.
+- `--packs`, `--module Name=path`, and `--recursion` are recognized in headers.
 - Paths are relative to the declaring file.
 - Directives are resolved recursively: if Geometry.gicel declares its own `--module` dependencies, those are discovered automatically.
 - CLI `--module` flags override header directives.

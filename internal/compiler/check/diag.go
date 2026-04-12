@@ -25,7 +25,7 @@ type diagUnknown struct {
 	Name string
 }
 
-func (d diagUnknown) DiagnosticMessage() string { return d.Kind + ": " + d.Name }
+func (d diagUnknown) DiagnosticMessage() string { return "unknown " + d.Kind + ": " + d.Name }
 
 // diagWithErr appends an error's message to a context string.
 type diagWithErr struct {

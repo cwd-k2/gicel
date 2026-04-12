@@ -40,7 +40,7 @@ Provides mutable ordered maps backed by AVL trees, gated by the `{ mmap: () }` e
 
 - Mutation is in-place. The `MMap` value is a mutable reference shared by all aliases.
 - All operations are effectful (result depends on mutable state).
-- Uses the same AVL tree infrastructure as `Data.Map`; the difference is in-place root mutation.
+- Uses in-place AVL tree operations — existing nodes on the insertion/deletion path are mutated directly, not path-copied. Only genuinely new leaf nodes are allocated. This is safe because the effect capability guarantees exclusive access. `Data.Map` uses persistent (path-copying) AVL for immutable semantics.
 - Named `newAt`/`fromListAt` take an explicit `(k -> k -> Ordering)` compare function instead of `Ord k =>` (the compare is stored in the handle at creation time).
 
 **Example:**

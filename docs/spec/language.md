@@ -1919,7 +1919,7 @@ form GradeAlgebra := \(g: Kind). {
 }
 ```
 
-`GradeJoin` computes the join (least upper bound) of two grades. `GradeCompose` computes the sequential composition of two grades (used by `bind` to compose grade parameters). `GradeDrop` is the identity element. Grade boundary enforcement checks `GradeJoin(Drop, grade) ~ grade` — a field is preservable iff joining the bottom element leaves the grade unchanged.
+`GradeJoin` computes the join (least upper bound) of two grades. `GradeCompose` computes the sequential composition of two grades (used by `bind` to compose grade parameters). `GradeDrop` is the zero element (no usage). `GradeUnit` is the identity of `GradeCompose` (one unit of usage; for `Mult`, this is `Linear`). Grade boundary enforcement checks `GradeJoin(Drop, grade) ~ grade` — a field is preservable iff joining the zero element leaves the grade unchanged.
 
 The standard `Mult` algebra is provided by Prelude. `GradeAlgebra` is defined in Core (auto-imported). Users can define custom algebras (e.g., security levels):
 

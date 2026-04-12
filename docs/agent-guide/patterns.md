@@ -53,12 +53,14 @@ import Prelude
 import Effect.Session
 
 -- Bind the payload
+handler :: Variant { ping: Int, quit: () } -> String
 handler := \v. case v {
   #ping x => "pinged with " <> show x;
   #quit _ => "quitting"
 }
 
 -- Wildcard payload
+handler2 :: Variant { ping: Int, quit: () } -> String
 handler2 := \v. case v {
   #ping _ => "pinged";
   #quit _ => "quitting"
@@ -113,7 +115,7 @@ import Prelude
 import Effect.Fail
 
 parseOrFail :: String -> Effect { fail: () | r } Int
-parseOrFail := \s. fromMaybe (readInt s)
+parseOrFail := \s. fromMaybe (read s)
 
 safeDivide :: Int -> Int -> Effect { fail: String | r } Int
 safeDivide := \x y. if y == 0 then failWith "division by zero" else pure (div x y)
