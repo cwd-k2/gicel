@@ -182,6 +182,11 @@ type TimeoutError = budget.TimeoutError
 // CancelledError indicates the execution was cancelled externally.
 type CancelledError = budget.CancelledError
 
+// ResetBudgetCounters resets the runtime counters (steps, depth, allocation)
+// of the Budget embedded in ctx. No-op if ctx carries no Budget.
+// Use within PrimImpl to enforce per-event limits in long-lived executions.
+var ResetBudgetCounters = budget.ResetBudgetCounters
+
 // ---- Type construction helpers ----
 
 // RowField is a single label:type pair in a row.

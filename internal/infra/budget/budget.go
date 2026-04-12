@@ -137,6 +137,19 @@ func (b *Budget) check() error {
 	return nil
 }
 
+// ResetCounters resets all runtime counters (steps, depth, peak depth,
+// allocation) to zero while preserving the configured limits and context.
+// Intended for long-lived execution contexts where per-event budget
+// enforcement is needed — e.g., an event loop primitive that resets
+// counters between dispatches.
+func (b *Budget) ResetCounters() {
+	b.ops = 0
+	b.steps = 0
+	b.depth = 0
+	b.peakDepth = 0
+	b.alloc = 0
+}
+
 // --- Read accessors ---
 
 // Steps returns the number of steps consumed so far.
@@ -276,6 +289,15 @@ func ChargeAlloc(ctx context.Context, bytes int64) error {
 		return b.Alloc(bytes)
 	}
 	return nil
+}
+
+// ResetBudgetCounters resets the runtime counters of the Budget embedded in
+// ctx. No-op if ctx carries no Budget. Intended for use in PrimImpl
+// implementations that dispatch multiple events within a single execution.
+func ResetBudgetCounters(ctx context.Context) {
+	if b, ok := ctx.Value(budgetKey{}).(*Budget); ok {
+		b.ResetCounters()
+	}
 }
 
 // CheckContext checks whether the context has been cancelled or its deadline
