@@ -196,6 +196,38 @@ Without #a { a: Int, b: String }  -- reduces to { b: String }
 Lookup #a { a: Int, b: String }   -- reduces to Int
 ```
 
+### Parallel Composition
+
+`merge` (infix `***`) runs two computations on disjoint capability environments and pairs their results. The pre/post rows must be disjoint (enforced by the `Merge` type family):
+
+```
+merge :: \a b (pre1: Row) (post1: Row) (pre2: Row) (post2: Row).
+         Computation pre1 post1 a -> Computation pre2 post2 b
+         -> Computation (Merge pre1 pre2) (Merge post1 post2) (a, b)
+```
+
+```
+import Prelude
+import Effect.State
+
+-- Two independent state computations composed in parallel.
+-- pre: Merge { x: Int } { y: Int } = { x: Int, y: Int }
+program := do {
+  (a, b) <- getAt @#x *** getAt @#y;
+  pure (a + b)
+}
+```
+
+`dag` swaps the pre and post capability rows (the dagger operation from symmetric monoidal categories). `dag (dag f) = f` by construction:
+
+```
+type Gate := \(pre: Row) (post: Row). Computation pre post ()
+
+dag :: \(pre: Row) (post: Row). Gate pre post -> Gate post pre
+```
+
+These are defined in Core and always available without import.
+
 ---
 
 See also: `stdlib.effect-state`, `stdlib.effect-fail`, `stdlib.effect-array`, `stdlib.effect-ref`, `stdlib.effect-map`, `stdlib.effect-set`, `stdlib.effect-session` for individual effect module references. `example effects.state-effect`, `example effects.fail-effect` for working examples.

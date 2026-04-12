@@ -71,7 +71,7 @@ The actual send/recv transport for message-passing must be implemented by the ho
 
 ### Multiplicity Annotations
 
-Row fields accept `@Linear`, `@Affine`, or `@Unrestricted` (default):
+Row fields accept multiplicity annotations:
 
 ```
 open  :: Computation {} { h: Handle @Linear } ()
@@ -81,6 +81,7 @@ close :: Computation { h: Handle @Linear } {} ()
 - `@Linear` -- must be consumed exactly once
 - `@Affine` -- may be consumed at most once
 - `@Unrestricted` -- no usage constraint (default)
+- `@Zero` -- cannot be used (the capability exists in the row but is inaccessible)
 
 ### Branch Joins
 

@@ -150,6 +150,17 @@ bind comp (\x. body)           -- explicit monadic bind
 | 10     | Application `f x` | left             |
 | --     | Atoms             | --               |
 
+### Type-Level Application Operator (`-|`)
+
+Right-associative type application that desugars to nested `TyApp`. Binds tighter than `->` but looser than juxtaposition:
+
+```
+Map String -| List -| Maybe -| Int   -- = Map String (List (Maybe Int))
+String -> Map String -| List -| Int  -- = String -> (Map String (List Int))
+```
+
+Useful for deeply nested type applications where parentheses would accumulate.
+
 ### Type Expression Precedence
 
 | Level | Form        | Associativity |
@@ -158,7 +169,8 @@ bind comp (\x. body)           -- explicit monadic bind
 | 1     | `~`         | none          |
 | 2     | `=>`        | right         |
 | 3     | `->`        | right         |
-| 4     | Application | left          |
+| 4     | `-\|`       | right         |
+| 5     | Application | left          |
 | --    | Atoms       | --            |
 
 ---

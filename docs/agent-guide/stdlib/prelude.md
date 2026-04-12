@@ -59,6 +59,63 @@ type Lift := \(m: Type -> Type) (g: Kind) (r1: Row) (r2: Row) a. m a
 
 `Effect` and `Suspended` fix the grade to `Zero` (the trivial grade). `Lift` wraps a plain `Type -> Type` monad into the graded indexed monad shape expected by `GIMonad`.
 
+### Core Type Classes
+
+These are defined in Core (auto-imported) and form the foundation of the effect system.
+
+**GradeAlgebra** — type-level grade operations for graded indexed monads:
+
+```
+form GradeAlgebra := \(g: Kind). {
+  type GradeJoin :: g -> g -> g;
+  type GradeCompose :: g -> g -> g;
+  type GradeDrop :: g;
+  type GradeUnit :: g
+}
+```
+
+`GradeCompose` combines grades when sequencing computations via `bind`. `GradeDrop` is the identity grade for `pure`. `GradeJoin` merges grades at branch joins. `GradeUnit` is the multiplicative identity.
+
+**Trivial** — the single-element grade algebra (carries no information):
+
+```
+form Trivial := { Triv: Trivial }
+
+impl GradeAlgebra Trivial := {
+  type GradeJoin := \(a: Trivial) (b: Trivial). Triv;
+  type GradeCompose := \(a: Trivial) (b: Trivial). Triv;
+  type GradeDrop := Triv;
+  type GradeUnit := Triv
+}
+```
+
+Used implicitly when grade information is irrelevant (the `Zero` in `Effect r a := Computation Zero r r a` refers to `GradeDrop` of the inferred grade algebra).
+
+**GIMonad** — the canonical graded indexed monad class:
+
+```
+form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type). GradeAlgebra g => {
+  gipure: \a (r: Row). a -> m GradeDrop r r a;
+  gibind: \a b (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
+              m e1 r1 r2 a -> (a -> m e2 r2 r3 b) -> m (GradeCompose e1 e2) r1 r3 b
+}
+```
+
+`Computation` is the built-in `GIMonad` instance. `Lift m` wraps ordinary monads (`Maybe`, `List`, `Result e`) into the indexed shape.
+
+**UsageSemiring** — value-level grade arithmetic (parallel to type-level `GradeAlgebra`):
+
+```
+form UsageSemiring := \(s: Type). {
+  zero: s;
+  one: s;
+  plus: s -> s -> s;
+  mult: s -> s -> s
+}
+```
+
+Laws (not enforced): `(s, zero, plus)` is a commutative monoid, `(s, one, mult)` is a monoid, `mult` distributes over `plus`, `mult x zero = zero`.
+
 ### Type Classes
 
 **Eq**
