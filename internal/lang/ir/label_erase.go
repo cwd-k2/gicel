@@ -84,6 +84,8 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 	case *TyApp:
 		expr := eraseLabelRec(n.Expr, labelVars)
 		// Case 1: concrete label literal. Type change: TyApp → App.
+		// The "#" prefix separates named-label capability keys from anonymous
+		// ones (e.g. capState = "state"), preventing namespace collisions.
 		if con, ok := n.TyArg.(*types.TyCon); ok && types.IsKindLevel(con.Level) && con.IsLabel {
 			return &App{Fun: expr, Arg: &Lit{Value: "#" + con.Name}, S: n.S}
 		}

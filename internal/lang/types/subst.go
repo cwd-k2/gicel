@@ -228,10 +228,18 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 				args[i] = newA
 			}
 		}
-		if args == nil {
+		newKind := ty.Kind
+		if ty.Kind != nil {
+			newKind = substLevel(ty.Kind, name, repl, depth+1)
+		}
+		if args == nil && newKind == ty.Kind {
 			return ty
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, S: ty.S}
+		finalArgs := ty.Args
+		if args != nil {
+			finalArgs = args
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
 	default:
 		return ty
 	}

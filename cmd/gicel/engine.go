@@ -130,11 +130,7 @@ func readSource(fs *flag.FlagSet, expr string, exprGiven bool, budget *sourceBud
 }
 
 // maxTotalSourceSize is the aggregate limit across all source files (10 MiB).
-
-// maxTotalSourceSize is the aggregate limit across all source files (10 MiB).
 const maxTotalSourceSize = 10 * 1024 * 1024
-
-// sourceBudget tracks cumulative source bytes read in a single invocation.
 
 // sourceBudget tracks cumulative source bytes read in a single invocation.
 type sourceBudget struct {
@@ -168,8 +164,6 @@ func (b *sourceBudget) read(r io.Reader) ([]byte, error) {
 }
 
 // registerUserModules parses --module Name=path flags and registers each module.
-
-// registerUserModules parses --module Name=path flags and registers each module.
 func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudget) error {
 	for _, spec := range modules {
 		before, after, ok := strings.Cut(spec, "=")
@@ -191,10 +185,6 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 	}
 	return nil
 }
-
-// prepareEngine loads source and configures the engine with common flags.
-// File header directives (-- gicel: --module, --recursion) are applied
-// when the source comes from a file (not -e or stdin).
 
 // prepareEngine loads source and configures the engine with common flags.
 // File header directives (-- gicel: --module, --recursion) are applied
@@ -295,8 +285,6 @@ func preflightError(msg string, jsonOut bool) int {
 	}
 	return 1
 }
-
-// isUnitValue reports whether a value is the unit value ().
 
 // isUnitValue reports whether a value is the unit value ().
 func isUnitValue(v gicel.Value) bool {

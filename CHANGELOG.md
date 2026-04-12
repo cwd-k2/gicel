@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.31.2 — 2026-04-12
+
+Sandbox hardening, allocation budget enforcement, named capability namespace separation, and performance.
+
+### Type Checker
+
+- **Fix: Quick Look kind unification** — `qlUnify` now performs full kind unification via `Unify(m.Kind, kindOfType(solution))`, replacing the conservative `qlKindClash` guard that only caught 3 hard-coded patterns.
+- **Fix: `TyFamilyApp.Kind` consistency** — `Equal`, `TypeKey`, `FreeVars`, `OccursIn`, `Subst`, `SubstMany`, and `SubstLevel` now traverse the `Kind` field, matching `Zonk`/`MapType`/`Children`.
+- **Fix: grade boundary check for `inferDo`** — Grade algebra verification on `do`-block bind sequences.
+- **`GradeUnit` added to `GradeAlgebra`** — User-defined grade algebras can now specify the unit element.
+
+### CLI
+
+- **Fix: `-e` input budget enforcement** — Inline source via `-e` now respects `maxTotalSourceSize` (10 MiB); previously it accumulated without limit check.
+- **Fix: `-e ''` branch** — Empty `-e` string no longer falls through to the file-input path; uses `!exprGiven` discriminator.
+- **Fix: header module budget** — Modules resolved from file header directives are now charged against the source size budget.
+- **Fix: `round`/`floor` name collision** — Resolved primitive name collisions with Data.Math exports.
+
+### Stdlib
+
+- **Named capability namespace separation** — Label erasure now prefixes named labels with `#` (e.g., `@#state` erases to `"#state"`), preventing collisions with anonymous capability keys (`"state"`). Host callers providing named capabilities via `RunOptions.Caps` must use the `"#name"` key format.
+- **Allocation budget enforcement** — `fromSlice`, `seqToList`, `seqFromList`, and `seqReverse` now charge `ChargeAlloc`, closing paths that previously bypassed the sandbox allocation limit.
+- **`seq` combinator removed** — Redundant with `*>` from `Applicative`.
+- **`tryAt` documented** — Named error handling for nested fail scopes.
+
+### Performance
+
+- **In-place AVL for MMap/MSet** — Replaced path-copying with in-place mutation, eliminating allocation overhead on insert/delete.
+
+### Runtime
+
+- **Descriptive panics in finger tree spine** — `asNode` now produces clear error messages instead of raw Go assertion failures.
+- **State handler ok-form assertions** — `evalStateAt`/`execStateAt` tuple assertions converted to checked form with `RuntimeError`.
+
+### Docs
+
+- Error message text improvements from field-test findings.
+- `effect-state.md`: documented `*StateAt` handlers (previously marked "Pending").
+- Named capability key convention (`"#name"`) documented.
+
 ## v0.31.1 — 2026-04-12
 
 Type system soundness fixes, universe level normalization, and runtime safety hardening.
