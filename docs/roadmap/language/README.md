@@ -14,12 +14,10 @@ GICEL の言語機能拡張の方向性。
 
 独立して着手可能。
 
-| 項目                  | 分類 | 詳細                                                               |
-| --------------------- | ---- | ------------------------------------------------------------------ |
-| `-\|` 演算子          | 構文 | 右結合型適用。[independent.md](independent.md)                     |
-| Type operators        | 構文 | infix type alias。[independent.md](independent.md)                 |
-| `deriving Eq, Show`   | 機能 | 自動導出                                                           |
-| Session types runtime | 機能 | host primitive (send/recv/close)。[independent.md](independent.md) |
+| 項目                | 分類 | 詳細                                               |
+| ------------------- | ---- | -------------------------------------------------- |
+| Type operators      | 構文 | infix type alias。[independent.md](independent.md) |
+| `deriving Eq, Show` | 機能 | 自動導出                                           |
 
 ## 設計判断の記録
 

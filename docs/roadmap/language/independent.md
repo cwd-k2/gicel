@@ -17,23 +17,6 @@ type (:>) a b := a b
 
 Session type DSL の可読性と SMC 型レベル row 操作のために。
 
-### Type Application Operator (`-|`)
-
-組み込み右結合型適用:
-
-```gicel
-Map String -| List -| Maybe -| Int
-= Map String (List (Maybe Int))
-```
-
-`->` とは **対ではなく対比**。`->` は関数型構築（矢印）、`-|` は適用の区切り（壁）。異なる操作であることが記号自体から伝わる。turnstile `⊢` の連想 — 「ここから先が引数」という境界の意味論。row の `|` と意味が通底する。
-
-## Session Types Runtime
-
-Session types は check-only で正しく動作する。Runtime 実行には host primitive (send/recv/close) が必要。
-
-対応方針: check-only としての完成度を先に上げ、runtime 対応は host primitive 設計を伴う。
-
 ## Design Fork Points
 
 | Fork Point                                  | Current State                            | Decision Trigger                            |
