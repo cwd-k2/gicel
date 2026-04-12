@@ -1,4 +1,4 @@
-# Data.Sequence
+### Data.Sequence
 
 Double-ended sequence backed by a 2-3 finger tree.
 
@@ -47,11 +47,15 @@ import Data.Sequence
 | `null`   | `Seq a -> Bool`           | True if empty            |
 | `index`  | `Int -> Seq a -> Maybe a` | Element at 0-based index |
 
-## Fold
+## Fold and Transform
 
-| Function | Type                               | Description |
-| -------- | ---------------------------------- | ----------- |
-| `foldl`  | `(b -> a -> b) -> b -> Seq a -> b` | Left fold   |
+| Function  | Type                               | Description                        |
+| --------- | ---------------------------------- | ---------------------------------- |
+| `foldl`   | `(b -> a -> b) -> b -> Seq a -> b` | Left fold                          |
+| `foldr`   | `(a -> b -> b) -> b -> Seq a -> b` | Right fold                         |
+| `map`     | `(a -> b) -> Seq a -> Seq b`       | Apply function to each element     |
+| `filter`  | `(a -> Bool) -> Seq a -> Seq a`    | Keep elements satisfying predicate |
+| `reverse` | `Seq a -> Seq a`                   | Reverse element order              |
 
 ## Instances
 

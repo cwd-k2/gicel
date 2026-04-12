@@ -1,4 +1,4 @@
-## 5. Effect System
+## Effect System
 
 ### Computation pre post a
 
@@ -206,3 +206,5 @@ seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
 ```
 
 ---
+
+See also: `stdlib.effect-state`, `stdlib.effect-fail`, `stdlib.effect-array`, `stdlib.effect-ref`, `stdlib.effect-map`, `stdlib.effect-set`, `stdlib.effect-session` for individual effect module references. `example effects.state-effect`, `example effects.fail-effect` for working examples.

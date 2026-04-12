@@ -1,4 +1,4 @@
-## 6. Prelude Reference
+## Prelude Reference
 
 The Prelude is loaded via `eng.Use(gicel.Prelude)` and must be explicitly imported in source with `import Prelude`. It bundles Num, Str, and List alongside the core form types and type classes. Everything below becomes available with `import Prelude`.
 

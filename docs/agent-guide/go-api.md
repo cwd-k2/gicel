@@ -1,4 +1,4 @@
-## 11. Go Integration
+## Go Integration
 
 ### Sandbox API
 

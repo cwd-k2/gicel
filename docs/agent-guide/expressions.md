@@ -1,4 +1,4 @@
-## 4. Expressions
+## Expressions
 
 ### Lambda
 

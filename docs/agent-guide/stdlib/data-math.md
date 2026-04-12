@@ -1,4 +1,4 @@
-# Data.Math
+### Data.Math
 
 Mathematical functions: integer power, bitwise operations, and transcendental functions on Double.
 

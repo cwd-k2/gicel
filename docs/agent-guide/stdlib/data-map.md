@@ -4,30 +4,36 @@ Provides an ordered immutable map backed by an AVL tree. All key-parameterized o
 
 **Functions:**
 
-| Name               | Type                                                           | Description                             |
-| ------------------ | -------------------------------------------------------------- | --------------------------------------- |
-| `empty`            | `\k v. Ord k => Map k v`                                       | Empty map                               |
-| `insert`           | `\k v. Ord k => k -> v -> Map k v -> Map k v`                  | Insert or overwrite a key-value pair    |
-| `lookup`           | `\k v. Ord k => k -> Map k v -> Maybe v`                       | Lookup by key                           |
-| `delete`           | `\k v. Ord k => k -> Map k v -> Map k v`                       | Remove a key                            |
-| `size`             | `\k v. Map k v -> Int`                                         | Number of entries                       |
-| `toList`           | `\k v. Map k v -> List (k, v)`                                 | In-order key-value pairs                |
-| `fromList`         | `\k v. Ord k => List (k, v) -> Map k v`                        | Build map from pairs                    |
-| `member`           | `\k v. Ord k => k -> Map k v -> Bool`                          | Key membership test                     |
-| `foldlWithKey`     | `\k v b. (b -> k -> v -> b) -> b -> Map k v -> b`              | Left fold with key and value            |
-| `unionWith`        | `\k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v`         | Union, combining duplicates with f      |
-| `keys`             | `\k v. Map k v -> List k`                                      | All keys in sorted order                |
-| `values`           | `\k v. Map k v -> List v`                                      | All values in key order                 |
-| `mapValues`        | `\k v w. (v -> w) -> Map k v -> Map k w`                       | Apply function to each value            |
-| `filterWithKey`    | `\k v. (k -> v -> Bool) -> Map k v -> Map k v`                 | Keep entries where predicate is true    |
-| `null`             | `\k v. Map k v -> Bool`                                        | Test if map is empty                    |
-| `singleton`        | `\k v. Ord k => k -> v -> Map k v`                             | Single-entry map                        |
-| `insertWith`       | `\k v. Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v` | Insert with merge function on collision |
-| `intersectionWith` | `\k v w. (v -> w -> w) -> Map k v -> Map k w -> Map k w`       | Intersection combining values with f    |
-| `findMin`          | `\k v. Map k v -> Maybe (k, v)`                                | Smallest key-value pair                 |
-| `findMax`          | `\k v. Map k v -> Maybe (k, v)`                                | Largest key-value pair                  |
-| `mapWithKey`       | `\k v w. (k -> v -> w) -> Map k v -> Map k w`                  | Apply function to each key-value pair   |
-| `foldrWithKey`     | `\k v b. (k -> v -> b -> b) -> b -> Map k v -> b`              | Right fold with key and value           |
+| Name               | Type                                                             | Description                             |
+| ------------------ | ---------------------------------------------------------------- | --------------------------------------- |
+| `empty`            | `\k v. Ord k => Map k v`                                         | Empty map                               |
+| `insert`           | `\k v. Ord k => k -> v -> Map k v -> Map k v`                    | Insert or overwrite a key-value pair    |
+| `lookup`           | `\k v. Ord k => k -> Map k v -> Maybe v`                         | Lookup by key                           |
+| `delete`           | `\k v. Ord k => k -> Map k v -> Map k v`                         | Remove a key                            |
+| `size`             | `\k v. Map k v -> Int`                                           | Number of entries                       |
+| `toList`           | `\k v. Map k v -> List (k, v)`                                   | In-order key-value pairs                |
+| `fromList`         | `\k v. Ord k => List (k, v) -> Map k v`                          | Build map from pairs                    |
+| `member`           | `\k v. Ord k => k -> Map k v -> Bool`                            | Key membership test                     |
+| `foldlWithKey`     | `\k v b. (b -> k -> v -> b) -> b -> Map k v -> b`                | Left fold with key and value            |
+| `unionWith`        | `\k v. (v -> v -> v) -> Map k v -> Map k v -> Map k v`           | Union, combining duplicates with f      |
+| `keys`             | `\k v. Map k v -> List k`                                        | All keys in sorted order                |
+| `values`           | `\k v. Map k v -> List v`                                        | All values in key order                 |
+| `mapValues`        | `\k v w. (v -> w) -> Map k v -> Map k w`                         | Apply function to each value            |
+| `filterWithKey`    | `\k v. (k -> v -> Bool) -> Map k v -> Map k v`                   | Keep entries where predicate is true    |
+| `null`             | `\k v. Map k v -> Bool`                                          | Test if map is empty                    |
+| `singleton`        | `\k v. Ord k => k -> v -> Map k v`                               | Single-entry map                        |
+| `insertWith`       | `\k v. Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v`   | Insert with merge function on collision |
+| `intersectionWith` | `\k v w. (v -> w -> w) -> Map k v -> Map k w -> Map k w`         | Intersection combining values with f    |
+| `findMin`          | `\k v. Map k v -> Maybe (k, v)`                                  | Smallest key-value pair                 |
+| `findMax`          | `\k v. Map k v -> Maybe (k, v)`                                  | Largest key-value pair                  |
+| `mapWithKey`       | `\k v w. (k -> v -> w) -> Map k v -> Map k w`                    | Apply function to each key-value pair   |
+| `foldrWithKey`     | `\k v b. (k -> v -> b -> b) -> b -> Map k v -> b`                | Right fold with key and value           |
+| `alter`            | `\k v. Ord k => (Maybe v -> Maybe v) -> k -> Map k v -> Map k v` | Insert, update, or delete by key        |
+| `union`            | `\k v. Map k v -> Map k v -> Map k v`                            | Left-biased union                       |
+| `difference`       | `\k v. Map k v -> Map k v -> Map k v`                            | Remove keys present in second map       |
+| `intersection`     | `\k v. Map k v -> Map k v -> Map k v`                            | Keep keys present in both maps          |
+| `toAscList`        | `\k v. Map k v -> List (k, v)`                                   | Key-value pairs in ascending key order  |
+| `toDescList`       | `\k v. Map k v -> List (k, v)`                                   | Key-value pairs in descending key order |
 
 **Notes:**
 

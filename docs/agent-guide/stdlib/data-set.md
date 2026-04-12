@@ -25,6 +25,8 @@ Provides an ordered immutable set backed by a Map. Load with `eng.Use(gicel.Data
 | `filter`       | `\k. Ord k => (k -> Bool) -> Set k -> Set k`                 | Keep elements satisfying predicate |
 | `map`          | `\k1 k2. (Ord k1, Ord k2) => (k1 -> k2) -> Set k1 -> Set k2` | Map a function over elements       |
 | `fold`         | `\k b. (b -> k -> b) -> b -> Set k -> b`                     | Left fold over elements            |
+| `toAscList`    | `\k. Set k -> List k`                                        | Elements in ascending order        |
+| `toDescList`   | `\k. Set k -> List k`                                        | Elements in descending order       |
 
 **Notes:**
 

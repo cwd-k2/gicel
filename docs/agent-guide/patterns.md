@@ -1,4 +1,4 @@
-## 9. Common Patterns
+## Common Patterns
 
 ### Pattern Matching
 
@@ -174,7 +174,7 @@ main := suspended
 
 ---
 
-## 10. Pitfalls
+## Pitfalls
 
 ### Syntax
 

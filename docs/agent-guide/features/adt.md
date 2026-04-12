@@ -110,3 +110,7 @@ Example:
 ```
 type Effect := \r a. Computation Zero r r a
 ```
+
+---
+
+See also: `features.type-classes` for class declaration with `form`, `features.type-families` for associated types, `stdlib.prelude` for built-in data types (Bool, Maybe, Result, List).

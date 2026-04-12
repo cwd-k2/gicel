@@ -119,3 +119,7 @@ eng.Use(gicel.EffectState)
 rt, err := eng.NewRuntime(ctx, source)
 result, err := rt.RunWith(ctx, nil)
 ```
+
+---
+
+See also: `syntax` for language keywords and punctuation, `expressions` for lambda/case/do syntax, `patterns` for common patterns and pitfalls, `go-api` for full Go embedding API.

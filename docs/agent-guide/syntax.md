@@ -1,4 +1,4 @@
-## 2. Language Overview
+## Language Overview
 
 ### Keywords (15)
 

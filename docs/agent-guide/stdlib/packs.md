@@ -1,4 +1,4 @@
-## 7. Stdlib Reference
+## Stdlib Reference
 
 Stdlib packs are loaded on the host side via `eng.Use(pack)` and imported in source. Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `eng.Use(gicel.Prelude)` on the engine and `import Prelude` in source. `NewEngine()` returns a bare engine with only Core.
 

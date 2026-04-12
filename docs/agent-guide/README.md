@@ -61,7 +61,7 @@ Typical agent workflow:
 
 ---
 
-## 1. Quick Start
+## Quick Start
 
 ### Minimal Program
 
