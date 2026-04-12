@@ -121,8 +121,12 @@ func (imp *Importer) Import(
 				ModuleName: decl.ModuleName,
 				Exports:    mod,
 			}
-			// Instances always imported (coherence requirement).
+			// Instances and type families always imported (coherence
+			// requirement). Type families must be visible so that
+			// associated types (e.g. Elem) can reduce when the
+			// instance is used through the qualified scope.
 			imp.importInstances(mod)
+			imp.importFamilies(mod, decl.ModuleName, decl.S)
 
 		case decl.Names != nil:
 			// Selective import: import M (x, T(..), C(A,B))
@@ -360,17 +364,24 @@ func (imp *Importer) importOpen(mod *env.ModuleExports, moduleName string, s spa
 			imp.env.RegisterPromotedCon(name, kind)
 		}
 	}
-	for name, fam := range mod.TypeFamilies {
-		if !imp.checkAmbiguousTypeName(name, moduleName, s) {
-			_ = imp.env.RegisterFamily(name, fam.Clone())
-		}
-	}
+	imp.importFamilies(mod, moduleName, s)
 }
 
 // importInstances imports all instances from a module (for coherence).
 func (imp *Importer) importInstances(mod *env.ModuleExports) {
 	for _, inst := range mod.Instances {
 		imp.env.ImportInstance(inst)
+	}
+}
+
+// importFamilies imports type families from a module. Required for coherence:
+// associated type families (e.g. Elem) must be visible so that instance method
+// return types can reduce, even when the module is imported qualified.
+func (imp *Importer) importFamilies(mod *env.ModuleExports, moduleName string, s span.Span) {
+	for name, fam := range mod.TypeFamilies {
+		if !imp.checkAmbiguousTypeName(name, moduleName, s) {
+			_ = imp.env.RegisterFamily(name, fam.Clone())
+		}
 	}
 }
 
