@@ -326,9 +326,10 @@ func TestProbeD_Unify_RowMismatchedFieldType(t *testing.T) {
 }
 
 // TestProbeD_Unify_TwoTyFamilyAppNodes — unifying two TyFamilyApp nodes
-// with the same family name should unify their arguments pairwise.
+// with the same injective family name should unify their arguments pairwise.
 func TestProbeD_Unify_TwoTyFamilyAppNodes(t *testing.T) {
 	u := unify.NewUnifier()
+	u.IsInjective = func(string) bool { return true } // decomposition requires injectivity
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	fam1 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{meta}, Kind: types.TypeOfTypes}
 	fam2 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{types.Con("List")}, Kind: types.TypeOfTypes}
@@ -697,9 +698,10 @@ func TestProbeE_Unify_TyFamilyAppDifferentNames(t *testing.T) {
 }
 
 // TestProbeE_Unify_TyFamilyAppWithMeta — a TyFamilyApp where one arg is
-// a meta should solve the meta.
+// a meta should solve the meta (injective family).
 func TestProbeE_Unify_TyFamilyAppWithMeta(t *testing.T) {
 	u := unify.NewUnifier()
+	u.IsInjective = func(string) bool { return true } // decomposition requires injectivity
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{meta}, Kind: types.TypeOfTypes}
 	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}

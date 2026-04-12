@@ -87,6 +87,14 @@ type Unifier struct {
 	// is safe only when the types being unified are freshly instantiated.
 	FlexSkolems bool
 
+	// IsInjective reports whether a named type family is injective.
+	// When non-nil and returning true, Unify decomposes stuck
+	// TyFamilyApp(F, args) ~ TyFamilyApp(F, args') into pairwise
+	// arg constraints. When nil or returning false, decomposition is
+	// not justified and the constraint falls through to MismatchError
+	// (which the solver may re-register as stuck).
+	IsInjective func(name string) bool
+
 	// zonkEntriesFn is a pre-bound method value for u.zonkInner used as
 	// the callback to EvidenceEntries.ZonkEntries on TyEvidenceRow nodes.
 	// Constructed once at NewUnifier time so the per-call method-value
@@ -379,12 +387,24 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	case *types.TyFamilyApp:
 		if bt, ok := b.(*types.TyFamilyApp); ok && at.Name == bt.Name && len(at.Args) == len(bt.Args) {
-			for i := range at.Args {
-				if err := u.Unify(at.Args[i], bt.Args[i]); err != nil {
-					return err
-				}
+			// Reflexivity: structurally identical stuck applications always
+			// unify regardless of injectivity. Both sides are already zonked
+			// (lines 195-196), so Equal sees resolved args.
+			if types.Equal(at, bt) {
+				return nil
 			}
-			return nil
+			// Decompose F(a₁..aₙ) ~ F(b₁..bₙ) only when F is injective.
+			// Non-injective families must not be decomposed: G(Int) = G(String) = Bool
+			// does not imply Int ~ String. The solver handles non-injective stuck
+			// equalities via CtFunEq re-activation (B-2 soundness fix).
+			if u.IsInjective != nil && u.IsInjective(at.Name) {
+				for i := range at.Args {
+					if err := u.Unify(at.Args[i], bt.Args[i]); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 		}
 	}
 

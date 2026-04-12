@@ -143,6 +143,12 @@ func (ch *Checker) installFamilyReducer() {
 	env := ch.familyEnv()
 	ch.unifier.FamilyReducer = env.ReduceAll
 	ch.unifier.TryReduceFamily = env.ReduceTyFamily
+	ch.unifier.IsInjective = func(name string) bool {
+		if info, ok := ch.lookupFamily(name); ok {
+			return info.ResultName != ""
+		}
+		return false
+	}
 }
 
 // registerBuiltinRowFamilies registers type family info for builtin row-level

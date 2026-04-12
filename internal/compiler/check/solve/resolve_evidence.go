@@ -114,6 +114,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				}
 			}
 			// Verify context compatibility: instance context should subsume quantified context.
+			// Pairwise unify context arguments (not just name+arity) to distinguish
+			// e.g. `C1 (F a)` from `C1 (G a)` — see S-1 soundness fix.
 			if len(inst.Context) != len(qc.Context) {
 				return false
 			}
@@ -122,8 +124,16 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				if ic.ClassName != types.HeadClassName(qcc) {
 					return false
 				}
-				if len(ic.Args) != len(types.HeadClassArgs(qcc)) {
+				qccArgs := types.HeadClassArgs(qcc)
+				if len(ic.Args) != len(qccArgs) {
 					return false
+				}
+				for j := range ic.Args {
+					instArg := psInst.Apply(ic.Args[j])
+					qcArg := psHead.Apply(qccArgs[j])
+					if err := s.env.Unify(instArg, qcArg); err != nil {
+						return false
+					}
 				}
 			}
 			return true
@@ -172,11 +182,35 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 			}
 			for i, ec := range eq.Context {
 				qcc := qc.Context[i]
+				// EqualityEntry: unify both sides of the equality.
+				if ecEq, ok := ec.(*types.EqualityEntry); ok {
+					qccEq, ok := qcc.(*types.EqualityEntry)
+					if !ok {
+						return false
+					}
+					if err := s.env.Unify(psEvidence.Apply(ecEq.Lhs), psWanted.Apply(qccEq.Lhs)); err != nil {
+						return false
+					}
+					if err := s.env.Unify(psEvidence.Apply(ecEq.Rhs), psWanted.Apply(qccEq.Rhs)); err != nil {
+						return false
+					}
+					continue
+				}
+				// ClassEntry and other class-headed entries: name + pairwise arg unification.
 				if types.HeadClassName(ec) != types.HeadClassName(qcc) {
 					return false
 				}
-				if len(types.HeadClassArgs(ec)) != len(types.HeadClassArgs(qcc)) {
+				ecArgs := types.HeadClassArgs(ec)
+				qccArgs := types.HeadClassArgs(qcc)
+				if len(ecArgs) != len(qccArgs) {
 					return false
+				}
+				for j := range ecArgs {
+					eArg := psEvidence.Apply(ecArgs[j])
+					qArg := psWanted.Apply(qccArgs[j])
+					if err := s.env.Unify(eArg, qArg); err != nil {
+						return false
+					}
 				}
 			}
 			return true
