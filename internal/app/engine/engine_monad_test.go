@@ -314,17 +314,17 @@ main := do {
 // Integration Tests (Group 4A/4B)
 // ---------------------------------------------------------------------------
 
-func TestThenCombinator(t *testing.T) {
+func TestSequencingDoNotation(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.DeclareBinding("x", ConType("Int"))
 	eng.DeclareBinding("y", ConType("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
-main := seq (pure x) (pure y)
+main := do { pure x; pure y }
 `)
 	if err != nil {
-		t.Fatalf("seq combinator should compile: %v", err)
+		t.Fatalf("do-notation sequencing should compile: %v", err)
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Bindings: map[string]eval.Value{
 		"x": ToValue(1),

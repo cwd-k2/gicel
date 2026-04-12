@@ -12,7 +12,6 @@ func TestCoreSourceContainsEssentials(t *testing.T) {
 		"GIMonad g Computation",
 		"type Lift",
 		"type Effect",
-		"seq :=",
 	} {
 		if !strings.Contains(CoreSource, want) {
 			t.Errorf("CoreSource missing %q", want)

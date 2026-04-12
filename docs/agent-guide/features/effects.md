@@ -196,15 +196,6 @@ Without #a { a: Int, b: String }  -- reduces to { b: String }
 Lookup #a { a: Int, b: String }   -- reduces to Int
 ```
 
-### seq
-
-Provided by Core (always available without import) for sequencing when you do not need the intermediate result:
-
-```
-seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row).
-  Computation @e1 r1 r2 a -> Computation @e2 r2 r3 b -> Computation @e2 r1 r3 b
-```
-
 ---
 
 See also: `stdlib.effect-state`, `stdlib.effect-fail`, `stdlib.effect-array`, `stdlib.effect-ref`, `stdlib.effect-map`, `stdlib.effect-set`, `stdlib.effect-session` for individual effect module references. `example effects.state-effect`, `example effects.fail-effect` for working examples.

@@ -1539,7 +1539,7 @@ gicel run --module Util=lib/Util.gicel main.gicel
 
 The Prelude is split into two parts:
 
-- **Core** (not replaceable): language-essential definitions — `GradeAlgebra` class, `UsageSemiring` class, `GIMonad` class, `Trivial` grade, `Computation` instance, `Effect` alias, `Suspended` alias, `Lift` type alias, `seq` combinator, `merge`/`(***)` parallel composition, `dag`/`Gate` dagger
+- **Core** (not replaceable): language-essential definitions — `GradeAlgebra` class, `UsageSemiring` class, `GIMonad` class, `Trivial` grade, `Computation` instance, `Effect` alias, `Suspended` alias, `Lift` type alias, `merge`/`(***)` parallel composition, `dag`/`Gate` dagger
 - **Prelude** (replaceable): standard library types, classes, instances — `Bool`, `Maybe`, `List`, `Ordering`, type classes (Eq through ToList, including Num and Div), instances
 
 Core is auto-registered and auto-imported; the user cannot control it. Prelude requires explicit `Use(Prelude)` on the engine and `import Prelude` in source.

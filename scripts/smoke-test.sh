@@ -337,8 +337,8 @@ expect_output "Bool JSON output" '"value": true' \
 expect_error_contains "module name validation error" "must start with an uppercase letter" \
   "$GICEL" run --module "bad=file.gicel" -e 'main := 1'
 
-expect_output "seq combinator" "42" \
-  "$GICEL" run -e 'import Prelude; main := do { seq (pure 1) (pure 42) }'
+expect_output "do sequencing" "42" \
+  "$GICEL" run -e 'import Prelude; main := do { pure 1; pure 42 }'
 
 # --- Equality constraints ---
 expect_ok "equality constraint (a ~ Int)" \

@@ -67,10 +67,6 @@ impl GradeAlgebra g => GIMonad g Computation := {
   gibind := bind
 }
 
--- Sequence two computations, discarding the first result.
-seq :: \a b (g: Kind) (e1: g) (e2: g) (r1: Row) (r2: Row) (r3: Row). Computation @e1 r1 r2 a -> Computation @e2 r2 r3 b -> Computation @e2 r1 r3 b
-seq := \m1 m2. bind m1 (\_. m2)
-
 -- SMC Phase 2: Parallel Composition
 -- merge splits capability environments and runs both computations independently.
 -- pre/post rows must be disjoint (enforced by Merge type family).
