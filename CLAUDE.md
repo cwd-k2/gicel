@@ -23,7 +23,7 @@ prettier --write docs/                 # format docs
 ./scripts/run-examples.sh              # run all Go + GICEL examples
 ./scripts/full-check.sh                # full suite (tests + examples + smoke)
 
-# Performance (see docs/perf-overview.md for tier definitions)
+# Performance
 ./scripts/perf-snapshot.sh [label]     # take a full bench snapshot → tmp/perf/<label>/
 ./scripts/perf-compare.sh A B          # benchstat-diff two snapshots
 ./scripts/perf-profile.sh BenchName    # CPU + alloc profile for one bench
@@ -186,9 +186,6 @@ In-package probes: `internal/compiler/check/*_probe_test.go`, `internal/compiler
 - `stress`: no tag. Run with `go test ./tests/stress/`.
 
 ### Performance benchmarks
-
-See [docs/perf-overview.md](docs/perf-overview.md) for the full bench
-map and tier definitions. Quick reference:
 
 - **Tier 1** — `BenchmarkEngineEndToEnd*` / `BenchmarkEndToEnd*`: cold
   end-to-end (compile + run per iter). Reflects CLI wall time. Compile
