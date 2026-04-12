@@ -66,7 +66,7 @@ func msetInsertImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
-	newRoot, inserted, newCe, err := avlInsert(m.root, key, unitVal, m.cmp, ce, apply)
+	newRoot, inserted, newCe, err := avlInsertMut(m.root, key, unitVal, m.cmp, ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -101,7 +101,7 @@ func msetDeleteImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, appl
 	if err := budget.ChargeAlloc(ctx, costAVLNode); err != nil {
 		return nil, ce, err
 	}
-	newRoot, deleted, newCe, err := avlDelete(m.root, key, m.cmp, ce, apply)
+	newRoot, deleted, newCe, err := avlDeleteMut(m.root, key, m.cmp, ce, apply)
 	if err != nil {
 		return nil, ce, err
 	}
@@ -154,7 +154,7 @@ func msetFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 		}
 		var inserted bool
 		var err error
-		m.root, inserted, ce, err = avlInsert(m.root, con.Args[0], unitVal, cmp, ce, apply)
+		m.root, inserted, ce, err = avlInsertMut(m.root, con.Args[0], unitVal, cmp, ce, apply)
 		if err != nil {
 			return nil, ce, err
 		}
