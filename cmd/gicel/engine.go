@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -256,6 +258,13 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 }
 
 func handleCompileError(err error, jsonOut bool) int {
+	// Wrap raw context errors so users see "compilation timed out"
+	// instead of Go-internal "context deadline exceeded".
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = fmt.Errorf("compilation timed out")
+	} else if errors.Is(err, context.Canceled) {
+		err = fmt.Errorf("compilation cancelled")
+	}
 	if jsonOut {
 		outputJSON(compileErrorJSON(err))
 	} else {
