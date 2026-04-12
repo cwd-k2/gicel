@@ -2,7 +2,8 @@
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
   type GradeCompose :: g -> g -> g;
-  type GradeDrop :: g
+  type GradeDrop :: g;
+  type GradeUnit :: g
 }
 
 -- Trivial grade algebra: a single-element grade that carries no information.
@@ -17,7 +18,8 @@ type TrivialCompose :: Trivial -> Trivial -> Trivial :=
 impl GradeAlgebra Trivial := {
   type GradeJoin := TrivialJoin;
   type GradeCompose := TrivialCompose;
-  type GradeDrop := Triv
+  type GradeDrop := Triv;
+  type GradeUnit := Triv
 }
 
 -- UsageSemiring: value-level operations on grade values.

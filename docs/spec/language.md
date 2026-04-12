@@ -1914,7 +1914,8 @@ The `GradeAlgebra` class (defined in Core) enables user-defined grade lattices:
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
   type GradeCompose :: g -> g -> g;
-  type GradeDrop :: g
+  type GradeDrop :: g;
+  type GradeUnit :: g
 }
 ```
 
@@ -1926,7 +1927,9 @@ The standard `Mult` algebra is provided by Prelude. `GradeAlgebra` is defined in
 form Level := { Public: Level; Secret: Level }
 impl GradeAlgebra Level := {
   type GradeJoin := LevelJoin;
-  type GradeDrop := Public
+  type GradeCompose := LevelJoin;
+  type GradeDrop := Public;
+  type GradeUnit := Public
 }
 ```
 

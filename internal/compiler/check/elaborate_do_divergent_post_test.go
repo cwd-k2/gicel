@@ -154,12 +154,14 @@ type MultDrop :: Mult := Unrestricted
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
   type GradeCompose :: g -> g -> g;
-  type GradeDrop :: g
+  type GradeDrop :: g;
+  type GradeUnit :: g
 }
 impl GradeAlgebra Mult := {
   type GradeJoin := MultJoin;
   type GradeCompose := MultCompose;
-  type GradeDrop := Unrestricted
+  type GradeDrop := Unrestricted;
+  type GradeUnit := Linear
 }
 form Bool := { True: Bool; False: Bool; }
 form Unit := { Unit: Unit; }
@@ -191,12 +193,14 @@ type MultCompose :: Mult := MultJoin
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
   type GradeCompose :: g -> g -> g;
-  type GradeDrop :: g
+  type GradeDrop :: g;
+  type GradeUnit :: g
 }
 impl GradeAlgebra Mult := {
   type GradeJoin := MultJoin;
   type GradeCompose := MultCompose;
-  type GradeDrop := Unrestricted
+  type GradeDrop := Unrestricted;
+  type GradeUnit := Linear
 }
 form Bool := { True: Bool; False: Bool; }
 form Unit := { Unit: Unit; }

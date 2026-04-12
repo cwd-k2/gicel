@@ -26,6 +26,7 @@ type resolvedGradeAlgebra struct {
 	joinFamily    string     // name of the GradeJoin type family
 	composeFamily string     // name of the GradeCompose type family
 	dropValue     types.Type // the Drop element (promoted constructor, e.g. Zero)
+	unitValue     types.Type // the Unit element (identity of Compose, e.g. Linear)
 	valid         bool       // false if no GradeAlgebra instance found
 }
 
@@ -96,6 +97,8 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 			}
 		case "GradeDrop":
 			result.dropValue = reduced
+		case "GradeUnit":
+			result.unitValue = reduced
 		}
 	}
 	return result
@@ -207,6 +210,8 @@ func extractGradeAlgebraFromRegistry(reg *Registry, classInfo *ClassInfo, inst *
 				}
 			case "GradeDrop":
 				result.dropValue = reduced
+			case "GradeUnit":
+				result.unitValue = reduced
 			}
 			break
 		}

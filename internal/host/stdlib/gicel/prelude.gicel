@@ -35,7 +35,8 @@ type MultCompose :: Mult -> Mult -> Mult := \(m1: Mult) (m2: Mult). case (m1, m2
 impl GradeAlgebra Mult := {
   type GradeJoin := MultJoin;
   type GradeCompose := MultCompose;
-  type GradeDrop := Zero
+  type GradeDrop := Zero;
+  type GradeUnit := Linear
 }
 
 -- Value-level multiplicity operations (parallel to MultJoin/MultCompose).

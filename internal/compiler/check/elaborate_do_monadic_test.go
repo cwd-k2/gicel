@@ -110,13 +110,15 @@ type MyGradeCompose :: MyGrade -> MyGrade -> MyGrade :=
 form GradeAlgebra := \(g: Kind). {
   type GradeJoin :: g -> g -> g;
   type GradeCompose :: g -> g -> g;
-  type GradeDrop :: g
+  type GradeDrop :: g;
+  type GradeUnit :: g
 }
 
 impl GradeAlgebra MyGrade := {
   type GradeJoin := MyGradeJoin;
   type GradeCompose := MyGradeCompose;
-  type GradeDrop := Low
+  type GradeDrop := Low;
+  type GradeUnit := Low
 }
 
 form GIMonad := \(g: Kind) (m: g -> Row -> Row -> Type -> Type). GradeAlgebra g => {

@@ -42,7 +42,8 @@ type LevelCompose :: Level -> Level -> Level := \(a: Level) (b: Level). case (a,
 impl GradeAlgebra Level := {
   type GradeJoin := LevelJoin;
   type GradeCompose := LevelCompose;
-  type GradeDrop := Public
+  type GradeDrop := Public;
+  type GradeUnit := Public
 }
 
 -- Show instance for display.

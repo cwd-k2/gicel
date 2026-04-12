@@ -294,7 +294,13 @@ func (ch *Checker) inferDo(e *syntax.ExprDo) (types.Type, ir.Core) {
 		return ch.errorPair(e.S)
 	}
 	d := &doInfer{ch: ch}
-	return doElaborate(ch, d, e.Stmts, e.S)
+	ty, core := doElaborate(ch, d, e.Stmts, e.S)
+	// Grade boundary check: verify @Linear capabilities are consumed.
+	// Mirrors checkDo (elaborate_do_monadic.go:27).
+	if comp, ok := ch.unifier.Zonk(ty).(*types.TyCBPV); ok && comp.Tag == types.TagComp {
+		ch.checkGradeBoundary(comp, e.S)
+	}
+	return ty, core
 }
 
 // --- Shared helpers ---

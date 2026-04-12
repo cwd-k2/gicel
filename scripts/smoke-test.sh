@@ -367,7 +367,7 @@ expect_ok "kind cumulativity: KData ≤ Kind" \
 
 # --- User-defined grade algebra ---
 expect_ok "user-defined grade algebra (Level)" \
-  "$GICEL" check --packs prelude -e 'import Prelude; form Level := { Public: Level; Secret: Level }; type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) { (Secret, _) => Secret; (_, Secret) => Secret; (x, _) => x }; impl GradeAlgebra Level := { type GradeJoin := LevelJoin; type GradeDrop := Public }; main := 42'
+  "$GICEL" check --packs prelude -e 'import Prelude; form Level := { Public: Level; Secret: Level }; type LevelJoin :: Level -> Level -> Level := \(a: Level) (b: Level). case (a, b) { (Secret, _) => Secret; (_, Secret) => Secret; (x, _) => x }; impl GradeAlgebra Level := { type GradeJoin := LevelJoin; type GradeCompose := LevelJoin; type GradeDrop := Public; type GradeUnit := Public }; main := 42'
 
 # --- Named capability handlers (do-block driving) ---
 expect_output "evalStateAt do-block" "11" \
