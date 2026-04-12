@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.31.1 — 2026-04-12
+
+Type system soundness fixes, universe level normalization, and runtime safety hardening.
+
+### Type Checker
+
+- **Fix: quantified constraint evidence selection (S-1)** — `resolveQuantifiedConstraint` now pairwise-unifies context arguments, not just class name and arity. Previously, `forall a. C1 (F a) => C2 a` and `forall a. C1 (G a) => C2 a` were treated as interchangeable.
+- **Fix: non-injective type family decomposition (B-2)** — `Unify` no longer decomposes `F(α) ~ F(β)` for non-injective families. Decomposition is now gated on `IsInjective`; reflexivity (`types.Equal`) still succeeds regardless.
+- **Fix: Quick Look kind guard (A-3)** — `qlUnify` rejects `SolveFreshMeta` when the meta's kind obviously clashes with the target (Row vs Type). Prevents kind-incorrect solutions from surviving trial scope.
+- **Fix: open Variant exhaustiveness (C-3)** — Variant types with open row tails (unsolved meta) now require a wildcard branch. Previously, partial signatures were silently treated as complete.
+- **Universe level normalization (C-2)** — `normalizeLevel` now handles the semilattice laws for symbolic level expressions: absorption (`max(l, 0) → l`) and canonical ordering for commutativity. Full solver not needed.
+
+### CLI
+
+- **Fix: compilation timeout message** — Shows "compilation timed out" instead of Go-internal context error.
+- **Fix: Seq pretty-print, Map/Slice JSON** — Seq no longer prints Go pointer; Map and Slice serialize correctly in `--json` mode.
+- **Fix: `--help` pack list** — Added missing session, math, seq packs.
+
+### Runtime
+
+- **Fix: panicking type assertions → ok-form** — Replaced post-validate panicking assertions in session, fail, and state handlers with safe ok-form checks via `extractLabel` helper.
+
+### Internal
+
+- **Fix: type family coherence on qualified import** — Type families registered on qualified import for coherence.
+- **Fix: error cascade after nesting limit** — Suppresses cascading errors after structural nesting depth violation.
+
+### Docs
+
+- Merged `functions.md` into `prelude.md` (single source of truth).
+- Removed section numbers, added See also links, documented missing exports.
+
 ## v0.31.0 — 2026-04-12
 
 Variant types with label patterns, GradeAlgebra axiom verification, and compiler hardening.
