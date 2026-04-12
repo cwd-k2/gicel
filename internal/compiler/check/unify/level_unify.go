@@ -109,11 +109,13 @@ func levelContainsMeta(l types.LevelExpr) bool {
 	}
 }
 
-// normalizeLevel simplifies concrete LevelMax and LevelSucc expressions.
+// normalizeLevel simplifies level expressions using the free semilattice laws:
 //
-//	max(LevelLit(a), LevelLit(b)) → LevelLit(max(a, b))
-//	max(l, l) → l
-//	succ(LevelLit(n)) → LevelLit(n+1)
+//	max(LevelLit(a), LevelLit(b)) → LevelLit(max(a, b))   concrete reduction
+//	max(l, 0) → l                                          absorption (identity)
+//	max(l, l) → l                                          idempotence
+//	max(l2, l1) → max(l1, l2) when l1 < l2                 canonical ordering (commutativity)
+//	succ(LevelLit(n)) → LevelLit(n+1)                      concrete reduction
 func normalizeLevel(l types.LevelExpr) types.LevelExpr {
 	switch ll := l.(type) {
 	case *types.LevelMax:
@@ -121,14 +123,28 @@ func normalizeLevel(l types.LevelExpr) types.LevelExpr {
 		b := normalizeLevel(ll.B)
 		la, okA := a.(*types.LevelLit)
 		lb, okB := b.(*types.LevelLit)
+		// Both concrete: take max.
 		if okA && okB {
 			if la.N >= lb.N {
 				return la
 			}
 			return lb
 		}
+		// Absorption: max(l, 0) = l (identity element of the semilattice).
+		if okA && la.N == 0 {
+			return b
+		}
+		if okB && lb.N == 0 {
+			return a
+		}
+		// Idempotence: max(l, l) = l.
 		if types.LevelEqual(a, b) {
 			return a
+		}
+		// Canonical ordering: sort operands so max(l2, l1) and max(l1, l2)
+		// normalize to the same form.
+		if levelCompare(a, b) > 0 {
+			a, b = b, a
 		}
 		if a != ll.A || b != ll.B {
 			return &types.LevelMax{A: a, B: b}
@@ -208,5 +224,59 @@ func (u *Unifier) zonkLevel(l types.LevelExpr) types.LevelExpr {
 		return &types.LevelSucc{E: zE}
 	default:
 		return l
+	}
+}
+
+// levelCompare defines a total order on LevelExpr for canonical normalization.
+// Returns negative if a < b, zero if equal, positive if a > b.
+// Ordering: LevelLit < LevelVar < LevelMeta < LevelSucc < LevelMax.
+// Within the same constructor: compare by N, Name, ID, or recursively.
+func levelCompare(a, b types.LevelExpr) int {
+	ta, tb := levelTag(a), levelTag(b)
+	if ta != tb {
+		return ta - tb
+	}
+	switch aa := a.(type) {
+	case *types.LevelLit:
+		return aa.N - b.(*types.LevelLit).N
+	case *types.LevelVar:
+		bb := b.(*types.LevelVar)
+		if aa.Name < bb.Name {
+			return -1
+		}
+		if aa.Name > bb.Name {
+			return 1
+		}
+		return 0
+	case *types.LevelMeta:
+		return aa.ID - b.(*types.LevelMeta).ID
+	case *types.LevelSucc:
+		return levelCompare(aa.E, b.(*types.LevelSucc).E)
+	case *types.LevelMax:
+		bb := b.(*types.LevelMax)
+		if c := levelCompare(aa.A, bb.A); c != 0 {
+			return c
+		}
+		return levelCompare(aa.B, bb.B)
+	default:
+		return 0
+	}
+}
+
+// levelTag returns a numeric tag for ordering LevelExpr constructors.
+func levelTag(l types.LevelExpr) int {
+	switch l.(type) {
+	case *types.LevelLit:
+		return 0
+	case *types.LevelVar:
+		return 1
+	case *types.LevelMeta:
+		return 2
+	case *types.LevelSucc:
+		return 3
+	case *types.LevelMax:
+		return 4
+	default:
+		return 5
 	}
 }
