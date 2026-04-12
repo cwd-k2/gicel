@@ -153,7 +153,10 @@ func evalStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	rv := tuple.(*eval.RecordVal)
+	rv, ok := tuple.(*eval.RecordVal)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "internal: state handler returned non-record"}
+	}
 	val, _ := rv.Get(types.TupleLabel(2))
 	return val, newCe, nil
 }
@@ -171,7 +174,10 @@ func execStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if err != nil {
 		return nil, ce, err
 	}
-	rv := tuple.(*eval.RecordVal)
+	rv, ok := tuple.(*eval.RecordVal)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "internal: state handler returned non-record"}
+	}
 	state, _ := rv.Get(types.TupleLabel(1))
 	return state, newCe, nil
 }

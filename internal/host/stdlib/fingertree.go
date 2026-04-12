@@ -47,7 +47,15 @@ func nodeVal(n *node23) eval.Value {
 }
 
 func asNode(v eval.Value) *node23 {
-	return v.(*eval.HostVal).Inner.(*node23)
+	hv, ok := v.(*eval.HostVal)
+	if !ok {
+		panic("internal: expected HostVal in finger tree spine")
+	}
+	n, ok := hv.Inner.(*node23)
+	if !ok {
+		panic("internal: expected node23 in finger tree spine")
+	}
+	return n
 }
 
 func digitSize(d []eval.Value) int {

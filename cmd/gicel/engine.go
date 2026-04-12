@@ -115,6 +115,9 @@ func readSource(fs *flag.FlagSet, expr string, exprGiven bool, budget *sourceBud
 		}
 		data := []byte(expr)
 		budget.used += int64(len(data))
+		if budget.used > maxTotalSourceSize {
+			return nil, fmt.Errorf("total source size exceeds limit (%d MiB)", maxTotalSourceSize/(1024*1024))
+		}
 		return data, nil
 	}
 	if fs.NArg() < 1 {
@@ -206,7 +209,7 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	// Resolve header directives early so that --packs from the header
 	// can be used when the CLI flag is not explicitly specified.
 	var headerResult *header.ResolveResult
-	if expr == "" && fs.NArg() > 0 && fs.Arg(0) != "-" {
+	if !exprGiven && fs.NArg() > 0 && fs.Arg(0) != "-" {
 		headerResult, err = header.Resolve(string(source), fs.Arg(0))
 		if err != nil {
 			return nil, nil, err
@@ -245,6 +248,16 @@ func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, 
 	if headerResult != nil {
 		if headerResult.Recursion {
 			eng.EnableRecursion()
+		}
+		// Charge header-resolved module sources against the input budget.
+		for _, mod := range headerResult.Modules {
+			if eng.HasModule(mod.Name) {
+				continue
+			}
+			budget.used += int64(len(mod.Source))
+		}
+		if budget.used > maxTotalSourceSize {
+			return nil, nil, fmt.Errorf("total source size exceeds limit (%d MiB)", maxTotalSourceSize/(1024*1024))
 		}
 		for _, mod := range headerResult.Modules {
 			if eng.HasModule(mod.Name) {

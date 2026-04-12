@@ -72,6 +72,9 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		for _, a := range ty.Args {
 			freeVarsRec(a, bound, fv, depth+1)
 		}
+		if ty.Kind != nil {
+			freeVarsRec(ty.Kind, bound, fv, depth+1)
+		}
 	case *TySkolem, *TyMeta, *TyError:
 		// no free vars
 	}
@@ -160,6 +163,9 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 			if occursIn(name, a, bound, depth+1) {
 				return true
 			}
+		}
+		if ty.Kind != nil && occursIn(name, ty.Kind, bound, depth+1) {
+			return true
 		}
 		return false
 	default:

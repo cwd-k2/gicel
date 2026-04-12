@@ -168,16 +168,25 @@ func seqLengthImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	return eval.IntVal(int64(sv.tree.ftreeSize())), ce, nil
 }
 
-func seqToListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func seqToListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	sv, err := asSeqVal(args[0])
 	if err != nil {
+		return nil, ce, err
+	}
+	if err := budget.ChargeAlloc(ctx, int64(sv.tree.ftreeSize())*costConsNode); err != nil {
 		return nil, ce, err
 	}
 	return ftToList(sv.tree), ce, nil
 }
 
-func seqFromListImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	return seqWrap(ftFromList(args[0])), ce, nil
+func seqFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+	tree := ftFromList(args[0])
+	if size := tree.ftreeSize(); size > 0 {
+		if err := budget.ChargeAlloc(ctx, int64(size)*costFTNode); err != nil {
+			return nil, ce, err
+		}
+	}
+	return seqWrap(tree), ce, nil
 }
 
 func seqFoldlImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -256,12 +265,15 @@ func seqFilterImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply
 	return seqWrap(result), ce, nil
 }
 
-func seqReverseImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func seqReverseImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	sv, err := asSeqVal(args[0])
 	if err != nil {
 		return nil, ce, err
 	}
 	items := ftToSlice(sv.tree)
+	if err := budget.ChargeAlloc(ctx, int64(len(items))*costFTNode); err != nil {
+		return nil, ce, err
+	}
 	result := ftree(ftEmpty{})
 	for i := len(items) - 1; i >= 0; i-- {
 		result = ftSnoc(result, items[i])

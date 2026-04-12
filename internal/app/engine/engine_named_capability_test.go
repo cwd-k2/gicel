@@ -28,7 +28,7 @@ main := getAt @#myState
 	if err != nil {
 		t.Fatal("compile error:", err)
 	}
-	caps := map[string]any{"myState": &eval.HostVal{Inner: int64(99)}}
+	caps := map[string]any{"#myState": &eval.HostVal{Inner: int64(99)}}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal("runtime error:", err)
@@ -52,7 +52,7 @@ main := do { putAt @#myState 42; getAt @#myState }
 	if err != nil {
 		t.Fatal("compile error:", err)
 	}
-	caps := map[string]any{"myState": &eval.HostVal{Inner: int64(0)}}
+	caps := map[string]any{"#myState": &eval.HostVal{Inner: int64(0)}}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
 		t.Fatal("runtime error:", err)
@@ -76,7 +76,7 @@ main := failWithAt @#myErr "oops"
 	if err != nil {
 		t.Fatal("compile error:", err)
 	}
-	caps := map[string]any{"myErr": eval.NewRecordFromMap(map[string]eval.Value{})}
+	caps := map[string]any{"#myErr": eval.NewRecordFromMap(map[string]eval.Value{})}
 	_, err = rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err == nil {
 		t.Fatal("expected runtime error from failWithAt")
@@ -110,8 +110,8 @@ main := do {
 		t.Fatal("compile error:", err)
 	}
 	caps := map[string]any{
-		"x": &eval.HostVal{Inner: int64(0)},
-		"y": &eval.HostVal{Inner: int64(0)},
+		"#x": &eval.HostVal{Inner: int64(0)},
+		"#y": &eval.HostVal{Inner: int64(0)},
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {
@@ -144,8 +144,8 @@ main := do {
 		t.Fatal("compile error:", err)
 	}
 	caps := map[string]any{
-		"state": &eval.HostVal{Inner: int64(0)},
-		"named": &eval.HostVal{Inner: int64(0)},
+		"state":  &eval.HostVal{Inner: int64(0)},
+		"#named": &eval.HostVal{Inner: int64(0)},
 	}
 	result, err := rt.RunWith(context.Background(), &RunOptions{Caps: caps})
 	if err != nil {

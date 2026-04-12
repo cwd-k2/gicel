@@ -36,14 +36,18 @@ func (ch *Checker) qlUnify(a, b types.Type) bool {
 	// the target type's kind (e.g. Row-kinded meta solved with TyArrow).
 	// Conservative: only rejects types whose kind is structurally certain.
 	if m, ok := a.(*types.TyMeta); ok {
-		if qlKindClash(m.Kind, b) {
-			return false
+		if solutionKind := ch.kindOfType(b); solutionKind != nil {
+			if err := ch.unifier.Unify(m.Kind, solutionKind); err != nil {
+				return false
+			}
 		}
 		return ch.unifier.SolveFreshMeta(m, b)
 	}
 	if m, ok := b.(*types.TyMeta); ok {
-		if qlKindClash(m.Kind, a) {
-			return false
+		if solutionKind := ch.kindOfType(a); solutionKind != nil {
+			if err := ch.unifier.Unify(m.Kind, solutionKind); err != nil {
+				return false
+			}
 		}
 		return ch.unifier.SolveFreshMeta(m, a)
 	}
@@ -65,25 +69,6 @@ func (ch *Checker) qlUnify(a, b types.Type) bool {
 	}
 
 	// Conservative: do not attempt to match forall bodies, CBPV, rows, etc.
-	return false
-}
-
-// qlKindClash returns true when metaKind is a concrete base kind (Type or Row)
-// and t is a type whose kind is structurally certain to be different.
-// Conservative: returns false (no clash) when t's kind cannot be determined.
-func qlKindClash(metaKind, t types.Type) bool {
-	if metaKind == types.TypeOfRows {
-		// TyArrow, TyCBPV, TyForall are always Type-kinded.
-		switch t.(type) {
-		case *types.TyArrow, *types.TyCBPV, *types.TyForall:
-			return true
-		}
-	} else if metaKind == types.TypeOfTypes {
-		// TyEvidenceRow is always Row-kinded.
-		if _, ok := t.(*types.TyEvidenceRow); ok {
-			return true
-		}
-	}
 	return false
 }
 

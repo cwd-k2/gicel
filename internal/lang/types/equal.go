@@ -188,6 +188,9 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 				return false
 			}
 		}
+		if at.Kind != nil && bt.Kind != nil {
+			return equalAlpha(at.Kind, bt.Kind, bindings)
+		}
 		return true
 
 	case *TySkolem:

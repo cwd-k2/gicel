@@ -155,10 +155,18 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 				newArgs[i] = sa
 			}
 		}
-		if newArgs == nil {
+		newKind := ty.Kind
+		if ty.Kind != nil {
+			newKind = substManyOpt(ty.Kind, subs, levelSubs, fvUnion, depth+1)
+		}
+		if newArgs == nil && newKind == ty.Kind {
 			return ty
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: newArgs, Kind: ty.Kind, Flags: metaFreeSlice(ty.Kind, newArgs) &^ FlagNoFamilyApp, S: ty.S}
+		finalArgs := ty.Args
+		if newArgs != nil {
+			finalArgs = newArgs
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
 	default:
 		return ty
 	}

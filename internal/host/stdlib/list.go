@@ -11,7 +11,7 @@ import (
 
 // fromSliceImpl converts a HostVal([]any) to a ConVal chain (Cons/Nil).
 // If the input is already a ConVal chain, it passes through unchanged.
-func fromSliceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
+func fromSliceImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 	v := args[0]
 	// If already a ConVal (Cons/Nil), pass through.
 	if con, ok := v.(*eval.ConVal); ok {
@@ -26,6 +26,9 @@ func fromSliceImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	slice, ok := hv.Inner.([]any)
 	if !ok {
 		return nil, ce, errExpected("fromSlice", "[]any", hv.Inner)
+	}
+	if err := budget.ChargeAlloc(ctx, int64(len(slice))*costConsNode); err != nil {
+		return nil, ce, err
 	}
 	return sliceToList(slice), ce, nil
 }

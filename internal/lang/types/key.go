@@ -98,6 +98,10 @@ func WriteTypeKey(b KeyWriter, t Type) {
 			b.WriteByte(' ')
 			WriteTypeKey(b, a)
 		}
+		if ty.Kind != nil {
+			b.WriteByte(':')
+			WriteTypeKey(b, ty.Kind)
+		}
 		b.WriteByte(']')
 	case *TySkolem:
 		b.WriteByte('#')

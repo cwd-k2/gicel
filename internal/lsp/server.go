@@ -567,7 +567,7 @@ func (s *Server) handleDefinition(msg *jsonrpc.Message) {
 			uri := params.TextDocument.URI
 			src := doc.Analysis.Source
 			if def.FilePath != "" && def.Source != nil {
-				uri = protocol.DocumentURI("file://" + def.FilePath)
+				uri = protocol.PathToURI(def.FilePath)
 				src = def.Source
 			}
 			s.respondResult(msg.ID, protocol.Location{

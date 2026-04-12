@@ -138,10 +138,18 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 				args[i] = newA
 			}
 		}
-		if args == nil {
+		newKind := ty.Kind
+		if ty.Kind != nil {
+			newKind = substDepth(ty.Kind, varName, replacement, depth+1)
+		}
+		if args == nil && newKind == ty.Kind {
 			return ty
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: ty.Kind, Flags: metaFreeSlice(ty.Kind, args) &^ FlagNoFamilyApp, S: ty.S}
+		finalArgs := ty.Args
+		if args != nil {
+			finalArgs = args
+		}
+		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
 
 	case *TyMeta:
 		return ty

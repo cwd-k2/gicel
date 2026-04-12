@@ -85,7 +85,7 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		expr := eraseLabelRec(n.Expr, labelVars)
 		// Case 1: concrete label literal. Type change: TyApp → App.
 		if con, ok := n.TyArg.(*types.TyCon); ok && types.IsKindLevel(con.Level) && con.IsLabel {
-			return &App{Fun: expr, Arg: &Lit{Value: con.Name}, S: n.S}
+			return &App{Fun: expr, Arg: &Lit{Value: "#" + con.Name}, S: n.S}
 		}
 		// Case 2: label type variable. Type change: TyApp → App.
 		if tv, ok := n.TyArg.(*types.TyVar); ok && labelVars[tv.Name] {
