@@ -191,6 +191,23 @@ func formatValue(v gicel.Value) any {
 				return nil
 			}
 		}
+		// Data.Slice: recursively format each element.
+		if items, ok := val.Inner.([]any); ok {
+			result := make([]any, len(items))
+			for i, e := range items {
+				if ev, ok := e.(gicel.Value); ok {
+					result[i] = formatValue(ev)
+				} else {
+					result[i] = e
+				}
+			}
+			return result
+		}
+		// Opaque host types (Map, Set, Seq) have unexported fields that
+		// json.Marshal serializes as {}. Use their String() if available.
+		if s, ok := val.Inner.(fmt.Stringer); ok {
+			return s.String()
+		}
 		return val.Inner
 	case *gicel.ConVal:
 		if elems, ok := gicel.CollectList(val); ok {

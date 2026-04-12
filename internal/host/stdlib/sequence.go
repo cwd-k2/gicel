@@ -38,6 +38,8 @@ type seqVal struct {
 	tree ftree
 }
 
+func (*seqVal) String() string { return "Seq(...)" }
+
 func asSeqVal(v eval.Value) (*seqVal, error) {
 	hv, ok := v.(*eval.HostVal)
 	if !ok {
