@@ -113,15 +113,15 @@ fd @log 3    -- l := log (Label kind)
 
 ## 前提条件
 
-Shell Pack の実装に先立ち、Effect.Fail に `try` primitive を追加する。
+Shell Pack は Effect.Fail の `try` を前提とする。
 
 ```gicel
-try :: \e a r. Effect { fail: e | r } a
-   -> Effect { fail: e | r } (Result e a)
-try := assumption
+try :: \e a r. Suspended { fail: e | r } a -> Effect r (Result e a)
 ```
 
-`try` は `RuntimeError`（アプリケーション層の失敗）のみを捕捉し、リソース制限（Budget 超過・タイムアウト）は素通りさせる。Go の型レベルで `*eval.RuntimeError` を判別するため、ホスト権威の侵害なしに失敗回復を可能にする。`fail: e` は行に残る（effect を除去しない）。
+`try` は `fail` を行から除去する。`RuntimeError`（アプリケーション層の失敗）のみを捕捉し、リソース制限（Budget 超過・タイムアウト）は素通りさせる。Go の型レベルで `*eval.RuntimeError` を判別するため、ホスト権威の侵害なしに失敗回復を可能にする。
+
+`withOpt` / `withEnv` / `withDir` 等の derived 関数では、`try` 後の `fromResult` が外側シグネチャの `fail: e` を参照するため、`try` が `fail` を除去しても問題ない。CBPV auto-coercion が `Effect` → `Suspended` の thunk 化を自動処理する。
 
 ## チャネル操作の代数
 
@@ -200,8 +200,9 @@ import Prelude
 
 -- ═══ Types ═══
 
-type ExitCode                              -- opaque, Int ラッパー
-type Cmd (r: Row)                          -- コマンド記述子（行 r は出力チャネル集合）
+-- opaque types (Go 側で engine.RegisterType により登録):
+--   ExitCode :: Type                      -- Int ラッパー
+--   Cmd      :: Row -> Type               -- コマンド記述子（行 r は出力チャネル集合）
 form Mode := Overwrite | Append            -- ファイルの書き込みモード ( > / >> )
 form ShellOpt := ErrExit | PipeFail        -- シェルオプション（set -e / set -o pipefail）
 
@@ -428,7 +429,7 @@ Note: `set` / `unset` は `ShellOpt` を引数に取る汎用 primitive。オプ
 
 `try` — 失敗を `Result e a` に変換。`with*` 系の例外安全の基盤。
 
-### Prelude 追加 (2)
+### Prelude (2)
 
 `when`, `unless` — Shell 固有ではなく汎用。
 
