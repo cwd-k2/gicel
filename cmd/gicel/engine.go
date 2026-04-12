@@ -57,7 +57,7 @@ func setupEngine(packs string) (*gicel.Engine, error) {
 			continue
 		}
 		if _, ok := packMap[n]; !ok {
-			return nil, fmt.Errorf("unknown pack: %s (available: prelude,fail,state,io,stream,slice,map,set,array,ref,mmap,mset,json,console)", n)
+			return nil, fmt.Errorf("unknown pack: %s (available: %s)", n, strings.Join(allPackOrder, ","))
 		}
 		if n == "prelude" {
 			hasPrelude = true
@@ -107,8 +107,9 @@ func setupEngine(packs string) (*gicel.Engine, error) {
 // exprFlag tracks the -e flag value and warns on duplicates.
 
 // readSource loads GICEL source from -e string, stdin ("-"), or a file argument.
-func readSource(fs *flag.FlagSet, expr string, budget *sourceBudget) ([]byte, error) {
-	if expr != "" {
+// exprGiven is true when -e was explicitly passed (even with an empty string).
+func readSource(fs *flag.FlagSet, expr string, exprGiven bool, budget *sourceBudget) ([]byte, error) {
+	if exprGiven {
 		if fs.NArg() > 0 {
 			fmt.Fprintf(os.Stderr, "warning: -e and file argument both specified; using -e, ignoring %s\n", fs.Arg(0))
 		}
@@ -195,9 +196,9 @@ func registerUserModules(eng *gicel.Engine, modules []string, budget *sourceBudg
 // prepareEngine loads source and configures the engine with common flags.
 // File header directives (-- gicel: --module, --recursion) are applied
 // when the source comes from a file (not -e or stdin).
-func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, modules []string) ([]byte, *gicel.Engine, error) {
+func prepareEngine(fs *flag.FlagSet, packs string, recursion bool, expr string, exprGiven bool, modules []string) ([]byte, *gicel.Engine, error) {
 	budget := &sourceBudget{}
-	source, err := readSource(fs, expr, budget)
+	source, err := readSource(fs, expr, exprGiven, budget)
 	if err != nil {
 		return nil, nil, err
 	}

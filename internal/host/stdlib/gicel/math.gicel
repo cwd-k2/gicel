@@ -105,14 +105,14 @@ _log10 := assumption
 _powDouble :: Double -> Double -> Double
 _powDouble := assumption
 
-_floor :: Double -> Double
-_floor := assumption
+_floorF :: Double -> Double
+_floorF := assumption
 
-_ceil :: Double -> Double
-_ceil := assumption
+_ceilF :: Double -> Double
+_ceilF := assumption
 
-_round :: Double -> Double
-_round := assumption
+_roundF :: Double -> Double
+_roundF := assumption
 
 _isNaN :: Double -> Bool
 _isNaN := assumption
@@ -166,13 +166,13 @@ powDouble :: Double -> Double -> Double
 powDouble := _powDouble
 
 floorF :: Double -> Double
-floorF := _floor
+floorF := _floorF
 
 ceilF :: Double -> Double
-ceilF := _ceil
+ceilF := _ceilF
 
 roundF :: Double -> Double
-roundF := _round
+roundF := _roundF
 
 isNaN :: Double -> Bool
 isNaN := _isNaN

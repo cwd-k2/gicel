@@ -62,7 +62,7 @@ func cmdCheck(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	source, eng, err := prepareEngine(fs, *packs, *recursion, expr.value, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, expr.value, expr.count > 0, modules)
 	if err != nil {
 		return preflightError(err.Error(), *jsonOut)
 	}

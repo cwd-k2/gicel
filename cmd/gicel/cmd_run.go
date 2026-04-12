@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cwd-k2/gicel"
+	"github.com/cwd-k2/gicel/internal/infra/budget"
 )
 
 func printRunUsage(w io.Writer) {
@@ -109,7 +110,7 @@ func cmdRun(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	source, eng, err := prepareEngine(fs, *packs, *recursion, expr.value, modules)
+	source, eng, err := prepareEngine(fs, *packs, *recursion, expr.value, expr.count > 0, modules)
 	if err != nil {
 		return preflightError(err.Error(), *jsonOut)
 	}
@@ -181,6 +182,8 @@ func cmdRun(args []string) int {
 				} else {
 					fmt.Fprintf(os.Stderr, "runtime error: %s\n", re.Message)
 				}
+			} else if budget.IsLimitError(err) {
+				fmt.Fprintf(os.Stderr, "runtime error: %v (override with --max-steps, --max-depth, --max-alloc, or --timeout)\n", err)
 			} else {
 				fmt.Fprintf(os.Stderr, "runtime error: %v\n", err)
 			}
