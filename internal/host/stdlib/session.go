@@ -21,10 +21,10 @@ var sessionSource = mustReadSource("session")
 // closeAtImpl removes a capability label from the CapEnv.
 // args: [label]
 func closeAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	if err := validateLabelArg(args); err != nil {
+	label, err := extractLabel(args)
+	if err != nil {
 		return nil, ce, err
 	}
-	label := args[0].(*eval.HostVal).Inner.(string)
 	return unitVal, ce.Delete(label), nil
 }
 
@@ -44,7 +44,11 @@ func chooseAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "chooseAt: tag argument is not a string"}
 	}
-	newCe := ce.Set(label.Inner.(string), tag)
+	labelStr, ok := label.Inner.(string)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "chooseAt: label inner is not a string"}
+	}
+	newCe := ce.Set(labelStr, tag)
 	return unitVal, newCe, nil
 }
 
@@ -52,10 +56,10 @@ func chooseAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 // returns a VariantVal. The tag determines which branch the case will take.
 // args: [label]
 func receiveAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	if err := validateLabelArg(args); err != nil {
+	label, err := extractLabel(args)
+	if err != nil {
 		return nil, ce, err
 	}
-	label := args[0].(*eval.HostVal).Inner.(string)
 	tagVal, found := ce.Get(label)
 	if !found {
 		return nil, ce, &eval.RuntimeError{Message: "receiveAt: no capability for label " + label}
@@ -82,7 +86,11 @@ func injectImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "inject: tag argument is not a string"}
 	}
-	return &eval.VariantVal{Tag: tag.Inner.(string), Value: args[1]}, ce, nil
+	tagStr, ok := tag.Inner.(string)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "inject: tag inner is not a string"}
+	}
+	return &eval.VariantVal{Tag: tagStr, Value: args[1]}, ce, nil
 }
 
 // runSessionAtImpl introduces a session capability, drives the thunk to
@@ -96,10 +104,10 @@ func injectImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 // was not properly terminated (defense-in-depth; the type checker
 // already enforces this statically for well-typed programs).
 func runSessionAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	if err := validateLabelArg(args); err != nil {
+	label, err := extractLabel(args)
+	if err != nil {
 		return nil, ce, err
 	}
-	label := args[0].(*eval.HostVal).Inner.(string)
 	innerCe := ce.Set(label, args[1])
 	val, finalCe, err := driveEffectful(args[2], innerCe, apply)
 	if err != nil {

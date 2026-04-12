@@ -182,9 +182,17 @@ func (e *CheckEnv) variantLabelSigs(scrutTy types.Type) []conSig {
 		return nil
 	}
 	fields := row.CapFields()
-	sigs := make([]conSig, len(fields))
-	for i, f := range fields {
-		sigs[i] = conSig{name: f.Label, arity: 0}
+	sigs := make([]conSig, 0, len(fields)+1)
+	for _, f := range fields {
+		sigs = append(sigs, conSig{name: f.Label, arity: 0})
+	}
+	// Open row (unsolved tail meta): add a phantom entry that no pattern
+	// can match, forcing the exhaustiveness checker to require a wildcard.
+	if row.Tail != nil {
+		tail := e.Unifier.Zonk(row.Tail)
+		if _, isMeta := tail.(*types.TyMeta); isMeta {
+			sigs = append(sigs, conSig{name: "_", arity: 0})
+		}
 	}
 	return sigs
 }

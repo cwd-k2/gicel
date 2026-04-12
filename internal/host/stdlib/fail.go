@@ -37,10 +37,10 @@ func tryImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Ap
 // FailLabel matches the handler's label. Non-matching labeled errors and
 // anonymous errors propagate unchanged.
 func tryAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
-	if err := validateLabelArg(args); err != nil {
+	label, err := extractLabel(args)
+	if err != nil {
 		return nil, ce, err
 	}
-	label := args[0].(*eval.HostVal).Inner.(string)
 	val, newCe, err := driveEffectful(args[1], ce, apply)
 	if err != nil {
 		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil && re.FailLabel == label {
@@ -65,10 +65,10 @@ func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appli
 // Tags the RuntimeError with FailLabel so only the matching tryAt handler
 // catches it; other handlers and anonymous try let it propagate.
 func failAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
-	if err := validateLabelArg(args); err != nil {
+	label, err := extractLabel(args)
+	if err != nil {
 		return nil, ce, err
 	}
-	label := args[0].(*eval.HostVal).Inner.(string)
 	msg := "fail"
 	var detail eval.Value
 	if len(args) > 1 && args[1] != nil {

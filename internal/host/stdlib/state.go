@@ -145,7 +145,10 @@ func evalStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "evalStateAt: label argument is not a string"}
 	}
-	name := label.Inner.(string)
+	name, ok := label.Inner.(string)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "evalStateAt: label inner is not a string"}
+	}
 	tuple, newCe, err := doRunStateDrive(name, args[1], args[2], ce, apply)
 	if err != nil {
 		return nil, ce, err
@@ -160,7 +163,10 @@ func execStateAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if !ok {
 		return nil, ce, &eval.RuntimeError{Message: "execStateAt: label argument is not a string"}
 	}
-	name := label.Inner.(string)
+	name, ok := label.Inner.(string)
+	if !ok {
+		return nil, ce, &eval.RuntimeError{Message: "execStateAt: label inner is not a string"}
+	}
 	tuple, newCe, err := doRunState(name, args[1], args[2], ce, apply)
 	if err != nil {
 		return nil, ce, err

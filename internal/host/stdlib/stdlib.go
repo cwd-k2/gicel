@@ -142,6 +142,22 @@ func validateLabelArg(args []eval.Value) error {
 	return &eval.RuntimeError{Message: "named capability operation requires @#label argument; got a non-label value (missing @#label?)"}
 }
 
+// extractLabel validates and extracts the label string from args[0] in one step.
+// Eliminates the post-validate panicking assertion pattern where validateLabelArg
+// succeeds but the subsequent bare args[0].(*eval.HostVal).Inner.(string) could
+// panic if the coupling is ever broken.
+func extractLabel(args []eval.Value) (string, error) {
+	if len(args) == 0 {
+		return "", &eval.RuntimeError{Message: "named capability operation requires @#label argument"}
+	}
+	if hv, ok := args[0].(*eval.HostVal); ok {
+		if s, ok := hv.Inner.(string); ok {
+			return s, nil
+		}
+	}
+	return "", &eval.RuntimeError{Message: "named capability operation requires @#label argument; got a non-label value (missing @#label?)"}
+}
+
 // withLabelNoCompare wraps a PrimImpl that normally takes [compare, arg1, arg2, ...]
 // to accept [label, arg1, arg2, ...] instead. The label is dropped, and a nil
 // placeholder is inserted at position 0 so the original impl's arg indices work.
