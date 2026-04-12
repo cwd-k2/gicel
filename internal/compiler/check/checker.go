@@ -141,6 +141,7 @@ type CheckState struct {
 	depth           int
 	strictTypeNames bool       // enabled after declaration processing
 	cancelled       bool       // set when context is cancelled
+	nestingReported bool       // suppresses duplicate nesting limit errors
 	solverLevel     func() int // injected solver level getter for freshMeta
 }
 

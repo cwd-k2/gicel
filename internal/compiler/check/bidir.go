@@ -45,7 +45,10 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	ch.depth++
 	defer func() { ch.depth-- }()
 	if err := ch.budget.Nest(); err != nil {
-		ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
+		if !ch.nestingReported {
+			ch.nestingReported = true
+			ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
+		}
 		return &types.TyError{S: expr.Span()}, &ir.Lit{Value: nil, S: expr.Span()}
 	}
 	defer ch.budget.Unnest()
@@ -292,7 +295,10 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	ch.depth++
 	defer func() { ch.depth-- }()
 	if err := ch.budget.Nest(); err != nil {
-		ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
+		if !ch.nestingReported {
+			ch.nestingReported = true
+			ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
+		}
 		return &ir.Lit{Value: nil, S: expr.Span()}
 	}
 	defer ch.budget.Unnest()

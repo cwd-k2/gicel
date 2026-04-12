@@ -77,6 +77,12 @@ func (d diagLabel) DiagnosticMessage() string {
 // --- Helper methods on CheckState ---
 
 func (s *CheckState) addDiag(code diagnostic.Code, sp span.Span, detail diagnostic.DetailFormatter) {
+	// Once a nesting limit error has been reported, suppress secondary
+	// diagnostics (type mismatches, missing instances) that cascade from
+	// the TyError placeholder returned at the limit boundary.
+	if s.nestingReported && code != diagnostic.ErrNestingLimit {
+		return
+	}
 	s.errors.Add(&diagnostic.Error{
 		Code:    code,
 		Phase:   diagnostic.PhaseCheck,
@@ -87,6 +93,9 @@ func (s *CheckState) addDiag(code diagnostic.Code, sp span.Span, detail diagnost
 }
 
 func (s *CheckState) addDiagHints(code diagnostic.Code, sp span.Span, detail diagnostic.DetailFormatter, hints []diagnostic.Hint) {
+	if s.nestingReported && code != diagnostic.ErrNestingLimit {
+		return
+	}
 	s.errors.Add(&diagnostic.Error{
 		Code:    code,
 		Phase:   diagnostic.PhaseCheck,
