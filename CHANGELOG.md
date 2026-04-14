@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.32.0 — 2026-04-14
+
+Embedding support for long-lived event loops with per-event budget enforcement.
+
+### API
+
+- **`Budget.ResetCounters()`** — Resets step, depth, and allocation counters while preserving configured limits and context. Enables per-event resource enforcement in long-lived `PrimImpl` event loops.
+- **`budget.ResetBudgetCounters(ctx)`** / **`gicel.ResetBudgetCounters`** — Context helper for calling `ResetCounters` from within a `PrimImpl`.
+
+### Benchmarks
+
+- **`BenchmarkAnalyze*`** — Analyze benchmarks for LSP hot path.
+
+### Examples
+
+- **`examples/go/event-loop/`** — Pattern C: Go-owned dispatch loop with `RunWith` per event.
+- **`examples/go/event-loop-b/`** — Pattern B: GICEL-owned `fix` loop with `recvFrom`/`sendTo` channel primitives.
+- **`examples/go/event-loop-select/`** — Go `select` multiplexing multiple event sources into GICEL `case` dispatch via `ConVal`.
+
+### Docs
+
+- Removed `docs/perf-overview.md`; bench tier definitions inlined in `CLAUDE.md`.
+- Roadmap and shell pack documentation updates.
+
 ## v0.31.2 — 2026-04-12
 
 Sandbox hardening, allocation budget enforcement, named capability namespace separation, and performance.
