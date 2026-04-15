@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -240,7 +241,10 @@ func HasMeta(t Type) bool {
 	case *TyFamilyApp:
 		return ty.Flags&FlagMetaFree == 0
 	default:
-		return true // unknown type: conservative
+		// Conservative: unknown type assumed to contain metas.
+		// This is intentionally not a panic — HasMeta is a fast-path
+		// optimization hint, not a correctness invariant.
+		return true
 	}
 }
 
@@ -288,6 +292,8 @@ func nodeFlags(t Type) uint8 {
 		// FlagNoFamilyApp is never set on TyFamilyApp itself.
 		return ty.Flags &^ FlagNoFamilyApp
 	default:
+		// Conservative: unknown type assumed to have no stable flags.
+		// This forces traversal on unknown nodes, which is safe.
 		return 0
 	}
 }
@@ -455,6 +461,10 @@ func ForEachChild(t Type, fn func(Type) bool) {
 		if ty.Kind != nil {
 			fn(ty.Kind)
 		}
+	case *TyVar, *TyCon, *TyMeta, *TySkolem, *TyError:
+		// Leaves — no children.
+	default:
+		panic(fmt.Sprintf("ForEachChild: unhandled Type %T", t))
 	}
 }
 

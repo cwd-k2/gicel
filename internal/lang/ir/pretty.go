@@ -88,10 +88,12 @@ func prettyCore(c Core, indent int) string {
 			updates[i] = f.Label + ": " + prettyCore(f.Value, indent)
 		}
 		return "{ " + prettyCore(n.Record, indent) + " | " + strings.Join(updates, ", ") + " }"
+	case *VariantLit:
+		return "(inject #" + n.Tag + " " + prettyCore(n.Value, indent) + ")"
 	case *Error:
 		return "<error>"
 	default:
-		return "<?>"
+		panic(fmt.Sprintf("prettyCore: unhandled Core node %T", c))
 	}
 }
 

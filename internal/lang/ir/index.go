@@ -17,6 +17,8 @@
 
 package ir
 
+import "fmt"
+
 // AssignIndices assigns de Bruijn indices to a single Core expression,
 // populating FVInfo.Indices in annots for every Lam/Thunk/Merge reached.
 // annots must already have been populated by AnnotateFreeVars for the
@@ -175,6 +177,12 @@ func assignIndices(c Core, localScope map[string]int, depth int, annots *FVAnnot
 		for _, f := range n.Updates {
 			assignIndices(f.Value, localScope, depth+1, annots)
 		}
+
+	case *VariantLit:
+		assignIndices(n.Value, localScope, depth+1, annots)
+
+	default:
+		panic(fmt.Sprintf("assignIndices: unhandled Core node %T", c))
 	}
 }
 

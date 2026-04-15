@@ -203,46 +203,70 @@ func DecodeI16(code []byte, offset int) int16 {
 	return int16(binary.LittleEndian.Uint16(code[offset:]))
 }
 
+// instructionSizes maps each opcode to its total byte size (opcode + operands).
+// Zero means unset — a programming error caught by InstructionSize at runtime.
+// The [opcodeCount] bound provides compile-time coverage: adding a new opcode
+// without an entry here is visible as a zero-valued slot.
+var instructionSizes = [opcodeCount]int8{
+	// opcode + u16 (3 bytes)
+	OpLoadLocal:    3,
+	OpLoadGlobal:   3,
+	OpStoreLocal:   3,
+	OpConst:        3,
+	OpClosure:      3,
+	OpThunk:        3,
+	OpRecordProj:   3,
+	OpRecord:       3,
+	OpRecordUpdate: 3,
+	OpVariant:      3,
+	OpFixClosure:   3,
+	OpFixThunk:     3,
+	OpPrimPartial:  3,
+	OpBind:         3,
+	OpMerge:        3,
+	OpJump:         3, // opcode + i16
+	OpStep:         3, // opcode + u16
+
+	// opcode + u16 + u8 (4 bytes)
+	OpCon:        4,
+	OpPrim:       4,
+	OpEffectPrim: 4,
+
+	// opcode + u16 + u16 (5 bytes)
+	OpMatchCon:    5,
+	OpMatchRecord: 5,
+	OpMatchLit:    5,
+	OpMatchLabel:  5,
+
+	// opcode + u8 (2 bytes)
+	OpApplyN:          2,
+	OpTailApplyN:      2,
+	OpRecurseSelf:     2,
+	OpTailRecurseSelf: 2,
+
+	// opcode only (1 byte)
+	OpApply:          1,
+	OpTailApply:      1,
+	OpReturn:         1,
+	OpForce:          1,
+	OpForceTail:      1,
+	OpForceEffectful: 1,
+	OpConstUnit:      1,
+	OpMatchWild:      1,
+	OpMatchFail:      1,
+	OpPop:            1,
+	OpRaise:          1,
+}
+
 // InstructionSize returns the total size in bytes of the instruction
 // starting at code[offset] (opcode + operands).
 func InstructionSize(op Opcode) int {
-	switch op {
-	case OpLoadLocal, OpLoadGlobal, OpStoreLocal,
-		OpConst, OpClosure, OpThunk,
-		OpRecordProj, OpRecord, OpRecordUpdate, OpVariant,
-		OpFixClosure, OpFixThunk,
-		OpPrimPartial,
-		OpBind, OpMerge:
-		return 3 // opcode + u16
-
-	case OpCon, OpPrim, OpEffectPrim:
-		return 4 // opcode + u16 + u8
-
-	case OpApplyN, OpTailApplyN, OpRecurseSelf, OpTailRecurseSelf:
-		return 2 // opcode + u8
-
-	case OpMatchCon, OpMatchRecord:
-		return 5 // opcode + u16 + u16
-
-	case OpMatchLit, OpMatchLabel:
-		return 5 // opcode + u16 + u16
-
-	case OpJump:
-		return 3 // opcode + i16
-
-	case OpStep:
-		return 3 // opcode + u16 (node kind string index)
-
-	case OpApply, OpTailApply, OpReturn,
-		OpForce, OpForceTail, OpForceEffectful,
-		OpConstUnit,
-		OpMatchWild, OpMatchFail,
-		OpPop, OpRaise:
-		return 1 // opcode only
-
-	default:
-		panic(fmt.Sprintf("InstructionSize: unhandled opcode %d (%s)", op, op))
+	if int(op) < len(instructionSizes) {
+		if s := instructionSizes[op]; s > 0 {
+			return int(s)
+		}
 	}
+	panic(fmt.Sprintf("InstructionSize: unhandled opcode %d (%s)", op, op))
 }
 
 // opNames maps opcodes to their string representations.
