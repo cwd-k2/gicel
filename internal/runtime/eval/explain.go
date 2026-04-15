@@ -237,6 +237,12 @@ func prettyValueDepth(v Value, depth int) string {
 		return "<thunk>"
 	case *PrimVal:
 		return "<function>"
+	case *VariantVal:
+		payload := prettyValueDepth(val.Value, depth+1)
+		if strings.Contains(payload, " ") {
+			return "@#" + val.Tag + " (" + payload + ")"
+		}
+		return "@#" + val.Tag + " " + payload
 	case *PAPVal:
 		return "<function>"
 	case *IndirectVal:

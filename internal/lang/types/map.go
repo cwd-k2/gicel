@@ -1,7 +1,5 @@
 package types
 
-import "fmt"
-
 // MapType applies f to every direct child of t, reconstructing the node
 // with the transformed children. Identity-preserving: if all children are
 // pointer-equal after transformation, the original node is returned.
@@ -99,7 +97,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		// Leaves — no children to map.
 		return t
 	default:
-		panic(fmt.Sprintf("MapType: unhandled Type %T", t))
+		panic(unhandledTypeMsg("MapType", t))
 	}
 }
 

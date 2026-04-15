@@ -167,8 +167,11 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 			finalArgs = newArgs
 		}
 		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
-	default:
+	case *TyMeta, *TySkolem, *TyError:
+		// Leaves — no type variables or level variables.
 		return ty
+	default:
+		panic(unhandledTypeMsg("substManyOpt", ty))
 	}
 }
 

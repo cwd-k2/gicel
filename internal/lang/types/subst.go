@@ -158,7 +158,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		return ty
 
 	default:
-		return ty
+		panic(unhandledTypeMsg("substDepth", ty))
 	}
 }
 
@@ -240,8 +240,28 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 			finalArgs = args
 		}
 		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
-	default:
+	case *TyVar, *TyMeta, *TySkolem, *TyError:
+		// Leaves — no LevelExpr positions.
 		return ty
+	case *TyEvidence:
+		// TyEvidence body may contain level vars, but constraints are row-typed.
+		newConstraints := substLevel(ty.Constraints, name, repl, depth+1)
+		newBody := substLevel(ty.Body, name, repl, depth+1)
+		if newConstraints == ty.Constraints && newBody == ty.Body {
+			return ty
+		}
+		cr, ok := newConstraints.(*TyEvidenceRow)
+		if !ok {
+			cr = ty.Constraints
+		}
+		return &TyEvidence{Constraints: cr, Body: newBody, Flags: MetaFreeFlags(cr, newBody), S: ty.S}
+	case *TyEvidenceRow:
+		// Delegate child traversal via MapType — level vars may occur inside row entries.
+		return MapType(ty, func(child Type) Type {
+			return substLevel(child, name, repl, depth+1)
+		})
+	default:
+		panic(unhandledTypeMsg("substLevel", ty))
 	}
 }
 

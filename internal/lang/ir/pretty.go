@@ -93,7 +93,9 @@ func prettyCore(c Core, indent int) string {
 	case *Error:
 		return "<error>"
 	default:
-		panic(fmt.Sprintf("prettyCore: unhandled Core node %T", c))
+		// Degraded output for unknown nodes — never panic in a formatter
+		// that may be called from explain trace or diagnostic display.
+		return fmt.Sprintf("<%T>", c)
 	}
 }
 

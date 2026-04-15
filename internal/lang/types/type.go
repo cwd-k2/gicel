@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -464,7 +463,7 @@ func ForEachChild(t Type, fn func(Type) bool) {
 	case *TyVar, *TyCon, *TyMeta, *TySkolem, *TyError:
 		// Leaves — no children.
 	default:
-		panic(fmt.Sprintf("ForEachChild: unhandled Type %T", t))
+		panic(unhandledTypeMsg("ForEachChild", t))
 	}
 }
 
@@ -512,5 +511,46 @@ func UnwindApp(ty Type) (Type, []Type) {
 		}
 		args = append(args, app.Arg)
 		ty = app.Fun
+	}
+}
+
+// unhandledTypeMsg constructs the panic message for sealed-sum exhaustiveness
+// guards. These are unreachable in production — they fire only when a GICEL
+// developer adds a new variant without updating the caller. Callers use
+// `panic(unhandledTypeMsg("op", t))` so the compiler sees the panic directly.
+func unhandledTypeMsg(op string, t Type) string {
+	return op + ": unhandled Type " + typeName(t)
+}
+
+// typeName returns the Go type name of a Type value without importing
+// fmt or reflect. The sealed sum is small enough to enumerate.
+func typeName(t Type) string {
+	switch t.(type) {
+	case *TyVar:
+		return "*TyVar"
+	case *TyCon:
+		return "*TyCon"
+	case *TyApp:
+		return "*TyApp"
+	case *TyArrow:
+		return "*TyArrow"
+	case *TyForall:
+		return "*TyForall"
+	case *TyCBPV:
+		return "*TyCBPV"
+	case *TyEvidence:
+		return "*TyEvidence"
+	case *TyEvidenceRow:
+		return "*TyEvidenceRow"
+	case *TyFamilyApp:
+		return "*TyFamilyApp"
+	case *TyMeta:
+		return "*TyMeta"
+	case *TySkolem:
+		return "*TySkolem"
+	case *TyError:
+		return "*TyError"
+	default:
+		return "<unknown>"
 	}
 }
