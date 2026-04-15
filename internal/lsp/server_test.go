@@ -35,7 +35,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	srv := NewServer(ServerConfig{
 		Transport: jsonrpc.NewTransport(serverR, serverW),
 		Logger:    log.New(io.Discard, "", 0),
-		EngineSetup: func() *engine.Engine {
+		EngineSetup: func() AnalysisEngine {
 			eng := engine.NewEngine()
 			eng.Use(stdlib.Prelude)
 			return eng

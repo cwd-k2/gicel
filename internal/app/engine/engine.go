@@ -15,6 +15,11 @@
 // pipeline without reducing coupling. Decomposition is warranted only
 // when a new consumer (e.g., a batch compiler) needs a different
 // pipeline shape.
+//
+// The stdlib import is a composition-root wiring: NewEngine hardwires
+// stdlib.Core and stdlib.CoreSource because the Core module (providing
+// GIMonad, Computation) is a language primitive, not an optional pack.
+// Use NewEngine() + Use() for custom pack selection.
 package engine
 
 import (

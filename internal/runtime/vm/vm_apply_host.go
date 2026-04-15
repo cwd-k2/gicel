@@ -79,7 +79,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 		if err := vm.budget.Step(); err != nil {
 			return nil, capEnv, err
 		}
-		proto := thv.Proto.(*Proto)
+		proto := protoOf(thv.Proto)
 		result, err := vm.runCallee(capEnv, func(b *Frame) error {
 			return vm.callThunk(proto, thv.Captured, b)
 		})
@@ -126,7 +126,7 @@ func (vm *VM) forceEffectfulForPrim(v eval.Value, capEnv eval.CapEnv) (eval.Valu
 		if err := vm.budget.Step(); err != nil {
 			return nil, capEnv, err
 		}
-		proto := thv.Proto.(*Proto)
+		proto := protoOf(thv.Proto)
 		result, err := vm.runCallee(capEnv, func(b *Frame) error {
 			return vm.callThunk(proto, thv.Captured, b)
 		})
@@ -157,7 +157,7 @@ func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv) (eval.Value, eva
 		// Not a thunk — already a value. Return as-is with the given CapEnv.
 		return v, capEnv, nil
 	}
-	proto := thv.Proto.(*Proto)
+	proto := protoOf(thv.Proto)
 	if err := vm.budget.Step(); err != nil {
 		return nil, capEnv, err
 	}
@@ -177,7 +177,7 @@ func (vm *VM) forceMergeChild(v eval.Value, capEnv eval.CapEnv) (eval.Value, eva
 func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
 	switch f := fn.(type) {
 	case *eval.VMClosure:
-		proto := f.Proto.(*Proto)
+		proto := protoOf(f.Proto)
 		if len(proto.Params) > 1 {
 			return &eval.PAPVal{Fun: f, Args: []eval.Value{arg}, Arity: len(proto.Params)}, capEnv, nil
 		}
@@ -194,7 +194,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		copy(newArgs, f.Args)
 		newArgs[len(f.Args)] = arg
 		if len(newArgs) == f.Arity {
-			proto := f.Fun.Proto.(*Proto)
+			proto := protoOf(f.Fun.Proto)
 			result, err := vm.runCallee(capEnv, func(b *Frame) error {
 				return vm.callClosureMulti(proto, f.Fun.Captured, newArgs, b)
 			})
@@ -258,7 +258,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 	case *eval.VMThunkVal:
 		// Force thunk (ignore argument) — enables Go primitives to
 		// transparently handle lazy co-data fields.
-		proto := f.Proto.(*Proto)
+		proto := protoOf(f.Proto)
 		result, err := vm.runCallee(capEnv, func(b *Frame) error {
 			return vm.callThunk(proto, f.Captured, b)
 		})
@@ -286,7 +286,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 
 	switch f := fn.(type) {
 	case *eval.VMClosure:
-		proto := f.Proto.(*Proto)
+		proto := protoOf(f.Proto)
 		arity := len(proto.Params)
 		switch {
 		case len(args) == arity:
@@ -315,7 +315,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		combined := combineArgs(f.Args, args)
 		switch {
 		case len(combined) == f.Arity:
-			proto := f.Fun.Proto.(*Proto)
+			proto := protoOf(f.Fun.Proto)
 			result, err := vm.runCallee(capEnv, func(b *Frame) error {
 				return vm.callClosureMulti(proto, f.Fun.Captured, combined, b)
 			})
@@ -326,7 +326,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		case len(combined) < f.Arity:
 			return &eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity}, capEnv, nil
 		default:
-			proto := f.Fun.Proto.(*Proto)
+			proto := protoOf(f.Fun.Proto)
 			result, err := vm.runCallee(capEnv, func(b *Frame) error {
 				return vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], b)
 			})
@@ -398,7 +398,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		return vm.applyNForPrim(val, combined[f.Arity:], newCap)
 
 	case *eval.VMThunkVal:
-		proto := f.Proto.(*Proto)
+		proto := protoOf(f.Proto)
 		result, err := vm.runCallee(capEnv, func(b *Frame) error {
 			return vm.callThunk(proto, f.Captured, b)
 		})

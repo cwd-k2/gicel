@@ -9,7 +9,7 @@ import (
 func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) error {
 	switch f := fn.(type) {
 	case *eval.VMClosure:
-		proto := f.Proto.(*Proto)
+		proto := protoOf(f.Proto)
 		arity := len(proto.Params)
 		if arity > 1 {
 			// Multi-param closure: accumulate arg in a PAPVal.
@@ -39,7 +39,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 		newArgs[len(f.Args)] = arg
 		if len(newArgs) == f.Arity {
 			// Saturated: enter the closure body directly.
-			proto := f.Fun.Proto.(*Proto)
+			proto := protoOf(f.Fun.Proto)
 			return vm.enterClosureMulti(proto, f.Fun.Captured, newArgs, frame, tail, f.Fun.Name)
 		}
 		// Still partial.
@@ -156,7 +156,7 @@ func (vm *VM) tailCallClosure(proto *Proto, captured []eval.Value, arg eval.Valu
 func (vm *VM) force(v eval.Value, frame *Frame, tail bool) error {
 	switch thv := v.(type) {
 	case *eval.VMThunkVal:
-		proto := thv.Proto.(*Proto)
+		proto := protoOf(thv.Proto)
 		if tail {
 			return vm.tailCallThunk(proto, thv.Captured, frame)
 		}
@@ -204,7 +204,7 @@ func (vm *VM) tailCallThunk(proto *Proto, captured []eval.Value, frame *Frame) e
 
 // applySingle is the single-arg path extracted from apply for VMClosure.
 func (vm *VM) applySingle(f *eval.VMClosure, arg eval.Value, frame *Frame, tail bool) error {
-	proto := f.Proto.(*Proto)
+	proto := protoOf(f.Proto)
 	leaveObs := vm.emitEnterObs(f.Name, arg, frame)
 	if tail {
 		if frame.leaveObs {

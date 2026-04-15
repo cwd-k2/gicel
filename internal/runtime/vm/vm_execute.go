@@ -225,7 +225,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 					vm.obs.LeaveInternal()
 					frame.leaveObs = false
 				}
-				proto := thv.Proto.(*Proto)
+				proto := protoOf(thv.Proto)
 				// Reuse current frame for thunk execution (TCO).
 				// INVARIANT: no frame push may occur between obtaining `frame`
 				// (at loop top) and this `continue`. The pointer aliases

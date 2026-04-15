@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cwd-k2/gicel/internal/app/engine"
 	"github.com/cwd-k2/gicel/internal/app/header"
 	"github.com/cwd-k2/gicel/internal/lsp/jsonrpc"
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
@@ -21,9 +20,9 @@ type Server struct {
 	docs      *documentStore
 	logger    *log.Logger
 
-	// Engine factory — called per diagnose to create a fresh Engine.
+	// Engine factory — called per diagnose to create a fresh AnalysisEngine.
 	// Must not return nil.
-	engineSetup func() *engine.Engine
+	engineSetup func() AnalysisEngine
 
 	// Debounce state (guarded by mu).
 	mu             sync.Mutex
@@ -45,7 +44,7 @@ type Server struct {
 type ServerConfig struct {
 	Transport   *jsonrpc.Transport
 	Logger      *log.Logger
-	EngineSetup func() *engine.Engine
+	EngineSetup func() AnalysisEngine
 	DebounceMS  int // debounce delay in ms (default: 300)
 }
 

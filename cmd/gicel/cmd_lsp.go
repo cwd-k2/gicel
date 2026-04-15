@@ -46,7 +46,7 @@ func cmdLsp(args []string) int {
 	srv := lsp.NewServer(lsp.ServerConfig{
 		Transport: transport,
 		Logger:    logger,
-		EngineSetup: func() *engine.Engine {
+		EngineSetup: func() lsp.AnalysisEngine {
 			eng, err := setupEngine(packsCopy)
 			if err != nil {
 				logger.Printf("engine setup: %v", err)

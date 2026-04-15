@@ -108,7 +108,7 @@ func (vm *VM) dispatchApplyN(n int, frame *Frame, tail bool) error {
 func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) (eval.Value, error) {
 	switch f := fn.(type) {
 	case *eval.VMClosure:
-		proto := f.Proto.(*Proto)
+		proto := protoOf(f.Proto)
 		arity := len(proto.Params)
 		switch {
 		case len(args) == arity:
@@ -166,14 +166,14 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		remaining := f.Arity - len(combined)
 		switch {
 		case remaining == 0:
-			proto := f.Fun.Proto.(*Proto)
+			proto := protoOf(f.Fun.Proto)
 			return nil, vm.enterClosureMulti(proto, f.Fun.Captured, combined, frame, tail, f.Fun.Name)
 		case remaining > 0:
 			return &eval.PAPVal{Fun: f.Fun, Args: combined, Arity: f.Arity}, nil
 		default:
 			// Over-saturated PAP: enter with the saturating prefix via a
 			// barrier, then apply remaining args to the result.
-			proto := f.Fun.Proto.(*Proto)
+			proto := protoOf(f.Fun.Proto)
 			callerCapEnv := frame.capEnv
 			result, err := vm.runCallee(callerCapEnv, func(b *Frame) error {
 				return vm.callClosureMulti(proto, f.Fun.Captured, combined[:f.Arity], b)

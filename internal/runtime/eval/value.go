@@ -192,10 +192,17 @@ func (r *RecordVal) Update(updates []RecordField) *RecordVal {
 }
 
 // Bytecode is the interface satisfied by compiled bytecode prototypes.
-// Defined here (in the eval package) to avoid a circular import between
-// eval and vm. The concrete type is *vm.Proto.
+//
+// Defined in the eval package to break a circular import between eval
+// and vm. The sole implementor is *vm.Proto, created exclusively within
+// the vm package. All type assertions from Bytecode to *Proto are routed
+// through vm.protoOf() — a single-point cast that consolidates the
+// contract and simplifies future substitution.
+//
+// This is a marker interface by design: adding behavioral methods would
+// re-introduce the circular dependency. The safety of the assertion is
+// guaranteed by the vm package's exclusive ownership of Proto creation.
 type Bytecode interface {
-	// BytecodeMarker is a marker method to distinguish from other interfaces.
 	BytecodeMarker()
 }
 
