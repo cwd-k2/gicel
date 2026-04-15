@@ -141,9 +141,9 @@ type DeclImport struct {
 type ImportMode int
 
 const (
-	ImportOpen       ImportMode = iota // import M — all names unqualified
-	ImportQualified                    // import M as N — qualified access only
-	ImportSelective                    // import M (x, T(..)) — specified names only
+	ImportOpen      ImportMode = iota // import M — all names unqualified
+	ImportQualified                   // import M as N — qualified access only
+	ImportSelective                   // import M (x, T(..)) — specified names only
 )
 
 // Mode returns the import form of this declaration.

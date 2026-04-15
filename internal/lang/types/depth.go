@@ -1,8 +1,12 @@
 package types
 
-// maxTraversalDepth bounds recursive type-structure traversals to prevent
-// Go stack overflow on pathologically deep or cyclic type trees.
-const maxTraversalDepth = 512
+// MaxTraversalDepth bounds recursive type-structure and Core IR traversals
+// to prevent Go stack overflow on pathologically deep or cyclic trees.
+// Shared by lang/types and lang/ir to ensure consistent depth limits.
+const MaxTraversalDepth = 512
+
+// maxTraversalDepth is the package-internal alias used throughout traversals.
+const maxTraversalDepth = MaxTraversalDepth
 
 // DepthExceededError is the typed panic raised when a type traversal exceeds
 // maxTraversalDepth. Callers that want to recover from this specific

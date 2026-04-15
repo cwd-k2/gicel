@@ -381,8 +381,8 @@ func (imp *Importer) importFamilies(mod *env.ModuleExports, moduleName string, s
 	for name, fam := range mod.TypeFamilies {
 		if !imp.checkAmbiguousTypeName(name, moduleName, s) {
 			if err := imp.env.RegisterFamily(name, fam.Clone()); err != nil {
-					imp.env.AddError(diagnostic.ErrImport, s, "conflicting type family equations for "+name+": "+err.Error())
-				}
+				imp.env.AddError(diagnostic.ErrImport, s, "conflicting type family equations for "+name+": "+err.Error())
+			}
 		}
 	}
 }

@@ -373,6 +373,7 @@ func (e *Engine) RegisterModuleFile(path string) error {
 // pipeline returns the Engine's reusable pipelineCtx, populating its
 // fields from the current Engine state. The returned *pipelineCtx
 // MUST be used synchronously within the calling Engine method and
+// MUST NOT be stored beyond the method's scope.
 func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 	return &pipelineCtx{
 		ctx:            ctx,

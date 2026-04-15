@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -381,7 +382,10 @@ func capValEqual(a, b any) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	defer func() { recover() }()
+	ta := reflect.TypeOf(a)
+	if ta == nil || !ta.Comparable() {
+		return false
+	}
 	return a == b
 }
 

@@ -48,3 +48,28 @@ func TestByteSizeFlagString(t *testing.T) {
 		t.Errorf("String() = %q, want \"104857600\"", s)
 	}
 }
+
+// TestPackCompleteness verifies that packMap and allPackOrder are in sync.
+// Every key in packMap must appear in allPackOrder and vice versa.
+func TestPackCompleteness(t *testing.T) {
+	if len(packMap) != len(allPackOrder) {
+		t.Fatalf("packMap has %d entries but allPackOrder has %d", len(packMap), len(allPackOrder))
+	}
+	for _, name := range allPackOrder {
+		if _, ok := packMap[name]; !ok {
+			t.Errorf("allPackOrder contains %q but packMap does not", name)
+		}
+	}
+	for name := range packMap {
+		found := false
+		for _, n := range allPackOrder {
+			if n == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("packMap contains %q but allPackOrder does not", name)
+		}
+	}
+}
