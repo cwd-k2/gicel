@@ -60,10 +60,10 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	desugar.Program(ast)
 
 	if p.LexErrors().HasErrors() {
-		return nil, nil, &CompileError{errs: p.LexErrors()}
+		return nil, src, &CompileError{errs: p.LexErrors()}
 	}
 	if parseErrs.HasErrors() {
-		return nil, nil, &CompileError{errs: parseErrs}
+		return nil, src, &CompileError{errs: parseErrs}
 	}
 	if injectCore {
 		injectCoreImport(ast)
