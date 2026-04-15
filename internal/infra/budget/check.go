@@ -22,9 +22,9 @@ type CheckBudget struct {
 	maxResolveDepth int
 }
 
-// NewCheck creates a CheckBudget with the given context.
+// NewCheckBudget creates a CheckBudget with the given context.
 // ctx is checked on each step call for external cancellation.
-func NewCheck(ctx context.Context) *CheckBudget {
+func NewCheckBudget(ctx context.Context) *CheckBudget {
 	return &CheckBudget{ctx: ctx}
 }
 

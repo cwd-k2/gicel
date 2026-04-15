@@ -36,7 +36,7 @@ func newTestHarness(cfg *testEnvConfig) *testHarness {
 		cfg = &testEnvConfig{}
 	}
 	u := unify.NewUnifier()
-	b := budget.NewCheck(context.Background())
+	b := budget.NewCheckBudget(context.Background())
 	limit := MaxReductionWork
 	if cfg.tfLimit > 0 {
 		limit = cfg.tfLimit

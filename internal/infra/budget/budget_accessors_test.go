@@ -79,7 +79,7 @@ func TestBudgetRemainingExhausted(t *testing.T) {
 }
 
 func TestCheckBudgetAccessors(t *testing.T) {
-	b := NewCheck(context.Background())
+	b := NewCheckBudget(context.Background())
 	b.SetNestingLimit(10)
 	b.SetTFStepLimit(100)
 	b.SetSolverStepLimit(200)

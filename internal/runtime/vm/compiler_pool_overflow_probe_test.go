@@ -42,8 +42,8 @@ func expectPoolOverflow(t *testing.T, expectPool string, fn func()) {
 	fn()
 }
 
-// asError converts a panic value (interface{}) to error if it implements it.
-func asError(v interface{}) error {
+// asError converts a panic value to error if it implements it.
+func asError(v any) error {
 	if e, ok := v.(error); ok {
 		return e
 	}

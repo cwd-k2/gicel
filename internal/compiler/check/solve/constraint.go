@@ -156,7 +156,7 @@ func (c *CtFunEq) ctSpan() span.Span { return c.S }
 // traversals at constraint-generation time when the constraint succeeds.
 type CtOrigin struct {
 	Code    diagnostic.Code // semantic error code (0 = use default ErrTypeMismatch)
-	context string          // human-readable context; use GetContext()
+	context string          // human-readable context; use Context()
 	LazyCtx func() string   // deferred context builder (nil = use context directly)
 }
 
@@ -170,9 +170,9 @@ func WithLazyContext(code diagnostic.Code, f func() string) *CtOrigin {
 	return &CtOrigin{Code: code, LazyCtx: f}
 }
 
-// GetContext returns the human-readable context string, invoking
+// Context returns the human-readable context string, invoking
 // LazyCtx on first call if present.
-func (o *CtOrigin) GetContext() string {
+func (o *CtOrigin) Context() string {
 	if o.LazyCtx != nil {
 		o.context = o.LazyCtx()
 		o.LazyCtx = nil

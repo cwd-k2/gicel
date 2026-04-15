@@ -187,7 +187,7 @@ func newTestChecker() *Checker {
 			families: make(map[string]*TypeFamilyInfo),
 		},
 	}
-	ch.budget = budget.NewCheck(context.Background())
+	ch.budget = budget.NewCheckBudget(context.Background())
 	ch.budget.SetTFStepLimit(family.MaxReductionWork)
 	ch.budget.SetSolverStepLimit(100_000)
 	ch.budget.SetResolveDepthLimit(64)

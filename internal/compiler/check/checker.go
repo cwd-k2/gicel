@@ -65,11 +65,11 @@ type ModuleExports = env.ModuleExports
 // ModuleOwnership carries ownership signals (which names a module defines).
 type ModuleOwnership = env.ModuleOwnership
 
-// CheckTraceKind classifies trace events.
-type CheckTraceKind int
+// TraceKind classifies trace events.
+type TraceKind int
 
 const (
-	TraceUnify CheckTraceKind = iota
+	TraceUnify TraceKind = iota
 	TraceSolveMeta
 	TraceInfer
 	TraceCheck
@@ -78,7 +78,7 @@ const (
 
 // CheckTraceEvent describes one type checking decision.
 type CheckTraceEvent struct {
-	Kind    CheckTraceKind
+	Kind    TraceKind
 	Depth   int
 	Message string
 	Span    span.Span // internal byte offsets (retained for internal use)
@@ -308,7 +308,7 @@ func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfi
 }
 
 func newBudget(ctx context.Context, config *CheckConfig) *budget.CheckBudget {
-	b := budget.NewCheck(ctx)
+	b := budget.NewCheckBudget(ctx)
 	if config.NestingLimit > 0 {
 		b.SetNestingLimit(config.NestingLimit)
 	}
@@ -541,7 +541,7 @@ func (s *CheckState) tryUnify(a, b types.Type) bool {
 	})
 }
 
-func (s *CheckState) trace(kind CheckTraceKind, sp span.Span, format string, args ...any) {
+func (s *CheckState) trace(kind TraceKind, sp span.Span, format string, args ...any) {
 	if s.config.Trace != nil {
 		line, col := s.source.Location(sp.Start)
 		s.config.Trace(CheckTraceEvent{

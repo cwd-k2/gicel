@@ -432,9 +432,9 @@ func headIsMeta(t types.Type) bool {
 func (s *Solver) reportEqError(ct *CtEq, lhs, rhs types.Type) {
 	s.hasStructuralEqError = true
 	if ct.Origin != nil && ct.Origin.Code != 0 {
-		s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.GetContext())
-	} else if ct.Origin != nil && ct.Origin.GetContext() != "" {
-		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.GetContext())
+		s.env.AddCodedError(ct.Origin.Code, ct.S, ct.Origin.Context())
+	} else if ct.Origin != nil && ct.Origin.Context() != "" {
+		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.Context())
 	} else {
 		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
 			"unsatisfiable type equality: "+types.Pretty(lhs)+" ~ "+types.Pretty(rhs))

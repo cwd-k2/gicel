@@ -8,7 +8,7 @@ import (
 )
 
 func TestCheckBudgetCompilerDimensions(t *testing.T) {
-	b := NewCheck(context.Background())
+	b := NewCheckBudget(context.Background())
 
 	// --- TF step limit ---
 	b.SetTFStepLimit(3)
@@ -76,7 +76,7 @@ func TestCheckBudgetCompilerDimensions(t *testing.T) {
 }
 
 func TestCheckBudgetNesting(t *testing.T) {
-	b := NewCheck(context.Background())
+	b := NewCheckBudget(context.Background())
 	b.SetNestingLimit(3)
 
 	for i := range 3 {
@@ -102,7 +102,7 @@ func TestCheckBudgetContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	b := NewCheck(ctx)
+	b := NewCheckBudget(ctx)
 	b.SetTFStepLimit(1000)
 	b.SetSolverStepLimit(1000)
 
