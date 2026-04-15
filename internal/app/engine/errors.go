@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"fmt"
+	"runtime"
+
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 )
@@ -30,6 +33,32 @@ type CompileError struct {
 
 func (e *CompileError) Error() string {
 	return e.errs.Format()
+}
+
+// recoverAsError installs a deferred recovery that converts any panic
+// to an *InternalPanicError stored in *errp. This is the standard
+// boundary guard for public Engine API methods — internal panics
+// (sealed-sum guards, nil derefs) must never crash the host process.
+func recoverAsError(errp *error) {
+	if r := recover(); r != nil {
+		buf := make([]byte, 4096)
+		n := runtime.Stack(buf, false)
+		*errp = &InternalPanicError{Value: r, Stack: buf[:n]}
+	}
+}
+
+// panicToErrors converts a recovered panic into a *diagnostic.Errors
+// for use in Analyze (which returns AnalysisResult, not error).
+// The stack trace is included in the diagnostic message so that
+// embedded callers can log the full context for bug reports.
+func panicToErrors(r any, stack []byte) *diagnostic.Errors {
+	errs := &diagnostic.Errors{}
+	errs.Add(&diagnostic.Error{
+		Code:    0, // internal panic — no user-facing error code
+		Phase:   diagnostic.PhaseCheck,
+		Message: fmt.Sprintf("internal panic: %v\n%s", r, stack),
+	})
+	return errs
 }
 
 // Diagnostics returns structured diagnostics for programmatic access.

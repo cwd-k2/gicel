@@ -421,18 +421,7 @@ func ValidateModuleName(name string) error {
 // that compileModule itself runs against the current fingerprint state
 // (which correctly reflects the environment without the new module).
 func (e *Engine) RegisterModule(name, source string) (err error) {
-	// Blanket recover: RegisterModule is a library entry point where any
-	// unhandled panic (invariant violation, nil deref) must be surfaced as
-	// a typed error rather than crashing the caller. This is intentionally
-	// broader than precompileVM's typed PoolOverflowError recover — the
-	// two operate at different trust boundaries.
-	defer func() {
-		if r := recover(); r != nil {
-			buf := make([]byte, 4096)
-			n := runtime.Stack(buf, false)
-			err = &InternalPanicError{Value: r, Stack: buf[:n]}
-		}
-	}()
+	defer recoverAsError(&err)
 	if err := ValidateModuleName(name); err != nil {
 		return err
 	}
@@ -499,8 +488,9 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 // Parse lexes and parses source code, checking for syntax errors only.
 // Does not type-check or optimize. Use Compile for static analysis
 // or NewRuntime for execution.
-func (e *Engine) Parse(source string) error {
-	_, _, err := e.pipeline(e.compileCtx).lexAndParse("<input>", source, e.store.Has("Core"))
+func (e *Engine) Parse(source string) (err error) {
+	defer recoverAsError(&err)
+	_, _, err = e.pipeline(e.compileCtx).lexAndParse("<input>", source, e.store.Has("Core"))
 	return err
 }
 
@@ -536,10 +526,20 @@ type AnalysisResult struct {
 // Nil-safe: returns an AnalysisResult with an empty program when called
 // with a nil receiver or nil context, rather than panicking — a hostile
 // panic in the LSP path would crash the editor.
-func (e *Engine) Analyze(ctx context.Context, source string) *AnalysisResult {
+func (e *Engine) Analyze(ctx context.Context, source string) (result *AnalysisResult) {
 	if e == nil || ctx == nil {
 		return &AnalysisResult{Program: &ir.Program{}}
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			buf := make([]byte, 4096)
+			n := runtime.Stack(buf, false)
+			result = &AnalysisResult{
+				Program: &ir.Program{},
+				Errors:  panicToErrors(r, buf[:n]),
+			}
+		}
+	}()
 	pc := e.pipeline(ctx)
 	return pc.analyze(source)
 }
@@ -547,13 +547,14 @@ func (e *Engine) Analyze(ctx context.Context, source string) *AnalysisResult {
 // Compile type-checks source code, returning exports and Core IR for
 // static inspection. Unlike NewRuntime, it does not optimize or assemble
 // a runtime. Pass context.Background() when cancellation is not needed.
-func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, error) {
+func (e *Engine) Compile(ctx context.Context, source string) (cr *CompileResult, err error) {
 	if e == nil {
 		return nil, fmt.Errorf("engine: Compile called on nil *Engine")
 	}
 	if ctx == nil {
 		return nil, fmt.Errorf("engine: Compile called with nil context")
 	}
+	defer recoverAsError(&err)
 	pc := e.pipeline(ctx)
 	ast, src, err := pc.lexAndParse("<input>", source, e.store.Has("Core"))
 	if err != nil {
@@ -585,13 +586,14 @@ func (e *Engine) Compile(ctx context.Context, source string) (*CompileResult, er
 // call returns an error without consulting the cache, since the caller's
 // "do no work past this deadline" intent applies regardless of whether
 // the work is reusable.
-func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error) {
+func (e *Engine) NewRuntime(ctx context.Context, source string) (rt *Runtime, err error) {
 	if e == nil {
 		return nil, fmt.Errorf("engine: NewRuntime called on nil *Engine")
 	}
 	if ctx == nil {
 		return nil, fmt.Errorf("engine: NewRuntime called with nil context")
 	}
+	defer recoverAsError(&err)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -604,7 +606,7 @@ func (e *Engine) NewRuntime(ctx context.Context, source string) (*Runtime, error
 	if err != nil {
 		return nil, err
 	}
-	rt, err := pc.assembleRuntime(prog, annots, src)
+	rt, err = pc.assembleRuntime(prog, annots, src)
 	if err != nil {
 		return nil, err
 	}
