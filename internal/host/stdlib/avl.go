@@ -219,53 +219,35 @@ func avlFoldInOrder(n *avlNode, ce eval.CapEnv, visit func(*avlNode, eval.CapEnv
 	return avlFoldInOrder(n.right, ce, visit)
 }
 
-// avlToConsList builds an in-order ConVal list from the AVL tree.
+// avlProjectToConsList builds an in-order ConVal list from the AVL tree,
+// projecting each node through proj to produce the list element.
+func avlProjectToConsList(n *avlNode, proj func(*avlNode) eval.Value) eval.Value {
+	var acc eval.Value = &eval.ConVal{Con: "Nil"}
+	avlProjectConsRight(n, proj, &acc)
+	return acc
+}
+
+func avlProjectConsRight(n *avlNode, proj func(*avlNode) eval.Value, acc *eval.Value) {
+	if n == nil {
+		return
+	}
+	avlProjectConsRight(n.right, proj, acc)
+	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{proj(n), *acc}}
+	avlProjectConsRight(n.left, proj, acc)
+}
+
 func avlToConsList(n *avlNode) eval.Value {
-	var acc eval.Value = &eval.ConVal{Con: "Nil"}
-	avlConsRight(n, &acc)
-	return acc
+	return avlProjectToConsList(n, func(n *avlNode) eval.Value {
+		return eval.NewRecordFromMap(map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value})
+	})
 }
 
-func avlConsRight(n *avlNode, acc *eval.Value) {
-	if n == nil {
-		return
-	}
-	avlConsRight(n.right, acc)
-	pair := eval.NewRecordFromMap(map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value})
-	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{pair, *acc}}
-	avlConsRight(n.left, acc)
-}
-
-// avlKeysToConsList builds an in-order ConVal list of keys from the AVL tree.
 func avlKeysToConsList(n *avlNode) eval.Value {
-	var acc eval.Value = &eval.ConVal{Con: "Nil"}
-	avlKeysConsRight(n, &acc)
-	return acc
+	return avlProjectToConsList(n, func(n *avlNode) eval.Value { return n.key })
 }
 
-func avlKeysConsRight(n *avlNode, acc *eval.Value) {
-	if n == nil {
-		return
-	}
-	avlKeysConsRight(n.right, acc)
-	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.key, *acc}}
-	avlKeysConsRight(n.left, acc)
-}
-
-// avlValsToConsList builds an in-order ConVal list of values from the AVL tree.
 func avlValsToConsList(n *avlNode) eval.Value {
-	var acc eval.Value = &eval.ConVal{Con: "Nil"}
-	avlValsConsRight(n, &acc)
-	return acc
-}
-
-func avlValsConsRight(n *avlNode, acc *eval.Value) {
-	if n == nil {
-		return
-	}
-	avlValsConsRight(n.right, acc)
-	*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.value, *acc}}
-	avlValsConsRight(n.left, acc)
+	return avlProjectToConsList(n, func(n *avlNode) eval.Value { return n.value })
 }
 
 // avlMapValues applies f to every value in the tree via Applier, returning
@@ -471,96 +453,87 @@ func sortedToAVLRange(entries []avlEntry, lo, hi int) *avlNode {
 	return node
 }
 
-// avlMergeIntersect performs sorted merge of two AVL trees, keeping only
-// entries present in both. O(n₁+n₂) comparisons via cmp/apply.
+// mergeOp controls what the merge loop does for each comparison outcome.
+type mergeOp int
+
+const (
+	mergeKeep mergeOp = iota // include this entry in the result
+	mergeSkip                // exclude this entry from the result
+)
+
+// avlMergeSorted performs a two-pointer merge over sorted slices derived from
+// two AVL trees. The three mergeOp parameters determine which entries to keep:
+//   - onLeftOnly:  left key < right key  (governs the left entry)
+//   - onRightOnly: left key > right key  (governs the right entry)
+//   - onBothLeft:  keys are equal        (governs the left entry; right is always consumed)
+//
+// After one side is exhausted, remaining entries from the other side are kept
+// or skipped according to their respective onLeftOnly/onRightOnly op.
+func avlMergeSorted(
+	as, bs []avlEntry,
+	cmp eval.Value, ce eval.CapEnv, apply eval.Applier,
+	onLeftOnly, onRightOnly, onBothLeft mergeOp,
+) ([]avlEntry, eval.CapEnv, error) {
+	cap := 0
+	if onLeftOnly == mergeKeep || onBothLeft == mergeKeep {
+		cap += len(as)
+	}
+	if onRightOnly == mergeKeep {
+		cap += len(bs)
+	}
+	result := make([]avlEntry, 0, cap)
+
+	i, j := 0, 0
+	for i < len(as) && j < len(bs) {
+		ord, newCe, err := compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
+		if err != nil {
+			return nil, ce, err
+		}
+		ce = newCe
+		switch {
+		case ord < 0:
+			if onLeftOnly == mergeKeep {
+				result = append(result, as[i])
+			}
+			i++
+		case ord > 0:
+			if onRightOnly == mergeKeep {
+				result = append(result, bs[j])
+			}
+			j++
+		default:
+			if onBothLeft == mergeKeep {
+				result = append(result, as[i])
+			}
+			i++
+			j++
+		}
+	}
+	if onLeftOnly == mergeKeep {
+		result = append(result, as[i:]...)
+	}
+	if onRightOnly == mergeKeep {
+		result = append(result, bs[j:]...)
+	}
+	return result, ce, nil
+}
+
+// avlMergeIntersect keeps only entries present in both trees. O(n₁+n₂).
 func avlMergeIntersect(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) ([]avlEntry, eval.CapEnv, error) {
-	as := avlToSlice(a)
-	bs := avlToSlice(b)
-	result := make([]avlEntry, 0, min(len(as), len(bs)))
-	i, j := 0, 0
-	var err error
-	for i < len(as) && j < len(bs) {
-		var ord int
-		ord, ce, err = compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
-		if err != nil {
-			return nil, ce, err
-		}
-		switch {
-		case ord < 0:
-			i++
-		case ord > 0:
-			j++
-		default:
-			result = append(result, as[i])
-			i++
-			j++
-		}
-	}
-	return result, ce, nil
+	return avlMergeSorted(avlToSlice(a), avlToSlice(b), cmp, ce, apply,
+		mergeSkip, mergeSkip, mergeKeep)
 }
 
-// avlMergeDifference performs sorted merge of two AVL trees, keeping entries
-// in a but not in b. O(n₁+n₂) comparisons.
+// avlMergeDifference keeps entries in a but not in b. O(n₁+n₂).
 func avlMergeDifference(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) ([]avlEntry, eval.CapEnv, error) {
-	as := avlToSlice(a)
-	bs := avlToSlice(b)
-	result := make([]avlEntry, 0, len(as))
-	i, j := 0, 0
-	var err error
-	for i < len(as) {
-		if j >= len(bs) {
-			result = append(result, as[i:]...)
-			break
-		}
-		var ord int
-		ord, ce, err = compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
-		if err != nil {
-			return nil, ce, err
-		}
-		switch {
-		case ord < 0:
-			result = append(result, as[i])
-			i++
-		case ord > 0:
-			j++
-		default:
-			i++
-			j++
-		}
-	}
-	return result, ce, nil
+	return avlMergeSorted(avlToSlice(a), avlToSlice(b), cmp, ce, apply,
+		mergeKeep, mergeSkip, mergeSkip)
 }
 
-// avlMergeUnion performs sorted merge of two AVL trees, keeping all entries
-// from both (a's value wins on duplicate keys). O(n₁+n₂) comparisons.
+// avlMergeUnion keeps all entries; a's value wins on duplicate keys. O(n₁+n₂).
 func avlMergeUnion(a, b *avlNode, cmp eval.Value, ce eval.CapEnv, apply eval.Applier) ([]avlEntry, eval.CapEnv, error) {
-	as := avlToSlice(a)
-	bs := avlToSlice(b)
-	result := make([]avlEntry, 0, len(as)+len(bs))
-	i, j := 0, 0
-	var err error
-	for i < len(as) && j < len(bs) {
-		var ord int
-		ord, ce, err = compareKeys(cmp, as[i].key, bs[j].key, ce, apply)
-		if err != nil {
-			return nil, ce, err
-		}
-		switch {
-		case ord < 0:
-			result = append(result, as[i])
-			i++
-		case ord > 0:
-			result = append(result, bs[j])
-			j++
-		default:
-			result = append(result, as[i]) // a wins
-			i++
-			j++
-		}
-	}
-	result = append(result, as[i:]...)
-	result = append(result, bs[j:]...)
-	return result, ce, nil
+	return avlMergeSorted(avlToSlice(a), avlToSlice(b), cmp, ce, apply,
+		mergeKeep, mergeKeep, mergeKeep)
 }
 
 // avlFoldl performs an in-order traversal with a Go-level fold function.
