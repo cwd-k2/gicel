@@ -57,20 +57,6 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 			return ty
 		}
 		return &TyCon{Name: ty.Name, Level: newLevel, IsLabel: ty.IsLabel, S: ty.S}
-	case *TyApp:
-		newFun := substManyOpt(ty.Fun, subs, levelSubs, fvUnion, depth+1)
-		newArg := substManyOpt(ty.Arg, subs, levelSubs, fvUnion, depth+1)
-		if newFun == ty.Fun && newArg == ty.Arg {
-			return ty
-		}
-		return &TyApp{Fun: newFun, Arg: newArg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
-	case *TyArrow:
-		newFrom := substManyOpt(ty.From, subs, levelSubs, fvUnion, depth+1)
-		newTo := substManyOpt(ty.To, subs, levelSubs, fvUnion, depth+1)
-		if newFrom == ty.From && newTo == ty.To {
-			return ty
-		}
-		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 	case *TyForall:
 		// Lazy-compute fvUnion on first TyForall encounter when type subs
 		// are present. Level subs do not require fvUnion (no level capture
@@ -122,18 +108,6 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
-	case *TyCBPV:
-		newPre := substManyOpt(ty.Pre, subs, levelSubs, fvUnion, depth+1)
-		newPost := substManyOpt(ty.Post, subs, levelSubs, fvUnion, depth+1)
-		newResult := substManyOpt(ty.Result, subs, levelSubs, fvUnion, depth+1)
-		newGrade := ty.Grade
-		if newGrade != nil {
-			newGrade = substManyOpt(newGrade, subs, levelSubs, fvUnion, depth+1)
-		}
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result && newGrade == ty.Grade {
-			return ty
-		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Grade: newGrade, Flags: MetaFreeFlags(newPre, newPost, newResult, newGrade), S: ty.S}
 	case *TyEvidenceRow:
 		return substManyEvidenceRow(ty, subs, levelSubs, fvUnion, depth+1)
 	case *TyEvidence:
@@ -143,35 +117,13 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 			return ty
 		}
 		return &TyEvidence{Constraints: newConstraints, Body: newBody, S: ty.S}
-	case *TyFamilyApp:
-		var newArgs []Type // nil until first change
-		for i, a := range ty.Args {
-			sa := substManyOpt(a, subs, levelSubs, fvUnion, depth+1)
-			if newArgs == nil && sa != a {
-				newArgs = make([]Type, len(ty.Args))
-				copy(newArgs[:i], ty.Args[:i])
-			}
-			if newArgs != nil {
-				newArgs[i] = sa
-			}
-		}
-		newKind := ty.Kind
-		if ty.Kind != nil {
-			newKind = substManyOpt(ty.Kind, subs, levelSubs, fvUnion, depth+1)
-		}
-		if newArgs == nil && newKind == ty.Kind {
-			return ty
-		}
-		finalArgs := ty.Args
-		if newArgs != nil {
-			finalArgs = newArgs
-		}
-		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
-	case *TyMeta, *TySkolem, *TyError:
-		// Leaves — no type variables or level variables.
-		return ty
 	default:
-		panic(unhandledTypeMsg("substManyOpt", ty))
+		// Non-binding, non-evidence types: delegate to MapType.
+		// TyCon level substitution is handled inside the closure via
+		// substLevelExprMany when the mapped node is a TyCon.
+		return MapType(t, func(child Type) Type {
+			return substManyOpt(child, subs, levelSubs, fvUnion, depth+1)
+		})
 	}
 }
 

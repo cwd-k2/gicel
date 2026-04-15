@@ -44,25 +44,6 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		}
 		return ty
 
-	case *TyCon:
-		return ty
-
-	case *TyApp:
-		newFun := substDepth(ty.Fun, varName, replacement, depth+1)
-		newArg := substDepth(ty.Arg, varName, replacement, depth+1)
-		if newFun == ty.Fun && newArg == ty.Arg {
-			return ty
-		}
-		return &TyApp{Fun: newFun, Arg: newArg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
-
-	case *TyArrow:
-		newFrom := substDepth(ty.From, varName, replacement, depth+1)
-		newTo := substDepth(ty.To, varName, replacement, depth+1)
-		if newFrom == ty.From && newTo == ty.To {
-			return ty
-		}
-		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
-
 	case *TyForall:
 		if ty.Var == varName {
 			return ty // shadowed
@@ -81,35 +62,6 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
 
-	case *TyCBPV:
-		newPre := substDepth(ty.Pre, varName, replacement, depth+1)
-		newPost := substDepth(ty.Post, varName, replacement, depth+1)
-		newResult := substDepth(ty.Result, varName, replacement, depth+1)
-		newGrade := ty.Grade
-		if newGrade != nil {
-			newGrade = substDepth(newGrade, varName, replacement, depth+1)
-		}
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result && newGrade == ty.Grade {
-			return ty
-		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Grade: newGrade, Flags: MetaFreeFlags(newPre, newPost, newResult, newGrade), S: ty.S}
-
-	case *TyEvidence:
-		newConstraints := substDepth(ty.Constraints, varName, replacement, depth+1)
-		newBody := substDepth(ty.Body, varName, replacement, depth+1)
-		if newConstraints == ty.Constraints && newBody == ty.Body {
-			return ty
-		}
-		cr, ok := newConstraints.(*TyEvidenceRow)
-		if !ok {
-			// Subst produced a non-evidence-row; preserve original to avoid nil.
-			return &TyEvidence{Constraints: ty.Constraints, Body: newBody, S: ty.S}
-		}
-		return &TyEvidence{Constraints: cr, Body: newBody, S: ty.S}
-
-	case *TySkolem:
-		return ty
-
 	case *TyEvidenceRow:
 		newEntries, entriesChanged := ty.Entries.SubstEntries(varName, replacement, depth+1)
 		newTail := ty.Tail
@@ -126,39 +78,13 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		}
 		return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
 
-	case *TyFamilyApp:
-		var args []Type // nil until first change (lazy-init)
-		for i, a := range ty.Args {
-			newA := substDepth(a, varName, replacement, depth+1)
-			if args == nil && newA != a {
-				args = make([]Type, len(ty.Args))
-				copy(args[:i], ty.Args[:i])
-			}
-			if args != nil {
-				args[i] = newA
-			}
-		}
-		newKind := ty.Kind
-		if ty.Kind != nil {
-			newKind = substDepth(ty.Kind, varName, replacement, depth+1)
-		}
-		if args == nil && newKind == ty.Kind {
-			return ty
-		}
-		finalArgs := ty.Args
-		if args != nil {
-			finalArgs = args
-		}
-		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
-
-	case *TyMeta:
-		return ty
-
-	case *TyError:
-		return ty
-
 	default:
-		panic(unhandledTypeMsg("substDepth", ty))
+		// All non-binding, non-evidence types: delegate structural child
+		// traversal to MapType. This keeps substDepth closed under new
+		// Type variants — only MapType needs updating.
+		return MapType(t, func(child Type) Type {
+			return substDepth(child, varName, replacement, depth+1)
+		})
 	}
 }
 
@@ -175,25 +101,12 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 	}
 	switch ty := t.(type) {
 	case *TyCon:
+		// TyCon carries LevelExpr directly — this is the substitution target.
 		newLevel := substLevelExpr(ty.Level, name, repl)
 		if newLevel == ty.Level {
 			return ty
 		}
 		return &TyCon{Name: ty.Name, Level: newLevel, IsLabel: ty.IsLabel, S: ty.S}
-	case *TyApp:
-		newFun := substLevel(ty.Fun, name, repl, depth+1)
-		newArg := substLevel(ty.Arg, name, repl, depth+1)
-		if newFun == ty.Fun && newArg == ty.Arg {
-			return ty
-		}
-		return &TyApp{Fun: newFun, Arg: newArg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(newFun, newArg), S: ty.S}
-	case *TyArrow:
-		newFrom := substLevel(ty.From, name, repl, depth+1)
-		newTo := substLevel(ty.To, name, repl, depth+1)
-		if newFrom == ty.From && newTo == ty.To {
-			return ty
-		}
-		return &TyArrow{From: newFrom, To: newTo, Flags: MetaFreeFlags(newFrom, newTo), S: ty.S}
 	case *TyForall:
 		if ty.Var == name {
 			return ty // shadowed
@@ -204,64 +117,11 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
-	case *TyCBPV:
-		newPre := substLevel(ty.Pre, name, repl, depth+1)
-		newPost := substLevel(ty.Post, name, repl, depth+1)
-		newResult := substLevel(ty.Result, name, repl, depth+1)
-		newGrade := ty.Grade
-		if newGrade != nil {
-			newGrade = substLevel(newGrade, name, repl, depth+1)
-		}
-		if newPre == ty.Pre && newPost == ty.Post && newResult == ty.Result && newGrade == ty.Grade {
-			return ty
-		}
-		return &TyCBPV{Tag: ty.Tag, Pre: newPre, Post: newPost, Result: newResult, Grade: newGrade, Flags: MetaFreeFlags(newPre, newPost, newResult, newGrade), S: ty.S}
-	case *TyFamilyApp:
-		var args []Type
-		for i, a := range ty.Args {
-			newA := substLevel(a, name, repl, depth+1)
-			if args == nil && newA != a {
-				args = make([]Type, len(ty.Args))
-				copy(args[:i], ty.Args[:i])
-			}
-			if args != nil {
-				args[i] = newA
-			}
-		}
-		newKind := ty.Kind
-		if ty.Kind != nil {
-			newKind = substLevel(ty.Kind, name, repl, depth+1)
-		}
-		if args == nil && newKind == ty.Kind {
-			return ty
-		}
-		finalArgs := ty.Args
-		if args != nil {
-			finalArgs = args
-		}
-		return &TyFamilyApp{Name: ty.Name, Args: finalArgs, Kind: newKind, Flags: metaFreeSlice(newKind, finalArgs) &^ FlagNoFamilyApp, S: ty.S}
-	case *TyVar, *TyMeta, *TySkolem, *TyError:
-		// Leaves — no LevelExpr positions.
-		return ty
-	case *TyEvidence:
-		// TyEvidence body may contain level vars, but constraints are row-typed.
-		newConstraints := substLevel(ty.Constraints, name, repl, depth+1)
-		newBody := substLevel(ty.Body, name, repl, depth+1)
-		if newConstraints == ty.Constraints && newBody == ty.Body {
-			return ty
-		}
-		cr, ok := newConstraints.(*TyEvidenceRow)
-		if !ok {
-			cr = ty.Constraints
-		}
-		return &TyEvidence{Constraints: cr, Body: newBody, Flags: MetaFreeFlags(cr, newBody), S: ty.S}
-	case *TyEvidenceRow:
-		// Delegate child traversal via MapType — level vars may occur inside row entries.
-		return MapType(ty, func(child Type) Type {
+	default:
+		// All non-TyCon, non-binder types: delegate to MapType.
+		return MapType(t, func(child Type) Type {
 			return substLevel(child, name, repl, depth+1)
 		})
-	default:
-		panic(unhandledTypeMsg("substLevel", ty))
 	}
 }
 
