@@ -19,6 +19,11 @@ const (
 	GenAutoBind    GenKind = 5 // CBPV implicit bind variable
 )
 
+// DictSuffix is the suffix added to class names to form dictionary
+// constructor names (e.g., "Eq" → "Eq$Dict"). This is the canonical
+// definition of the naming convention used by type class elaboration.
+const DictSuffix = "$Dict"
+
 // IsGenerated reports whether the node is compiler-generated.
 func (g GenKind) IsGenerated() bool { return g != 0 }
 

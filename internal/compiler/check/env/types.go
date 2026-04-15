@@ -2,17 +2,17 @@ package env
 
 import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
-	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
 // CoreModuleName is the canonical name of the auto-imported Core module.
 const CoreModuleName = "Core"
 
 // DictName returns the dictionary type constructor name for a class.
-// The suffix is sourced from eval.DictSuffix — the single canonical
-// definition shared between the compiler and the runtime.
-func DictName(className string) string { return className + eval.DictSuffix }
+// The suffix is sourced from ir.DictSuffix — the single canonical
+// definition of the naming convention for type class elaboration.
+func DictName(className string) string { return className + ir.DictSuffix }
 
 // AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
 type AliasInfo struct {

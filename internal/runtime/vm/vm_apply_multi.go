@@ -287,7 +287,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		combined := combineArgs(f.Args, args)
 		dc := f.DictArgCount
 		if dc == len(f.Args) {
-			dc = eval.CountLeadingDictArgs(combined)
+			dc = countLeadingDictArgs(combined)
 		}
 		return &eval.ConVal{Con: f.Con, Args: combined, DictArgCount: dc}, nil
 

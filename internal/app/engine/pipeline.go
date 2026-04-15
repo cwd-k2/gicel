@@ -143,7 +143,8 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		}
 	}
 
-	annots := pc.postCheck(prog, nil) // module: no inlining
+	pc.postCheck(prog, nil) // module: no inlining
+	annots := annotateForVM(prog, pc.pipelineFlags.verifyIR)
 
 	mod := &compiledModule{
 		prog:           prog,
@@ -158,18 +159,13 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 	return mod, nil
 }
 
-// postCheck applies the shared post-type-checking pipeline:
-// label erasure → [verify structure] → optimize → annotate FV → assign indices → [verify annotations].
+// postCheck applies the backend-agnostic post-type-checking pipeline:
+// label erasure → [verify structure] → optimize.
 // userBindings limits selective inlining to the given names (nil = no inlining).
-// Returns the freshly computed FVAnnotations so callers can store them
-// alongside the Program they own — the ir layer keeps no hidden state.
 //
-// CONTRACT: Steps must execute in exactly this order. AssignIndices
-// requires AnnotateFreeVars (populates FVAnnotations); the VM compiler
-// requires AssignIndices (populates Var.Index). Calling these out of
-// order panics via LookupLam/LookupThunk/LookupMerge.
-// Enable verifyIR (Engine.EnableVerifyIR) to assert these invariants.
-func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) *ir.FVAnnotations {
+// After postCheck, the ir.Program is ready for backend-specific lowering.
+// The VM backend calls annotateForVM to add FV analysis and de Bruijn indices.
+func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) {
 	ir.EraseLabelArgsProgram(prog)
 	if pc.pipelineFlags.verifyIR {
 		if errs := ir.VerifyProgram(prog); len(errs) > 0 {
@@ -179,9 +175,19 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 	externalInline := pc.collectExternalInlineBindings()
 	externalDicts := pc.collectExternalDictionaries()
 	optimize.OptimizeProgram(pc.ctx, prog, pc.host.rewriteRules, userBindings, externalInline, externalDicts)
+}
+
+// annotateForVM runs VM-backend-specific preparation: free-variable analysis
+// and de Bruijn index assignment. These passes populate the FVAnnotations
+// side table and Var.Index fields consumed by the bytecode compiler.
+//
+// CONTRACT: AssignIndices requires AnnotateFreeVars (populates FVAnnotations);
+// the VM compiler requires AssignIndices (populates Var.Index). Calling these
+// out of order panics via LookupLam/LookupThunk/LookupMerge.
+func annotateForVM(prog *ir.Program, verifyIR bool) *ir.FVAnnotations {
 	annots := ir.AnnotateFreeVarsProgram(prog)
 	ir.AssignIndicesProgram(prog, annots)
-	if pc.pipelineFlags.verifyIR {
+	if verifyIR {
 		if errs := ir.VerifyAnnotations(prog, annots); len(errs) > 0 {
 			panic("IR annotation verification failed: " + errs[0].Error())
 		}
@@ -201,7 +207,8 @@ func (pc *pipelineCtx) compileMain(source string) (*ir.Program, *ir.FVAnnotation
 	if !pc.pipelineFlags.noInline {
 		userBindings = collectUserBindings(ar.Program)
 	}
-	annots := pc.postCheck(ar.Program, userBindings)
+	pc.postCheck(ar.Program, userBindings)
+	annots := annotateForVM(ar.Program, pc.pipelineFlags.verifyIR)
 
 	return ar.Program, annots, ar.Source, nil
 }
