@@ -119,8 +119,10 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 		return &TyEvidence{Constraints: newConstraints, Body: newBody, S: ty.S}
 	default:
 		// Non-binding, non-evidence types: delegate to MapType.
-		// TyCon level substitution is handled inside the closure via
-		// substLevelExprMany when the mapped node is a TyCon.
+		// MapType recurses into children via the closure, which calls
+		// substManyOpt — hitting the explicit TyCon/TyForall cases
+		// at the top of this function for level substitution and
+		// capture avoidance respectively.
 		return MapType(t, func(child Type) Type {
 			return substManyOpt(child, subs, levelSubs, fvUnion, depth+1)
 		})

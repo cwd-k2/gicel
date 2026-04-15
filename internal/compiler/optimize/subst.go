@@ -105,8 +105,13 @@ func substFV(expr ir.Core, name string, replacement ir.Core, replFV map[string]s
 func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}) ir.Core {
 	switch n := expr.(type) {
 	case *ir.Var:
-		if repl, ok := subs[n.Name]; ok {
-			return ir.Clone(repl)
+		// Only substitute local (unqualified) variables. Qualified
+		// module references are distinct from local binders and must
+		// not be captured by bare-name substitution.
+		if ir.VarKeyOf(n).IsUnqualified() {
+			if repl, ok := subs[n.Name]; ok {
+				return ir.Clone(repl)
+			}
 		}
 		return n
 	case *ir.Lam:

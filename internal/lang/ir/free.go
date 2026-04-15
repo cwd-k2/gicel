@@ -261,10 +261,17 @@ func fvInfoFromResult(r fvResult) *FVInfo {
 // fvResultToSlice materializes the inline-or-map fvResult into a sorted
 // slice of variable names (bare names, not VarKeys). The single-var fast
 // path returns a 1-element slice without going through map iteration.
+// fvResultToSlice materializes the inline-or-map fvResult into a sorted
+// slice of local variable names. Qualified (module-prefixed) variables
+// are excluded — they are globals resolved via the global slot map,
+// not captured in closure environments.
 func fvResultToSlice(r fvResult) []string {
 	if r.vars == nil {
 		if r.single == (VarKey{}) {
 			return []string{}
+		}
+		if !r.single.IsUnqualified() {
+			return []string{} // qualified var — global, not captured
 		}
 		return []string{r.single.Name}
 	}
@@ -362,7 +369,7 @@ func (r *fvResult) deleteByName(name string) {
 		delete(r.vars, LocalKey(name))
 		return
 	}
-	if r.single.Name == name && r.single.Module == "" {
+	if r.single.Name == name && r.single.IsUnqualified() {
 		r.single = VarKey{}
 	}
 }
@@ -536,13 +543,19 @@ func mergeFV(a, b fvResult) fvResult {
 	return a
 }
 
+// setToSlice extracts bare names from a VarKey set for FVInfo.Vars.
+// Only local (unqualified) variables are included — qualified module
+// references are globals resolved by VarKey in the global slot map,
+// not captured in closure environments.
 func setToSlice(s map[VarKey]struct{}) []string {
 	if len(s) == 0 {
 		return []string{}
 	}
 	result := make([]string, 0, len(s))
 	for k := range s {
-		result = append(result, k.Name)
+		if k.IsUnqualified() {
+			result = append(result, k.Name)
+		}
 	}
 	sort.Strings(result)
 	return result
@@ -554,6 +567,12 @@ type VarKey struct {
 	Module string
 	Name   string
 }
+
+// IsUnqualified reports whether this key lacks a module qualifier.
+// Unqualified keys arise from the current compilation unit: local
+// binders (Lam, Fix, Bind, Case patterns) and top-level main bindings.
+// Qualified keys originate from imported modules.
+func (k VarKey) IsUnqualified() bool { return k.Module == "" }
 
 // VarKeyOf returns the environment lookup key for a Var node.
 func VarKeyOf(v *Var) VarKey {
