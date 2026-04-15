@@ -213,7 +213,7 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		return ok
 
 	default:
-		return false
+		panic(unhandledTypeMsg("equalAlpha", a))
 	}
 }
 

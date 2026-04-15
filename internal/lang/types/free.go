@@ -168,8 +168,11 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 			return true
 		}
 		return false
-	default:
+	case *TySkolem, *TyMeta, *TyError:
+		// Leaves — no type variables.
 		return false
+	default:
+		panic(unhandledTypeMsg("occursIn", t))
 	}
 }
 

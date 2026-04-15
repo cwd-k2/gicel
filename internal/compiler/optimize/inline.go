@@ -31,14 +31,13 @@ type ExternalBinding struct {
 // collectInlineCandidates scans program bindings (and optionally
 // imported-module bindings) for small, non-recursive definitions
 // that can be safely inlined at call sites. Candidates are keyed by
-// ir.VarKey so the inliner matches references regardless of whether
-// they are local (`Name`) or module-qualified (`Module\x00Name`).
+// ir.VarKey (struct{Module, Name}) so the inliner matches references
+// regardless of whether they are local or module-qualified.
 //
-// Key space: local bindings (evidence and user) use bare name as key;
-// external bindings use ir.QualifiedKey ("Module\x00Name"). The two
-// namespaces are disjoint because \x00 cannot appear in surface names.
-// Lookups via ir.VarKey produce the matching format: bare for local
-// Vars, qualified for Vars with Module set.
+// Key space: local bindings use ir.LocalKey(name) (Module="");
+// external bindings use ir.QualifiedKey(module, name). The two
+// namespaces are disjoint by the Module field.
+// Lookups via ir.VarKeyOf(v) produce the matching format.
 //
 // Three categories of candidates:
 //   - User bindings: small lambdas (existing behavior)
