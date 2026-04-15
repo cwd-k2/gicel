@@ -106,7 +106,7 @@ func (ch *Checker) processTypeFamilyDecl(
 		for i := len(params) - 1; i >= 0; i-- {
 			kind = types.MkArrow(params[i].Kind, kind)
 		}
-		ch.config.HoverRecorder.RecordDecl(s, "alias", name, kind)
+		ch.config.HoverRecorder.RecordDecl(s, DeclAlias, name, kind)
 	}
 
 	_ = ch.reg.RegisterFamily(name, info) // closed type families never conflict by name

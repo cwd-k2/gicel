@@ -22,6 +22,9 @@ type doStrategy interface {
 	errPair(s span.Span) (types.Type, ir.Core)
 	elaborateBase(expr syntax.Expr, s span.Span) (types.Type, ir.Core)
 	elaborateBind(varName string, comp syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core)
+	// elaborateExprStmt elaborates an expression statement followed by one
+	// or more remaining statements. rest is guaranteed non-empty by the
+	// doElaborate dispatcher (base case is handled by elaborateBase).
 	elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core)
 }
 

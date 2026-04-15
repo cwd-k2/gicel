@@ -30,9 +30,9 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	cfg.EntryPoint = pc.pipelineFlags.effectiveEntryPoint()
 	cfg.DenyAssumptions = pc.pipelineFlags.denyAssumptions
 
-	var idx *HoverIndex
+	var builder *HoverIndexBuilder
 	if pc.typeRecorder {
-		idx = NewHoverIndex()
+		builder = NewHoverIndexBuilder()
 		varDocs := pc.collectVarDocs()
 		for _, d := range ast.Decls {
 			switch decl := d.(type) {
@@ -51,7 +51,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 			}
 		}
 		cfg.HoverRecorder = &hoverAdapter{
-			idx:       idx,
+			idx:       builder,
 			fixityMap: pc.collectFixityMap(ast),
 			varDocs:   varDocs,
 			source:    source,
@@ -59,16 +59,15 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	}
 
 	prog, checkErrs := check.Check(ast, src, cfg)
-	if idx != nil {
-		populateHoverDecls(idx, ast, prog, source)
-		idx.Finalize()
+	if builder != nil {
+		populateHoverDecls(builder, ast, prog, source)
+		result.HoverIndex = builder.Finalize()
 	}
 
 	result.Program = prog
 	result.AST = ast
 	result.Errors = checkErrs
 	result.Complete = !checkErrs.HasErrors()
-	result.HoverIndex = idx
 
 	// Flatten imported bindings for completion.
 	if cfg.ImportedModules != nil {
@@ -100,7 +99,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 
 // populateHoverDecls records declaration-level hover entries from the
 // checked program and the original AST, extracting doc comments from source.
-func populateHoverDecls(idx *HoverIndex, ast *syntax.AstProgram, prog *ir.Program, source string) {
+func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.AstProgram, prog *ir.Program, source string) {
 	doc := func(s span.Span) string {
 		return ExtractDocComment(source, s.Start)
 	}

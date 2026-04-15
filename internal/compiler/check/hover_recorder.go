@@ -5,13 +5,20 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// DeclKind classifies declaration entries for hover recording.
+type DeclKind uint8
+
+const (
+	DeclAlias DeclKind = iota // type alias declaration
+	DeclImpl                  // impl (instance) declaration
+)
+
 // HoverRecorder receives hover-relevant events during type checking.
 // When non-nil in CheckConfig, each method is called at the appropriate
-// point. When nil, no recording occurs. Replaces the six individual
-// callback fields (TypeRecorder, OperatorRecorder, VarDocRecorder,
-// DeclRecorder, PostCheckHook, PostGeneralize) that previously served
-// this purpose.
+// point. When nil, no recording occurs.
 type HoverRecorder interface {
+	// --- Recording: called during inference/checking ---
+
 	// RecordType is called for each inferred/checked expression with
 	// the raw (pre-zonk) type.
 	RecordType(sp span.Span, ty types.Type)
@@ -26,12 +33,13 @@ type HoverRecorder interface {
 	RecordVarDoc(sp span.Span, name, module string)
 
 	// RecordDecl is called for declaration hover entries (type aliases,
-	// impl declarations). declType is "alias" or "impl".
-	RecordDecl(sp span.Span, declType, name string, ty types.Type)
+	// impl declarations).
+	RecordDecl(sp span.Span, kind DeclKind, name string, ty types.Type)
 
-	// Rezonk is called at lifecycle points where the zonk function
-	// should be applied to all previously recorded types. Called
-	// during generalization (with temporary meta solutions active)
+	// --- Lifecycle: called at phase boundaries ---
+
+	// Rezonk must be called after all Record* calls for a given phase.
+	// Applied during generalization (with temporary meta solutions active)
 	// and after checking completes (with final solutions).
 	Rezonk(zonk func(types.Type) types.Type)
 }

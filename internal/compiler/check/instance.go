@@ -145,7 +145,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		if impl.Name != "" {
 			label = impl.Name
 		}
-		ch.config.HoverRecorder.RecordDecl(impl.S, "impl", label, implTy)
+		ch.config.HoverRecorder.RecordDecl(impl.S, DeclImpl, label, implTy)
 	}
 	ch.reg.RegisterInstance(inst)
 	return inst, bodyParts.Methods

@@ -16,43 +16,47 @@ func sp(start, end int) span.Span {
 }
 
 func TestHoverIndex_RecordAndLen(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Record(sp(0, 5), tycon("Int", sp(0, 0)))
-	idx.Record(sp(6, 10), tycon("String", sp(0, 0)))
+	b := NewHoverIndexBuilder()
+	b.Record(sp(0, 5), tycon("Int", sp(0, 0)))
+	b.Record(sp(6, 10), tycon("String", sp(0, 0)))
+	idx := b.Finalize()
 	if idx.Len() != 2 {
 		t.Fatalf("expected 2 entries, got %d", idx.Len())
 	}
 }
 
 func TestHoverIndex_FilterZeroSpan(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Record(span.Span{}, tycon("Int", sp(0, 0)))
+	b := NewHoverIndexBuilder()
+	b.Record(span.Span{}, tycon("Int", sp(0, 0)))
+	idx := b.Finalize()
 	if idx.Len() != 0 {
 		t.Fatalf("zero-value span should be filtered, got %d entries", idx.Len())
 	}
 }
 
 func TestHoverIndex_FilterZeroWidthSpan(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Record(sp(5, 5), tycon("Int", sp(0, 0)))
+	b := NewHoverIndexBuilder()
+	b.Record(sp(5, 5), tycon("Int", sp(0, 0)))
+	idx := b.Finalize()
 	if idx.Len() != 0 {
 		t.Fatalf("zero-width span should be filtered, got %d entries", idx.Len())
 	}
 }
 
 func TestHoverIndex_FilterTyError(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Record(sp(0, 5), &types.TyError{S: sp(0, 5)})
+	b := NewHoverIndexBuilder()
+	b.Record(sp(0, 5), &types.TyError{S: sp(0, 5)})
+	idx := b.Finalize()
 	if idx.Len() != 0 {
 		t.Fatalf("TyError should be filtered, got %d entries", idx.Len())
 	}
 }
 
 func TestHoverIndex_TypeAtBasic(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Record(sp(0, 3), tycon("Int", sp(0, 0)))
-	idx.Record(sp(5, 11), tycon("String", sp(0, 0)))
-	idx.Finalize()
+	b := NewHoverIndexBuilder()
+	b.Record(sp(0, 3), tycon("Int", sp(0, 0)))
+	b.Record(sp(5, 11), tycon("String", sp(0, 0)))
+	idx := b.Finalize()
 
 	// Inside first span.
 	ty := idx.TypeAt(span.Pos(1))
@@ -80,11 +84,11 @@ func TestHoverIndex_TypeAtBasic(t *testing.T) {
 }
 
 func TestHoverIndex_InnermostSpan(t *testing.T) {
-	idx := NewHoverIndex()
+	b := NewHoverIndexBuilder()
 	// Outer: [0, 20), inner: [5, 10).
-	idx.Record(sp(0, 20), tycon("Outer", sp(0, 0)))
-	idx.Record(sp(5, 10), tycon("Inner", sp(0, 0)))
-	idx.Finalize()
+	b.Record(sp(0, 20), tycon("Outer", sp(0, 0)))
+	b.Record(sp(5, 10), tycon("Inner", sp(0, 0)))
+	idx := b.Finalize()
 
 	// At pos 7: inner span should win.
 	ty := idx.TypeAt(span.Pos(7))
@@ -106,17 +110,17 @@ func TestHoverIndex_InnermostSpan(t *testing.T) {
 }
 
 func TestHoverIndex_EmptyIndex(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Finalize()
+	b := NewHoverIndexBuilder()
+	idx := b.Finalize()
 	if ty := idx.TypeAt(span.Pos(0)); ty != nil {
 		t.Fatalf("expected nil from empty index, got %v", ty)
 	}
 }
 
 func TestHoverIndex_BoundaryPositions(t *testing.T) {
-	idx := NewHoverIndex()
-	idx.Record(sp(5, 10), tycon("A", sp(0, 0)))
-	idx.Finalize()
+	b := NewHoverIndexBuilder()
+	b.Record(sp(5, 10), tycon("A", sp(0, 0)))
+	idx := b.Finalize()
 
 	// Start position (inclusive).
 	if ty := idx.TypeAt(span.Pos(5)); ty == nil {
@@ -133,10 +137,10 @@ func TestHoverIndex_BoundaryPositions(t *testing.T) {
 }
 
 func TestHoverIndex_RecordDecl(t *testing.T) {
-	idx := NewHoverIndex()
+	b := NewHoverIndexBuilder()
 	intTy := tycon("Int", sp(0, 0))
-	idx.RecordDecl(sp(0, 12), HoverBinding, "main", intTy, "")
-	idx.Finalize()
+	b.RecordDecl(sp(0, 12), HoverBinding, "main", intTy, "")
+	idx := b.Finalize()
 
 	hover := idx.HoverAt(span.Pos(0))
 	if hover == "" {
@@ -148,13 +152,13 @@ func TestHoverIndex_RecordDecl(t *testing.T) {
 }
 
 func TestHoverIndex_ExprWinsOverDecl(t *testing.T) {
-	idx := NewHoverIndex()
+	b := NewHoverIndexBuilder()
 	intTy := tycon("Int", sp(0, 0))
 	// Binding declaration covers [0, 15).
-	idx.RecordDecl(sp(0, 15), HoverBinding, "main", intTy, "")
+	b.RecordDecl(sp(0, 15), HoverBinding, "main", intTy, "")
 	// Expression literal covers [8, 10) — inside the binding.
-	idx.Record(sp(8, 10), intTy)
-	idx.Finalize()
+	b.Record(sp(8, 10), intTy)
+	idx := b.Finalize()
 
 	// At pos 9 (on the literal): expression should win.
 	hover := idx.HoverAt(span.Pos(9))
@@ -206,14 +210,21 @@ func TestHoverIndex_FormatHover(t *testing.T) {
 }
 
 func TestHoverIndex_RezonkAll(t *testing.T) {
-	idx := NewHoverIndex()
+	b := NewHoverIndexBuilder()
 	meta := &types.TyMeta{ID: 42}
-	idx.Record(sp(0, 5), meta)
-	idx.Finalize()
+	b.Record(sp(0, 5), meta)
 
-	// Before re-zonk: should see TyMeta.
+	// Rezonk before finalize — replaces meta with concrete type.
+	b.RezonkAll(func(ty types.Type) types.Type {
+		if _, ok := ty.(*types.TyMeta); ok {
+			return tycon("Int", sp(0, 0))
+		}
+		return ty
+	})
+
+	idx := b.Finalize()
 	ty := idx.TypeAt(span.Pos(1))
-	if _, ok := ty.(*types.TyMeta); !ok {
-		t.Fatalf("expected TyMeta before re-zonk, got %T", ty)
+	if c, ok := ty.(*types.TyCon); !ok || c.Name != "Int" {
+		t.Fatalf("expected Int after rezonk, got %T", ty)
 	}
 }

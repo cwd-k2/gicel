@@ -24,20 +24,6 @@ const (
 	HoverOperator                     // operator with fixity info
 )
 
-// HoverIndex records hover information for each expression and
-// declaration span during type checking. Entries are stored in sorted
-// order for efficient positional queries.
-//
-// Lifecycle: Record/RecordDecl → RezonkAll → Finalize → HoverAt.
-// Record after Finalize panics.
-type HoverIndex struct {
-	entries        []hoverEntry
-	pendingDocs    map[span.Pos]string // span.Start → doc (set by AttachDoc/AttachVarInfo, applied at Finalize)
-	pendingModules map[span.Pos]string // span.Start → module (set by AttachVarInfo, applied at Finalize)
-	pendingLabels  map[span.Pos]string // span.Start → var name (set by AttachVarInfo, applied at Finalize)
-	finalized      bool
-}
-
 // OperatorFixity holds the fixity information for an operator.
 type OperatorFixity struct {
 	Assoc string // "infixl", "infixr", "infix"
@@ -59,138 +45,154 @@ type hoverEntry struct {
 	fixity *OperatorFixity // non-nil only for HoverOperator
 }
 
-// NewHoverIndex creates an empty HoverIndex.
-func NewHoverIndex() *HoverIndex {
-	return &HoverIndex{}
+// --- HoverIndexBuilder: write-side (Record → Rezonk → Finalize) ---
+
+// HoverIndexBuilder accumulates hover entries during type checking.
+// After all entries are recorded, call Finalize() to produce an
+// immutable *HoverIndex for positional queries.
+//
+// Lifecycle: Record*/Attach* → RezonkAll → Finalize → (use *HoverIndex)
+type HoverIndexBuilder struct {
+	entries        []hoverEntry
+	pendingDocs    map[span.Pos]string // span.Start → doc
+	pendingModules map[span.Pos]string // span.Start → module
+	pendingLabels  map[span.Pos]string // span.Start → var name
 }
 
-// guard checks common preconditions for recording: not finalized, non-zero span.
-// Returns false if the entry should be skipped.
-func (idx *HoverIndex) guard(sp span.Span) bool {
-	if idx.finalized {
-		panic("HoverIndex: Record called after Finalize")
-	}
-	return sp.Start < sp.End
+// NewHoverIndexBuilder creates an empty builder.
+func NewHoverIndexBuilder() *HoverIndexBuilder {
+	return &HoverIndexBuilder{}
 }
 
 // Record adds an expression type entry. Entries with zero-width spans
 // or TyError types are silently discarded.
-func (idx *HoverIndex) Record(sp span.Span, ty types.Type) {
-	if !idx.guard(sp) {
+func (b *HoverIndexBuilder) Record(sp span.Span, ty types.Type) {
+	if sp.Start >= sp.End {
 		return
 	}
 	if _, ok := ty.(*types.TyError); ok {
 		return
 	}
-	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: HoverExpr, ty: ty})
+	b.entries = append(b.entries, hoverEntry{span: sp, kind: HoverExpr, ty: ty})
 }
 
 // RecordDecl adds a declaration entry with a label, kind, and optional doc comment.
-func (idx *HoverIndex) RecordDecl(sp span.Span, kind HoverKind, label string, ty types.Type, doc string) {
-	if !idx.guard(sp) {
+func (b *HoverIndexBuilder) RecordDecl(sp span.Span, kind HoverKind, label string, ty types.Type, doc string) {
+	if sp.Start >= sp.End {
 		return
 	}
-	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: kind, ty: ty, label: label, doc: doc})
+	b.entries = append(b.entries, hoverEntry{span: sp, kind: kind, ty: ty, label: label, doc: doc})
 }
 
 // RecordOperator adds an operator entry with its type, module, and fixity information.
-func (idx *HoverIndex) RecordOperator(sp span.Span, name, module string, ty types.Type, fixity *OperatorFixity) {
-	if !idx.guard(sp) {
+func (b *HoverIndexBuilder) RecordOperator(sp span.Span, name, module string, ty types.Type, fixity *OperatorFixity) {
+	if sp.Start >= sp.End {
 		return
 	}
 	if _, ok := ty.(*types.TyError); ok {
 		return
 	}
-	idx.entries = append(idx.entries, hoverEntry{span: sp, kind: HoverOperator, ty: ty, label: name, module: module, fixity: fixity})
+	b.entries = append(b.entries, hoverEntry{span: sp, kind: HoverOperator, ty: ty, label: name, module: module, fixity: fixity})
 }
 
 // AttachDoc associates a doc comment with an expression span.
 // Applied during Finalize to the matching HoverExpr entry.
-func (idx *HoverIndex) AttachDoc(sp span.Span, doc string) {
+func (b *HoverIndexBuilder) AttachDoc(sp span.Span, doc string) {
 	if doc == "" || sp.Start >= sp.End {
 		return
 	}
-	if idx.pendingDocs == nil {
-		idx.pendingDocs = make(map[span.Pos]string)
+	if b.pendingDocs == nil {
+		b.pendingDocs = make(map[span.Pos]string)
 	}
-	idx.pendingDocs[sp.Start] = doc
+	b.pendingDocs[sp.Start] = doc
 }
 
 // AttachVarInfo associates documentation and module provenance with a
 // variable reference span. Applied during Finalize to the matching
 // HoverExpr entry.
-func (idx *HoverIndex) AttachVarInfo(sp span.Span, name, module, doc string) {
+func (b *HoverIndexBuilder) AttachVarInfo(sp span.Span, name, module, doc string) {
 	if sp.Start >= sp.End {
 		return
 	}
 	if doc != "" {
-		if idx.pendingDocs == nil {
-			idx.pendingDocs = make(map[span.Pos]string)
+		if b.pendingDocs == nil {
+			b.pendingDocs = make(map[span.Pos]string)
 		}
-		idx.pendingDocs[sp.Start] = doc
+		b.pendingDocs[sp.Start] = doc
 	}
 	if module != "" {
-		if idx.pendingModules == nil {
-			idx.pendingModules = make(map[span.Pos]string)
+		if b.pendingModules == nil {
+			b.pendingModules = make(map[span.Pos]string)
 		}
-		idx.pendingModules[sp.Start] = module
+		b.pendingModules[sp.Start] = module
 	}
 	if name != "" && module != "" {
-		if idx.pendingLabels == nil {
-			idx.pendingLabels = make(map[span.Pos]string)
+		if b.pendingLabels == nil {
+			b.pendingLabels = make(map[span.Pos]string)
 		}
-		idx.pendingLabels[sp.Start] = name
+		b.pendingLabels[sp.Start] = name
 	}
 }
 
 // RezonkAll applies a final zonk function to all recorded types,
 // replacing unresolved metavariables with their solutions. Must be
 // called after type checking completes and before Finalize.
-func (idx *HoverIndex) RezonkAll(zonk func(types.Type) types.Type) {
+func (b *HoverIndexBuilder) RezonkAll(zonk func(types.Type) types.Type) {
 	if zonk == nil {
 		return
 	}
-	for i := range idx.entries {
-		if idx.entries[i].ty != nil {
-			idx.entries[i].ty = zonk(idx.entries[i].ty)
+	for i := range b.entries {
+		if b.entries[i].ty != nil {
+			b.entries[i].ty = zonk(b.entries[i].ty)
 		}
 	}
 }
 
-// Finalize applies pending doc comments and sorts entries for positional queries.
-// Must be called exactly once after all Record/RecordDecl calls and before any queries.
-func (idx *HoverIndex) Finalize() {
+// Finalize applies pending doc comments, sorts entries for positional queries,
+// and returns an immutable *HoverIndex. The builder must not be used after this call.
+func (b *HoverIndexBuilder) Finalize() *HoverIndex {
 	// Apply pending doc comments and module provenance to matching expression entries.
-	for i := range idx.entries {
-		e := &idx.entries[i]
+	for i := range b.entries {
+		e := &b.entries[i]
 		if e.kind == HoverExpr {
 			if e.doc == "" {
-				if doc, ok := idx.pendingDocs[e.span.Start]; ok {
+				if doc, ok := b.pendingDocs[e.span.Start]; ok {
 					e.doc = doc
 				}
 			}
-			if mod, ok := idx.pendingModules[e.span.Start]; ok {
+			if mod, ok := b.pendingModules[e.span.Start]; ok {
 				if e.module == "" {
 					e.module = mod
 				}
 			}
-			if label, ok := idx.pendingLabels[e.span.Start]; ok {
+			if label, ok := b.pendingLabels[e.span.Start]; ok {
 				if e.label == "" {
 					e.label = label
 				}
 			}
 		}
 	}
-	idx.pendingDocs = nil
-	idx.pendingModules = nil
-	idx.pendingLabels = nil
-	idx.finalized = true
-	slices.SortStableFunc(idx.entries, func(a, b hoverEntry) int {
-		if a.span.Start != b.span.Start {
-			return int(a.span.Start - b.span.Start)
+	slices.SortStableFunc(b.entries, func(a, c hoverEntry) int {
+		if a.span.Start != c.span.Start {
+			return int(a.span.Start - c.span.Start)
 		}
-		return int((a.span.End - a.span.Start) - (b.span.End - b.span.Start))
+		return int((a.span.End - a.span.Start) - (c.span.End - c.span.Start))
 	})
+	idx := &HoverIndex{entries: b.entries}
+	// Prevent further use of builder.
+	b.entries = nil
+	b.pendingDocs = nil
+	b.pendingModules = nil
+	b.pendingLabels = nil
+	return idx
+}
+
+// --- HoverIndex: read-side (immutable, positional queries only) ---
+
+// HoverIndex provides positional hover queries over a finalized set of entries.
+// Created by HoverIndexBuilder.Finalize(). All methods are safe for concurrent use.
+type HoverIndex struct {
+	entries []hoverEntry
 }
 
 // Len returns the number of recorded entries.
