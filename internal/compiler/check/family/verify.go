@@ -115,8 +115,16 @@ func collectVarKindsRec(t types.Type, contextKind types.Type, result map[string]
 			}
 		}
 	case *types.TyApp:
-		funKind := &types.TyArrow{From: types.TypeOfTypes, To: contextKind}
+		// When the context kind is a concrete arrow (k1 -> k2), the function
+		// position expects (argKind -> contextKind) and the argument position
+		// expects argKind = k1. Fall back to Type when the kind is not an arrow
+		// (e.g., unsolved meta or a non-arrow kind).
+		var argKind types.Type = types.TypeOfTypes
+		if arr, ok := contextKind.(*types.TyArrow); ok {
+			argKind = arr.From
+		}
+		funKind := &types.TyArrow{From: argKind, To: contextKind}
 		collectVarKindsRec(ty.Fun, funKind, result)
-		collectVarKindsRec(ty.Arg, types.TypeOfTypes, result)
+		collectVarKindsRec(ty.Arg, argKind, result)
 	}
 }

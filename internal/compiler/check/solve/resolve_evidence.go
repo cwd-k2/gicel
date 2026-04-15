@@ -1,12 +1,55 @@
 package solve
 
 import (
+	"sort"
+
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
+
+// constraintSortKey returns a canonical key for ordering constraint entries.
+// EqualityEntries sort before class entries (empty className).
+func constraintSortKey(e types.ConstraintEntry) string {
+	return types.HeadClassName(e)
+}
+
+// sortedConstraintIndices returns indices into ctx sorted by canonical key,
+// enabling order-independent matching of constraint contexts.
+func sortedConstraintIndices(ctx []types.ConstraintEntry) []int {
+	indices := make([]int, len(ctx))
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.Slice(indices, func(a, b int) bool {
+		ka := constraintSortKey(ctx[indices[a]])
+		kb := constraintSortKey(ctx[indices[b]])
+		if ka != kb {
+			return ka < kb
+		}
+		return indices[a] < indices[b] // stable by original order
+	})
+	return indices
+}
+
+// sortedInfoIndices returns indices into a ConstraintInfo slice sorted by class name.
+func sortedInfoIndices(ctx []env.ConstraintInfo) []int {
+	indices := make([]int, len(ctx))
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.Slice(indices, func(a, b int) bool {
+		ka := ctx[indices[a]].ClassName
+		kb := ctx[indices[b]].ClassName
+		if ka != kb {
+			return ka < kb
+		}
+		return indices[a] < indices[b]
+	})
+	return indices
+}
 
 // applyQuantifiedEvidence tries to use a quantified evidence entry to produce
 // a dictionary for the given className and args.
@@ -114,13 +157,16 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 				}
 			}
 			// Verify context compatibility: instance context should subsume quantified context.
-			// Pairwise unify context arguments (not just name+arity) to distinguish
-			// e.g. `C1 (F a)` from `C1 (G a)` — see S-1 soundness fix.
+			// Contexts are compared in canonical order (sorted by class name) to allow
+			// matching regardless of declaration order — see T1-3 structural matching fix.
 			if len(inst.Context) != len(qc.Context) {
 				return false
 			}
-			for i, ic := range inst.Context {
-				qcc := qc.Context[i]
+			instOrder := sortedInfoIndices(inst.Context)
+			qcOrder := sortedConstraintIndices(qc.Context)
+			for idx := range instOrder {
+				ic := inst.Context[instOrder[idx]]
+				qcc := qc.Context[qcOrder[idx]]
 				if ic.ClassName != types.HeadClassName(qcc) {
 					return false
 				}
@@ -180,8 +226,12 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 			if len(eq.Context) != len(qc.Context) {
 				return false
 			}
-			for i, ec := range eq.Context {
-				qcc := qc.Context[i]
+			// Sort both context lists by canonical key for order-independent matching.
+			eqOrder := sortedConstraintIndices(eq.Context)
+			qcCtxOrder := sortedConstraintIndices(qc.Context)
+			for idx := range eqOrder {
+				ec := eq.Context[eqOrder[idx]]
+				qcc := qc.Context[qcCtxOrder[idx]]
 				// EqualityEntry: unify both sides of the equality.
 				if ecEq, ok := ec.(*types.EqualityEntry); ok {
 					qccEq, ok := qcc.(*types.EqualityEntry)

@@ -60,14 +60,30 @@ func verifyCore(c Core, errs []VerifyError) []VerifyError {
 	return errs
 }
 
-// verifyBind checks V2: auto-force generated Bind structure.
+// verifyBind checks:
+//   - V2: auto-force generated Bind has structure Bind{Generated, Comp: Force{Var{...}}}.
+//   - V8: Bind.Comp is a computation-producing node (not Thunk or Lam directly).
+//     In CBPV, bind sequences computations; a Thunk (suspended value) or Lam (value)
+//     directly in Bind.Comp violates the value/computation distinction.
 func verifyBind(b *Bind, errs []VerifyError) []VerifyError {
+	// V8: Bind.Comp must be computation-producing.
+	switch b.Comp.(type) {
+	case *Thunk:
+		errs = append(errs, VerifyError{
+			Node:    b,
+			Message: "Bind.Comp is Thunk — CBPV violation: bind expects a computation, not a suspended value",
+		})
+	case *Lam:
+		errs = append(errs, VerifyError{
+			Node:    b,
+			Message: "Bind.Comp is Lam — CBPV violation: bind expects a computation, not a lambda value",
+		})
+	}
+
+	// V2: auto-force generated Bind structure check.
 	if !b.Generated.IsGenerated() {
 		return errs
 	}
-	// Generated Bind from autoForceLazy has Comp = Force{Expr: Var{...}}.
-	// The structural pattern (Generated + Force + Var) is the invariant;
-	// the Var's name is an implementation detail of autoForceLazy.
 	force, ok := b.Comp.(*Force)
 	if !ok {
 		// Generated Bind with non-Force comp — may be from other compiler passes
