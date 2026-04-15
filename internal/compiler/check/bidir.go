@@ -47,7 +47,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 	if err := ch.budget.Nest(); err != nil {
 		if !ch.nestingReported {
 			ch.nestingReported = true
-			ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
+			ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "structural depth", Err: err})
 		}
 		return &types.TyError{S: expr.Span()}, &ir.Lit{Value: nil, S: expr.Span()}
 	}
@@ -297,7 +297,7 @@ func (ch *Checker) check(expr syntax.Expr, expected types.Type) ir.Core {
 	if err := ch.budget.Nest(); err != nil {
 		if !ch.nestingReported {
 			ch.nestingReported = true
-			ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "nesting limit", Err: err})
+			ch.addDiag(diagnostic.ErrNestingLimit, expr.Span(), diagWithErr{Context: "structural depth", Err: err})
 		}
 		return &ir.Lit{Value: nil, S: expr.Span()}
 	}

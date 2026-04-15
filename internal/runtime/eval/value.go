@@ -376,7 +376,8 @@ func (v *RecordVal) String() string {
 }
 
 func (v *VariantVal) String() string {
-	return "@#" + v.Tag + " " + v.Value.String()
+	// Tag already carries the "#" prefix from label erasure (e.g. "#a").
+	return "@" + v.Tag + " " + v.Value.String()
 }
 
 func (v *VMClosure) String() string {

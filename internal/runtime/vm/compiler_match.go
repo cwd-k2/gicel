@@ -127,7 +127,12 @@ func compilePLit(c *Compiler, p *ir.PLit, failPatches *[]int) {
 }
 
 func compilePLabel(c *Compiler, p *ir.PLabel, failPatches *[]int) {
-	tagIdx := c.addConstant(&eval.HostVal{Inner: p.Label})
+	// PLabel.Label is the user-facing name (e.g. "a" from #a).
+	// Label erasure adds a "#" prefix to runtime tags (e.g. "#a") to
+	// separate named-label capability keys from anonymous ones. The
+	// match constant must carry the same prefix so that OpMatchLabel
+	// compares equal strings.
+	tagIdx := c.addConstant(&eval.HostVal{Inner: "#" + p.Label})
 	pos := c.emitU16U16(OpMatchLabel, tagIdx, 0)
 	if failPatches != nil {
 		*failPatches = append(*failPatches, pos)

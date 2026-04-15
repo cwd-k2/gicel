@@ -309,22 +309,27 @@ func ftCollectSpine(t ftree, acc *[]eval.Value) {
 	case ftEmpty:
 	case ftSingle:
 		nd := asNode(t.elem)
-		for _, e := range nd.elems {
-			*acc = append(*acc, e)
-		}
+		collectNode(nd, acc)
 	case *ftDeep:
 		for _, v := range t.left {
-			nd := asNode(v)
-			for _, e := range nd.elems {
-				*acc = append(*acc, e)
-			}
+			collectNode(asNode(v), acc)
 		}
 		ftCollectSpine(t.mid, acc)
 		for _, v := range t.right {
-			nd := asNode(v)
-			for _, e := range nd.elems {
-				*acc = append(*acc, e)
-			}
+			collectNode(asNode(v), acc)
+		}
+	}
+}
+
+// collectNode recursively extracts leaf elements from a node.
+// At spine level 1, node elements are leaves; at deeper levels,
+// they are nested node23 values that must be unwrapped.
+func collectNode(n *node23, acc *[]eval.Value) {
+	for _, e := range n.elems {
+		if inner, ok := extractNode(e); ok {
+			collectNode(inner, acc)
+		} else {
+			*acc = append(*acc, e)
 		}
 	}
 }

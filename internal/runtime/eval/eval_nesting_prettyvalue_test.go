@@ -41,6 +41,31 @@ func TestPrettyValue_ShallowOK(t *testing.T) {
 	}
 }
 
+func TestVariantVal_StringFormat(t *testing.T) {
+	// Tag already carries "#" prefix from label erasure.
+	// String() must produce "@#a ...", not "@##a ..." (double #).
+	v := &VariantVal{Tag: "#a", Value: &HostVal{Inner: int64(42)}}
+	got := v.String()
+	if strings.Contains(got, "##") {
+		t.Errorf("VariantVal.String() has double #: %q", got)
+	}
+	if !strings.HasPrefix(got, "@#a ") {
+		t.Errorf("VariantVal.String() should start with '@#a ', got %q", got)
+	}
+}
+
+func TestVariantVal_StringNestedPayload(t *testing.T) {
+	// Payload with spaces should be parenthesized in PrettyValue.
+	v := &VariantVal{Tag: "#ok", Value: &ConVal{Con: "Just", Args: []Value{&HostVal{Inner: int64(1)}}}}
+	got := PrettyValue(v)
+	if strings.Contains(got, "##") {
+		t.Errorf("PrettyValue has double #: %q", got)
+	}
+	if !strings.HasPrefix(got, "@#ok") {
+		t.Errorf("PrettyValue should start with @#ok, got %q", got)
+	}
+}
+
 func TestPrettyValue_CyclicIndirectVal(t *testing.T) {
 	// Cyclic IndirectVal should not stack overflow.
 	var v Value

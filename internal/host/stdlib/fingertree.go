@@ -17,7 +17,7 @@ func (ftEmpty) ftreeSize() int { return 0 }
 
 type ftSingle struct{ elem eval.Value }
 
-func (ftSingle) ftreeSize() int { return 1 }
+func (s ftSingle) ftreeSize() int { return elemSize(s.elem) }
 
 type ftDeep struct {
 	size  int
@@ -35,11 +35,11 @@ type node23 struct {
 }
 
 func mkNode2(a, b eval.Value) *node23 {
-	return &node23{size: 2, elems: []eval.Value{a, b}}
+	return &node23{size: elemSize(a) + elemSize(b), elems: []eval.Value{a, b}}
 }
 
 func mkNode3(a, b, c eval.Value) *node23 {
-	return &node23{size: 3, elems: []eval.Value{a, b, c}}
+	return &node23{size: elemSize(a) + elemSize(b) + elemSize(c), elems: []eval.Value{a, b, c}}
 }
 
 func nodeVal(n *node23) eval.Value {
@@ -405,7 +405,11 @@ func digitToListSpineR(d []eval.Value, acc *eval.Value) {
 
 func nodeToListR(n *node23, acc *eval.Value) {
 	for i := len(n.elems) - 1; i >= 0; i-- {
-		*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.elems[i], *acc}}
+		if inner, ok := extractNode(n.elems[i]); ok {
+			nodeToListR(inner, acc)
+		} else {
+			*acc = &eval.ConVal{Con: "Cons", Args: []eval.Value{n.elems[i], *acc}}
+		}
 	}
 }
 
@@ -496,7 +500,11 @@ func ftFoldlSpine(t ftree, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier
 func nodeFoldl(n *node23, f, acc eval.Value, ce eval.CapEnv, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
 	var err error
 	for _, e := range n.elems {
-		acc, ce, err = apply.ApplyN(f, []eval.Value{acc, e}, ce)
+		if inner, ok := extractNode(e); ok {
+			acc, ce, err = nodeFoldl(inner, f, acc, ce, apply)
+		} else {
+			acc, ce, err = apply.ApplyN(f, []eval.Value{acc, e}, ce)
+		}
 		if err != nil {
 			return nil, ce, err
 		}

@@ -252,3 +252,20 @@ main := (multi True True True True, multi Unit Unit Unit Unit)
 `
 	checkSource(t, source, nil)
 }
+
+func TestNestingLimitErrorMessage(t *testing.T) {
+	// With a very low nesting limit, type checking should produce E0261.
+	// The message must NOT stutter ("nesting limit: nesting limit exceeded").
+	source := `
+form Bool := { True: Bool; False: Bool; }
+x := if True then True else False
+`
+	config := &CheckConfig{NestingLimit: 1}
+	errStr := checkSourceExpectCode(t, source, config, 261) // E0261
+	if strings.Contains(errStr, "nesting limit: nesting limit") {
+		t.Errorf("nesting limit message stutters: %s", errStr)
+	}
+	if !strings.Contains(errStr, "nesting limit exceeded") {
+		t.Errorf("expected 'nesting limit exceeded' in error, got: %s", errStr)
+	}
+}

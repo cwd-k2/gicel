@@ -391,6 +391,58 @@ func TestMapManyInserts(t *testing.T) {
 	}
 }
 
+func TestMapUnionWithLeftBias(t *testing.T) {
+	// union = unionWith (\a _. a) — first map's value must win.
+	apply := intCmpApplier()
+	cmpFn := &eval.HostVal{Inner: "cmp"}
+	emptyV, _, _ := mapEmptyImpl(ctx, ce, args(cmpFn), eval.Applier{})
+
+	m1, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(100), emptyV), apply)
+	m1, _, _ = mapInsertImpl(ctx, ce, args(cmpFn, intVal(2), intVal(200), m1), apply)
+
+	m2, _, _ := mapInsertImpl(ctx, ce, args(cmpFn, intVal(1), intVal(999), emptyV), apply)
+	m2, _, _ = mapInsertImpl(ctx, ce, args(cmpFn, intVal(3), intVal(300), m2), apply)
+
+	// Left-preference combiner: \a _. a
+	leftF := &eval.Closure{Param: "left"}
+	type leftPartial struct{ val int64 }
+	leftApply := eval.ApplierFrom(func(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
+		if hv, ok := fn.(*eval.HostVal); ok {
+			if p, ok := hv.Inner.(*leftPartial); ok {
+				return intVal(p.val), capEnv, nil // return first, ignore second
+			}
+		}
+		if _, ok := fn.(*eval.Closure); ok {
+			a := arg.(*eval.HostVal).Inner.(int64)
+			return &eval.HostVal{Inner: &leftPartial{val: a}}, capEnv, nil
+		}
+		return apply.Apply(fn, arg, capEnv)
+	})
+
+	result, _, err := mapUnionWithImpl(ctx, ce, args(leftF, m1, m2), leftApply)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Key 1: m1 has 100, m2 has 999. Left-biased → 100.
+	v1, _, _ := mapLookupImpl(ctx, ce, args(cmpFn, intVal(1), result), apply)
+	assertCon(t, v1, "Just")
+	assertInt(t, v1.(*eval.ConVal).Args[0], 100)
+
+	// Key 2: only in m1 → 200.
+	v2, _, _ := mapLookupImpl(ctx, ce, args(cmpFn, intVal(2), result), apply)
+	assertCon(t, v2, "Just")
+	assertInt(t, v2.(*eval.ConVal).Args[0], 200)
+
+	// Key 3: only in m2 → 300.
+	v3, _, _ := mapLookupImpl(ctx, ce, args(cmpFn, intVal(3), result), apply)
+	assertCon(t, v3, "Just")
+	assertInt(t, v3.(*eval.ConVal).Args[0], 300)
+
+	sv, _, _ := mapSizeImpl(ctx, ce, args(result), eval.Applier{})
+	assertInt(t, sv, 3)
+}
+
 // --- Set primitives ---
 
 func TestSetInsertMemberSize(t *testing.T) {

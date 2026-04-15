@@ -451,5 +451,5 @@ func primOpAbsorb(c ir.Core) ir.Core {
 	args := make([]ir.Core, len(po.Args)+1)
 	copy(args, po.Args)
 	args[len(po.Args)] = app.Arg
-	return &ir.PrimOp{Name: po.Name, Arity: po.Arity, IsEffectful: po.IsEffectful, Args: args, S: po.S}
+	return &ir.PrimOp{Name: po.Name, Arity: po.Arity, IsEffectful: po.IsEffectful, Args: args, S: app.S}
 }

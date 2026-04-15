@@ -439,9 +439,9 @@ Operators: `(<+)` (cons, infixr 5).
 
 | Name           | Type                                   | Description                       |
 | -------------- | -------------------------------------- | --------------------------------- |
-| `strlen`       | `String -> Int`                        | String length (UTF-8 byte count)  |
-| `charAt`       | `Int -> String -> Maybe Rune`          | Character at byte index           |
-| `substring`    | `Int -> Int -> String -> String`       | Byte-range substring              |
+| `strlen`       | `String -> Int`                        | String length (rune count)        |
+| `charAt`       | `Int -> String -> Maybe Rune`          | Character at rune index           |
+| `substring`    | `Int -> Int -> String -> String`       | Rune-range substring              |
 | `toUpper`      | `String -> String`                     | Convert to uppercase              |
 | `toLower`      | `String -> String`                     | Convert to lowercase              |
 | `trim`         | `String -> String`                     | Strip leading/trailing whitespace |

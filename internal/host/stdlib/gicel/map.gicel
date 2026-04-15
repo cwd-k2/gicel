@@ -154,13 +154,13 @@ adjust := \k f m. case lookup k m {
   Nothing => m
 }
 
--- Left-biased union (right value wins on collision).
+-- Left-biased union (first map's value wins on collision).
 union :: \k v. Map k v -> Map k v -> Map k v
-union := unionWith (\_ b. b)
+union := unionWith (\a _. a)
 
--- Keys present in both maps (right value kept).
+-- Left-biased intersection (first map's value kept).
 intersection :: \k v. Map k v -> Map k v -> Map k v
-intersection := intersectionWith (\_ b. b)
+intersection := intersectionWith (\a _. a)
 
 -- Keys in the first map that are not in the second.
 difference :: \k v. Ord k => Map k v -> Map k v -> Map k v

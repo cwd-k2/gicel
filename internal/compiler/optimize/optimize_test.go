@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 )
 
@@ -870,4 +871,58 @@ func TestMultiPass_NestedBetaRequiresIteration(t *testing.T) {
 func testFVNames(c ir.Core) map[string]struct{} {
 	fv, _ := ir.FreeVars(c)
 	return fvNames(fv)
+}
+
+func TestPrimOpAbsorb_PreservesCallSiteSpan(t *testing.T) {
+	// primOpAbsorb(App{Fun: PrimOp{S: defSpan}, Arg: lit, S: callSpan})
+	// must produce PrimOp{S: callSpan}, not PrimOp{S: defSpan}.
+	defSpan := span.Span{Start: 17947, End: 17960}
+	callSpan := span.Span{Start: 25, End: 35}
+
+	po := &ir.PrimOp{Name: "_modInt", Arity: 2, Args: []ir.Core{lit(10)}, S: defSpan}
+	app := &ir.App{Fun: po, Arg: lit(0), S: callSpan}
+
+	result := primOpAbsorb(app)
+	rpo, ok := result.(*ir.PrimOp)
+	if !ok {
+		t.Fatalf("expected PrimOp, got %T", result)
+	}
+	if rpo.S != callSpan {
+		t.Errorf("primOpAbsorb should preserve call-site span %v, got %v", callSpan, rpo.S)
+	}
+}
+
+func TestPrimOpAbsorb_IteratedAbsorption(t *testing.T) {
+	// Two-step absorption: App(App(PrimOp{S: def}, arg1){S: inner}, arg2){S: outer}
+	// After first pass: PrimOp{S: inner}
+	// After second pass: PrimOp{S: outer}
+	// The outermost call-site span wins.
+	defSpan := span.Span{Start: 17947, End: 17960}
+	innerSpan := span.Span{Start: 25, End: 30}
+	outerSpan := span.Span{Start: 25, End: 35}
+
+	po := &ir.PrimOp{Name: "_modInt", Arity: 2, S: defSpan}
+	inner := &ir.App{Fun: po, Arg: lit(10), S: innerSpan}
+	outer := &ir.App{Fun: inner, Arg: lit(0), S: outerSpan}
+
+	// First absorption.
+	r1 := primOpAbsorb(inner)
+	rpo1, ok := r1.(*ir.PrimOp)
+	if !ok {
+		t.Fatalf("pass 1: expected PrimOp, got %T", r1)
+	}
+	if rpo1.S != innerSpan {
+		t.Errorf("pass 1: expected span %v, got %v", innerSpan, rpo1.S)
+	}
+
+	// Second absorption with the outer App.
+	outer.Fun = rpo1
+	r2 := primOpAbsorb(outer)
+	rpo2, ok := r2.(*ir.PrimOp)
+	if !ok {
+		t.Fatalf("pass 2: expected PrimOp, got %T", r2)
+	}
+	if rpo2.S != outerSpan {
+		t.Errorf("pass 2: expected span %v, got %v", outerSpan, rpo2.S)
+	}
 }
