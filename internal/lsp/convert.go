@@ -8,6 +8,14 @@ import (
 	"github.com/cwd-k2/gicel/internal/lsp/protocol"
 )
 
+// Compile-time verification that engine.SymbolKind constants match the
+// corresponding LSP protocol values. A mismatch is a build error, not a
+// runtime surprise.
+var _ = [1]struct{}{}[int(engine.SymbolFunction)-int(protocol.SKFunction)]
+var _ = [1]struct{}{}[int(engine.SymbolConstructor)-int(protocol.SKConstructor)]
+var _ = [1]struct{}{}[int(engine.SymbolClass)-int(protocol.SKClass)]
+var _ = [1]struct{}{}[int(engine.SymbolStruct)-int(protocol.SKStruct)]
+
 // convertDiagnostics transforms an AnalysisResult's errors into LSP diagnostics.
 func convertDiagnostics(ar *engine.AnalysisResult) []protocol.Diagnostic {
 	if ar.Errors == nil || !ar.Errors.HasErrors() {

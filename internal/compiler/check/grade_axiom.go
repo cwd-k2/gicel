@@ -104,17 +104,17 @@ func extractGradeAlgebraFromRegistry(reg *Registry, classInfo *ClassInfo, inst *
 			}
 			reduced := substType(eq.RHS, subst)
 			switch assocName {
-			case "GradeJoin":
+			case gradeAssocJoin:
 				if c, ok := reduced.(*types.TyCon); ok {
 					result.joinFamily = c.Name
 				}
-			case "GradeCompose":
+			case gradeAssocCompose:
 				if c, ok := reduced.(*types.TyCon); ok {
 					result.composeFamily = c.Name
 				}
-			case "GradeDrop":
+			case gradeAssocDrop:
 				result.dropValue = reduced
-			case "GradeUnit":
+			case gradeAssocUnit:
 				result.unitValue = reduced
 			}
 			break

@@ -5,6 +5,16 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// GradeAlgebra associated type family names. These are the canonical names
+// used in the GradeAlgebra class definition; the compiler must know them to
+// extract grade algebra operations from resolved instances.
+const (
+	gradeAssocJoin    = "GradeJoin"
+	gradeAssocCompose = "GradeCompose"
+	gradeAssocDrop    = "GradeDrop"
+	gradeAssocUnit    = "GradeUnit"
+)
+
 // gradeAlgebraKind returns the kind to use for grade algebra parameters.
 // If "Mult" is registered as a promoted kind (via DataKinds), returns
 // PromotedDataKind("Mult"); otherwise falls back to TypeOfTypes.
@@ -81,21 +91,21 @@ func (ch *Checker) extractGradeAlgebra(classInfo *ClassInfo, inst *InstanceInfo)
 			continue
 		}
 		switch assocName {
-		case "GradeJoin":
+		case gradeAssocJoin:
 			if con, ok := reduced.(*types.TyCon); ok {
 				result.joinFamily = con.Name
 			} else {
 				return resolvedGradeAlgebra{}
 			}
-		case "GradeCompose":
+		case gradeAssocCompose:
 			if con, ok := reduced.(*types.TyCon); ok {
 				result.composeFamily = con.Name
 			} else {
 				return resolvedGradeAlgebra{}
 			}
-		case "GradeDrop":
+		case gradeAssocDrop:
 			result.dropValue = reduced
-		case "GradeUnit":
+		case gradeAssocUnit:
 			result.unitValue = reduced
 		}
 	}
