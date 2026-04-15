@@ -91,13 +91,13 @@ func seqUnconsImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	}
 	view := ftUncons(sv.tree)
 	if view == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	pair := eval.NewRecordFromMap(map[string]eval.Value{
 		types.TupleLabel(1): view.head,
 		types.TupleLabel(2): seqWrap(view.tail),
 	})
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{pair}}, ce, nil
 }
 
 func seqUnsnocImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -107,13 +107,13 @@ func seqUnsnocImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 	}
 	view := ftUnsnoc(sv.tree)
 	if view == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	pair := eval.NewRecordFromMap(map[string]eval.Value{
 		types.TupleLabel(1): seqWrap(view.init),
 		types.TupleLabel(2): view.last,
 	})
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{pair}}, ce, nil
 }
 
 func seqAppendImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -151,13 +151,13 @@ func seqIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.A
 		return nil, ce, err
 	}
 	if i < 0 || int(i) >= sv.tree.ftreeSize() {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	elem := ftIndex(sv.tree, int(i))
 	if elem == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{elem}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{elem}}, ce, nil
 }
 
 func seqLengthImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

@@ -137,6 +137,26 @@ type DeclImport struct {
 	S          span.Span
 }
 
+// ImportMode classifies the three forms of import declaration.
+type ImportMode int
+
+const (
+	ImportOpen       ImportMode = iota // import M — all names unqualified
+	ImportQualified                    // import M as N — qualified access only
+	ImportSelective                    // import M (x, T(..)) — specified names only
+)
+
+// Mode returns the import form of this declaration.
+func (d *DeclImport) Mode() ImportMode {
+	if d.Alias != "" {
+		return ImportQualified
+	}
+	if d.Names != nil {
+		return ImportSelective
+	}
+	return ImportOpen
+}
+
 // AstProgram is the top-level AST.
 type AstProgram struct {
 	Imports []DeclImport

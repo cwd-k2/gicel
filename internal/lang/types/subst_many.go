@@ -138,7 +138,7 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, levelSubs ma
 	}
 	newEntries, changed := row.Entries.SubstEntriesMany(subs, levelSubs, fvUnion, depth+1)
 	var newTail Type
-	if row.Tail != nil {
+	if row.IsOpen() {
 		newTail = substManyOpt(row.Tail, subs, levelSubs, fvUnion, depth+1)
 		if newTail != row.Tail {
 			changed = true

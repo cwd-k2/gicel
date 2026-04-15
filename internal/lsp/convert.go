@@ -22,7 +22,7 @@ func convertDiagnostics(ar *engine.AnalysisResult) []protocol.Diagnostic {
 			Code:     fmt.Sprintf("E%04d", e.Code),
 			Message:  e.Message,
 		}
-		if e.Span != (span.Span{}) && src != nil {
+		if !e.Span.IsZero() && src != nil {
 			d.Range = spanToRange(src, e.Span)
 		}
 		diags = append(diags, d)

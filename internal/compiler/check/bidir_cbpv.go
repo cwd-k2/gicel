@@ -1,6 +1,7 @@
 package check
 
 import (
+	"github.com/cwd-k2/gicel/internal/compiler/check/family"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
@@ -238,7 +239,7 @@ func (ch *Checker) applyMergeFamily(r1, r2 types.Type) types.Type {
 	r1 = ch.unifier.Zonk(r1)
 	r2 = ch.unifier.Zonk(r2)
 	// Merge type family is applied via TyApp(TyApp(TyCon("Merge"), r1), r2).
-	merged := &types.TyApp{Fun: &types.TyApp{Fun: types.Con("Merge"), Arg: r1}, Arg: r2}
+	merged := &types.TyApp{Fun: &types.TyApp{Fun: types.Con(family.RowFamilyMerge), Arg: r1}, Arg: r2}
 	return ch.reduceFamilyInType(merged)
 }
 

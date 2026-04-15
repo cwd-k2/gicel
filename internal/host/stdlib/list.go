@@ -207,13 +207,13 @@ func indexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Appl
 			return nil, ce, errors.New("index: expected List")
 		}
 		if con.Con == "Nil" {
-			return &eval.ConVal{Con: "Nothing"}, ce, nil
+			return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 		}
 		if con.Con != "Cons" || len(con.Args) != 2 {
 			return nil, ce, errMalformed("index", "list node", con.Con)
 		}
 		if i == idx {
-			return &eval.ConVal{Con: "Just", Args: []eval.Value{con.Args[0]}}, ce, nil
+			return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{con.Args[0]}}, ce, nil
 		}
 		i++
 		v = con.Args[1]
@@ -470,7 +470,7 @@ func mergeLists(left, right []eval.Value, cmp eval.Value, ce eval.CapEnv, apply 
 		if !ok {
 			return nil, ce, errExpected("sortBy", "Ordering", ordering)
 		}
-		if con.Con == "GT" {
+		if con.Con == eval.OrderGT {
 			result = append(result, right[j])
 			j++
 		} else {
@@ -665,10 +665,10 @@ func unfoldrImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		if !ok {
 			return nil, ce, errExpected("unfoldr", "Maybe", result)
 		}
-		if con.Con == "Nothing" {
+		if con.Con == eval.MaybeNothing {
 			break
 		}
-		if con.Con != "Just" || len(con.Args) != 1 {
+		if con.Con != eval.MaybeJust || len(con.Args) != 1 {
 			return nil, ce, errMalformed("unfoldr", "Maybe", con.Con)
 		}
 		pair, ok := con.Args[0].(*eval.RecordVal)

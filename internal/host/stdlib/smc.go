@@ -3,6 +3,7 @@ package stdlib
 import (
 	"context"
 
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -37,8 +38,8 @@ var MergeImpl eval.PrimImpl = func(_ context.Context, ce eval.CapEnv, args []eva
 		return nil, ce, err
 	}
 	return eval.NewRecordFromMap(map[string]eval.Value{
-		"_1": val1,
-		"_2": val2,
+		types.TupleLabel(1): val1,
+		types.TupleLabel(2): val2,
 	}), ce, nil
 }
 

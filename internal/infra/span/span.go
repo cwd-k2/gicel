@@ -5,10 +5,14 @@ type Pos int
 
 // Span is a half-open byte range [Start, End) in the source.
 // Value type: embeds cheaply in AST, Core, and Type nodes.
+// The zero value represents "no source location."
 type Span struct {
 	Start Pos
 	End   Pos
 }
+
+// IsZero reports whether the span is the zero value (no source location).
+func (s Span) IsZero() bool { return s == Span{} }
 
 // Source maps byte offsets to line/column for diagnostics.
 // Shared (one per parse unit), referenced by pointer.

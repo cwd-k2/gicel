@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/host/registry"
 	"github.com/cwd-k2/gicel/internal/host/stdlib"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
@@ -129,7 +130,7 @@ func NewEngine() *Engine {
 		panic("internal: core pack: " + err.Error())
 	}
 	// Core module is always registered — provides GIMonad, Computation primitives.
-	if err := e.RegisterModule("Core", stdlib.CoreSource); err != nil {
+	if err := e.RegisterModule(env.CoreModuleName, stdlib.CoreSource); err != nil {
 		panic("internal: core module: " + err.Error())
 	}
 	return e
@@ -490,7 +491,7 @@ func (cr *CompileResult) CoreProgram() *CoreProgram {
 // or NewRuntime for execution.
 func (e *Engine) Parse(source string) (err error) {
 	defer recoverAsError(&err)
-	_, _, err = e.pipeline(e.compileCtx).lexAndParse("<input>", source, e.store.Has("Core"))
+	_, _, err = e.pipeline(e.compileCtx).lexAndParse("<input>", source, e.store.Has(env.CoreModuleName))
 	return err
 }
 
@@ -556,7 +557,7 @@ func (e *Engine) Compile(ctx context.Context, source string) (cr *CompileResult,
 	}
 	defer recoverAsError(&err)
 	pc := e.pipeline(ctx)
-	ast, src, err := pc.lexAndParse("<input>", source, e.store.Has("Core"))
+	ast, src, err := pc.lexAndParse("<input>", source, e.store.Has(env.CoreModuleName))
 	if err != nil {
 		return nil, err
 	}

@@ -113,7 +113,7 @@ func (e *ReduceEnv) reduceWithout(args []types.Type, s span.Span) (types.Type, b
 	if !ok || !row.IsCapabilityRow() {
 		return nil, false // stuck: not a concrete capability row
 	}
-	if row.Tail != nil {
+	if row.IsOpen() {
 		return nil, false // stuck: open row
 	}
 
@@ -145,7 +145,7 @@ func (e *ReduceEnv) reduceLookup(args []types.Type, s span.Span) (types.Type, bo
 	if !ok || !row.IsCapabilityRow() {
 		return nil, false // stuck
 	}
-	if row.Tail != nil {
+	if row.IsOpen() {
 		return nil, false // stuck: open row
 	}
 
@@ -177,7 +177,7 @@ func (e *ReduceEnv) reduceMapRow(args []types.Type, s span.Span) (types.Type, bo
 	if !ok || !row.IsCapabilityRow() {
 		return nil, false // stuck: not a concrete capability row
 	}
-	if row.Tail != nil {
+	if row.IsOpen() {
 		return nil, false // stuck: open row
 	}
 

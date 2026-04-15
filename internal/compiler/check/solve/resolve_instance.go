@@ -28,7 +28,7 @@ func (s *Solver) resolveFromContext(className string, args []types.Type, sp span
 	var result ir.Core
 	s.env.ScanContext(func(entry env.CtxEntry) bool {
 		v, ok := entry.(*env.CtxVar)
-		if !ok || v.SolverInvisible || v.DictClassName != "" {
+		if !ok || v.SolverInvisible || v.HasDictClass() {
 			return true
 		}
 		// Cheap pre-filter: walk the type's TyApp spine without zonking.

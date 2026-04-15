@@ -113,7 +113,7 @@ type RunResult struct {
 // that takes precedence over the Runtime's main source.
 func (r *Runtime) annotateError(err error) error {
 	var re *eval.RuntimeError
-	if errors.As(err, &re) && re.Span != (span.Span{}) {
+	if errors.As(err, &re) && !re.Span.IsZero() {
 		src := re.Source
 		if src == nil {
 			src = r.source

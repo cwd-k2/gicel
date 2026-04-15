@@ -240,7 +240,7 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.T
 			for _, ch := range tt.Entries.AllChildren() {
 				walkAsType(ch)
 			}
-			if tt.Tail != nil {
+			if tt.IsOpen() {
 				walkAsRow(tt.Tail)
 			}
 		default:
@@ -267,7 +267,7 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.T
 			walkAsRow(tt.Pre)
 			walkAsRow(tt.Post)
 			walkAsType(tt.Result)
-			if tt.Grade != nil {
+			if tt.IsGraded() {
 				walkAsType(tt.Grade)
 			}
 		case *types.TyEvidence:
@@ -281,7 +281,7 @@ func inferFreeVarKinds(ty types.Type, fv map[string]struct{}) map[string]types.T
 			for _, ch := range tt.Entries.AllChildren() {
 				walkAsType(ch)
 			}
-			if tt.Tail != nil {
+			if tt.IsOpen() {
 				walkAsRow(tt.Tail)
 			}
 		}

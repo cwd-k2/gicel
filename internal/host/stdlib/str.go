@@ -165,16 +165,16 @@ func charAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.App
 		return nil, ce, err
 	}
 	if idx < 0 {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	var i int64
 	for _, r := range s {
 		if i == idx {
-			return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: r}}}, ce, nil
+			return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: r}}}, ce, nil
 		}
 		i++
 	}
-	return &eval.ConVal{Con: "Nothing"}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 }
 
 func substringImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -325,9 +325,9 @@ func readIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Ap
 	}
 	n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
 	if err != nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: n}}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: n}}}, ce, nil
 }
 
 func readDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -337,9 +337,9 @@ func readDoubleImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 	}
 	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
 	if err != nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: f}}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: f}}}, ce, nil
 }
 
 func wordsImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -621,9 +621,9 @@ func intToByteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 		return nil, ce, err
 	}
 	if n < 0 || n > 255 {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: byte(n)}}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: byte(n)}}}, ce, nil
 }
 
 // --- String enhancement (2026-04-11) ---
@@ -639,9 +639,9 @@ func indexOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 	}
 	idx := strings.Index(haystack, needle)
 	if idx < 0 {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{eval.IntVal(int64(idx))}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{eval.IntVal(int64(idx))}}, ce, nil
 }
 
 func lastIndexOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -655,9 +655,9 @@ func lastIndexOfStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 	}
 	idx := strings.LastIndex(haystack, needle)
 	if idx < 0 {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{eval.IntVal(int64(idx))}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{eval.IntVal(int64(idx))}}, ce, nil
 }
 
 func countStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -732,9 +732,9 @@ func stripPrefixStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 		return nil, ce, err
 	}
 	if result, ok := strings.CutPrefix(s, prefix); ok {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: result}}}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: result}}}, ce, nil
 	}
-	return &eval.ConVal{Con: "Nothing"}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 }
 
 func stripSuffixStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -747,7 +747,7 @@ func stripSuffixStrImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ 
 		return nil, ce, err
 	}
 	if result, ok := strings.CutSuffix(s, suffix); ok {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: result}}}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: result}}}, ce, nil
 	}
-	return &eval.ConVal{Con: "Nothing"}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 }

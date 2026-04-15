@@ -12,7 +12,7 @@ func TestEmptyRow(t *testing.T) {
 	if r.Entries.EntryCount() != 0 {
 		t.Fatalf("expected 0 entries, got %d", r.Entries.EntryCount())
 	}
-	if r.Tail != nil {
+	if r.IsOpen() {
 		t.Fatal("expected closed row")
 	}
 	if len(r.Children()) != 0 {
@@ -44,7 +44,7 @@ func TestOpenRow(t *testing.T) {
 		[]RowField{{Label: "db", Type: Con("DB")}},
 		tail,
 	)
-	if r.Tail == nil {
+	if r.IsClosed() {
 		t.Fatal("expected open row")
 	}
 	if r.Entries.EntryCount() != 1 {
@@ -233,7 +233,7 @@ func TestPreservesTail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r2.Tail == nil {
+	if r2.IsClosed() {
 		t.Fatal("expected tail to be preserved")
 	}
 }
@@ -278,7 +278,7 @@ func TestSubstTail(t *testing.T) {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
 	}
 	// Tail should now be the replacement
-	if ev.Tail == nil {
+	if ev.IsClosed() {
 		// Actually, subst replaces the tail variable, but the row structure doesn't flatten.
 		// The tail becomes the replacement row. This is correct.
 	}

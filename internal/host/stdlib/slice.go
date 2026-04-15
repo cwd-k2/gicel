@@ -158,9 +158,9 @@ func sliceIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	if idx < 0 || idx >= int64(len(s)) {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{s[idx]}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{s[idx]}}, ce, nil
 }
 
 func sliceFromListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -475,11 +475,11 @@ func sliceSortByImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 			ord := int64(1) // default: GT (don't move)
 			if con, ok := val.(*eval.ConVal); ok {
 				switch con.Con {
-				case "LT":
+				case eval.OrderLT:
 					ord = -1
-				case "EQ":
+				case eval.OrderEQ:
 					ord = 0
-				case "GT":
+				case eval.OrderGT:
 					ord = 1
 				}
 			}
@@ -548,10 +548,10 @@ func sliceFindImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		}
 		ce = newCe
 		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
-			return &eval.ConVal{Con: "Just", Args: []eval.Value{item}}, ce, nil
+			return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{item}}, ce, nil
 		}
 	}
-	return &eval.ConVal{Con: "Nothing"}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 }
 
 func sliceFindIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -567,8 +567,8 @@ func sliceFindIndexImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 		}
 		ce = newCe
 		if con, ok := val.(*eval.ConVal); ok && con.Con == "True" {
-			return &eval.ConVal{Con: "Just", Args: []eval.Value{eval.IntVal(int64(i))}}, ce, nil
+			return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{eval.IntVal(int64(i))}}, ce, nil
 		}
 	}
-	return &eval.ConVal{Con: "Nothing"}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 }

@@ -68,6 +68,9 @@ type PLabel struct {
 	S          span.Span
 }
 
+// HasPayload reports whether this label pattern binds the variant payload.
+func (p *PLabel) HasPayload() bool { return p.PayloadVar != "" }
+
 func (*PVar) patternNode()    {}
 func (*PWild) patternNode()   {}
 func (*PCon) patternNode()    {}
@@ -86,7 +89,7 @@ func (p *PVar) Bindings() []string  { return []string{p.Name} }
 func (p *PWild) Bindings() []string { return nil }
 func (p *PLit) Bindings() []string  { return nil }
 func (p *PLabel) Bindings() []string {
-	if p.PayloadVar != "" {
+	if p.HasPayload() {
 		return []string{p.PayloadVar}
 	}
 	return nil
@@ -143,3 +146,6 @@ type ConDecl struct {
 	FullType   types.Type // complete constructor type including foralls (for hover/completion)
 	S          span.Span
 }
+
+// IsGADT reports whether this constructor has a refined return type (GADT constructor).
+func (c *ConDecl) IsGADT() bool { return c.ReturnType != nil }

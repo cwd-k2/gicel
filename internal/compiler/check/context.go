@@ -36,12 +36,12 @@ func NewContext() *Context {
 func (c *Context) Push(entry CtxEntry) {
 	pos := len(c.entries)
 	c.entries = append(c.entries, entry)
-	if ev, ok := entry.(*CtxEvidence); ok && ev.ClassName != "" {
+	if ev, ok := entry.(*CtxEvidence); ok && ev.IsClassEvidence() {
 		c.evidenceIndex[ev.ClassName] = append(c.evidenceIndex[ev.ClassName], pos)
 	}
 	if v, ok := entry.(*CtxVar); ok {
 		c.varIndex[v.Name] = append(c.varIndex[v.Name], pos)
-		if v.DictClassName != "" {
+		if v.HasDictClass() {
 			c.dictVarIndex[v.DictClassName] = append(c.dictVarIndex[v.DictClassName], pos)
 		}
 	}
@@ -54,7 +54,7 @@ func (c *Context) Pop() CtxEntry {
 	pos := len(c.entries) - 1
 	e := c.entries[pos]
 	c.entries = c.entries[:pos]
-	if ev, ok := e.(*CtxEvidence); ok && ev.ClassName != "" {
+	if ev, ok := e.(*CtxEvidence); ok && ev.IsClassEvidence() {
 		idxs := c.evidenceIndex[ev.ClassName]
 		n := len(idxs)
 		if n == 0 || idxs[n-1] != pos {
@@ -69,7 +69,7 @@ func (c *Context) Pop() CtxEntry {
 			panic("internal: varIndex LIFO invariant violated on Pop")
 		}
 		c.varIndex[v.Name] = idxs[:n-1]
-		if v.DictClassName != "" {
+		if v.HasDictClass() {
 			idxs := c.dictVarIndex[v.DictClassName]
 			n := len(idxs)
 			if n == 0 || idxs[n-1] != pos {

@@ -66,7 +66,7 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		newEntries, entriesChanged := ty.Entries.SubstEntries(varName, replacement, depth+1)
 		newTail := ty.Tail
 		tailChanged := false
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			nt := substDepth(ty.Tail, varName, replacement, depth+1)
 			if nt != ty.Tail {
 				newTail = nt

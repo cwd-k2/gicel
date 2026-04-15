@@ -42,7 +42,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 		freeVarsRec(ty.Pre, bound, fv, depth+1)
 		freeVarsRec(ty.Post, bound, fv, depth+1)
 		freeVarsRec(ty.Result, bound, fv, depth+1)
-		if ty.Grade != nil {
+		if ty.IsGraded() {
 			freeVarsRec(ty.Grade, bound, fv, depth+1)
 		}
 	case *TyEvidenceRow:
@@ -62,7 +62,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 				freeVarsConstraintEntry(e, bound, fv, depth+1)
 			}
 		}
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			freeVarsRec(ty.Tail, bound, fv, depth+1)
 		}
 	case *TyEvidence:
@@ -122,7 +122,7 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 		return occursIn(name, ty.Pre, bound, depth+1) ||
 			occursIn(name, ty.Post, bound, depth+1) ||
 			occursIn(name, ty.Result, bound, depth+1) ||
-			(ty.Grade != nil && occursIn(name, ty.Grade, bound, depth+1))
+			(ty.IsGraded() && occursIn(name, ty.Grade, bound, depth+1))
 	case *TyEvidenceRow:
 		switch entries := ty.Entries.(type) {
 		case *CapabilityEntries:
@@ -151,7 +151,7 @@ func occursIn(name string, t Type, bound map[string]bool, depth int) bool {
 				}
 			}
 		}
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			return occursIn(name, ty.Tail, bound, depth+1)
 		}
 		return false

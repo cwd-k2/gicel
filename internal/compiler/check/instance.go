@@ -199,7 +199,7 @@ func (ch *Checker) injectAssocTypes(typeDefs []syntax.ImplField, syntaxTypeArgs 
 				diagFmt{Format: "instance %s: associated type %s not declared in class %s", Args: []any{className, td.Name, className}})
 			continue
 		}
-		if !fam.IsAssoc || fam.ClassName != className {
+		if !fam.IsAssocFor(className) {
 			ch.addDiag(diagnostic.ErrBadInstance, s,
 				diagFmt{Format: "instance %s: %s is not an associated type of class %s", Args: []any{className, td.Name, className}})
 			continue
@@ -285,14 +285,14 @@ func collectInstanceFreeVarsWithKind(typeArgs []types.Type, context []env.Constr
 			walk(t.Pre, types.TypeOfRows)
 			walk(t.Post, types.TypeOfRows)
 			walk(t.Result, types.TypeOfTypes)
-			if t.Grade != nil {
+			if t.IsGraded() {
 				walk(t.Grade, types.TypeOfTypes)
 			}
 		case *types.TyEvidenceRow:
 			for _, child := range t.Entries.AllChildren() {
 				walk(child, types.TypeOfTypes)
 			}
-			if t.Tail != nil {
+			if t.IsOpen() {
 				walk(t.Tail, types.TypeOfRows)
 			}
 		case *types.TyEvidence:

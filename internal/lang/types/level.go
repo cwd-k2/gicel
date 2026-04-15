@@ -100,6 +100,12 @@ func IsKindLevel(l LevelExpr) bool {
 	return false
 }
 
+// Level function names used in kind expressions.
+const (
+	LevelFnMax  = "max"  // max l1 l2 → LevelMax
+	LevelFnSucc = "succ" // succ l → LevelSucc
+)
+
 // IsSortLevel returns true if the level is >= 2 (sort level or higher).
 // nil is normalized to L0, so IsSortLevel(nil) returns false.
 func IsSortLevel(l LevelExpr) bool {

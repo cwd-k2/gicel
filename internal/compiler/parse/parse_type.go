@@ -5,6 +5,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 func (p *Parser) parseType() syn.TypeExpr {
@@ -198,7 +199,7 @@ func (p *Parser) parseTypeApp() syn.TypeExpr {
 
 func isCompOrThunkHead(t syn.TypeExpr) bool {
 	if con, ok := t.(*syn.TyExprCon); ok {
-		return con.Name == "Computation" || con.Name == "Thunk"
+		return con.Name == types.TyConComputation || con.Name == types.TyConThunk
 	}
 	return false
 }

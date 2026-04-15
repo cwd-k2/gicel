@@ -80,9 +80,9 @@ func arrayReadImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 		return nil, ce, err
 	}
 	if idx < 0 || idx >= int64(len(a.data)) {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{a.data[idx]}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{a.data[idx]}}, ce, nil
 }
 
 func arrayWriteImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

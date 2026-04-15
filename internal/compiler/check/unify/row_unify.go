@@ -74,7 +74,7 @@ func (u *Unifier) unifyEvCapRows(
 		// nil grades (len=0) act as the identity element: compatible with
 		// any grade. This allows grade-unaware operations (getAt, receiveAt,
 		// etc.) to work with graded capabilities (@Linear, @Affine, ...).
-		if len(aField.Grades) > 0 && len(bField.Grades) > 0 {
+		if aField.IsGraded() && bField.IsGraded() {
 			if len(aField.Grades) != len(bField.Grades) {
 				return &GradeMismatchError{Label: label, CountA: len(aField.Grades), CountB: len(bField.Grades)}
 			}

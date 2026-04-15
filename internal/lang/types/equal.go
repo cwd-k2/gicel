@@ -71,10 +71,10 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 		// even though Unify treats them as compatible. Keeping Equal strict
 		// preserves the substitution principle for TypeKey-based caching:
 		// two types Equal here always have the same TypeKey.
-		if at.Grade == nil && bt.Grade == nil {
+		if !at.IsGraded() && !bt.IsGraded() {
 			return true
 		}
-		if at.Grade == nil || bt.Grade == nil {
+		if !at.IsGraded() || !bt.IsGraded() {
 			return false
 		}
 		return equalAlpha(at.Grade, bt.Grade, bindings)
@@ -114,10 +114,10 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 					}
 				}
 			}
-			if (at.Tail == nil) != (bt.Tail == nil) {
+			if at.IsClosed() != bt.IsClosed() {
 				return false
 			}
-			if at.Tail != nil {
+			if at.IsOpen() {
 				return equalAlpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
@@ -140,10 +140,10 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 					return false
 				}
 			}
-			if (at.Tail == nil) != (bt.Tail == nil) {
+			if at.IsClosed() != bt.IsClosed() {
 				return false
 			}
-			if at.Tail != nil {
+			if at.IsOpen() {
 				return equalAlpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
@@ -159,10 +159,10 @@ func equalAlpha(a, b Type, bindings []alphaBinding) bool {
 					return false
 				}
 			}
-			if (at.Tail == nil) != (bt.Tail == nil) {
+			if at.IsClosed() != bt.IsClosed() {
 				return false
 			}
-			if at.Tail != nil {
+			if at.IsOpen() {
 				return equalAlpha(at.Tail, bt.Tail, bindings)
 			}
 			return true

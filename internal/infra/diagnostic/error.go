@@ -197,14 +197,14 @@ func (es *Errors) Format() string {
 
 func (es *Errors) formatOne(b *strings.Builder, e *Error) {
 	fmt.Fprintf(b, "error[E%04d]: %s\n", e.Code, e.Message)
-	if e.Span != (span.Span{}) {
+	if !e.Span.IsZero() {
 		line, col := es.Source.Location(e.Span.Start)
 		fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, line, col)
 		es.renderSpan(b, e.Span)
 	}
 
 	for _, h := range e.Hints {
-		if h.Span != (span.Span{}) {
+		if !h.Span.IsZero() {
 			hLine, hCol := es.Source.Location(h.Span.Start)
 			fmt.Fprintf(b, " --> %s:%d:%d\n", es.Source.Name, hLine, hCol)
 		}

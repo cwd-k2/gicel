@@ -97,6 +97,10 @@ type TyCBPV struct {
 	S                 span.Span
 }
 
+// IsGraded reports whether this CBPV type carries a grade annotation (4-arg form).
+// When false, the type is in the ungraded surface form (3-arg).
+func (t *TyCBPV) IsGraded() bool { return t.Grade != nil }
+
 // CBPVAdjunctionParts checks whether two TyCBPV types are adjunction-compatible:
 // opposite tags with structurally unifiable components. Returns the component
 // pairs that need unification and true, or nil and false if the types are not
@@ -115,7 +119,7 @@ func CBPVAdjunctionParts(a, b *TyCBPV) (pairs [][2]Type, ok bool) {
 		{a.Post, b.Post},
 		{a.Result, b.Result},
 	}
-	if a.Grade != nil && b.Grade != nil {
+	if a.IsGraded() && b.IsGraded() {
 		pairs = append(pairs, [2]Type{a.Grade, b.Grade})
 	}
 	return pairs, true
@@ -131,6 +135,9 @@ type RowField struct {
 	IsLabelVar bool   // true when Label originates from a label-kinded forall variable
 	S          span.Span
 }
+
+// IsGraded reports whether this row field carries grade annotations.
+func (f RowField) IsGraded() bool { return len(f.Grades) > 0 }
 
 // ConstraintEntry and QuantifiedConstraint are defined in constraint_entry.go
 // as a sealed interface with four concrete variants (ClassEntry, EqualityEntry,
@@ -361,7 +368,7 @@ func (t *TyApp) Children() []Type    { return []Type{t.Fun, t.Arg} }
 func (t *TyArrow) Children() []Type  { return []Type{t.From, t.To} }
 func (t *TyForall) Children() []Type { return []Type{t.Kind, t.Body} }
 func (t *TyCBPV) Children() []Type {
-	if t.Grade != nil {
+	if t.IsGraded() {
 		return []Type{t.Pre, t.Post, t.Result, t.Grade}
 	}
 	return []Type{t.Pre, t.Post, t.Result}
@@ -415,7 +422,7 @@ func ForEachChild(t Type, fn func(Type) bool) {
 			fn(ty.Body)
 		}
 	case *TyCBPV:
-		if fn(ty.Pre) && fn(ty.Post) && fn(ty.Result) && ty.Grade != nil {
+		if fn(ty.Pre) && fn(ty.Post) && fn(ty.Result) && ty.IsGraded() {
 			fn(ty.Grade)
 		}
 	case *TyEvidence:
@@ -448,7 +455,7 @@ func ForEachChild(t Type, fn func(Type) bool) {
 				return
 			}
 		}
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			fn(ty.Tail)
 		}
 	case *TyFamilyApp:

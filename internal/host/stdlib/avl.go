@@ -102,11 +102,11 @@ func compareKeys(cmp eval.Value, a, b eval.Value, ce eval.CapEnv, apply eval.App
 		return 0, newCe, errExpected("map: compare", "Ordering", result)
 	}
 	switch con.Con {
-	case "LT":
+	case eval.OrderLT:
 		return -1, newCe, nil
-	case "EQ":
+	case eval.OrderEQ:
 		return 0, newCe, nil
-	case "GT":
+	case eval.OrderGT:
 		return 1, newCe, nil
 	default:
 		return 0, newCe, errMalformed("map", "Ordering constructor", con.Con)

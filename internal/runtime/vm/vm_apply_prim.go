@@ -177,7 +177,7 @@ func wrapPrimError(err error, s span.Span, source *span.Source) error {
 	var re *eval.RuntimeError
 	if errors.As(err, &re) {
 		// Attach location if the RuntimeError doesn't already have one.
-		if re.Span == (span.Span{}) && s != (span.Span{}) {
+		if re.Span.IsZero() && !s.IsZero() {
 			re.Span = s
 			re.Source = source
 		}

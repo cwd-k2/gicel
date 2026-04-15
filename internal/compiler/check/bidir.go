@@ -25,7 +25,7 @@ func (ch *Checker) recordType(sp span.Span, ty *types.Type) {
 }
 
 func (ch *Checker) recordOperator(sp span.Span, name, module string, ty *types.Type) {
-	if sp == (span.Span{}) || *ty == nil {
+	if sp.IsZero() || *ty == nil {
 		return
 	}
 	if ch.config.HoverRecorder != nil {
@@ -34,7 +34,7 @@ func (ch *Checker) recordOperator(sp span.Span, name, module string, ty *types.T
 }
 
 func (ch *Checker) recordVarDoc(sp span.Span, name, module string) {
-	if ch.config.HoverRecorder != nil && sp != (span.Span{}) {
+	if ch.config.HoverRecorder != nil && !sp.IsZero() {
 		ch.config.HoverRecorder.RecordVarDoc(sp, name, module)
 	}
 }

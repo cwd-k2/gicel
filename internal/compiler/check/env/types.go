@@ -5,6 +5,9 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// CoreModuleName is the canonical name of the auto-imported Core module.
+const CoreModuleName = "Core"
+
 // DictName returns the dictionary type constructor name for a class.
 func DictName(className string) string { return className + "$Dict" }
 
@@ -53,6 +56,9 @@ type InstanceInfo struct {
 	S            span.Span
 }
 
+// IsNamed reports whether this instance has a user-visible name (impl name :: ...).
+func (i *InstanceInfo) IsNamed() bool { return i.UserName != "" }
+
 // FreeVarInfo pairs a free variable name with its inferred kind.
 type FreeVarInfo struct {
 	Name string
@@ -81,6 +87,9 @@ type ConstructorInfo struct {
 	ReturnType types.Type // GADT: non-nil if constructor has refined return type
 }
 
+// IsGADT reports whether this constructor has a refined return type (GADT constructor).
+func (c *ConstructorInfo) IsGADT() bool { return c.ReturnType != nil }
+
 // --- Type family types ---
 
 // TypeFamilyInfo holds the elaborated information for a type family.
@@ -93,6 +102,14 @@ type TypeFamilyInfo struct {
 	Equations  []TFEquation
 	IsAssoc    bool   // true if declared as associated type in a class
 	ClassName  string // non-empty if IsAssoc
+}
+
+// IsInjective reports whether this type family is declared as injective.
+func (f *TypeFamilyInfo) IsInjective() bool { return f.ResultName != "" }
+
+// IsAssocFor reports whether this type family is an associated type of the given class.
+func (f *TypeFamilyInfo) IsAssocFor(className string) bool {
+	return f.IsAssoc && f.ClassName == className
 }
 
 // TFParam is a type family parameter with its name and kind.

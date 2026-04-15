@@ -76,10 +76,10 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 	var tail types.Type
 	allSameTail := false
 	firstRow := rows[0]
-	if firstRow.Tail != nil {
+	if firstRow.IsOpen() {
 		allSameTail = true
 		for _, r := range rows[1:] {
-			if r.Tail == nil {
+			if r.IsClosed() {
 				allSameTail = false
 				break
 			}
@@ -115,7 +115,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 		}
 		// Open-tailed row with shared tail: count it for all labels
 		// it doesn't explicitly name (they pass through the tail).
-		if allSameTail && r.Tail != nil {
+		if allSameTail && r.IsOpen() {
 			for label := range allLabels {
 				if !concreteLabels[label] {
 					labelCount[label]++
@@ -140,7 +140,7 @@ func (ch *Checker) intersectCapRows(rows []*types.TyEvidenceRow, s span.Span) ty
 	}
 	// Also collect labels that appear in other rows but not firstRow
 	// (they were counted as present in firstRow via tail).
-	if allSameTail && firstRow.Tail != nil {
+	if allSameTail && firstRow.IsOpen() {
 		firstLabels := make(map[string]bool)
 		for _, f := range firstRow.CapFields() {
 			firstLabels[f.Label] = true
@@ -311,7 +311,7 @@ func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) 
 	if !changed {
 		return pre
 	}
-	if row.Tail != nil {
+	if row.IsOpen() {
 		return types.OpenRow(newFields, row.Tail)
 	}
 	return types.ClosedRow(newFields...)

@@ -78,7 +78,7 @@ func WriteTypeKey(b KeyWriter, t Type) {
 		WriteTypeKey(b, ty.Post)
 		b.WriteByte(' ')
 		WriteTypeKey(b, ty.Result)
-		if ty.Grade != nil {
+		if ty.IsGraded() {
 			b.WriteString(" @")
 			WriteTypeKey(b, ty.Grade)
 		}
@@ -172,7 +172,7 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 				WriteTypeKey(b, g)
 			}
 		}
-		if row.Tail != nil {
+		if row.IsOpen() {
 			b.WriteString("|")
 			WriteTypeKey(b, row.Tail)
 		}
@@ -185,7 +185,7 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 			b.WriteByte(' ')
 			writeConstraintEntryKey(b, e)
 		}
-		if row.Tail != nil {
+		if row.IsOpen() {
 			b.WriteString("|")
 			WriteTypeKey(b, row.Tail)
 		}
@@ -197,7 +197,7 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 			b.WriteByte(' ')
 			WriteTypeKey(b, child)
 		}
-		if row.Tail != nil {
+		if row.IsOpen() {
 			b.WriteString("|")
 			WriteTypeKey(b, row.Tail)
 		}

@@ -3,6 +3,7 @@ package vm
 import (
 	"fmt"
 
+	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -349,8 +350,8 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			// Merge resulting CapEnvs and push pair record.
 			frame.capEnv = leftCE.MergeWith(rightCE)
 			vm.push(eval.NewRecordFromMap(map[string]eval.Value{
-				"_1": val1,
-				"_2": val2,
+				types.TupleLabel(1): val1,
+				types.TupleLabel(2): val2,
 			}))
 
 		case OpCon:

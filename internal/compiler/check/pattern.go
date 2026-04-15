@@ -364,7 +364,7 @@ func (ch *Checker) isInaccessibleGADTBranch(conName string, scrutTy types.Type) 
 		return false
 	}
 	for _, c := range info.Constructors {
-		if c.Name == conName && c.ReturnType != nil {
+		if c.Name == conName && c.IsGADT() {
 			if !ch.canUnifyWith(c.ReturnType, scrutTy) {
 				return true
 			}

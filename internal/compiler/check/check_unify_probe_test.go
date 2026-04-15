@@ -764,7 +764,7 @@ func TestProbeE_Row_OpenTailSolvedToEmpty(t *testing.T) {
 	// Tail should be solved to empty row
 	solved := u.Zonk(tail)
 	if ev, ok := solved.(*types.TyEvidenceRow); ok {
-		if cap, ok := ev.Entries.(*types.CapabilityEntries); ok && len(cap.Fields) == 0 && ev.Tail == nil {
+		if cap, ok := ev.Entries.(*types.CapabilityEntries); ok && len(cap.Fields) == 0 && ev.IsClosed() {
 			// correct — solved to empty
 		} else {
 			t.Errorf("expected tail solved to empty row, got %s", types.Pretty(solved))

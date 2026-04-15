@@ -85,7 +85,7 @@ func (r *typeResolver) resolveLevelExpr(e syntax.TypeExpr) types.LevelExpr {
 	case *syntax.TyExprApp:
 		// max l1 l2 → LevelMax{A, B}
 		if app2, ok := ee.Fun.(*syntax.TyExprApp); ok {
-			if con, ok := app2.Fun.(*syntax.TyExprCon); ok && con.Name == "max" {
+			if con, ok := app2.Fun.(*syntax.TyExprCon); ok && con.Name == types.LevelFnMax {
 				return &types.LevelMax{
 					A: r.resolveLevelExpr(app2.Arg),
 					B: r.resolveLevelExpr(ee.Arg),
@@ -93,7 +93,7 @@ func (r *typeResolver) resolveLevelExpr(e syntax.TypeExpr) types.LevelExpr {
 			}
 		}
 		// succ l → LevelSucc{E}
-		if con, ok := ee.Fun.(*syntax.TyExprCon); ok && con.Name == "succ" {
+		if con, ok := ee.Fun.(*syntax.TyExprCon); ok && con.Name == types.LevelFnSucc {
 			return &types.LevelSucc{E: r.resolveLevelExpr(ee.Arg)}
 		}
 		return r.unifier.FreshLevelMeta()

@@ -228,10 +228,10 @@ func setFindMinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	if m.root == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	n := avlMinNode(m.root)
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{n.key}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{n.key}}, ce, nil
 }
 
 // _setFindMax :: Set k -> Maybe k
@@ -241,8 +241,8 @@ func setFindMaxImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	if m.root == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	n := avlMaxNode(m.root)
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{n.key}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{n.key}}, ce, nil
 }

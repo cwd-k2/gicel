@@ -134,7 +134,7 @@ func compilePLabel(c *Compiler, p *ir.PLabel, failPatches *[]int) {
 	}
 	// OpMatchLabel pushes the payload on match success.
 	// Bind or discard it depending on whether the pattern names a variable.
-	if p.PayloadVar != "" {
+	if p.HasPayload() {
 		slot := c.allocLocal(p.PayloadVar)
 		c.emitU16(OpStoreLocal, uint16(slot))
 	} else {

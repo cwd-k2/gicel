@@ -26,11 +26,11 @@ func tryImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.Ap
 	val, newCe, err := driveEffectful(args[0], ce, apply)
 	if err != nil {
 		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil && re.FailLabel == "" {
-			return &eval.ConVal{Con: "Err", Args: []eval.Value{re.Detail}}, ce, nil
+			return &eval.ConVal{Con: eval.ResultErr, Args: []eval.Value{re.Detail}}, ce, nil
 		}
 		return nil, ce, err
 	}
-	return &eval.ConVal{Con: "Ok", Args: []eval.Value{val}}, newCe, nil
+	return &eval.ConVal{Con: eval.ResultOk, Args: []eval.Value{val}}, newCe, nil
 }
 
 // tryAtImpl handles a named fail effect. Only catches RuntimeErrors whose
@@ -44,11 +44,11 @@ func tryAtImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply eval.
 	val, newCe, err := driveEffectful(args[1], ce, apply)
 	if err != nil {
 		if re, ok := err.(*eval.RuntimeError); ok && re.Detail != nil && re.FailLabel == label {
-			return &eval.ConVal{Con: "Err", Args: []eval.Value{re.Detail}}, ce, nil
+			return &eval.ConVal{Con: eval.ResultErr, Args: []eval.Value{re.Detail}}, ce, nil
 		}
 		return nil, ce, err
 	}
-	return &eval.ConVal{Con: "Ok", Args: []eval.Value{val}}, newCe, nil
+	return &eval.ConVal{Con: eval.ResultOk, Args: []eval.Value{val}}, newCe, nil
 }
 
 func failImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

@@ -93,9 +93,9 @@ func mapLookupImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply e
 		return nil, ce, err
 	}
 	if found {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{v}}, newCe, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{v}}, newCe, nil
 	}
-	return &eval.ConVal{Con: "Nothing"}, newCe, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, newCe, nil
 }
 
 // _mapDelete :: (k -> k -> Ordering) -> k -> Map k v -> Map k v
@@ -409,11 +409,11 @@ func mapFindMinImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	if m.root == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	n := avlMinNode(m.root)
 	pair := eval.NewRecordFromMap(map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value})
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{pair}}, ce, nil
 }
 
 // _mapFindMax :: Map k v -> Maybe (k, v)
@@ -423,11 +423,11 @@ func mapFindMaxImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	if m.root == nil {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
 	n := avlMaxNode(m.root)
 	pair := eval.NewRecordFromMap(map[string]eval.Value{types.TupleLabel(1): n.key, types.TupleLabel(2): n.value})
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{pair}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{pair}}, ce, nil
 }
 
 // _mapMapWithKey :: (k -> v -> w) -> Map k v -> Map k w

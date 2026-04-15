@@ -40,7 +40,7 @@ func (e *CheckEnv) isGADT(scrutTy types.Type) bool {
 		return false
 	}
 	for _, c := range info.Constructors {
-		if c.ReturnType != nil {
+		if c.IsGADT() {
 			return true
 		}
 	}
@@ -152,7 +152,7 @@ func (e *CheckEnv) constructorSigs(scrutTy types.Type) []conSig {
 	}
 	var sigs []conSig
 	for _, c := range info.Constructors {
-		if c.ReturnType != nil && !e.CanUnifyWith(c.ReturnType, scrutTy) {
+		if c.IsGADT() && !e.CanUnifyWith(c.ReturnType, scrutTy) {
 			continue
 		}
 		sigs = append(sigs, conSig{name: c.Name, arity: c.Arity})
@@ -188,7 +188,7 @@ func (e *CheckEnv) variantLabelSigs(scrutTy types.Type) []conSig {
 	}
 	// Open row (unsolved tail meta): add a phantom entry that no pattern
 	// can match, forcing the exhaustiveness checker to require a wildcard.
-	if row.Tail != nil {
+	if row.IsOpen() {
 		tail := e.Unifier.Zonk(row.Tail)
 		if _, isMeta := tail.(*types.TyMeta); isMeta {
 			sigs = append(sigs, conSig{name: "_", arity: 0})

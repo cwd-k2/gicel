@@ -34,3 +34,9 @@ type CtxEvidence struct {
 func (*CtxVar) CtxEntry()      {}
 func (*CtxTyVar) CtxEntry()    {}
 func (*CtxEvidence) CtxEntry() {}
+
+// HasDictClass reports whether this variable is a class dictionary variable (indexed lookup).
+func (v *CtxVar) HasDictClass() bool { return v.DictClassName != "" }
+
+// IsClassEvidence reports whether this evidence entry has an associated class.
+func (e *CtxEvidence) IsClassEvidence() bool { return e.ClassName != "" }

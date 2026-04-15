@@ -28,7 +28,7 @@ func TestTypeHelperConstructors(t *testing.T) {
 		t.Errorf("CompType(..., nil) = %T, want *types.TyCBPV", compNoGrade)
 	}
 	compGraded := CompType(ConType("A"), ConType("B"), ConType("C"), ConType("Linear"))
-	if cbpv, ok := compGraded.(*types.TyCBPV); !ok || cbpv.Grade == nil {
+	if cbpv, ok := compGraded.(*types.TyCBPV); !ok || !cbpv.IsGraded() {
 		t.Errorf("CompType(..., grade) = %v, want graded CBPV", compGraded)
 	}
 
@@ -72,7 +72,7 @@ func TestRowBuilder(t *testing.T) {
 	if !row.IsCapabilityRow() {
 		t.Error("RowBuilder should produce a capability row")
 	}
-	if row.Tail != nil {
+	if row.IsOpen() {
 		t.Error("Closed() should have nil tail")
 	}
 	if len(row.CapFields()) != 2 {
@@ -83,7 +83,7 @@ func TestRowBuilder(t *testing.T) {
 		And("a", ConType("Int")).
 		Open("r")
 	orow := open.(*types.TyEvidenceRow)
-	if orow.Tail == nil {
+	if orow.IsClosed() {
 		t.Error("Open() should have a tail var")
 	}
 }
@@ -112,7 +112,7 @@ func TestEmptyAndClosedRowType(t *testing.T) {
 
 	closed := ClosedRowType(types.RowField{Label: "k", Type: types.Con("Int")})
 	crow := closed.(*types.TyEvidenceRow)
-	if crow.Tail != nil {
+	if crow.IsOpen() {
 		t.Error("ClosedRowType should produce a closed row")
 	}
 	if len(crow.CapFields()) != 1 {

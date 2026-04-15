@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -206,24 +205,12 @@ func (ch *Checker) checkRecordPattern(p *syntax.PatRecord, scrutTy types.Type) p
 // When the label looks like a tuple index (_1, _2, ...), it reports the mismatch
 // in tuple terms instead of exposing the record desugaring.
 func recordFieldError(label string, row types.Type, unifyErr error) string {
-	if !isTupleLabel(label) {
+	if !types.IsTupleLabel(label) {
 		return "record has no field " + label + ": " + unifyErr.Error()
 	}
 	// Count tuple arity from the row.
 	arity := countRowFields(row)
 	return fmt.Sprintf("tuple has %d element(s), but pattern expects more (field %s is out of range)", arity, label)
-}
-
-func isTupleLabel(label string) bool {
-	if !strings.HasPrefix(label, "_") || len(label) < 2 {
-		return false
-	}
-	for _, c := range label[1:] {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 func countRowFields(row types.Type) int {

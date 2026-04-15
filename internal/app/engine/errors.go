@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 )
 
 // Diagnostic is a single structured error from compilation.
@@ -83,14 +82,14 @@ func (e *CompileError) Diagnostics() []Diagnostic {
 			Phase:   err.Phase.String(),
 			Message: err.Message,
 		}
-		if err.Span != (span.Span{}) {
+		if !err.Span.IsZero() {
 			d.Line, d.Col = e.errs.Source.Location(err.Span.Start)
 		}
 		if len(err.Hints) > 0 {
 			d.Hints = make([]DiagnosticHint, len(err.Hints))
 			for j, h := range err.Hints {
 				dh := DiagnosticHint{Message: h.Message}
-				if h.Span != (span.Span{}) {
+				if !h.Span.IsZero() {
 					dh.Line, dh.Col = e.errs.Source.Location(h.Span.Start)
 				}
 				d.Hints[j] = dh

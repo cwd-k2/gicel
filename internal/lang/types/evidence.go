@@ -51,11 +51,17 @@ type TyEvidenceRow struct {
 
 func (*TyEvidenceRow) typeNode() {}
 
+// IsClosed reports whether this is a closed row (no tail variable).
+func (r *TyEvidenceRow) IsClosed() bool { return r.Tail == nil }
+
+// IsOpen reports whether this is an open row (has a tail variable).
+func (r *TyEvidenceRow) IsOpen() bool { return r.Tail != nil }
+
 func (t *TyEvidenceRow) Span() span.Span { return t.S }
 
 func (t *TyEvidenceRow) Children() []Type {
 	ch := t.Entries.AllChildren()
-	if t.Tail != nil {
+	if t.IsOpen() {
 		ch = append(ch, t.Tail)
 	}
 	return ch

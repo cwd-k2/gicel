@@ -108,9 +108,9 @@ func mmapLookupImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply 
 		return nil, ce, err
 	}
 	if found {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{v}}, newCe, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{v}}, newCe, nil
 	}
-	return &eval.ConVal{Con: "Nothing"}, newCe, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, newCe, nil
 }
 
 // _mmapDelete :: (k -> k -> Ordering) -> k -> MMap k v -> ()

@@ -123,7 +123,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 	var symbols []DocumentSymbolEntry
 
 	for _, b := range prog.Bindings {
-		if b.Generated.IsGenerated() || b.S == (span.Span{}) {
+		if b.Generated.IsGenerated() || b.S.IsZero() {
 			continue
 		}
 		symbols = append(symbols, DocumentSymbolEntry{
@@ -136,7 +136,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
-		if dd.S == (span.Span{}) {
+		if dd.S.IsZero() {
 			continue
 		}
 		sym := DocumentSymbolEntry{
@@ -147,7 +147,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
-			if con.S == (span.Span{}) {
+			if con.S.IsZero() {
 				continue
 			}
 			sym.Children = append(sym.Children, DocumentSymbolEntry{
@@ -164,7 +164,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 		for _, d := range ar.AST.Decls {
 			switch decl := d.(type) {
 			case *syntax.DeclTypeAlias:
-				if decl.S != (span.Span{}) {
+				if !decl.S.IsZero() {
 					symbols = append(symbols, DocumentSymbolEntry{
 						Name: decl.Name,
 						Kind: SymbolStruct,
@@ -172,7 +172,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 					})
 				}
 			case *syntax.DeclImpl:
-				if decl.S != (span.Span{}) {
+				if !decl.S.IsZero() {
 					name := decl.Name
 					if name == "" {
 						name = "impl"
@@ -199,19 +199,19 @@ func buildDefinitionEntries(ar *AnalysisResult, store *ModuleStore) []Definition
 
 	// Same-file definitions.
 	for _, b := range prog.Bindings {
-		if b.S != (span.Span{}) {
+		if !b.S.IsZero() {
 			entries = append(entries, DefinitionEntry{Name: b.Name, S: b.S})
 		}
 	}
 
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
-		if dd.S != (span.Span{}) {
+		if !dd.S.IsZero() {
 			entries = append(entries, DefinitionEntry{Name: dd.Name, S: dd.S})
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
-			if con.S != (span.Span{}) {
+			if !con.S.IsZero() {
 				entries = append(entries, DefinitionEntry{Name: con.Name, S: con.S})
 			}
 		}
@@ -220,7 +220,7 @@ func buildDefinitionEntries(ar *AnalysisResult, store *ModuleStore) []Definition
 	if ar.AST != nil {
 		for _, d := range ar.AST.Decls {
 			if alias, ok := d.(*syntax.DeclTypeAlias); ok {
-				if alias.S != (span.Span{}) {
+				if !alias.S.IsZero() {
 					entries = append(entries, DefinitionEntry{Name: alias.Name, S: alias.S})
 				}
 			}
@@ -243,7 +243,7 @@ func buildDefinitionEntries(ar *AnalysisResult, store *ModuleStore) []Definition
 				continue
 			}
 			for _, b := range mod.prog.Bindings {
-				if b.Name == name && b.S != (span.Span{}) {
+				if b.Name == name && !b.S.IsZero() {
 					entries = append(entries, DefinitionEntry{
 						Name:     name,
 						S:        b.S,

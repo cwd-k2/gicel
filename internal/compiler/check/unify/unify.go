@@ -352,7 +352,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			// users write `Computation pre post a` without committing to a
 			// specific grade. Equal and TypeKey remain strict for soundness
 			// of inert-set caching and substitution.
-			if at.Grade != nil && bt.Grade != nil {
+			if at.IsGraded() && bt.IsGraded() {
 				return u.Unify(at.Grade, bt.Grade)
 			}
 			return nil

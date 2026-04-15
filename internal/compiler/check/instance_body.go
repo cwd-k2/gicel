@@ -121,7 +121,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	// register an alias binding so the name can be used in value => expr.
 	// SolverInvisible prevents automatic resolution from picking up this binding;
 	// it is only used when explicitly referenced by name.
-	if inst.UserName != "" {
+	if inst.IsNamed() {
 		ch.ctx.Push(&CtxVar{Name: inst.UserName, Type: dictTy, Module: ch.scope.CurrentModule(), SolverInvisible: true})
 		prog.Bindings = append(prog.Bindings, ir.Binding{
 			Name: inst.UserName,
@@ -150,7 +150,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 			diagFmt{Format: "instance %s: associated form %s not declared in class %s", Args: []any{className, field.Name, className}})
 		return
 	}
-	if !fam.IsAssoc || fam.ClassName != className {
+	if !fam.IsAssocFor(className) {
 		ch.addDiag(diagnostic.ErrBadInstance, instSpan,
 			diagFmt{Format: "instance %s: %s is not an associated form of class %s", Args: []any{className, field.Name, className}})
 		return

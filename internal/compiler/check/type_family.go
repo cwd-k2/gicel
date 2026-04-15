@@ -145,7 +145,7 @@ func (ch *Checker) installFamilyReducer() {
 	ch.unifier.TryReduceFamily = env.ReduceTyFamily
 	ch.unifier.IsInjective = func(name string) bool {
 		if info, ok := ch.lookupFamily(name); ok {
-			return info.ResultName != ""
+			return info.IsInjective()
 		}
 		return false
 	}
@@ -157,9 +157,9 @@ func (ch *Checker) installFamilyReducer() {
 // appear in type signatures and be resolved as type family applications.
 func (ch *Checker) registerBuiltinRowFamilies() {
 	// Merge :: Row -> Row -> Row
-	if _, exists := ch.reg.LookupFamily("Merge"); !exists {
-		_ = ch.reg.RegisterFamily("Merge", &TypeFamilyInfo{
-			Name: "Merge",
+	if _, exists := ch.reg.LookupFamily(family.RowFamilyMerge); !exists {
+		_ = ch.reg.RegisterFamily(family.RowFamilyMerge, &TypeFamilyInfo{
+			Name: family.RowFamilyMerge,
 			Params: []TFParam{
 				{Name: "r1", Kind: types.TypeOfRows},
 				{Name: "r2", Kind: types.TypeOfRows},
@@ -168,9 +168,9 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 		})
 	}
 	// Without :: Label -> Row -> Row
-	if _, exists := ch.reg.LookupFamily("Without"); !exists {
-		_ = ch.reg.RegisterFamily("Without", &TypeFamilyInfo{
-			Name: "Without",
+	if _, exists := ch.reg.LookupFamily(family.RowFamilyWithout); !exists {
+		_ = ch.reg.RegisterFamily(family.RowFamilyWithout, &TypeFamilyInfo{
+			Name: family.RowFamilyWithout,
 			Params: []TFParam{
 				{Name: "l", Kind: types.TypeOfLabels},
 				{Name: "r", Kind: types.TypeOfRows},
@@ -179,9 +179,9 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 		})
 	}
 	// Lookup :: Label -> Row -> Type
-	if _, exists := ch.reg.LookupFamily("Lookup"); !exists {
-		_ = ch.reg.RegisterFamily("Lookup", &TypeFamilyInfo{
-			Name: "Lookup",
+	if _, exists := ch.reg.LookupFamily(family.RowFamilyLookup); !exists {
+		_ = ch.reg.RegisterFamily(family.RowFamilyLookup, &TypeFamilyInfo{
+			Name: family.RowFamilyLookup,
 			Params: []TFParam{
 				{Name: "l", Kind: types.TypeOfLabels},
 				{Name: "r", Kind: types.TypeOfRows},
@@ -190,9 +190,9 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 		})
 	}
 	// MapRow :: (Type -> Type) -> Row -> Row
-	if _, exists := ch.reg.LookupFamily("MapRow"); !exists {
-		_ = ch.reg.RegisterFamily("MapRow", &TypeFamilyInfo{
-			Name: "MapRow",
+	if _, exists := ch.reg.LookupFamily(family.RowFamilyMapRow); !exists {
+		_ = ch.reg.RegisterFamily(family.RowFamilyMapRow, &TypeFamilyInfo{
+			Name: family.RowFamilyMapRow,
 			Params: []TFParam{
 				{Name: "f", Kind: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}},
 				{Name: "r", Kind: types.TypeOfRows},

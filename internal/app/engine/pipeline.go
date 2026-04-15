@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check"
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/compiler/desugar"
 	"github.com/cwd-k2/gicel/internal/compiler/optimize"
 	"github.com/cwd-k2/gicel/internal/compiler/parse"
@@ -51,7 +52,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 		importNames[i] = imp.ModuleName
 	}
 	if injectCore {
-		importNames = append(importNames, "Core")
+		importNames = append(importNames, env.CoreModuleName)
 	}
 	p.AddFixity(pc.store.CollectFixityMap(importNames))
 	decls := p.ParseDecls()
@@ -73,11 +74,11 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 
 func injectCoreImport(ast *syntax.AstProgram) {
 	for _, imp := range ast.Imports {
-		if imp.ModuleName == "Core" {
+		if imp.ModuleName == env.CoreModuleName {
 			return
 		}
 	}
-	ast.Imports = append([]syntax.DeclImport{{ModuleName: "Core"}}, ast.Imports...)
+	ast.Imports = append([]syntax.DeclImport{{ModuleName: env.CoreModuleName}}, ast.Imports...)
 }
 
 // makeCheckConfig builds a CheckConfig from the pipeline context.
@@ -113,7 +114,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 		return cached, nil
 	}
 
-	ast, src, err := pc.lexAndParse(name, source, name != "Core" && pc.store.Has("Core"))
+	ast, src, err := pc.lexAndParse(name, source, name != env.CoreModuleName && pc.store.Has(env.CoreModuleName))
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +276,7 @@ func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
 	for _, p := range dd.TyParams {
 		ret = &types.TyApp{Fun: ret, Arg: &types.TyVar{Name: p.Name}}
 	}
-	if con.ReturnType != nil {
+	if con.IsGADT() {
 		ret = con.ReturnType
 	}
 	ty := ret

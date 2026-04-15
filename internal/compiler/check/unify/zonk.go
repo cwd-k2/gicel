@@ -113,7 +113,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		}
 		newEntries, changed := ty.Entries.ZonkEntries(u.zonkEntriesFn)
 		var tail types.Type
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			tail = u.zonkInner(ty.Tail)
 			if tail != ty.Tail {
 				changed = true

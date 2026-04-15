@@ -145,15 +145,15 @@ func writeJSONCon(ctx context.Context, buf *strings.Builder, val *eval.ConVal, d
 		return nil
 	}
 	// Maybe
-	if val.Con == "Nothing" && len(val.Args) == 0 {
+	if val.Con == eval.MaybeNothing && len(val.Args) == 0 {
 		buf.WriteString("null")
 		return nil
 	}
-	if val.Con == "Just" && len(val.Args) == 1 {
+	if val.Con == eval.MaybeJust && len(val.Args) == 1 {
 		return writeJSONValue(ctx, buf, val.Args[0], depth+1)
 	}
 	// Result
-	if val.Con == "Ok" && len(val.Args) == 1 {
+	if val.Con == eval.ResultOk && len(val.Args) == 1 {
 		buf.WriteString(`{"ok":`)
 		if err := writeJSONValue(ctx, buf, val.Args[0], depth+1); err != nil {
 			return err
@@ -161,7 +161,7 @@ func writeJSONCon(ctx context.Context, buf *strings.Builder, val *eval.ConVal, d
 		buf.WriteByte('}')
 		return nil
 	}
-	if val.Con == "Err" && len(val.Args) == 1 {
+	if val.Con == eval.ResultErr && len(val.Args) == 1 {
 		buf.WriteString(`{"err":`)
 		if err := writeJSONValue(ctx, buf, val.Args[0], depth+1); err != nil {
 			return err
@@ -234,10 +234,10 @@ func writeJSONRecord(ctx context.Context, buf *strings.Builder, r *eval.RecordVa
 
 // --- helpers ---
 
-var jsonNothing = &eval.ConVal{Con: "Nothing"}
+var jsonNothing = &eval.ConVal{Con: eval.MaybeNothing}
 
 func jsonJust(v eval.Value) *eval.ConVal {
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{v}}
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{v}}
 }
 
 func jsonStrVal(s string) eval.Value {
@@ -334,10 +334,10 @@ func toJSONMaybeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, apply
 	if !ok {
 		return nil, ce, errExpected("json", "Maybe", maybe)
 	}
-	if con.Con == "Nothing" {
+	if con.Con == eval.MaybeNothing {
 		return jsonStrVal("null"), ce, nil
 	}
-	if con.Con != "Just" || len(con.Args) != 1 {
+	if con.Con != eval.MaybeJust || len(con.Args) != 1 {
 		return nil, ce, errMalformed("json", "Maybe", con.Con)
 	}
 	return apply.Apply(encoder, con.Args[0], ce)
@@ -390,11 +390,11 @@ func toJSONResultImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 	var tag string
 	var encoder, inner eval.Value
 	switch r.Con {
-	case "Ok":
+	case eval.ResultOk:
 		tag = "Ok"
 		encoder = encA
 		inner = r.Args[0]
-	case "Err":
+	case eval.ResultErr:
 		tag = "Err"
 		encoder = encE
 		inner = r.Args[0]
@@ -504,7 +504,7 @@ func fromJSONListImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, ap
 		}
 		ce = newCe
 		con, ok := result.(*eval.ConVal)
-		if !ok || con.Con == "Nothing" {
+		if !ok || con.Con == eval.MaybeNothing {
 			return jsonNothing, ce, nil
 		}
 		items = append(items, con.Args[0])
@@ -522,14 +522,14 @@ func fromJSONMaybeImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, app
 	s = strings.TrimSpace(s)
 	if s == "null" {
 		// JSON null → Just Nothing
-		return jsonJust(&eval.ConVal{Con: "Nothing"}), ce, nil
+		return jsonJust(&eval.ConVal{Con: eval.MaybeNothing}), ce, nil
 	}
 	result, newCe, err := apply.Apply(decoder, jsonStrVal(s), ce)
 	if err != nil {
 		return nil, ce, err
 	}
 	con, ok := result.(*eval.ConVal)
-	if !ok || con.Con == "Nothing" {
+	if !ok || con.Con == eval.MaybeNothing {
 		return jsonNothing, newCe, nil
 	}
 	// Just (Just x)
@@ -553,7 +553,7 @@ func fromJSONPairImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 		return nil, ce, err
 	}
 	conA, ok := ra.(*eval.ConVal)
-	if !ok || conA.Con == "Nothing" {
+	if !ok || conA.Con == eval.MaybeNothing {
 		return jsonNothing, newCe, nil
 	}
 	rb, newCe, err := apply.Apply(decB, jsonStrVal(string(raw[1])), newCe)
@@ -561,7 +561,7 @@ func fromJSONPairImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, appl
 		return nil, ce, err
 	}
 	conB, ok := rb.(*eval.ConVal)
-	if !ok || conB.Con == "Nothing" {
+	if !ok || conB.Con == eval.MaybeNothing {
 		return jsonNothing, newCe, nil
 	}
 	pair := eval.NewRecordFromMap(map[string]eval.Value{
@@ -594,20 +594,20 @@ func fromJSONResultImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, ap
 			return nil, ce, err
 		}
 		con, ok := rv.(*eval.ConVal)
-		if !ok || con.Con == "Nothing" {
+		if !ok || con.Con == eval.MaybeNothing {
 			return jsonNothing, newCe, nil
 		}
-		return jsonJust(&eval.ConVal{Con: "Ok", Args: []eval.Value{con.Args[0]}}), newCe, nil
+		return jsonJust(&eval.ConVal{Con: eval.ResultOk, Args: []eval.Value{con.Args[0]}}), newCe, nil
 	case "Err":
 		rv, newCe, err := apply.Apply(decE, valStr, ce)
 		if err != nil {
 			return nil, ce, err
 		}
 		con, ok := rv.(*eval.ConVal)
-		if !ok || con.Con == "Nothing" {
+		if !ok || con.Con == eval.MaybeNothing {
 			return jsonNothing, newCe, nil
 		}
-		return jsonJust(&eval.ConVal{Con: "Err", Args: []eval.Value{con.Args[0]}}), newCe, nil
+		return jsonJust(&eval.ConVal{Con: eval.ResultErr, Args: []eval.Value{con.Args[0]}}), newCe, nil
 	default:
 		return jsonNothing, ce, nil
 	}
@@ -714,7 +714,7 @@ func fromJSONMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		}
 		ce = newCe
 		conK, ok := rk.(*eval.ConVal)
-		if !ok || conK.Con == "Nothing" {
+		if !ok || conK.Con == eval.MaybeNothing {
 			return jsonNothing, ce, nil
 		}
 		rv, newCe, err := apply.Apply(decV, jsonStrVal(string(pair[1])), ce)
@@ -723,7 +723,7 @@ func fromJSONMapImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		}
 		ce = newCe
 		conV, ok := rv.(*eval.ConVal)
-		if !ok || conV.Con == "Nothing" {
+		if !ok || conV.Con == eval.MaybeNothing {
 			return jsonNothing, ce, nil
 		}
 		var inserted bool
@@ -761,7 +761,7 @@ func fromJSONSetImpl(ctx context.Context, ce eval.CapEnv, args []eval.Value, app
 		}
 		ce = newCe
 		conK, ok := rk.(*eval.ConVal)
-		if !ok || conK.Con == "Nothing" {
+		if !ok || conK.Con == eval.MaybeNothing {
 			return jsonNothing, ce, nil
 		}
 		var inserted bool

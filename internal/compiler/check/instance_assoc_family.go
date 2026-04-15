@@ -157,7 +157,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		rPost := ch.satAssocWalk(t.Post, fa)
 		rResult := ch.satAssocWalk(t.Result, fa)
 		var rGrade types.Type
-		if t.Grade != nil {
+		if t.IsGraded() {
 			rGrade = ch.satAssocWalk(t.Grade, fa)
 		}
 		if rPre == t.Pre && rPost == t.Post && rResult == t.Result && rGrade == t.Grade {

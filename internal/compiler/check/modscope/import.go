@@ -87,7 +87,7 @@ func (imp *Importer) Import(
 
 	for _, decl := range imports {
 		// Core is implicit and user-invisible. Selective/qualified Core is an error.
-		if decl.ModuleName == "Core" && (decl.Alias != "" || decl.Names != nil) {
+		if decl.ModuleName == env.CoreModuleName && (decl.Alias != "" || decl.Names != nil) {
 			imp.env.AddError(diagnostic.ErrImport, decl.S,
 				"Core module cannot be selectively or qualifiedly imported")
 			continue

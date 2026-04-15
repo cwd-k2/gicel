@@ -35,7 +35,7 @@ func Pretty(t Type) string {
 		if ty.Tag == TagThunk {
 			name = TyConThunk
 		}
-		if ty.Grade != nil {
+		if ty.IsGraded() {
 			return name + " " + prettyAtom(ty.Grade) + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
 		}
 		return name + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
@@ -104,7 +104,7 @@ func flattenTupleRow(row *TyEvidenceRow) (fields []RowField, tail Type, ok bool)
 			return nil, nil, false
 		}
 		fields = append(fields, caps.Fields...)
-		if row.Tail == nil {
+		if row.IsClosed() {
 			return fields, nil, true
 		}
 		next, isRow := row.Tail.(*TyEvidenceRow)
@@ -173,7 +173,7 @@ func prettyCapFields(fields []RowField, tail Type) string {
 	}
 	parts := make([]string, len(fields))
 	for i, f := range fields {
-		if len(f.Grades) > 0 {
+		if f.IsGraded() {
 			gs := make([]string, len(f.Grades))
 			for j, g := range f.Grades {
 				gs[j] = Pretty(g)
@@ -228,7 +228,7 @@ func prettyEvidenceRow(r *TyEvidenceRow) string {
 			parts[i] = Pretty(c)
 		}
 		result := "{ " + strings.Join(parts, ", ") + " }"
-		if r.Tail != nil {
+		if r.IsOpen() {
 			result = "{ " + strings.Join(parts, ", ") + " | " + Pretty(r.Tail) + " }"
 		}
 		return result

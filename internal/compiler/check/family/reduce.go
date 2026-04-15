@@ -325,7 +325,7 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 			return e.reduceFamilyAppsN(child)
 		})
 		var tail types.Type
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			tail = e.reduceFamilyAppsN(ty.Tail)
 			if tail != ty.Tail {
 				changed = true

@@ -277,6 +277,14 @@ const (
 	ListNil   = "Nil"
 	BoolTrue  = "True"
 	BoolFalse = "False"
+
+	MaybeJust    = "Just"
+	MaybeNothing = "Nothing"
+	ResultOk     = "Ok"
+	ResultErr    = "Err"
+	OrderLT      = "LT"
+	OrderEQ      = "EQ"
+	OrderGT      = "GT"
 )
 
 // Interned values — immutable singleton instances.
@@ -284,9 +292,9 @@ const (
 var (
 	TrueVal  Value = &ConVal{Con: BoolTrue}
 	FalseVal Value = &ConVal{Con: BoolFalse}
-	LTVal    Value = &ConVal{Con: "LT"}
-	EQVal    Value = &ConVal{Con: "EQ"}
-	GTVal    Value = &ConVal{Con: "GT"}
+	LTVal    Value = &ConVal{Con: OrderLT}
+	EQVal    Value = &ConVal{Con: OrderEQ}
+	GTVal    Value = &ConVal{Con: OrderGT}
 )
 
 // BoolVal returns the interned Bool value for b.

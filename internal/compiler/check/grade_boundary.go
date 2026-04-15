@@ -48,7 +48,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 	postFields := extractCapFields(ch, comp.Post)
 
 	for _, f := range preFields {
-		if len(f.Grades) == 0 {
+		if !f.IsGraded() {
 			continue // no grade constraints (unrestricted)
 		}
 
@@ -220,16 +220,16 @@ func extractCapFields(ch *Checker, ty types.Type) []types.RowField {
 // Uses the GradeJoin associated type family from GradeAlgebra when available;
 // falls back to unification.
 func (ch *Checker) joinGrades(result *types.RowField, other []types.Type, s span.Span) {
-	if len(result.Grades) == 0 && len(other) == 0 {
+	if !result.IsGraded() && len(other) == 0 {
 		return
 	}
 
 	// One side annotated, other unrestricted → take the annotation (more restrictive).
-	if len(result.Grades) == 0 && len(other) > 0 {
+	if !result.IsGraded() && len(other) > 0 {
 		result.Grades = other
 		return
 	}
-	if len(result.Grades) > 0 && len(other) == 0 {
+	if result.IsGraded() && len(other) == 0 {
 		return // keep result grades
 	}
 

@@ -67,7 +67,7 @@ func MapType(t Type, f func(Type) Type) Type {
 			return f(child)
 		})
 		var tail Type
-		if ty.Tail != nil {
+		if ty.IsOpen() {
 			tail = f(ty.Tail)
 			if tail != ty.Tail {
 				changed = true

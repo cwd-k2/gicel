@@ -4,6 +4,7 @@ package engine
 
 import (
 	"github.com/cwd-k2/gicel/internal/compiler/check"
+	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
@@ -15,7 +16,7 @@ import (
 func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	result := &AnalysisResult{}
 
-	ast, src, err := pc.lexAndParse("<input>", source, pc.store.Has("Core"))
+	ast, src, err := pc.lexAndParse("<input>", source, pc.store.Has(env.CoreModuleName))
 	result.Source = src
 	if err != nil {
 		if ce, ok := err.(*CompileError); ok {
@@ -37,13 +38,13 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 		for _, d := range ast.Decls {
 			switch decl := d.(type) {
 			case *syntax.DeclValueDef:
-				if decl.S != (span.Span{}) {
+				if !decl.S.IsZero() {
 					if doc := ExtractDocComment(source, decl.S.Start); doc != "" {
 						varDocs[decl.Name] = doc
 					}
 				}
 			case *syntax.DeclTypeAnn:
-				if decl.S != (span.Span{}) {
+				if !decl.S.IsZero() {
 					if doc := ExtractDocComment(source, decl.S.Start); doc != "" {
 						varDocs[decl.Name] = doc
 					}
@@ -106,7 +107,7 @@ func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.AstProgram, prog *ir
 
 	// Binding definitions (skip compiler-generated dict bindings etc.).
 	for _, b := range prog.Bindings {
-		if b.Type != nil && b.S != (span.Span{}) && !b.Generated.IsGenerated() {
+		if b.Type != nil && !b.S.IsZero() && !b.Generated.IsGenerated() {
 			idx.RecordDecl(b.S, HoverBinding, b.Name, b.Type, doc(b.S))
 		}
 	}
@@ -114,12 +115,12 @@ func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.AstProgram, prog *ir
 	// Form declarations and constructors.
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
-		if dd.S != (span.Span{}) {
+		if !dd.S.IsZero() {
 			idx.RecordDecl(dd.S, HoverForm, dd.Name, ComputeFormKind(dd), doc(dd.S))
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
-			if con.S != (span.Span{}) {
+			if !con.S.IsZero() {
 				idx.RecordDecl(con.S, HoverConstructor, con.Name, BuildConType(dd, con), "")
 			}
 		}
@@ -134,7 +135,7 @@ func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.AstProgram, prog *ir
 	}
 	for _, d := range ast.Decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
-			if ty, found := bindingTypes[ann.Name]; found && ann.S != (span.Span{}) {
+			if ty, found := bindingTypes[ann.Name]; found && !ann.S.IsZero() {
 				idx.RecordDecl(ann.S, HoverTypeAnn, ann.Name, ty, doc(ann.S))
 			}
 		}
@@ -142,7 +143,7 @@ func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.AstProgram, prog *ir
 
 	// Import declarations.
 	for _, imp := range ast.Imports {
-		if imp.S != (span.Span{}) {
+		if !imp.S.IsZero() {
 			label := imp.ModuleName
 			if imp.Alias != "" {
 				label += " as " + imp.Alias
@@ -161,7 +162,7 @@ func (pc *pipelineCtx) collectVarDocs() map[string]string {
 			continue
 		}
 		for _, b := range mod.prog.Bindings {
-			if b.Generated.IsGenerated() || b.S == (span.Span{}) {
+			if b.Generated.IsGenerated() || b.S.IsZero() {
 				continue
 			}
 			if d := ExtractDocComment(mod.source.Text, b.S.Start); d != "" {
@@ -171,7 +172,7 @@ func (pc *pipelineCtx) collectVarDocs() map[string]string {
 		// Form declarations (class methods have doc on the form, not individual fields).
 		for i := range mod.prog.DataDecls {
 			dd := &mod.prog.DataDecls[i]
-			if dd.S == (span.Span{}) {
+			if dd.S.IsZero() {
 				continue
 			}
 			if d := ExtractDocComment(mod.source.Text, dd.S.Start); d != "" {

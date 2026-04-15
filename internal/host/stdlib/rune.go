@@ -73,9 +73,9 @@ func intToRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.
 		return nil, ce, err
 	}
 	if n < 0 || n > 0x10FFFF || (n >= 0xD800 && n <= 0xDFFF) {
-		return &eval.ConVal{Con: "Nothing"}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 	}
-	return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: rune(n)}}}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: rune(n)}}}, ce, nil
 }
 
 func digitToIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
@@ -84,15 +84,15 @@ func digitToIntImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval
 		return nil, ce, err
 	}
 	if r >= '0' && r <= '9' {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: int64(r - '0')}}}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: int64(r - '0')}}}, ce, nil
 	}
 	if r >= 'a' && r <= 'f' {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: int64(r - 'a' + 10)}}}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: int64(r - 'a' + 10)}}}, ce, nil
 	}
 	if r >= 'A' && r <= 'F' {
-		return &eval.ConVal{Con: "Just", Args: []eval.Value{&eval.HostVal{Inner: int64(r - 'A' + 10)}}}, ce, nil
+		return &eval.ConVal{Con: eval.MaybeJust, Args: []eval.Value{&eval.HostVal{Inner: int64(r - 'A' + 10)}}}, ce, nil
 	}
-	return &eval.ConVal{Con: "Nothing"}, ce, nil
+	return &eval.ConVal{Con: eval.MaybeNothing}, ce, nil
 }
 
 func showRuneImpl(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {

@@ -106,7 +106,7 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	if !types.Equal(cap1.Fields[0].Type, types.Con("Str")) {
 		t.Errorf("?1.c should be Str, got %s", types.Pretty(cap1.Fields[0].Type))
 	}
-	if row1.Tail == nil {
+	if row1.IsClosed() {
 		t.Error("?1 should have an open tail (the fresh meta)")
 	}
 
@@ -123,12 +123,12 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	if !types.Equal(cap2.Fields[0].Type, types.Con("Bool")) {
 		t.Errorf("?2.b should be Bool, got %s", types.Pretty(cap2.Fields[0].Type))
 	}
-	if row2.Tail == nil {
+	if row2.IsClosed() {
 		t.Error("?2 should have an open tail (the fresh meta)")
 	}
 
 	// Both tails should be the same fresh metavariable.
-	if row1.Tail != nil && row2.Tail != nil {
+	if row1.IsOpen() && row2.IsOpen() {
 		tail1, ok1 := row1.Tail.(*types.TyMeta)
 		tail2, ok2 := row2.Tail.(*types.TyMeta)
 		if ok1 && ok2 {
