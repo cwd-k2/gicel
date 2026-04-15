@@ -213,7 +213,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		if dc == len(f.Args) {
 			dc = countLeadingDictArgs(args)
 		}
-		return &eval.ConVal{Con: f.Con, Args: args, DictArgCount: dc}, capEnv, nil
+		return &eval.ConVal{Con: f.Con, Args: args, IsDict: f.IsDict, DictArgCount: dc}, capEnv, nil
 
 	case *eval.PrimVal:
 		newLen := len(f.Args) + 1
@@ -344,7 +344,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		if dc == len(f.Args) {
 			dc = countLeadingDictArgs(newArgs)
 		}
-		return &eval.ConVal{Con: f.Con, Args: newArgs, DictArgCount: dc}, capEnv, nil
+		return &eval.ConVal{Con: f.Con, Args: newArgs, IsDict: f.IsDict, DictArgCount: dc}, capEnv, nil
 
 	case *eval.PrimVal:
 		newLen := len(f.Args) + len(args)

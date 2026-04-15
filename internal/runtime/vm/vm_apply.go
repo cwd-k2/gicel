@@ -1,20 +1,19 @@
 package vm
 
 import (
-	"strings"
-
-	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
 // countLeadingDictArgs counts the number of leading args that are
 // dictionary constructor values. Called at ConVal construction to
 // populate DictArgCount for display-layer suppression.
+//
+// Uses the structural IsDict flag on ConVal, not string conventions.
 func countLeadingDictArgs(args []eval.Value) int {
 	count := 0
 	for _, arg := range args {
 		cv, ok := arg.(*eval.ConVal)
-		if !ok || !strings.HasSuffix(cv.Con, ir.DictSuffix) {
+		if !ok || !cv.IsDict {
 			break
 		}
 		count++
@@ -79,7 +78,7 @@ func (vm *VM) apply(fn eval.Value, arg eval.Value, frame *Frame, tail bool) erro
 			// New arg may also be a dict.
 			dc = countLeadingDictArgs(args)
 		}
-		vm.push(&eval.ConVal{Con: f.Con, Args: args, DictArgCount: dc})
+		vm.push(&eval.ConVal{Con: f.Con, Args: args, IsDict: f.IsDict, DictArgCount: dc})
 		return nil
 
 	case *eval.PrimVal:

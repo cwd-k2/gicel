@@ -43,7 +43,8 @@ type Closure struct {
 type ConVal struct {
 	Con          string
 	Args         []Value
-	DictArgCount int // number of leading evidence/dictionary arguments (hidden from display)
+	IsDict       bool // true for type class dictionary constructors (structural, not name-derived)
+	DictArgCount int  // number of leading evidence/dictionary arguments (hidden from display)
 }
 
 

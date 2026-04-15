@@ -87,6 +87,7 @@ type Con struct {
 	Name   string
 	Module string // "" = local/open, "Std.Num" = qualified import origin
 	Args   []Core
+	IsDict bool // true for type class dictionary constructors (e.g., Eq$Dict)
 	S      span.Span
 }
 

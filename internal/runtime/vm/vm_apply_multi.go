@@ -289,7 +289,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		if dc == len(f.Args) {
 			dc = countLeadingDictArgs(combined)
 		}
-		return &eval.ConVal{Con: f.Con, Args: combined, DictArgCount: dc}, nil
+		return &eval.ConVal{Con: f.Con, Args: combined, IsDict: f.IsDict, DictArgCount: dc}, nil
 
 	case *eval.VMThunkVal:
 		// Force the thunk in isolation, then apply all original args to

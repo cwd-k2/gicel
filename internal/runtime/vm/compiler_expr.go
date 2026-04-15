@@ -290,7 +290,11 @@ func (c *Compiler) compileCon(con *ir.Con) {
 		c.compileExpr(arg, false)
 	}
 	nameIdx := c.addString(con.Name)
-	c.emitU16U8(OpCon, nameIdx, uint8(len(con.Args)))
+	flags := uint8(len(con.Args))
+	if con.IsDict {
+		flags |= 0x80 // high bit = dict constructor
+	}
+	c.emitU16U8(OpCon, nameIdx, flags)
 }
 func (c *Compiler) compileCase(cs *ir.Case, tail bool) {
 	c.compileExpr(cs.Scrutinee, false)

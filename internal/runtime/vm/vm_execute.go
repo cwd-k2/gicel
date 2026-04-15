@@ -357,8 +357,10 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 		case OpCon:
 			nameIdx := DecodeU16(frame.proto.Code, frame.ip)
 			frame.ip += 2
-			arity := int(frame.proto.Code[frame.ip])
+			raw := frame.proto.Code[frame.ip]
 			frame.ip++
+			arity := int(raw & 0x7F)
+			isDict := raw&0x80 != 0
 			if err := vm.budget.Alloc(eval.CostConBase + int64(eval.CostConArg*arity)); err != nil {
 				return eval.EvalResult{}, err
 			}
@@ -367,7 +369,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			for i := arity - 1; i >= 0; i-- {
 				args[i] = vm.pop()
 			}
-			vm.push(&eval.ConVal{Con: name, Args: args, DictArgCount: countLeadingDictArgs(args)})
+			vm.push(&eval.ConVal{Con: name, Args: args, IsDict: isDict, DictArgCount: countLeadingDictArgs(args)})
 
 		case OpRecord:
 			descIdx := DecodeU16(frame.proto.Code, frame.ip)

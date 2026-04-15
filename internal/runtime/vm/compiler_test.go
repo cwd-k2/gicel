@@ -316,3 +316,50 @@ func assertOp(t *testing.T, proto *Proto, expected Opcode) {
 	}
 	t.Errorf("opcode %s not found in bytecode", expected)
 }
+
+func TestCompileConDictFlag(t *testing.T) {
+	// A dict constructor (IsDict: true) must encode the flag in the
+	// high bit of the arity byte in OpCon.
+	dictCon := &ir.Con{Name: "Eq$Dict", IsDict: true, Args: []ir.Core{&ir.Lit{Value: int64(1)}}}
+	c := NewCompiler(nil, nil)
+	annotate(c, dictCon)
+	proto := c.CompileExpr(dictCon)
+
+	// Find OpCon and check arity byte has high bit set.
+	for i := 0; i < len(proto.Code); {
+		op := Opcode(proto.Code[i])
+		if op == OpCon {
+			arityByte := proto.Code[i+3]
+			if arityByte&0x80 == 0 {
+				t.Error("OpCon for dict constructor should have high bit set in arity byte")
+			}
+			if arityByte&0x7F != 1 {
+				t.Errorf("OpCon arity should be 1, got %d", arityByte&0x7F)
+			}
+			return
+		}
+		i += InstructionSize(op)
+	}
+	t.Error("OpCon not found in bytecode")
+}
+
+func TestCompileConNonDictFlag(t *testing.T) {
+	// A regular constructor (IsDict: false) must NOT have the high bit set.
+	con := &ir.Con{Name: "Just", Args: []ir.Core{&ir.Lit{Value: int64(1)}}}
+	c := NewCompiler(nil, nil)
+	annotate(c, con)
+	proto := c.CompileExpr(con)
+
+	for i := 0; i < len(proto.Code); {
+		op := Opcode(proto.Code[i])
+		if op == OpCon {
+			arityByte := proto.Code[i+3]
+			if arityByte&0x80 != 0 {
+				t.Error("OpCon for regular constructor should NOT have high bit set")
+			}
+			return
+		}
+		i += InstructionSize(op)
+	}
+	t.Error("OpCon not found in bytecode")
+}

@@ -84,7 +84,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	// Build the dictionary value: DictCon @types... arg1 arg2 ...
 	// The dict constructor comes from the module that defined the class.
 	dictConMod, _ := ch.reg.LookupConModule(classInfo.DictName)
-	var dictExpr ir.Core = &ir.Con{Name: classInfo.DictName, Module: dictConMod, S: inst.S}
+	var dictExpr ir.Core = &ir.Con{Name: classInfo.DictName, Module: dictConMod, IsDict: true, S: inst.S}
 	for _, ta := range inst.TypeArgs {
 		dictExpr = &ir.TyApp{Expr: dictExpr, TyArg: ta, S: inst.S}
 	}
