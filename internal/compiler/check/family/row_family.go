@@ -101,9 +101,10 @@ func (e *ReduceEnv) reduceWithout(args []types.Type, s span.Span) (types.Type, b
 	labelArg := e.Unifier.Zonk(args[0])
 	rowArg := e.Unifier.Zonk(args[1])
 
-	// Label must be a concrete label-kinded TyCon (Level L1).
+	// Label must be a concrete label literal (IsLabel distinguishes label
+	// literals from other L1 constructors such as promoted data kinds).
 	labelCon, ok := labelArg.(*types.TyCon)
-	if !ok || !types.IsKindLevel(labelCon.Level) {
+	if !ok || !labelCon.IsLabel {
 		return nil, false // stuck: label not concrete
 	}
 	label := labelCon.Name
@@ -136,7 +137,7 @@ func (e *ReduceEnv) reduceLookup(args []types.Type, s span.Span) (types.Type, bo
 	rowArg := e.Unifier.Zonk(args[1])
 
 	labelCon, ok := labelArg.(*types.TyCon)
-	if !ok || !types.IsKindLevel(labelCon.Level) {
+	if !ok || !labelCon.IsLabel {
 		return nil, false // stuck: label not concrete
 	}
 	label := labelCon.Name

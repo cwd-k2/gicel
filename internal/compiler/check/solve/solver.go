@@ -40,6 +40,11 @@ type Solver struct {
 	// and speculative constraints would persist after rollback.
 	inTrialOrProbe bool
 
+	// resolveStack tracks active resolution keys for cycle detection.
+	// A key is pushed on entry to resolveInstance and popped on exit.
+	// If the same key appears twice, the resolution is cyclic.
+	resolveStack []string
+
 	env Env
 }
 

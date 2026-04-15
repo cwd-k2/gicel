@@ -2,6 +2,7 @@ package solve
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
@@ -73,8 +74,9 @@ func (s *Solver) TryResolveInstance(className string, args []types.Type, sp span
 //
 // Recursion and state contracts:
 //   - Depth limited by budget.EnterResolve (default 64).
-//   - No cycle detection: identical constraints in the call stack are stopped
-//     only by depth exhaustion.
+//   - Cycle detection: the resolveStack tracks (class, args) keys on the
+//     active resolution path. A repeated key terminates with a diagnostic
+//     before depth exhaustion, producing a clearer error message.
 //   - Meta solutions accumulate in the shared unifier across recursive calls
 //     (no rollback). Instance head unification uses withTrial, but context
 //     resolution (recursive resolveInstance) commits permanently.
@@ -85,6 +87,16 @@ func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Sp
 		return &ir.Var{Name: "<resolution-depth>", S: sp}
 	}
 	defer s.env.LeaveResolve()
+
+	// Cycle detection: build a key from (class, zonked args) and check the stack.
+	key := types.TypeListKey(className, ' ', args)
+	if slices.Contains(s.resolveStack, key) {
+		s.env.AddCodedError(diagnostic.ErrResolutionDepth, sp,
+			"cyclic instance dependency: "+className+" "+s.prettyTypeArgs(args))
+		return &ir.Var{Name: "<resolution-cycle>", S: sp}
+	}
+	s.resolveStack = append(s.resolveStack, key)
+	defer func() { s.resolveStack = s.resolveStack[:len(s.resolveStack)-1] }()
 
 	if dict := s.resolveFromContext(className, args, sp); dict != nil {
 		return dict

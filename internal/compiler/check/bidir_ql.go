@@ -64,7 +64,7 @@ func (ch *Checker) qlUnify(a, b types.Type) bool {
 		}
 	case *types.TyCon:
 		if bt, ok := b.(*types.TyCon); ok {
-			return at.Name == bt.Name
+			return at.Name == bt.Name && at.IsLabel == bt.IsLabel && types.LevelEqual(at.Level, bt.Level)
 		}
 	}
 

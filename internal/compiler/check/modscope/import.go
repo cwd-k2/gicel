@@ -380,7 +380,9 @@ func (imp *Importer) importInstances(mod *env.ModuleExports) {
 func (imp *Importer) importFamilies(mod *env.ModuleExports, moduleName string, s span.Span) {
 	for name, fam := range mod.TypeFamilies {
 		if !imp.checkAmbiguousTypeName(name, moduleName, s) {
-			_ = imp.env.RegisterFamily(name, fam.Clone())
+			if err := imp.env.RegisterFamily(name, fam.Clone()); err != nil {
+					imp.env.AddError(diagnostic.ErrImport, s, "conflicting type family equations for "+name+": "+err.Error())
+				}
 		}
 	}
 }
@@ -468,7 +470,9 @@ func (imp *Importer) importSelective(mod *env.ModuleExports, decl syntax.DeclImp
 		// Type family
 		if fam, ok := mod.TypeFamilies[name]; ok {
 			if !imp.checkAmbiguousTypeName(name, decl.ModuleName, decl.S) {
-				_ = imp.env.RegisterFamily(name, fam.Clone())
+				if err := imp.env.RegisterFamily(name, fam.Clone()); err != nil {
+					imp.env.AddError(diagnostic.ErrImport, decl.S, "conflicting type family equations for "+name+": "+err.Error())
+				}
 			}
 			found = true
 		}
