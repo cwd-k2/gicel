@@ -7,9 +7,37 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+// KindScope tracks kind and level variables currently in scope.
+// These have push/pop lifecycle semantics, unlike the write-once
+// registries in Registry.
+type KindScope struct {
+	kindVars  map[string]bool // HKT: kind variables in scope
+	levelVars map[string]bool // universe polymorphism: level variables in scope
+}
+
+// SetKindVar marks a name as a kind variable in scope.
+func (s *KindScope) SetKindVar(name string) { s.kindVars[name] = true }
+
+// UnsetKindVar removes a kind variable from scope.
+func (s *KindScope) UnsetKindVar(name string) { delete(s.kindVars, name) }
+
+// IsKindVar reports whether a name is currently a kind variable in scope.
+func (s *KindScope) IsKindVar(name string) bool { return s.kindVars[name] }
+
+// SetLevelVar marks a name as a universe level variable in scope.
+func (s *KindScope) SetLevelVar(name string) { s.levelVars[name] = true }
+
+// UnsetLevelVar removes a level variable from scope.
+func (s *KindScope) UnsetLevelVar(name string) { delete(s.levelVars, name) }
+
+// IsLevelVar reports whether a name is currently a level variable in scope.
+func (s *KindScope) IsLevelVar(name string) bool { return s.levelVars[name] }
+
 // Registry holds semantic registries populated during declaration
 // processing and read during type checking.
 type Registry struct {
+	KindScope // embedded: push/pop scoping for kind and level variables
+
 	typeKinds         map[string]types.Type // registered type constructor kinds (absorbed from config)
 	conModules        map[string]string     // constructor name → source module name
 	conTypes          map[string]types.Type
@@ -23,13 +51,15 @@ type Registry struct {
 	importedInstances map[*InstanceInfo]bool
 	promotedKinds     map[string]types.Type      // DataKinds: data name → promoted data kind
 	promotedCons      map[string]types.Type      // DataKinds: nullary con → promoted data kind
-	kindVars          map[string]bool            // HKT: kind variables in scope
-	levelVars         map[string]bool            // universe polymorphism: level variables in scope
 	families          map[string]*TypeFamilyInfo // type family declarations
 }
 
 func newRegistry(config *CheckConfig) *Registry {
 	r := &Registry{
+		KindScope: KindScope{
+			kindVars:  make(map[string]bool),
+			levelVars: make(map[string]bool),
+		},
 		typeKinds:         make(map[string]types.Type),
 		conModules:        make(map[string]string),
 		conTypes:          make(map[string]types.Type),
@@ -42,8 +72,6 @@ func newRegistry(config *CheckConfig) *Registry {
 		importedInstances: make(map[*InstanceInfo]bool),
 		promotedKinds:     make(map[string]types.Type),
 		promotedCons:      make(map[string]types.Type),
-		kindVars:          make(map[string]bool),
-		levelVars:         make(map[string]bool),
 		families:          make(map[string]*TypeFamilyInfo),
 	}
 	maps.Copy(r.typeKinds, config.RegisteredTypes)
@@ -154,31 +182,6 @@ func (r *Registry) RegisterPromotedCon(name string, kind types.Type) {
 	r.promotedCons[name] = kind
 }
 
-// SetKindVar marks a name as a kind variable in scope.
-func (r *Registry) SetKindVar(name string) {
-	r.kindVars[name] = true
-}
-
-// UnsetKindVar removes a kind variable from scope.
-func (r *Registry) UnsetKindVar(name string) {
-	delete(r.kindVars, name)
-}
-
-// SetLevelVar marks a name as a universe level variable in scope.
-func (r *Registry) SetLevelVar(name string) {
-	r.levelVars[name] = true
-}
-
-// UnsetLevelVar removes a level variable from scope.
-func (r *Registry) UnsetLevelVar(name string) {
-	delete(r.levelVars, name)
-}
-
-// IsLevelVar reports whether a name is currently a level variable in scope.
-func (r *Registry) IsLevelVar(name string) bool {
-	return r.levelVars[name]
-}
-
 // ImportInstance imports an instance with pointer-identity deduplication.
 // Unlike RegisterInstance, this skips instances already seen via import.
 func (r *Registry) ImportInstance(inst *InstanceInfo) {
@@ -261,11 +264,6 @@ func (r *Registry) ClassFromDict(dictName string) (string, bool) {
 // InstancesForClass returns all instances registered for a class.
 func (r *Registry) InstancesForClass(className string) []*InstanceInfo {
 	return r.instancesByClass[className]
-}
-
-// IsKindVar reports whether a name is currently a kind variable in scope.
-func (r *Registry) IsKindVar(name string) bool {
-	return r.kindVars[name]
 }
 
 // HasPromotedKind reports whether a DataKinds promoted kind exists.
