@@ -54,3 +54,22 @@ func posToOffset(src *span.Source, pos protocol.Position) span.Pos {
 	offset := min(lineStart+char, len(src.Text))
 	return span.Pos(offset)
 }
+
+// convertDocumentSymbols transforms pre-computed symbol entries into LSP DocumentSymbols.
+func convertDocumentSymbols(entries []engine.DocumentSymbolEntry, src *span.Source) []protocol.DocumentSymbol {
+	symbols := make([]protocol.DocumentSymbol, 0, len(entries))
+	for _, e := range entries {
+		sym := protocol.DocumentSymbol{
+			Name:           e.Name,
+			Detail:         e.Detail,
+			Kind:           protocol.SymbolKind(e.Kind),
+			Range:          spanToRange(src, e.S),
+			SelectionRange: spanToRange(src, e.S),
+		}
+		if len(e.Children) > 0 {
+			sym.Children = convertDocumentSymbols(e.Children, src)
+		}
+		symbols = append(symbols, sym)
+	}
+	return symbols
+}
