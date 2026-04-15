@@ -485,8 +485,10 @@ func substTyVarInCore(c ir.Core, tyVar string, ty types.Type) ir.Core {
 				return c
 			}
 			return &ir.VariantLit{Tag: n.Tag, Value: newValue, S: n.S}
+		default:
+			panic(fmt.Sprintf("substTyVarInCore: unhandled Core node %T", c))
 		}
-		return c
+		panic("unreachable") // default always panics
 	}
 	return walk(c)
 }

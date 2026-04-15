@@ -55,7 +55,11 @@ func MapType(t Type, f func(Type) Type) Type {
 		}
 		cr, ok := constraints.(*TyEvidenceRow)
 		if !ok {
-			cr = ty.Constraints
+			// f transformed constraints into a non-evidence-row type.
+			// This is a structural invariant violation — TyEvidence.Constraints
+			// must always be *TyEvidenceRow. Panic rather than silently
+			// discarding the transformation.
+			panic("MapType: TyEvidence.Constraints transformed to non-*TyEvidenceRow")
 		}
 		return &TyEvidence{Constraints: cr, Body: body, Flags: MetaFreeFlags(cr, body), S: ty.S}
 	case *TyEvidenceRow:

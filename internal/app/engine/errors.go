@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
 	"github.com/cwd-k2/gicel/internal/infra/span"
@@ -35,16 +36,27 @@ func (e *CompileError) Error() string {
 	return e.errs.Format()
 }
 
-// recoverAsError installs a deferred recovery that converts any panic
-// to an *InternalPanicError stored in *errp. This is the standard
-// boundary guard for public Engine API methods — internal panics
-// (sealed-sum guards, nil derefs) must never crash the host process.
+// recoverAsError installs a deferred recovery that converts application-level
+// panics to *InternalPanicError. Runtime panics that indicate process-level
+// corruption (concurrent map access, stack overflow) are re-panicked —
+// continuing execution after such failures is unsafe.
 func recoverAsError(errp *error) {
-	if r := recover(); r != nil {
-		buf := make([]byte, 4096)
-		n := runtime.Stack(buf, false)
-		*errp = &InternalPanicError{Value: r, Stack: buf[:n]}
+	r := recover()
+	if r == nil {
+		return
 	}
+	// runtime.Error covers nil deref, index out of range, etc. — these are
+	// application bugs that the host can meaningfully report and recover from.
+	// However, certain runtime panics indicate process corruption where
+	// recovery is unsafe. Go surfaces these as plain strings, not runtime.Error.
+	if s, ok := r.(string); ok {
+		if strings.Contains(s, "concurrent") {
+			panic(r) // concurrent map access — process state is corrupted
+		}
+	}
+	buf := make([]byte, 4096)
+	n := runtime.Stack(buf, false)
+	*errp = &InternalPanicError{Value: r, Stack: buf[:n]}
 }
 
 // panicToErrors converts a recovered panic into a *diagnostic.Errors
