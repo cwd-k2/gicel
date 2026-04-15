@@ -34,8 +34,8 @@ import (
 // keeps the pool backing arrays alive transitively through the Protos
 // that point into them. No explicit hand-off is required.
 type Compiler struct {
-	globalSlots map[string]int
-	globalPrims map[string]primInfo // prim-alias binding key → resolved metadata
+	globalSlots map[ir.VarKey]int
+	globalPrims map[ir.VarKey]primInfo // prim-alias binding key → resolved metadata
 	source      *span.Source
 	fvAnnots    *ir.FVAnnotations // FV metadata for the current batch of bindings
 	frames      []frame
@@ -155,7 +155,7 @@ type localEntry struct {
 // NewCompiler creates a Compiler with the given global slot mapping.
 // Pre-sizes typed pools to their empirically determined initial caps to
 // avoid geometric grow allocs during compile.
-func NewCompiler(globalSlots map[string]int, source *span.Source) *Compiler {
+func NewCompiler(globalSlots map[ir.VarKey]int, source *span.Source) *Compiler {
 	return &Compiler{
 		globalSlots: globalSlots,
 		source:      source,
@@ -269,9 +269,9 @@ func (c *Compiler) CompileBinding(b ir.Binding) *Proto {
 // global Var with this key and enough arguments in the application spine,
 // it emits a direct saturated prim call instead of loading the stub and
 // going through applyPrim's partial-application path.
-func (c *Compiler) RecordGlobalPrim(key, name string, arity int, effectful bool) {
+func (c *Compiler) RecordGlobalPrim(key ir.VarKey, name string, arity int, effectful bool) {
 	if c.globalPrims == nil {
-		c.globalPrims = make(map[string]primInfo)
+		c.globalPrims = make(map[ir.VarKey]primInfo)
 	}
 	c.globalPrims[key] = primInfo{name: name, arity: arity, effectful: effectful}
 }
@@ -397,11 +397,7 @@ func (c *Compiler) varGlobalPrim(v *ir.Var) (primInfo, bool) {
 	if v.Index >= 0 || c.globalPrims == nil {
 		return primInfo{}, false
 	}
-	key := v.Key
-	if key == "" {
-		key = ir.VarKeyOf(v)
-	}
-	info, ok := c.globalPrims[string(key)]
+	info, ok := c.globalPrims[ir.VarKeyOf(v)]
 	return info, ok
 }
 func (c *Compiler) resolveLocal(name string) (int, bool) {

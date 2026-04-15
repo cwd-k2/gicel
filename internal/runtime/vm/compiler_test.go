@@ -37,8 +37,8 @@ func TestCompileLit(t *testing.T) {
 }
 
 func TestCompileVar(t *testing.T) {
-	globals := map[string]int{"x": 0}
-	expr := &ir.Var{Name: "x", Index: -1, Key: "x"}
+	globals := map[ir.VarKey]int{ir.LocalKey("x"): 0}
+	expr := &ir.Var{Name: "x", Index: -1}
 	c := NewCompiler(globals, nil)
 	annotate(c, expr)
 	proto := c.CompileExpr(expr)
@@ -66,10 +66,10 @@ func TestCompileLam(t *testing.T) {
 }
 
 func TestCompileApp(t *testing.T) {
-	fn := &ir.Var{Name: "f", Index: -1, Key: "f"}
+	fn := &ir.Var{Name: "f", Index: -1}
 	arg := &ir.Lit{Value: int64(1)}
 	expr := &ir.App{Fun: fn, Arg: arg}
-	globals := map[string]int{"f": 0}
+	globals := map[ir.VarKey]int{ir.LocalKey("f"): 0}
 	c := NewCompiler(globals, nil)
 	annotate(c, expr)
 	proto := c.CompileExpr(expr)
@@ -80,12 +80,12 @@ func TestCompileApp(t *testing.T) {
 
 func TestCompileAppNonTail(t *testing.T) {
 	// Non-tail: bind result, then return it
-	fn := &ir.Var{Name: "f", Index: -1, Key: "f"}
+	fn := &ir.Var{Name: "f", Index: -1}
 	arg := &ir.Lit{Value: int64(1)}
 	app := &ir.App{Fun: fn, Arg: arg}
 	// Wrap in a bind to make app non-tail
 	bind := &ir.Bind{Comp: app, Var: "r", Body: &ir.Var{Name: "r", Index: 0}}
-	globals := map[string]int{"f": 0}
+	globals := map[ir.VarKey]int{ir.LocalKey("f"): 0}
 	c := NewCompiler(globals, nil)
 	annotate(c, bind)
 	proto := c.CompileExpr(bind)
@@ -105,7 +105,7 @@ func TestCompileCon(t *testing.T) {
 
 func TestCompileCaseSimple(t *testing.T) {
 	// case x of { True => 1; False => 0 }
-	scrut := &ir.Var{Name: "x", Index: -1, Key: "x"}
+	scrut := &ir.Var{Name: "x", Index: -1}
 	cs := &ir.Case{
 		Scrutinee: scrut,
 		Alts: []ir.Alt{
@@ -113,7 +113,7 @@ func TestCompileCaseSimple(t *testing.T) {
 			{Pattern: &ir.PCon{Con: "False"}, Body: &ir.Lit{Value: int64(0)}},
 		},
 	}
-	globals := map[string]int{"x": 0}
+	globals := map[ir.VarKey]int{ir.LocalKey("x"): 0}
 	c := NewCompiler(globals, nil)
 	annotate(c, cs)
 	proto := c.CompileExpr(cs)
@@ -271,8 +271,8 @@ func TestCompileAppMultiArg(t *testing.T) {
 	// regardless of f's static arity. applyN dispatches at runtime over
 	// every value type and every saturation case, so the compiler does
 	// not need to know f's arity to batch the spine.
-	globals := map[string]int{"f": 0}
-	fn := &ir.Var{Name: "f", Index: -1, Key: "f"}
+	globals := map[ir.VarKey]int{ir.LocalKey("f"): 0}
+	fn := &ir.Var{Name: "f", Index: -1}
 	app1 := &ir.App{Fun: fn, Arg: &ir.Lit{Value: int64(1)}}
 	app2 := &ir.App{Fun: app1, Arg: &ir.Lit{Value: int64(2)}}
 	c := NewCompiler(globals, nil)

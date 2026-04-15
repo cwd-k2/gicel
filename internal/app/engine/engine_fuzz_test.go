@@ -179,9 +179,9 @@ func verifyFVAnnotation(t *testing.T, c ir.Core, annots *ir.FVAnnotations) {
 			return true
 		}
 		actual := ir.FreeVars(lam.Body)
-		delete(actual, lam.Param)
+		delete(actual, ir.LocalKey(lam.Param))
 		for _, name := range info.Vars {
-			if _, ok := actual[name]; !ok {
+			if _, ok := actual[ir.LocalKey(name)]; !ok {
 				t.Errorf("FV annotation contains %q but it is not free in body", name)
 			}
 		}
@@ -221,12 +221,12 @@ func FuzzEvalLimits(f *testing.F) {
 		b.SetAllocLimit(64 * 1024) // 64 KiB
 		annots := ir.AnnotateFreeVars(term)
 		ir.AssignIndices(term, annots)
-		compiler := vm.NewCompiler(map[string]int{}, nil)
+		compiler := vm.NewCompiler(map[ir.VarKey]int{}, nil)
 		compiler.SetFVAnnots(annots)
 		proto := compiler.CompileExpr(term)
 		machine := vm.NewVM(vm.VMConfig{
 			Globals:     make([]eval.Value, 0),
-			GlobalSlots: map[string]int{},
+			GlobalSlots: map[ir.VarKey]int{},
 			Prims:       eval.NewPrimRegistry(),
 			Budget:      b,
 			Ctx:         context.Background(),

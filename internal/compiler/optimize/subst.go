@@ -79,6 +79,21 @@ func renamePatternVar(p ir.Pattern, oldName, newName string) ir.Pattern {
 	}
 }
 
+// fvNames extracts bare variable names from a VarKey-keyed free variable set.
+// Used at the boundary between ir.FreeVars (which returns map[VarKey]struct{})
+// and the capture-avoiding substitution engine (which uses bare names for
+// binder collision checks).
+func fvNames(fv map[ir.VarKey]struct{}) map[string]struct{} {
+	if len(fv) == 0 {
+		return nil
+	}
+	m := make(map[string]struct{}, len(fv))
+	for k := range fv {
+		m[k.Name] = struct{}{}
+	}
+	return m
+}
+
 // substFV replaces free occurrences of name with replacement in expr.
 // replFV is the pre-computed free variable set of replacement.
 func substFV(expr ir.Core, name string, replacement ir.Core, replFV map[string]struct{}) ir.Core {
@@ -90,7 +105,7 @@ func substFV(expr ir.Core, name string, replacement ir.Core, replFV map[string]s
 func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}) ir.Core {
 	switch n := expr.(type) {
 	case *ir.Var:
-		if repl, ok := subs[string(ir.VarKeyOf(n))]; ok {
+		if repl, ok := subs[n.Name]; ok {
 			return ir.Clone(repl)
 		}
 		return n

@@ -46,8 +46,8 @@ type ExternalBinding struct {
 //   - Evidence bindings: Generated instance dictionaries and class
 //     method selectors. Inlining these exposes case-of-known-constructor
 //     (R1) which dissolves dictionary dispatch at compile time.
-func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, external []ExternalBinding) map[string]*inlineCandidate {
-	candidates := make(map[string]*inlineCandidate)
+func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, external []ExternalBinding) map[ir.VarKey]*inlineCandidate {
+	candidates := make(map[ir.VarKey]*inlineCandidate)
 
 	// Evidence bindings: always scan, regardless of userBindings.
 	// Instance dictionaries (Con applications) and method selectors
@@ -57,10 +57,10 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 		if !b.Generated.IsGenerated() {
 			continue
 		}
-		if !eligibleEvidenceBody(b.Expr, b.Name) {
+		if !eligibleEvidenceBody(b.Expr, ir.LocalKey(b.Name)) {
 			continue
 		}
-		candidates[b.Name] = &inlineCandidate{body: b.Expr}
+		candidates[ir.LocalKey(b.Name)] = &inlineCandidate{body: b.Expr}
 	}
 
 	// User bindings: small lambdas.
@@ -72,17 +72,17 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 			if b.Generated.IsGenerated() {
 				continue
 			}
-			if !eligibleInlineBody(b.Expr, b.Name) {
+			if !eligibleInlineBody(b.Expr, ir.LocalKey(b.Name)) {
 				continue
 			}
-			candidates[b.Name] = &inlineCandidate{body: b.Expr}
+			candidates[ir.LocalKey(b.Name)] = &inlineCandidate{body: b.Expr}
 		}
 	}
 
 	// External bindings: small lambdas and transparent aliases from
 	// imported modules.
 	for _, eb := range external {
-		sk := string(ir.QualifiedKey(eb.Module, eb.Name))
+		sk := ir.QualifiedKey(eb.Module, eb.Name)
 		if _, exists := candidates[sk]; exists {
 			continue
 		}
@@ -111,7 +111,7 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 // separate design concern. `$` reaches the checkFix fast path via
 // the dedicated transparent-rewrite at the checker level
 // (bidir.go:isDollarOp) instead.
-func eligibleInlineBody(expr ir.Core, selfKey string) bool {
+func eligibleInlineBody(expr ir.Core, selfKey ir.VarKey) bool {
 	if _, ok := expr.(*ir.Lam); !ok {
 		return false
 	}
@@ -210,7 +210,7 @@ func IsMethodSelector(expr ir.Core) bool {
 // start with *ir.TyLam, *ir.Con, or *ir.App. The size limit is larger
 // (maxEvidenceInlineSize) because dictionaries carry all fields but
 // simplify away after R1 fires.
-func eligibleEvidenceBody(expr ir.Core, selfKey string) bool {
+func eligibleEvidenceBody(expr ir.Core, selfKey ir.VarKey) bool {
 	if nodeSize(expr, maxEvidenceInlineSize+1) > maxEvidenceInlineSize {
 		return false
 	}
@@ -242,7 +242,7 @@ func eligibleEvidenceBody(expr ir.Core, selfKey string) bool {
 // inlineRule returns a rewrite rule that replaces variable references
 // with their inlined bodies. Candidates are matched by VarKey so the
 // rule fires for both local and module-qualified references.
-func inlineRule(candidates map[string]*inlineCandidate) func(ir.Core) ir.Core {
+func inlineRule(candidates map[ir.VarKey]*inlineCandidate) func(ir.Core) ir.Core {
 	if len(candidates) == 0 {
 		return func(c ir.Core) ir.Core { return c }
 	}
@@ -251,7 +251,7 @@ func inlineRule(candidates map[string]*inlineCandidate) func(ir.Core) ir.Core {
 		if !ok {
 			return c
 		}
-		cand, ok := candidates[string(ir.VarKeyOf(v))]
+		cand, ok := candidates[ir.VarKeyOf(v)]
 		if !ok {
 			return c
 		}

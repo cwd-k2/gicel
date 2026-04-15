@@ -54,10 +54,10 @@ func TestFreeVars(t *testing.T) {
 		Body:  &App{Fun: &Var{Name: "x"}, Arg: &Var{Name: "y"}},
 	}
 	fv := FreeVars(term)
-	if _, ok := fv["x"]; ok {
+	if _, ok := fv[LocalKey("x")]; ok {
 		t.Error("'x' should be bound")
 	}
-	if _, ok := fv["y"]; !ok {
+	if _, ok := fv[LocalKey("y")]; !ok {
 		t.Error("'y' should be free")
 	}
 }
@@ -66,10 +66,10 @@ func TestFreeVarsBind(t *testing.T) {
 	// Bind(Var("c"), "x", Var("x")) — c is free, x is bound in body
 	term := &Bind{Comp: &Var{Name: "c"}, Var: "x", Body: &Var{Name: "x"}}
 	fv := FreeVars(term)
-	if _, ok := fv["c"]; !ok {
+	if _, ok := fv[LocalKey("c")]; !ok {
 		t.Error("'c' should be free")
 	}
-	if _, ok := fv["x"]; ok {
+	if _, ok := fv[LocalKey("x")]; ok {
 		t.Error("'x' should be bound in bind body")
 	}
 }
@@ -82,7 +82,7 @@ func TestFreeVarsLamSibling(t *testing.T) {
 		Arg: &Var{Name: "x"},
 	}
 	fv := FreeVars(term)
-	if _, ok := fv["x"]; !ok {
+	if _, ok := fv[LocalKey("x")]; !ok {
 		t.Error("'x' should be free in Arg position (sibling of Lam)")
 	}
 }
@@ -98,7 +98,7 @@ func TestFreeVarsCaseAltBody(t *testing.T) {
 		}},
 	}
 	fv := FreeVars(term)
-	if _, ok := fv["y"]; !ok {
+	if _, ok := fv[LocalKey("y")]; !ok {
 		t.Error("'y' should be free in case alt body")
 	}
 }
@@ -114,10 +114,10 @@ func TestFreeVarsNestedLamShadow(t *testing.T) {
 		},
 	}
 	fv := FreeVars(term)
-	if _, ok := fv["x"]; ok {
+	if _, ok := fv[LocalKey("x")]; ok {
 		t.Error("'x' should not be free (doubly bound)")
 	}
-	if _, ok := fv["y"]; !ok {
+	if _, ok := fv[LocalKey("y")]; !ok {
 		t.Error("'y' should be free")
 	}
 }

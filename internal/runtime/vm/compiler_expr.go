@@ -93,14 +93,11 @@ func (c *Compiler) compileVar(v *ir.Var) {
 		}
 		panic(fmt.Sprintf("vm/compiler: unresolved local variable %q (index %d)", v.Name, v.Index))
 	}
-	key := v.Key
-	if key == "" {
-		key = ir.VarKeyOf(v)
-	}
-	if slot, ok := c.globalSlots[string(key)]; ok {
+	key := ir.VarKeyOf(v)
+	if slot, ok := c.globalSlots[key]; ok {
 		c.emitU16(OpLoadGlobal, uint16(slot))
 	} else {
-		panic(fmt.Sprintf("vm/compiler: global %q (key %q) not in globalSlots", v.Name, key))
+		panic(fmt.Sprintf("vm/compiler: global %q (key %v) not in globalSlots", v.Name, key))
 	}
 }
 func (c *Compiler) compileLit(lit *ir.Lit) {

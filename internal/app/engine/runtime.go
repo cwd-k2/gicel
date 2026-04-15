@@ -58,13 +58,13 @@ type Runtime struct {
 	source             *span.Source
 	warnFunc           func(string)
 	bindings           map[string]types.Type
-	moduleEntries      []moduleEntry         // ALL module programs in registration order
-	builtinGlobals     map[string]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
-	globalSlots        map[string]int        // global name → slot index (assigned at NewRuntime)
-	numGlobals         int                   // total number of global slots
-	sortedMainBindings []ir.Binding          // all main bindings, topologically pre-sorted
-	entryName          string                // default entry point name
-	entryExpr          ir.Core               // default entry point expression (nil if not found)
+	moduleEntries      []moduleEntry            // ALL module programs in registration order
+	builtinGlobals     map[ir.VarKey]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
+	globalSlots        map[ir.VarKey]int        // global name → slot index (assigned at NewRuntime)
+	numGlobals         int                      // total number of global slots
+	sortedMainBindings []ir.Binding             // all main bindings, topologically pre-sorted
+	entryName          string                   // default entry point name
+	entryExpr          ir.Core                  // default entry point expression (nil if not found)
 
 	// Cached bytecode (populated at NewRuntime time for VM backend).
 	vmModuleProtos [][]vmBindingProto    // pre-compiled module binding protos
@@ -183,7 +183,7 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 		// but copy() overwrote those slots with the cached (first-run) values.
 		for name := range r.bindings {
 			if v, ok := req.bindings[name]; ok {
-				globalArray[r.globalSlots[name]] = v
+				globalArray[r.globalSlots[ir.LocalKey(name)]] = v
 			}
 		}
 	} else {
@@ -191,7 +191,7 @@ func (r *Runtime) executeVM(ctx context.Context, b *budget.Budget, globalArray [
 
 		// Install pre-compiled builtins.
 		for name, val := range r.vmBuiltins {
-			if slot, ok := r.globalSlots[name]; ok {
+			if slot, ok := r.globalSlots[ir.LocalKey(name)]; ok {
 				globalArray[slot] = val
 			}
 		}

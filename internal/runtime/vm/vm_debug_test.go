@@ -43,9 +43,9 @@ func TestVMFoldlFst(t *testing.T) {
 		}
 	})
 
-	globals := map[string]int{
-		"foldl": 0,
-		"myFst": 1,
+	globals := map[ir.VarKey]int{
+		ir.LocalKey("foldl"): 0,
+		ir.LocalKey("myFst"): 1,
 	}
 	// Build foldl PrimVal.
 	foldlVal := &eval.PrimVal{Name: "_listFoldl", Arity: 3, Effectful: false}
@@ -86,11 +86,11 @@ func TestVMFoldlFst(t *testing.T) {
 		&ir.Con{Name: "Nil"},
 	}}
 	foldlApp := &ir.App{Fun: &ir.App{Fun: &ir.App{
-		Fun: &ir.Var{Name: "foldl", Index: -1, Key: "foldl"},
+		Fun: &ir.Var{Name: "foldl", Index: -1},
 		Arg: idLam,
 	}, Arg: tuple12}, Arg: unitList}
 	fullExpr := &ir.App{
-		Fun: &ir.Var{Name: "myFst", Index: -1, Key: "myFst"},
+		Fun: &ir.Var{Name: "myFst", Index: -1},
 		Arg: foldlApp,
 	}
 

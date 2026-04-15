@@ -41,14 +41,14 @@ func optimize(ctx context.Context, c ir.Core, rules []func(ir.Core) ir.Core) ir.
 // fix, force) that are eligible for inlining at qualified call sites.
 // The context is checked between optimization passes so that timeout or
 // cancellation can abort before runaway IR growth exhausts memory.
-func OptimizeProgram(ctx context.Context, prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, externalDicts ...map[string]ExternalBinding) {
+func OptimizeProgram(ctx context.Context, prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, externalDicts ...map[ir.VarKey]ExternalBinding) {
 	candidates := collectInlineCandidates(prog, userBindings, externalBindings)
 	allRules := rules
 	if len(candidates) > 0 {
 		allRules = append([]func(ir.Core) ir.Core{inlineRule(candidates)}, rules...)
 	}
 	// caseOfKnownDict: demand-driven dictionary inlining at Case sites.
-	var dicts map[string]ExternalBinding
+	var dicts map[ir.VarKey]ExternalBinding
 	if len(externalDicts) > 0 {
 		dicts = externalDicts[0]
 	}
@@ -74,12 +74,12 @@ func hasLocalDicts(prog *ir.Program) bool {
 // inlined ONLY at the case site and immediately dissolved by
 // caseOfKnownCtor, preventing the cascade bloat that would occur from
 // general-purpose dictionary inlining.
-func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func(ir.Core) ir.Core {
+func caseOfKnownDict(external map[ir.VarKey]ExternalBinding, prog *ir.Program) func(ir.Core) ir.Core {
 	// Collect local dictionaries from the main program.
 	// Skip recursive dictionaries (self-referential bindings) to prevent
 	// infinite inlining expansion — e.g. `impl Functor Tree` where the
 	// method body calls fmap recursively via the same dictionary.
-	localDicts := make(map[string]ir.Core)
+	localDicts := make(map[ir.VarKey]ir.Core)
 	for _, b := range prog.Bindings {
 		if !b.Generated.IsGenerated() {
 			continue
@@ -98,10 +98,10 @@ func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func
 		}
 		switch core.(type) {
 		case *ir.Con, *ir.App:
-			if _, selfRef := ir.FreeVars(b.Expr)[b.Name]; selfRef {
+			if _, selfRef := ir.FreeVars(b.Expr)[ir.LocalKey(b.Name)]; selfRef {
 				continue // recursive dictionary — skip to prevent infinite expansion
 			}
-			localDicts[b.Name] = b.Expr
+			localDicts[ir.LocalKey(b.Name)] = b.Expr
 		}
 	}
 
@@ -114,7 +114,7 @@ func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func
 		if !ok {
 			return c
 		}
-		key := string(ir.VarKeyOf(v))
+		key := ir.VarKeyOf(v)
 		var dictExpr ir.Core
 		if eb, ok := external[key]; ok {
 			dictExpr = eb.Expr
@@ -223,7 +223,7 @@ func betaReduce(c ir.Core) ir.Core {
 	if !ok {
 		return c
 	}
-	fv := ir.FreeVars(app.Arg)
+	fv := fvNames(ir.FreeVars(app.Arg))
 	return substFV(lam.Body, lam.Param, app.Arg, fv)
 }
 
@@ -270,7 +270,7 @@ func collectPatSubs(pat ir.Pattern, val ir.Core, subs map[string]ir.Core, subsFV
 	case *ir.PVar:
 		subs[p.Name] = val
 		for k := range ir.FreeVars(val) {
-			subsFV[k] = struct{}{}
+			subsFV[k.Name] = struct{}{}
 		}
 	case *ir.PRecord:
 		// For each field in the record pattern, project the corresponding
@@ -328,7 +328,7 @@ func caseOfKnownLit(c ir.Core) ir.Core {
 			wildcard = alt
 		case *ir.PVar:
 			// A PVar binds the literal: substitute it.
-			fv := ir.FreeVars(lit)
+			fv := fvNames(ir.FreeVars(lit))
 			return substFV(alt.Body, p.Name, lit, fv)
 		}
 	}
@@ -348,7 +348,7 @@ func bindPureElim(c ir.Core) ir.Core {
 	if !ok {
 		return c
 	}
-	fv := ir.FreeVars(pure.Expr)
+	fv := fvNames(ir.FreeVars(pure.Expr))
 	return substFV(bind.Body, bind.Var, pure.Expr, fv)
 }
 

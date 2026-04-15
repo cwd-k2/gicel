@@ -179,7 +179,7 @@ func newTestChecker() *Checker {
 			instancesByClass:  make(map[string][]*InstanceInfo),
 			importedInstances: make(map[*InstanceInfo]bool),
 			promotedKinds:     make(map[string]types.Type),
-			promotedCons: make(map[string]types.Type),
+			promotedCons:      make(map[string]types.Type),
 			KindScope: KindScope{
 				kindVars:  make(map[string]bool),
 				levelVars: make(map[string]bool),

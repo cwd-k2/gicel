@@ -41,7 +41,7 @@ func checkedMulCost(n int64, costPerUnit int64) int64 {
 // freeIn checks if name appears free in a Core expression.
 // Used by fusion rules to guard against variable capture.
 func freeIn(name string, c ir.Core) bool {
-	_, ok := ir.FreeVars(c)[name]
+	_, ok := ir.FreeVars(c)[ir.LocalKey(name)]
 	return ok
 }
 

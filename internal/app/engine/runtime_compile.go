@@ -18,29 +18,29 @@ import (
 // nils here; precompileVM replaces them with VMClosures. `thunk` and
 // `force` are syntactic special forms with no runtime value.
 func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
-	globals := make(map[string]eval.Value, 8)
+	globals := make(map[ir.VarKey]eval.Value, 8)
 	// Register builtin names (values are set by precompileVM).
 	for _, name := range []string{"pure", "bind"} {
-		globals[name] = nil
+		globals[ir.LocalKey(name)] = nil
 	}
 	if gatedBuiltins["fix"] {
-		globals["fix"] = nil
+		globals[ir.LocalKey("fix")] = nil
 	}
 	if gatedBuiltins["rec"] {
-		globals["rec"] = nil
+		globals[ir.LocalKey("rec")] = nil
 	}
 
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
-				globals[string(ir.QualifiedKey(me.name, con.Name))] = &eval.ConVal{Con: con.Name}
+				globals[ir.QualifiedKey(me.name, con.Name)] = &eval.ConVal{Con: con.Name}
 			}
 		}
 	}
 
 	for _, d := range r.prog.DataDecls {
 		for _, con := range d.Cons {
-			globals[con.Name] = &eval.ConVal{Con: con.Name}
+			globals[ir.LocalKey(con.Name)] = &eval.ConVal{Con: con.Name}
 		}
 	}
 
@@ -52,16 +52,16 @@ func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
 // (Index == -1) by name at eval time. No IR mutation occurs — the program
 // IR remains immutable after compilation.
 func (r *Runtime) buildGlobalSlots() {
-	slots := make(map[string]int, len(r.builtinGlobals)+len(r.bindings))
+	slots := make(map[ir.VarKey]int, len(r.builtinGlobals)+len(r.bindings))
 
 	// Assign slots from builtinGlobals (builtins + constructors).
 	// Sort keys for deterministic slot assignment — Go map iteration is
 	// non-deterministic, and varying slot indices can expose latent bugs.
-	builtinKeys := make([]string, 0, len(r.builtinGlobals))
+	builtinKeys := make([]ir.VarKey, 0, len(r.builtinGlobals))
 	for k := range r.builtinGlobals {
 		builtinKeys = append(builtinKeys, k)
 	}
-	sort.Strings(builtinKeys)
+	sortVarKeys(builtinKeys)
 	for _, k := range builtinKeys {
 		slots[k] = len(slots)
 	}
@@ -72,14 +72,15 @@ func (r *Runtime) buildGlobalSlots() {
 	}
 	sort.Strings(hostKeys)
 	for _, name := range hostKeys {
-		if _, ok := slots[name]; !ok {
-			slots[name] = len(slots)
+		k := ir.LocalKey(name)
+		if _, ok := slots[k]; !ok {
+			slots[k] = len(slots)
 		}
 	}
 	// Module binding names.
 	for _, me := range r.moduleEntries {
 		for _, b := range me.prog.Bindings {
-			sk := string(ir.QualifiedKey(me.name, b.Name))
+			sk := ir.QualifiedKey(me.name, b.Name)
 			if _, ok := slots[sk]; !ok {
 				slots[sk] = len(slots)
 			}
@@ -87,13 +88,24 @@ func (r *Runtime) buildGlobalSlots() {
 	}
 	// Main binding names.
 	for _, b := range r.prog.Bindings {
-		if _, ok := slots[b.Name]; !ok {
-			slots[b.Name] = len(slots)
+		k := ir.LocalKey(b.Name)
+		if _, ok := slots[k]; !ok {
+			slots[k] = len(slots)
 		}
 	}
 
 	r.globalSlots = slots
 	r.numGlobals = len(slots)
+}
+
+// sortVarKeys sorts a slice of VarKey by Module then Name.
+func sortVarKeys(keys []ir.VarKey) {
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Module != keys[j].Module {
+			return keys[i].Module < keys[j].Module
+		}
+		return keys[i].Name < keys[j].Name
+	})
 }
 
 // buildGlobalArray creates the global value array from the slot map.
@@ -111,7 +123,7 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 			missing = append(missing, name)
 			continue
 		}
-		arr[r.globalSlots[name]] = v
+		arr[r.globalSlots[ir.LocalKey(name)]] = v
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
@@ -120,7 +132,7 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 	// Warn about undeclared bindings (typos in the Bindings map).
 	for name := range hostBindings {
 		if _, isDeclared := r.bindings[name]; !isDeclared {
-			if _, isBuiltin := r.builtinGlobals[name]; !isBuiltin {
+			if _, isBuiltin := r.builtinGlobals[ir.LocalKey(name)]; !isBuiltin {
 				msg := fmt.Sprintf("gicel: warning: host binding %q was provided but not declared (possible typo)\n", name)
 				if r.warnFunc != nil {
 					r.warnFunc(msg)
@@ -171,13 +183,13 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 	for _, me := range r.moduleEntries {
 		for _, b := range me.sortedBindings {
 			if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
-				compiler.RecordGlobalPrim(string(ir.QualifiedKey(me.name, b.Name)), po.Name, po.Arity, po.Effectful)
+				compiler.RecordGlobalPrim(ir.QualifiedKey(me.name, b.Name), po.Name, po.Arity, po.Effectful)
 			}
 		}
 	}
 	for _, b := range r.sortedMainBindings {
 		if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
-			compiler.RecordGlobalPrim(b.Name, po.Name, po.Arity, po.Effectful)
+			compiler.RecordGlobalPrim(ir.LocalKey(b.Name), po.Name, po.Arity, po.Effectful)
 		}
 	}
 
@@ -237,14 +249,16 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProto, modulePrefix string, globalArray []eval.Value, obs *eval.ExplainObserver) error {
 	type slotCell struct {
 		slot int
-		key  string
+		key  ir.VarKey
 		cell *eval.IndirectVal
 	}
 	cells := make([]slotCell, len(protos))
 	for i, bp := range protos {
-		key := bp.name
+		var key ir.VarKey
 		if modulePrefix != "" {
-			key = string(ir.QualifiedKey(modulePrefix, bp.name))
+			key = ir.QualifiedKey(modulePrefix, bp.name)
+		} else {
+			key = ir.LocalKey(bp.name)
 		}
 		slot := r.globalSlots[key]
 		cell := &eval.IndirectVal{}

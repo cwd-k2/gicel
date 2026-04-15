@@ -148,16 +148,6 @@ func VerifyAnnotations(prog *Program, annots *FVAnnotations) []VerifyError {
 }
 
 func verifyAnnotationsCore(c Core, annots *FVAnnotations, errs []VerifyError) []VerifyError {
-	// V5b: Var.Key must be populated after AnnotateFreeVars.
-	Walk(c, func(node Core) bool {
-		if v, ok := node.(*Var); ok && v.Key == "" {
-			errs = append(errs, VerifyError{
-				Node:    v,
-				Message: fmt.Sprintf("Var{%q}.Key is empty after annotation", v.Name),
-			})
-		}
-		return true
-	})
 	// V5a: FV coherence — single bottom-up pass via traverseFV (O(N)).
 	obs := &verifyObs{annots: annots}
 	traverseFV(c, 0, obs)

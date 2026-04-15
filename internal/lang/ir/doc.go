@@ -10,7 +10,7 @@
 // that the caller owns and threads through the pipeline alongside the
 // Program. Two passes populate it:
 //
-//	AnnotateFreeVars         → *FVAnnotations (names, Var.Key caching)
+//	AnnotateFreeVars         → *FVAnnotations (names)
 //	AssignIndices(_, annots) → populates FVInfo.Indices in place
 //
 // VerifyAnnotations(prog, annots) checks coherence.
@@ -21,9 +21,8 @@
 //     the same pointer has the same meaning regardless of which passes
 //     have been run. Two trees with structurally identical nodes are
 //     interchangeable — there is no hidden state to forget.
-//   - Var.Key is non-empty after any traversal that calls annotateCore
-//     (populated from Module and Name via varKey).
-//   - Var.Index is -1 for global references (resolved through Key) and
+//   - VarKeyOf(v) constructs the environment lookup key from Module and Name.
+//   - Var.Index is -1 for global references (resolved through VarKeyOf) and
 //     >= 0 for local references (de Bruijn index, 0 = innermost).
 //   - Clone resets Var.Index to -1 for all cloned Vars. The caller
 //     must run AssignIndices on the cloned subtree after insertion.

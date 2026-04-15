@@ -139,7 +139,7 @@ func Clone(c Core) Core {
 	return Transform(c, func(n Core) Core {
 		switch v := n.(type) {
 		case *Var:
-			return &Var{Name: v.Name, Module: v.Module, Key: v.Key, Index: -1, S: v.S}
+			return &Var{Name: v.Name, Module: v.Module, Index: -1, S: v.S}
 		case *Lit:
 			return &Lit{Value: v.Value, S: v.S}
 		default:

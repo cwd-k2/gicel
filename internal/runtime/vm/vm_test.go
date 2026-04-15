@@ -22,9 +22,9 @@ func TestVMRunConst(t *testing.T) {
 }
 
 func TestVMRunGlobalVar(t *testing.T) {
-	globals := map[string]int{"x": 0}
+	globals := map[ir.VarKey]int{ir.LocalKey("x"): 0}
 	globalArray := []eval.Value{&eval.HostVal{Inner: int64(99)}}
-	result := runExprWithGlobals(t, &ir.Var{Name: "x", Index: -1, Key: "x"}, globals, globalArray)
+	result := runExprWithGlobals(t, &ir.Var{Name: "x", Index: -1}, globals, globalArray)
 	assertHostVal(t, result, int64(99))
 }
 
@@ -222,20 +222,20 @@ func TestVMRunEmptyRecord(t *testing.T) {
 
 // --- helpers ---
 
-func runExpr(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globals map[string]int) eval.Value {
+func runExpr(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globals map[ir.VarKey]int) eval.Value {
 	t.Helper()
 	return runExprFull(t, expr, prims, globals, nil)
 }
 
-func runExprWithGlobals(t *testing.T, expr ir.Core, globalSlots map[string]int, globalArray []eval.Value) eval.Value {
+func runExprWithGlobals(t *testing.T, expr ir.Core, globalSlots map[ir.VarKey]int, globalArray []eval.Value) eval.Value {
 	t.Helper()
 	return runExprFull(t, expr, nil, globalSlots, globalArray)
 }
 
-func runExprFull(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globalSlots map[string]int, globalArray []eval.Value) eval.Value {
+func runExprFull(t *testing.T, expr ir.Core, prims *eval.PrimRegistry, globalSlots map[ir.VarKey]int, globalArray []eval.Value) eval.Value {
 	t.Helper()
 	if globalSlots == nil {
-		globalSlots = map[string]int{}
+		globalSlots = map[ir.VarKey]int{}
 	}
 	if prims == nil {
 		prims = eval.NewPrimRegistry()

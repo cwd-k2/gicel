@@ -88,12 +88,12 @@ func (pc *pipelineCtx) collectExternalInlineBindings() []optimize.ExternalBindin
 
 // collectExternalDictionaries gathers instance dictionaries from imported
 // modules for demand-driven inlining at Case scrutinee sites.
-func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.ExternalBinding {
+func (pc *pipelineCtx) collectExternalDictionaries() map[ir.VarKey]optimize.ExternalBinding {
 	if pc.pipelineFlags.noInline {
 		return nil
 	}
 	entries := pc.store.Entries()
-	dicts := make(map[string]optimize.ExternalBinding)
+	dicts := make(map[ir.VarKey]optimize.ExternalBinding)
 	for _, e := range entries {
 		if e.prog == nil {
 			continue
@@ -118,11 +118,10 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 			case *ir.Con, *ir.App:
 				// Skip recursive dictionaries (self-referential bindings)
 				// to prevent infinite inlining expansion in the optimizer.
-				if _, selfRef := ir.FreeVars(b.Expr)[b.Name]; selfRef {
+				if _, selfRef := ir.FreeVars(b.Expr)[ir.QualifiedKey(e.name, b.Name)]; selfRef {
 					continue
 				}
-				key := string(ir.QualifiedKey(e.name, b.Name))
-				dicts[key] = optimize.ExternalBinding{
+				dicts[ir.QualifiedKey(e.name, b.Name)] = optimize.ExternalBinding{
 					Module: e.name,
 					Name:   b.Name,
 					Expr:   b.Expr,

@@ -38,7 +38,7 @@ func TestVMFixSimple(t *testing.T) {
 	b.SetAllocLimit(100 * 1024 * 1024)
 	machine := NewVM(VMConfig{
 		Globals:     make([]eval.Value, 0),
-		GlobalSlots: map[string]int{},
+		GlobalSlots: map[ir.VarKey]int{},
 		Prims:       eval.NewPrimRegistry(),
 		Budget:      b,
 		Ctx:         context.Background(),

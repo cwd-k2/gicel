@@ -2,8 +2,8 @@
 //
 // Demonstrates a reusable channel primitive design:
 //
-//   sendTo   @#label value  — send a value to a named channel (GICEL → Go)
-//   recvFrom @#label ()     — receive a value from a named channel (Go → GICEL)
+//	sendTo   @#label value  — send a value to a named channel (GICEL → Go)
+//	recvFrom @#label ()     — receive a value from a named channel (Go → GICEL)
 //
 // Channels are Go chan values stored in CapEnv by label.
 // The primitives mirror getAt/putAt but operate on channel I/O

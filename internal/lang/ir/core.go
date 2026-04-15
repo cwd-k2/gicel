@@ -36,7 +36,6 @@ type Core interface {
 type Var struct {
 	Name   string
 	Module string // "" = local/open, "Std.Num" = qualified import origin
-	Key    VarKey // cached environment lookup key — avoids string concat on every eval step
 	Index  int    // de Bruijn index (-1 = unassigned)
 	S      span.Span
 }

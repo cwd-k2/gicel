@@ -6,6 +6,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/infra/budget"
 	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
@@ -35,7 +36,7 @@ type VM struct {
 
 	// Global environment.
 	globals     []eval.Value
-	globalSlots map[string]int
+	globalSlots map[ir.VarKey]int
 
 	// Primitives.
 	prims *eval.PrimRegistry
@@ -69,7 +70,7 @@ type VM struct {
 // VMConfig holds configuration for creating a VM.
 type VMConfig struct {
 	Globals     []eval.Value
-	GlobalSlots map[string]int
+	GlobalSlots map[ir.VarKey]int
 	Prims       *eval.PrimRegistry
 	Budget      *budget.Budget
 	Ctx         context.Context

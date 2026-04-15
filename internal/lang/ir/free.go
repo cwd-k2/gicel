@@ -3,12 +3,11 @@ package ir
 import (
 	"fmt"
 	"sort"
-	"strings"
 )
 
 // FreeVars returns term-level free variables in a Core expression.
-func FreeVars(c Core) map[string]struct{} {
-	fv := make(map[string]struct{})
+func FreeVars(c Core) map[VarKey]struct{} {
+	fv := make(map[VarKey]struct{})
 	bound := make(map[string]int)
 	freeVarsRec(c, bound, fv, 0)
 	return fv
@@ -23,22 +22,14 @@ func unbind(bound map[string]int, name string) {
 	}
 }
 
-func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int) {
+func freeVarsRec(c Core, bound map[string]int, fv map[VarKey]struct{}, depth int) {
 	if depth > maxTraversalDepth {
 		return
 	}
 	switch n := c.(type) {
 	case *Var:
-		// Use the cached key if available; otherwise compute locally.
-		// Key is populated later by AnnotateFreeVars / AssignIndices.
-		// FreeVars is a read-only traversal and must not mutate IR nodes.
-		key := n.Key
-		if key == "" {
-			key = varKey(n)
-		}
-		sk := string(key)
-		if bound[sk] == 0 {
-			fv[sk] = struct{}{}
+		if bound[n.Name] == 0 {
+			fv[VarKeyOf(n)] = struct{}{}
 		}
 	case *Lam:
 		bind(bound, n.Param)
@@ -116,7 +107,7 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 // (and transparent TyApp/TyLam wrappers), collecting free variables from
 // right-side children. Prevents Go stack overflow on deeply left-nested
 // operator chains.
-func freeVarsLeftSpine(app *App, bound map[string]int, fv map[string]struct{}, depth int) {
+func freeVarsLeftSpine(app *App, bound map[string]int, fv map[VarKey]struct{}, depth int) {
 	head, rights := unwindLeftSpine(app)
 	freeVarsRec(head, bound, fv, depth+1)
 	for i := len(rights) - 1; i >= 0; i-- {
@@ -268,14 +259,14 @@ func fvInfoFromResult(r fvResult) *FVInfo {
 }
 
 // fvResultToSlice materializes the inline-or-map fvResult into a sorted
-// slice of variable names. The single-var fast path returns a 1-element
-// slice without going through map iteration.
+// slice of variable names (bare names, not VarKeys). The single-var fast
+// path returns a 1-element slice without going through map iteration.
 func fvResultToSlice(r fvResult) []string {
 	if r.vars == nil {
-		if r.single == "" {
+		if r.single == (VarKey{}) {
 			return []string{}
 		}
-		return []string{r.single}
+		return []string{r.single.Name}
 	}
 	return setToSlice(r.vars)
 }
@@ -288,7 +279,7 @@ func fvResultToSlice(r fvResult) []string {
 func deletePatternBindings(r *fvResult, p Pattern) {
 	switch pat := p.(type) {
 	case *PVar:
-		r.delete(pat.Name)
+		r.deleteByName(pat.Name)
 	case *PCon:
 		for _, arg := range pat.Args {
 			deletePatternBindings(r, arg)
@@ -341,7 +332,7 @@ func unbindPatternBindings(bound map[string]int, p Pattern) {
 // rather than silently losing deep free variables.
 //
 // Single-var optimization: when the result holds exactly one variable
-// the name is stored inline in `single` and `vars` stays nil. The map
+// the key is stored inline in `single` and `vars` stays nil. The map
 // is allocated only on the first promotion to two-or-more vars (in
 // mergeFV). The cold-start profile showed traverseFV's *Var arm
 // allocating a fresh single-element map per Var visit (213K objects,
@@ -349,25 +340,30 @@ func unbindPatternBindings(bound map[string]int, p Pattern) {
 // observer-visible semantics.
 //
 // Invariants:
-//   - overflow == true                → result is "unknown / truncated"
-//   - vars != nil                     → multi-var; vars holds all entries
-//   - vars == nil && single != ""     → exactly one var named `single`
-//   - vars == nil && single == ""     → empty
+//   - overflow == true                    → result is "unknown / truncated"
+//   - vars != nil                         → multi-var; vars holds all entries
+//   - vars == nil && single != VarKey{}   → exactly one var
+//   - vars == nil && single == VarKey{}   → empty
 type fvResult struct {
-	single   string
-	vars     map[string]struct{}
+	single   VarKey
+	vars     map[VarKey]struct{}
 	overflow bool
 }
 
 var fvOverflow = fvResult{overflow: true}
 
-func (r *fvResult) delete(name string) {
+// deleteByName removes a bare-name variable from the result. Used for
+// binder removal (Lam param, Fix name, Bind var, pattern bindings) where
+// the bound name is always unqualified.
+func (r *fvResult) deleteByName(name string) {
 	if r.vars != nil {
-		delete(r.vars, name)
+		// Bare names match local keys; qualified keys are never bound
+		// by Lam/Fix/Bind/Case pattern binders.
+		delete(r.vars, LocalKey(name))
 		return
 	}
-	if r.single == name {
-		r.single = ""
+	if r.single.Name == name && r.single.Module == "" {
+		r.single = VarKey{}
 	}
 }
 
@@ -398,17 +394,13 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 	}
 	switch n := c.(type) {
 	case *Var:
-		// Pre-compute the environment lookup key to avoid string concat at eval time.
-		if n.Key == "" {
-			n.Key = varKey(n)
-		}
 		// Inline single-var path: no map allocation until mergeFV
 		// promotes the result to multi-var.
-		return fvResult{single: string(n.Key)}
+		return fvResult{single: VarKeyOf(n)}
 	case *Lam:
 		bodyFV := traverseFV(n.Body, depth+1, obs)
 		// Remove the param — it comes from application, not from captured env.
-		bodyFV.delete(n.Param)
+		bodyFV.deleteByName(n.Param)
 		if obs != nil {
 			obs.OnLam(n, bodyFV)
 		}
@@ -443,7 +435,7 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 	case *Fix:
 		// Fix name is visible in Body — remove it from the result.
 		result := traverseFV(n.Body, depth+1, obs)
-		result.delete(n.Name)
+		result.deleteByName(n.Name)
 		return result
 	case *Pure:
 		return traverseFV(n.Expr, depth+1, obs)
@@ -451,7 +443,7 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 		compFV := traverseFV(n.Comp, depth+1, obs)
 		bodyFV := traverseFV(n.Body, depth+1, obs)
 		// Bind var is local to the body.
-		bodyFV.delete(n.Var)
+		bodyFV.deleteByName(n.Var)
 		return mergeFV(compFV, bodyFV)
 	case *Thunk:
 		compFV := traverseFV(n.Comp, depth+1, obs)
@@ -512,8 +504,8 @@ func mergeFV(a, b fvResult) fvResult {
 		return fvOverflow
 	}
 	// Empty + anything → anything.
-	aEmpty := a.vars == nil && a.single == ""
-	bEmpty := b.vars == nil && b.single == ""
+	aEmpty := a.vars == nil && a.single == (VarKey{})
+	bEmpty := b.vars == nil && b.single == (VarKey{})
 	if aEmpty {
 		return b
 	}
@@ -525,7 +517,7 @@ func mergeFV(a, b fvResult) fvResult {
 		if a.single == b.single {
 			return a
 		}
-		return fvResult{vars: map[string]struct{}{a.single: {}, b.single: {}}}
+		return fvResult{vars: map[VarKey]struct{}{a.single: {}, b.single: {}}}
 	}
 	// Single + multi: add a's single into b's map (mutating b).
 	if a.vars == nil {
@@ -544,53 +536,36 @@ func mergeFV(a, b fvResult) fvResult {
 	return a
 }
 
-func setToSlice(s map[string]struct{}) []string {
+func setToSlice(s map[VarKey]struct{}) []string {
 	if len(s) == 0 {
 		return []string{}
 	}
 	result := make([]string, 0, len(s))
 	for k := range s {
-		result = append(result, k)
+		result = append(result, k.Name)
 	}
 	sort.Strings(result)
 	return result
 }
 
 // VarKey is the canonical environment lookup key for a variable.
-// Local variables use the bare name; qualified variables use the
-// "module\x00name" encoding. The type wrapper prevents accidental
-// use of unencoded strings as lookup keys.
-type VarKey string
-
-// varKey returns a map key for a Var node. Qualified vars use "module\x00name"
-// to avoid collisions with local names.
-func varKey(v *Var) VarKey {
-	if v.Module != "" {
-		return VarKey(v.Module + "\x00" + v.Name)
-	}
-	return VarKey(v.Name)
+// Module is empty for local/unqualified variables.
+type VarKey struct {
+	Module string
+	Name   string
 }
 
-// VarKeyOf returns the map key for a Var node (exported for use in evaluator).
-// Uses the pre-computed Key field when available.
+// VarKeyOf returns the environment lookup key for a Var node.
 func VarKeyOf(v *Var) VarKey {
-	if v.Key != "" {
-		return v.Key
-	}
-	return varKey(v)
+	return VarKey{Module: v.Module, Name: v.Name}
 }
 
 // QualifiedKey builds a qualified environment key from module and name.
-// This is the canonical constructor for the "module\x00name" key format.
 func QualifiedKey(module, name string) VarKey {
-	return VarKey(module + "\x00" + name)
+	return VarKey{Module: module, Name: name}
 }
 
-// SplitQualifiedKey decomposes a qualified key into (module, name).
-// For unqualified keys, module is "" and name is the key itself.
-func SplitQualifiedKey(key VarKey) (module, name string) {
-	if before, after, ok := strings.Cut(string(key), "\x00"); ok {
-		return before, after
-	}
-	return "", string(key)
+// LocalKey builds an unqualified environment key from a bare name.
+func LocalKey(name string) VarKey {
+	return VarKey{Name: name}
 }

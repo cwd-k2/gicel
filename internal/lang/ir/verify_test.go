@@ -172,31 +172,17 @@ func TestVerifyV4b_SingleThunk(t *testing.T) {
 
 // V5b: Var.Key annotation check.
 
-func TestVerifyV5b_VarKeyEmpty(t *testing.T) {
-	// An unannotated Var with Key == "" should trip the V5b check when
-	// we hand VerifyAnnotations an empty side table (no traversal has
-	// populated the key yet).
+func TestVerifyV5a_VarAnnotationCoherence(t *testing.T) {
+	// A simple program with a free variable should verify without errors
+	// when annotations are computed via the proper pipeline.
 	prog := &Program{
 		Bindings: []Binding{
-			{Name: "main", Expr: &Var{Name: "x", Key: ""}},
+			{Name: "main", Expr: &Var{Name: "x"}},
 		},
 	}
-	errs := VerifyAnnotations(prog, NewFVAnnotations())
-	if len(errs) != 1 {
-		t.Fatalf("expected 1 error, got %d", len(errs))
-	}
-	if !strings.Contains(errs[0].Message, "Key is empty") {
-		t.Fatalf("expected 'Key is empty' message, got %q", errs[0].Message)
-	}
-}
-
-func TestVerifyV5b_VarKeyPopulated(t *testing.T) {
-	prog := &Program{
-		Bindings: []Binding{
-			{Name: "main", Expr: &Var{Name: "x", Key: "x"}},
-		},
-	}
-	errs := VerifyAnnotations(prog, NewFVAnnotations())
+	annots := AnnotateFreeVarsProgram(prog)
+	AssignIndicesProgram(prog, annots)
+	errs := VerifyAnnotations(prog, annots)
 	if len(errs) != 0 {
 		t.Fatalf("expected 0 errors, got %d: %v", len(errs), errs)
 	}

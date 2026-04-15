@@ -37,12 +37,12 @@ func caseOfCase(c ir.Core) ir.Core {
 		}
 	}
 
-	// Collect free variables of all outer alt bodies. These are the names
-	// that must not be captured by inner pattern bindings.
+	// Collect free variables of all outer alt bodies (bare names). These
+	// are the names that must not be captured by inner pattern bindings.
 	outerFV := make(map[string]struct{})
 	for _, alt := range outer.Alts {
 		for k := range ir.FreeVars(alt.Body) {
-			outerFV[k] = struct{}{}
+			outerFV[k.Name] = struct{}{}
 		}
 	}
 
@@ -107,8 +107,13 @@ func bindOfCase(c ir.Core) ir.Core {
 		return c
 	}
 
-	// Collect free variables of the bind body for capture avoidance.
-	bindBodyFV := ir.FreeVars(bind.Body)
+	// Collect free variables of the bind body for capture avoidance
+	// (bare names, since pattern binders are unqualified).
+	bindBodyFVRaw := ir.FreeVars(bind.Body)
+	bindBodyFV := make(map[string]struct{}, len(bindBodyFVRaw))
+	for k := range bindBodyFVRaw {
+		bindBodyFV[k.Name] = struct{}{}
+	}
 
 	// Push bind into each branch, alpha-renaming inner pattern
 	// bindings that would capture free variables of the bind body.
