@@ -6,113 +6,29 @@ import (
 )
 
 // FreeVars returns term-level free variables in a Core expression.
-func FreeVars(c Core) map[VarKey]struct{} {
-	fv := make(map[VarKey]struct{})
-	bound := make(map[string]int)
-	freeVarsRec(c, bound, fv, 0)
-	return fv
+// The second return value is true when the traversal exceeded the depth
+// limit and the result may be incomplete — callers must handle overflow
+// conservatively (e.g. skip optimizations that depend on FV completeness).
+func FreeVars(c Core) (map[VarKey]struct{}, bool) {
+	result := traverseFV(c, 0, nil)
+	if result.overflow {
+		return nil, true
+	}
+	return fvResultToMap(result), false
 }
 
-// bind/unbind use a depth counter to handle shadowing without map copies.
-func bind(bound map[string]int, name string) { bound[name]++ }
-func unbind(bound map[string]int, name string) {
-	bound[name]--
-	if bound[name] == 0 {
-		delete(bound, name)
+// fvResultToMap materializes a traversal-local fvResult into the public
+// map representation. Unlike fvResultToSlice (which filters qualified
+// keys for closure capture), this preserves all VarKeys — callers like
+// the optimizer need qualified keys for cross-module reference detection.
+func fvResultToMap(r fvResult) map[VarKey]struct{} {
+	if r.vars != nil {
+		return r.vars
 	}
-}
-
-func freeVarsRec(c Core, bound map[string]int, fv map[VarKey]struct{}, depth int) {
-	if depth > maxTraversalDepth {
-		return
+	if r.single == (VarKey{}) {
+		return make(map[VarKey]struct{})
 	}
-	switch n := c.(type) {
-	case *Var:
-		if bound[n.Name] == 0 {
-			fv[VarKeyOf(n)] = struct{}{}
-		}
-	case *Lam:
-		bind(bound, n.Param)
-		freeVarsRec(n.Body, bound, fv, depth+1)
-		unbind(bound, n.Param)
-	case *App:
-		// Flatten left-spine of App to avoid stack overflow on deeply
-		// left-associative operator chains.
-		freeVarsLeftSpine(n, bound, fv, depth)
-		return
-	case *TyApp:
-		freeVarsRec(n.Expr, bound, fv, depth+1)
-	case *TyLam:
-		freeVarsRec(n.Body, bound, fv, depth+1)
-	case *Con:
-		for _, arg := range n.Args {
-			freeVarsRec(arg, bound, fv, depth+1)
-		}
-	case *Case:
-		freeVarsRec(n.Scrutinee, bound, fv, depth+1)
-		for _, alt := range n.Alts {
-			// Walk the pattern directly to bind/unbind names without
-			// allocating the slice that Pattern.Bindings would return
-			// (PVar.Bindings is a particularly hot 1-element slice
-			// allocation on Prelude).
-			bindPatternBindings(bound, alt.Pattern)
-			freeVarsRec(alt.Body, bound, fv, depth+1)
-			unbindPatternBindings(bound, alt.Pattern)
-		}
-	case *Fix:
-		bind(bound, n.Name)
-		freeVarsRec(n.Body, bound, fv, depth+1)
-		unbind(bound, n.Name)
-	case *Pure:
-		freeVarsRec(n.Expr, bound, fv, depth+1)
-	case *Bind:
-		freeVarsRec(n.Comp, bound, fv, depth+1)
-		bind(bound, n.Var)
-		freeVarsRec(n.Body, bound, fv, depth+1)
-		unbind(bound, n.Var)
-	case *Thunk:
-		freeVarsRec(n.Comp, bound, fv, depth+1)
-	case *Force:
-		freeVarsRec(n.Expr, bound, fv, depth+1)
-	case *Merge:
-		freeVarsRec(n.Left, bound, fv, depth+1)
-		freeVarsRec(n.Right, bound, fv, depth+1)
-	case *PrimOp:
-		for _, arg := range n.Args {
-			freeVarsRec(arg, bound, fv, depth+1)
-		}
-	case *Lit:
-		// leaf — no free variables
-	case *Error:
-		// error placeholder — no free variables
-	case *RecordLit:
-		for _, f := range n.Fields {
-			freeVarsRec(f.Value, bound, fv, depth+1)
-		}
-	case *RecordProj:
-		freeVarsRec(n.Record, bound, fv, depth+1)
-	case *RecordUpdate:
-		freeVarsRec(n.Record, bound, fv, depth+1)
-		for _, f := range n.Updates {
-			freeVarsRec(f.Value, bound, fv, depth+1)
-		}
-	case *VariantLit:
-		freeVarsRec(n.Value, bound, fv, depth+1)
-	default:
-		panic(fmt.Sprintf("freeVarsRec: unhandled Core node %T", c))
-	}
-}
-
-// freeVarsLeftSpine iteratively descends the left spine of App nodes
-// (and transparent TyApp/TyLam wrappers), collecting free variables from
-// right-side children. Prevents Go stack overflow on deeply left-nested
-// operator chains.
-func freeVarsLeftSpine(app *App, bound map[string]int, fv map[VarKey]struct{}, depth int) {
-	head, rights := unwindLeftSpine(app)
-	freeVarsRec(head, bound, fv, depth+1)
-	for i := len(rights) - 1; i >= 0; i-- {
-		freeVarsRec(rights[i], bound, fv, depth+1)
-	}
+	return map[VarKey]struct{}{r.single: {}}
 }
 
 // FVInfo carries free-variable metadata for a single annotation point
@@ -200,7 +116,7 @@ func (a *FVAnnotations) LookupMerge(m *Merge) *MergeFVInfo {
 // Returns a freshly allocated FVAnnotations owned by the caller.
 func AnnotateFreeVars(c Core) *FVAnnotations {
 	annots := NewFVAnnotations()
-	annotateCore(c, annots)
+	traverseFV(c, 0, annots)
 	return annots
 }
 
@@ -209,43 +125,9 @@ func AnnotateFreeVars(c Core) *FVAnnotations {
 func AnnotateFreeVarsProgram(p *Program) *FVAnnotations {
 	annots := NewFVAnnotations()
 	for _, b := range p.Bindings {
-		annotateCore(b.Expr, annots)
+		traverseFV(b.Expr, 0, annots)
 	}
 	return annots
-}
-
-// annotateCore runs traverseFV with an observer that writes into annots.
-func annotateCore(c Core, annots *FVAnnotations) {
-	traverseFV(c, 0, annotateObs{annots: annots})
-}
-
-// fvObserver receives computed free variables at annotation points during
-// bottom-up FV traversal. The traversal calls the observer at each Lam,
-// Thunk, and Merge node with the computed FV result.
-type fvObserver interface {
-	OnLam(lam *Lam, bodyFV fvResult)
-	OnThunk(th *Thunk, compFV fvResult)
-	OnMerge(m *Merge, leftFV, rightFV fvResult)
-}
-
-// annotateObs writes FV results into a FVAnnotations side table.
-type annotateObs struct {
-	annots *FVAnnotations
-}
-
-func (a annotateObs) OnLam(lam *Lam, bodyFV fvResult) {
-	a.annots.Lams[lam] = fvInfoFromResult(bodyFV)
-}
-
-func (a annotateObs) OnThunk(th *Thunk, compFV fvResult) {
-	a.annots.Thunks[th] = fvInfoFromResult(compFV)
-}
-
-func (a annotateObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
-	a.annots.Merges[m] = &MergeFVInfo{
-		Left:  *fvInfoFromResult(leftFV),
-		Right: *fvInfoFromResult(rightFV),
-	}
 }
 
 // fvInfoFromResult converts a traversal-local fvResult into a persistent
@@ -299,40 +181,6 @@ func deletePatternBindings(r *fvResult, p Pattern) {
 	// PWild and PLit bind no names — nothing to delete.
 }
 
-// bindPatternBindings increments the bound-count for every binding-introducing
-// name in p. Used by freeVarsRec's Case alternative processing to avoid the
-// slice allocation that Pattern.Bindings would incur.
-func bindPatternBindings(bound map[string]int, p Pattern) {
-	switch pat := p.(type) {
-	case *PVar:
-		bind(bound, pat.Name)
-	case *PCon:
-		for _, arg := range pat.Args {
-			bindPatternBindings(bound, arg)
-		}
-	case *PRecord:
-		for _, f := range pat.Fields {
-			bindPatternBindings(bound, f.Pattern)
-		}
-	}
-}
-
-// unbindPatternBindings reverses bindPatternBindings.
-func unbindPatternBindings(bound map[string]int, p Pattern) {
-	switch pat := p.(type) {
-	case *PVar:
-		unbind(bound, pat.Name)
-	case *PCon:
-		for _, arg := range pat.Args {
-			unbindPatternBindings(bound, arg)
-		}
-	case *PRecord:
-		for _, f := range pat.Fields {
-			unbindPatternBindings(bound, f.Pattern)
-		}
-	}
-}
-
 // fvResult carries the free variable set and an overflow flag.
 // When overflow is true, the FV computation was truncated by the depth
 // limit; ancestor Lam/Thunk nodes must disable environment trimming
@@ -376,26 +224,30 @@ func (r *fvResult) deleteByName(name string) {
 
 // traverseFVLeftSpine iteratively descends the left spine of App nodes,
 // merging free variable sets from right children.
-func traverseFVLeftSpine(app *App, depth int, obs fvObserver) fvResult {
+func traverseFVLeftSpine(app *App, depth int, annots *FVAnnotations) fvResult {
 	head, rights := unwindLeftSpine(app)
-	result := traverseFV(head, depth+1, obs)
+	result := traverseFV(head, depth+1, annots)
 	for i := len(rights) - 1; i >= 0; i-- {
-		result = mergeFV(result, traverseFV(rights[i], depth+1, obs))
+		result = mergeFV(result, traverseFV(rights[i], depth+1, annots))
 	}
 	return result
 }
 
-// traverseFV computes free variables bottom-up, notifying the observer at
-// each annotation point (Lam, Thunk, Merge).
-// Unlike FreeVars/freeVarsRec, this does NOT propagate Lam params into bound —
-// outer Lam params are free from an inner closure's perspective (they are captured).
-// Only Fix names, Case alt bindings, and Bind vars are propagated as bound,
-// since they are resolved within the same scope.
+// traverseFV computes free variables bottom-up, writing annotation metadata
+// at each Lam, Thunk, and Merge node into annots (when non-nil).
+//
+// Lam params are removed from the result but NOT propagated as bound —
+// outer Lam params are free from an inner closure's perspective (they are
+// captured). Fix names, Case alt bindings, and Bind vars are scoped within
+// their body and removed from the result.
 //
 // When the depth limit is reached, returns fvOverflow so that ancestor
 // Lam/Thunk nodes detect the truncation and disable environment trimming
 // rather than silently losing deep free variables.
-func traverseFV(c Core, depth int, obs fvObserver) fvResult {
+//
+// When annots is nil (called from FreeVars), annotation writes are skipped
+// and only the top-level free variable set is computed.
+func traverseFV(c Core, depth int, annots *FVAnnotations) fvResult {
 	if depth > maxTraversalDepth {
 		return fvOverflow
 	}
@@ -405,75 +257,75 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 		// promotes the result to multi-var.
 		return fvResult{single: VarKeyOf(n)}
 	case *Lam:
-		bodyFV := traverseFV(n.Body, depth+1, obs)
+		bodyFV := traverseFV(n.Body, depth+1, annots)
 		// Remove the param — it comes from application, not from captured env.
 		bodyFV.deleteByName(n.Param)
-		if obs != nil {
-			obs.OnLam(n, bodyFV)
+		if annots != nil {
+			annots.Lams[n] = fvInfoFromResult(bodyFV)
 		}
 		if bodyFV.overflow {
 			return fvOverflow
 		}
 		return bodyFV
 	case *App:
-		return traverseFVLeftSpine(n, depth, obs)
+		return traverseFVLeftSpine(n, depth, annots)
 	case *TyApp:
-		return traverseFV(n.Expr, depth+1, obs)
+		return traverseFV(n.Expr, depth+1, annots)
 	case *TyLam:
-		return traverseFV(n.Body, depth+1, obs)
+		return traverseFV(n.Body, depth+1, annots)
 	case *Con:
 		var result fvResult
 		for _, arg := range n.Args {
-			result = mergeFV(result, traverseFV(arg, depth+1, obs))
+			result = mergeFV(result, traverseFV(arg, depth+1, annots))
 		}
 		return result
 	case *Case:
-		result := traverseFV(n.Scrutinee, depth+1, obs)
+		result := traverseFV(n.Scrutinee, depth+1, annots)
 		for _, alt := range n.Alts {
-			altFV := traverseFV(alt.Body, depth+1, obs)
+			altFV := traverseFV(alt.Body, depth+1, annots)
 			// Remove pattern-bound vars — they are local to each alt.
-			// Walk the pattern inline (instead of calling Bindings(),
-			// which would allocate a fresh slice per PVar) and delete
-			// each name from altFV in place.
 			deletePatternBindings(&altFV, alt.Pattern)
 			result = mergeFV(result, altFV)
 		}
 		return result
 	case *Fix:
 		// Fix name is visible in Body — remove it from the result.
-		result := traverseFV(n.Body, depth+1, obs)
+		result := traverseFV(n.Body, depth+1, annots)
 		result.deleteByName(n.Name)
 		return result
 	case *Pure:
-		return traverseFV(n.Expr, depth+1, obs)
+		return traverseFV(n.Expr, depth+1, annots)
 	case *Bind:
-		compFV := traverseFV(n.Comp, depth+1, obs)
-		bodyFV := traverseFV(n.Body, depth+1, obs)
+		compFV := traverseFV(n.Comp, depth+1, annots)
+		bodyFV := traverseFV(n.Body, depth+1, annots)
 		// Bind var is local to the body.
 		bodyFV.deleteByName(n.Var)
 		return mergeFV(compFV, bodyFV)
 	case *Thunk:
-		compFV := traverseFV(n.Comp, depth+1, obs)
-		if obs != nil {
-			obs.OnThunk(n, compFV)
+		compFV := traverseFV(n.Comp, depth+1, annots)
+		if annots != nil {
+			annots.Thunks[n] = fvInfoFromResult(compFV)
 		}
 		if compFV.overflow {
 			return fvOverflow
 		}
 		return compFV
 	case *Force:
-		return traverseFV(n.Expr, depth+1, obs)
+		return traverseFV(n.Expr, depth+1, annots)
 	case *Merge:
-		leftFV := traverseFV(n.Left, depth+1, obs)
-		rightFV := traverseFV(n.Right, depth+1, obs)
-		if obs != nil {
-			obs.OnMerge(n, leftFV, rightFV)
+		leftFV := traverseFV(n.Left, depth+1, annots)
+		rightFV := traverseFV(n.Right, depth+1, annots)
+		if annots != nil {
+			annots.Merges[n] = &MergeFVInfo{
+				Left:  *fvInfoFromResult(leftFV),
+				Right: *fvInfoFromResult(rightFV),
+			}
 		}
 		return mergeFV(leftFV, rightFV)
 	case *PrimOp:
 		var result fvResult
 		for _, arg := range n.Args {
-			result = mergeFV(result, traverseFV(arg, depth+1, obs))
+			result = mergeFV(result, traverseFV(arg, depth+1, annots))
 		}
 		return result
 	case *Lit:
@@ -483,19 +335,19 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 	case *RecordLit:
 		var result fvResult
 		for _, f := range n.Fields {
-			result = mergeFV(result, traverseFV(f.Value, depth+1, obs))
+			result = mergeFV(result, traverseFV(f.Value, depth+1, annots))
 		}
 		return result
 	case *RecordProj:
-		return traverseFV(n.Record, depth+1, obs)
+		return traverseFV(n.Record, depth+1, annots)
 	case *RecordUpdate:
-		result := traverseFV(n.Record, depth+1, obs)
+		result := traverseFV(n.Record, depth+1, annots)
 		for _, f := range n.Updates {
-			result = mergeFV(result, traverseFV(f.Value, depth+1, obs))
+			result = mergeFV(result, traverseFV(f.Value, depth+1, annots))
 		}
 		return result
 	case *VariantLit:
-		return traverseFV(n.Value, depth+1, obs)
+		return traverseFV(n.Value, depth+1, annots)
 	default:
 		panic(fmt.Sprintf("traverseFV: unhandled Core node %T", c))
 	}

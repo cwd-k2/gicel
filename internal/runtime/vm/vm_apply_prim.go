@@ -46,33 +46,22 @@ func (vm *VM) resolvePrimImplBare(pv *eval.PrimVal) (eval.PrimImpl, error) {
 	return impl, nil
 }
 
-// asPartialPrim returns a PrimVal stub representing a partially-applied
-// primitive. The args slice MUST outlive the call (it becomes the stub's
-// Args field) — callers building it from scratch and from primScratch must
-// distinguish: scratch is heap-managed and aliasable, so partial stubs
-// MUST use a heap-allocated args slice.
-func asPartialPrim(pv *eval.PrimVal, args []eval.Value) *eval.PrimVal {
+// copyPrimVal returns a PrimVal stub sharing identity (Name, Arity, S, Impl)
+// with pv but carrying the given args and effectful flag. Used for both
+// partial application (effectful copied from source) and deferred effectful
+// saturation (effectful forced to true).
+//
+// The args slice MUST outlive the call (it becomes the stub's Args field) —
+// callers building it from primScratch must use a heap-allocated copy, since
+// scratch is aliasable across VM re-entry.
+func copyPrimVal(pv *eval.PrimVal, args []eval.Value, effectful bool) *eval.PrimVal {
 	return &eval.PrimVal{
-		Name:      pv.Name,
-		Arity:     pv.Arity,
-		IsEffectful: pv.IsEffectful,
-		Args:      args,
-		S:         pv.S,
-		Impl:      pv.Impl,
-	}
-}
-
-// asDeferredEffectful returns a PrimVal stub representing a saturated
-// (or over-saturated) effectful primitive whose execution is deferred until
-// `forceEffectful` runs it. Same args-lifetime contract as asPartialPrim.
-func asDeferredEffectful(pv *eval.PrimVal, args []eval.Value) *eval.PrimVal {
-	return &eval.PrimVal{
-		Name:      pv.Name,
-		Arity:     pv.Arity,
-		IsEffectful: true,
-		Args:      args,
-		S:         pv.S,
-		Impl:      pv.Impl,
+		Name:        pv.Name,
+		Arity:       pv.Arity,
+		IsEffectful: effectful,
+		Args:        args,
+		S:           pv.S,
+		Impl:        pv.Impl,
 	}
 }
 
@@ -108,12 +97,12 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 
 	if newLen < pv.Arity {
 		// Partially applied.
-		vm.push(asPartialPrim(pv, args))
+		vm.push(copyPrimVal(pv, args, pv.IsEffectful))
 		return nil
 	}
 	if pv.IsEffectful {
 		// Saturated effectful — defer (keep as PrimVal).
-		vm.push(asDeferredEffectful(pv, args))
+		vm.push(copyPrimVal(pv, args, true))
 		return nil
 	}
 	// Saturated non-effectful, arity > scratch size.

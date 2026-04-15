@@ -240,10 +240,10 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		copy(args, f.Args)
 		args[len(f.Args)] = arg
 		if newLen < f.Arity {
-			return asPartialPrim(f, args), capEnv, nil
+			return copyPrimVal(f, args, f.IsEffectful), capEnv, nil
 		}
 		if f.IsEffectful {
-			return asDeferredEffectful(f, args), capEnv, nil
+			return copyPrimVal(f, args, true), capEnv, nil
 		}
 		impl, err := vm.resolvePrimImplBare(f)
 		if err != nil {
@@ -370,14 +370,14 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		}
 		combined := combineArgs(f.Args, args)
 		if newLen < f.Arity {
-			return asPartialPrim(f, combined), capEnv, nil
+			return copyPrimVal(f, combined, f.IsEffectful), capEnv, nil
 		}
 		if f.IsEffectful {
 			if newLen == f.Arity {
-				return asDeferredEffectful(f, combined), capEnv, nil
+				return copyPrimVal(f, combined, true), capEnv, nil
 			}
 			// Over-saturated effectful: defer first, then apply rest.
-			return vm.applyNForPrim(asDeferredEffectful(f, combined[:f.Arity]), combined[f.Arity:], capEnv)
+			return vm.applyNForPrim(copyPrimVal(f, combined[:f.Arity], true), combined[f.Arity:], capEnv)
 		}
 		impl, err := vm.resolvePrimImplBare(f)
 		if err != nil {

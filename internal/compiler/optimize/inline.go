@@ -117,7 +117,10 @@ func eligibleInlineBody(expr ir.Core, selfKey ir.VarKey) bool {
 	if nodeSize(expr, maxInlineSize+1) > maxInlineSize {
 		return false
 	}
-	fv := ir.FreeVars(expr)
+	fv, overflow := ir.FreeVars(expr)
+	if overflow {
+		return false // incomplete FV — assume recursive, skip inline
+	}
 	if _, recursive := fv[selfKey]; recursive {
 		return false
 	}
@@ -213,7 +216,10 @@ func eligibleEvidenceBody(expr ir.Core, selfKey ir.VarKey) bool {
 	if nodeSize(expr, maxEvidenceInlineSize+1) > maxEvidenceInlineSize {
 		return false
 	}
-	fv := ir.FreeVars(expr)
+	fv, overflow := ir.FreeVars(expr)
+	if overflow {
+		return false
+	}
 	if _, recursive := fv[selfKey]; recursive {
 		return false
 	}

@@ -164,89 +164,76 @@ func VerifyAnnotations(prog *Program, annots *FVAnnotations) []VerifyError {
 }
 
 func verifyAnnotationsCore(c Core, annots *FVAnnotations, errs []VerifyError) []VerifyError {
-	// V5a: FV coherence — single bottom-up pass via traverseFV (O(N)).
-	obs := &verifyObs{annots: annots}
-	traverseFV(c, 0, obs)
-	errs = append(errs, obs.errs...)
+	// V5a: FV coherence — recompute annotations in a fresh table and diff
+	// against the original. Separating traversal from verification makes
+	// both independently testable and eliminates the observer indirection.
+	recomputed := NewFVAnnotations()
+	traverseFV(c, 0, recomputed)
+	for lam, got := range recomputed.Lams {
+		stored, ok := annots.Lams[lam]
+		if !ok {
+			errs = append(errs, VerifyError{
+				Node:    lam,
+				Message: "Lam missing from FVAnnotations",
+			})
+			continue
+		}
+		if stored.Overflow || got.Overflow {
+			continue
+		}
+		if !sliceEqual(stored.Vars, got.Vars) {
+			errs = append(errs, VerifyError{
+				Node:    lam,
+				Message: fmt.Sprintf("Lam.FV mismatch: annotated %v, computed %v", stored.Vars, got.Vars),
+			})
+		}
+	}
+	for th, got := range recomputed.Thunks {
+		stored, ok := annots.Thunks[th]
+		if !ok {
+			errs = append(errs, VerifyError{
+				Node:    th,
+				Message: "Thunk missing from FVAnnotations",
+			})
+			continue
+		}
+		if stored.Overflow || got.Overflow {
+			continue
+		}
+		if !sliceEqual(stored.Vars, got.Vars) {
+			errs = append(errs, VerifyError{
+				Node:    th,
+				Message: fmt.Sprintf("Thunk.FV mismatch: annotated %v, computed %v", stored.Vars, got.Vars),
+			})
+		}
+	}
+	for m, got := range recomputed.Merges {
+		stored, ok := annots.Merges[m]
+		if !ok {
+			errs = append(errs, VerifyError{
+				Node:    m,
+				Message: "Merge missing from FVAnnotations",
+			})
+			continue
+		}
+		if !stored.Left.Overflow && !got.Left.Overflow {
+			if !sliceEqual(stored.Left.Vars, got.Left.Vars) {
+				errs = append(errs, VerifyError{
+					Node:    m,
+					Message: fmt.Sprintf("Merge.LeftFV mismatch: annotated %v, computed %v", stored.Left.Vars, got.Left.Vars),
+				})
+			}
+		}
+		if !stored.Right.Overflow && !got.Right.Overflow {
+			if !sliceEqual(stored.Right.Vars, got.Right.Vars) {
+				errs = append(errs, VerifyError{
+					Node:    m,
+					Message: fmt.Sprintf("Merge.RightFV mismatch: annotated %v, computed %v", stored.Right.Vars, got.Right.Vars),
+				})
+			}
+		}
+	}
 	return errs
-}
-
-// verifyObs checks FV annotations at each annotation point by comparing
-// the side-table entry with the recomputed free variable set.
-type verifyObs struct {
-	annots *FVAnnotations
-	errs   []VerifyError
-}
-
-func (v *verifyObs) OnLam(lam *Lam, bodyFV fvResult) {
-	info, ok := v.annots.Lams[lam]
-	if !ok {
-		v.errs = append(v.errs, VerifyError{
-			Node:    lam,
-			Message: "Lam missing from FVAnnotations",
-		})
-		return
-	}
-	if info.Overflow || bodyFV.overflow {
-		return
-	}
-	expected := fvResultToSlice(bodyFV)
-	if !sliceEqual(info.Vars, expected) {
-		v.errs = append(v.errs, VerifyError{
-			Node:    lam,
-			Message: fmt.Sprintf("Lam.FV mismatch: annotated %v, computed %v", info.Vars, expected),
-		})
-	}
-}
-
-func (v *verifyObs) OnThunk(th *Thunk, compFV fvResult) {
-	info, ok := v.annots.Thunks[th]
-	if !ok {
-		v.errs = append(v.errs, VerifyError{
-			Node:    th,
-			Message: "Thunk missing from FVAnnotations",
-		})
-		return
-	}
-	if info.Overflow || compFV.overflow {
-		return
-	}
-	expected := fvResultToSlice(compFV)
-	if !sliceEqual(info.Vars, expected) {
-		v.errs = append(v.errs, VerifyError{
-			Node:    th,
-			Message: fmt.Sprintf("Thunk.FV mismatch: annotated %v, computed %v", info.Vars, expected),
-		})
-	}
-}
-
-func (v *verifyObs) OnMerge(m *Merge, leftFV, rightFV fvResult) {
-	info, ok := v.annots.Merges[m]
-	if !ok {
-		v.errs = append(v.errs, VerifyError{
-			Node:    m,
-			Message: "Merge missing from FVAnnotations",
-		})
-		return
-	}
-	if !info.Left.Overflow && !leftFV.overflow {
-		expected := fvResultToSlice(leftFV)
-		if !sliceEqual(info.Left.Vars, expected) {
-			v.errs = append(v.errs, VerifyError{
-				Node:    m,
-				Message: fmt.Sprintf("Merge.LeftFV mismatch: annotated %v, computed %v", info.Left.Vars, expected),
-			})
-		}
-	}
-	if !info.Right.Overflow && !rightFV.overflow {
-		expected := fvResultToSlice(rightFV)
-		if !sliceEqual(info.Right.Vars, expected) {
-			v.errs = append(v.errs, VerifyError{
-				Node:    m,
-				Message: fmt.Sprintf("Merge.RightFV mismatch: annotated %v, computed %v", info.Right.Vars, expected),
-			})
-		}
-	}
 }
 
 func sliceEqual(a, b []string) bool {

@@ -178,7 +178,10 @@ func verifyFVAnnotation(t *testing.T, c ir.Core, annots *ir.FVAnnotations) {
 		if !ok || info.Overflow {
 			return true
 		}
-		actual := ir.FreeVars(lam.Body)
+		actual, overflow := ir.FreeVars(lam.Body)
+		if overflow {
+			return true // can't verify — skip
+		}
 		delete(actual, ir.LocalKey(lam.Param))
 		for _, name := range info.Vars {
 			if _, ok := actual[ir.LocalKey(name)]; !ok {

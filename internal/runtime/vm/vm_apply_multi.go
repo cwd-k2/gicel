@@ -224,10 +224,10 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		combined := combineArgs(f.Args, args)
 		switch {
 		case newLen < f.Arity:
-			return asPartialPrim(f, combined), nil
+			return copyPrimVal(f, combined, f.IsEffectful), nil
 		case newLen == f.Arity && f.IsEffectful:
 			// Saturated effectful — defer execution until forced.
-			return asDeferredEffectful(f, combined), nil
+			return copyPrimVal(f, combined, true), nil
 		case newLen == f.Arity:
 			// Saturated non-effectful, but arity exceeds scratch.
 			impl, err := vm.resolvePrimImplFrame(f, frame)
@@ -247,7 +247,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		var head eval.Value
 		callerCapEnv := frame.capEnv
 		if f.IsEffectful {
-			head = asDeferredEffectful(f, combined[:f.Arity])
+			head = copyPrimVal(f, combined[:f.Arity], true)
 		} else {
 			impl, err := vm.resolvePrimImplFrame(f, frame)
 			if err != nil {

@@ -98,7 +98,8 @@ func caseOfKnownDict(external map[ir.VarKey]ExternalBinding, prog *ir.Program) f
 		}
 		switch core.(type) {
 		case *ir.Con, *ir.App:
-			if _, selfRef := ir.FreeVars(b.Expr)[ir.LocalKey(b.Name)]; selfRef {
+			bfv, bfvOverflow := ir.FreeVars(b.Expr)
+			if _, selfRef := bfv[ir.LocalKey(b.Name)]; selfRef || bfvOverflow {
 				continue // recursive dictionary — skip to prevent infinite expansion
 			}
 			localDicts[ir.LocalKey(b.Name)] = b.Expr
@@ -223,8 +224,11 @@ func betaReduce(c ir.Core) ir.Core {
 	if !ok {
 		return c
 	}
-	fv := fvNames(ir.FreeVars(app.Arg))
-	return substFV(lam.Body, lam.Param, app.Arg, fv)
+	argFV, overflow := ir.FreeVars(app.Arg)
+	if overflow {
+		return c
+	}
+	return substFV(lam.Body, lam.Param, app.Arg, fvNames(argFV))
 }
 
 // R1: Case (Con C args) alts  →  matching alt with substitution
@@ -269,7 +273,8 @@ func collectPatSubs(pat ir.Pattern, val ir.Core, subs map[string]ir.Core, subsFV
 	switch p := pat.(type) {
 	case *ir.PVar:
 		subs[p.Name] = val
-		for k := range ir.FreeVars(val) {
+		valFV, _ := ir.FreeVars(val)
+		for k := range valFV {
 			subsFV[k.Name] = struct{}{}
 		}
 	case *ir.PRecord:
@@ -328,8 +333,11 @@ func caseOfKnownLit(c ir.Core) ir.Core {
 			wildcard = alt
 		case *ir.PVar:
 			// A PVar binds the literal: substitute it.
-			fv := fvNames(ir.FreeVars(lit))
-			return substFV(alt.Body, p.Name, lit, fv)
+			litFV, litOverflow := ir.FreeVars(lit)
+			if litOverflow {
+				return c
+			}
+			return substFV(alt.Body, p.Name, lit, fvNames(litFV))
 		}
 	}
 	if wildcard != nil {
@@ -348,8 +356,11 @@ func bindPureElim(c ir.Core) ir.Core {
 	if !ok {
 		return c
 	}
-	fv := fvNames(ir.FreeVars(pure.Expr))
-	return substFV(bind.Body, bind.Var, pure.Expr, fv)
+	exprFV, overflow := ir.FreeVars(pure.Expr)
+	if overflow {
+		return c
+	}
+	return substFV(bind.Body, bind.Var, pure.Expr, fvNames(exprFV))
 }
 
 // R4: Force (Thunk comp)  →  comp

@@ -4,57 +4,89 @@ import "fmt"
 
 // Walk visits every Core node in depth-first order.
 // The visitor returns false to stop traversal.
-func Walk(c Core, visit func(Core) bool) {
-	walkRec(c, visit, 0)
+// Walk returns true if the full tree was visited, false if the traversal
+// was truncated by the depth limit. Callers that depend on completeness
+// (e.g. node counting for size guards) must check the return value.
+func Walk(c Core, visit func(Core) bool) bool {
+	return walkRec(c, visit, 0)
 }
 
-func walkRec(c Core, visit func(Core) bool, depth int) {
+func walkRec(c Core, visit func(Core) bool, depth int) bool {
 	if depth > maxTraversalDepth {
-		return
+		return false
 	}
 	if !visit(c) {
-		return
+		return true // visitor stopped — not a truncation
 	}
 	switch n := c.(type) {
 	case *Var:
 		// leaf
 	case *Lam:
-		walkRec(n.Body, visit, depth+1)
+		if !walkRec(n.Body, visit, depth+1) {
+			return false
+		}
 	case *App:
-		// Flatten left-spine of App to avoid stack overflow on deeply
-		// left-associative operator chains. visit(c) was already called
-		// above, so pass skipRoot=true.
-		walkLeftSpine(n, visit, depth, true)
+		if !walkLeftSpine(n, visit, depth, true) {
+			return false
+		}
 	case *TyApp:
-		walkRec(n.Expr, visit, depth+1)
+		if !walkRec(n.Expr, visit, depth+1) {
+			return false
+		}
 	case *TyLam:
-		walkRec(n.Body, visit, depth+1)
+		if !walkRec(n.Body, visit, depth+1) {
+			return false
+		}
 	case *Con:
 		for _, arg := range n.Args {
-			walkRec(arg, visit, depth+1)
+			if !walkRec(arg, visit, depth+1) {
+				return false
+			}
 		}
 	case *Case:
-		walkRec(n.Scrutinee, visit, depth+1)
+		if !walkRec(n.Scrutinee, visit, depth+1) {
+			return false
+		}
 		for _, alt := range n.Alts {
-			walkRec(alt.Body, visit, depth+1)
+			if !walkRec(alt.Body, visit, depth+1) {
+				return false
+			}
 		}
 	case *Fix:
-		walkRec(n.Body, visit, depth+1)
+		if !walkRec(n.Body, visit, depth+1) {
+			return false
+		}
 	case *Pure:
-		walkRec(n.Expr, visit, depth+1)
+		if !walkRec(n.Expr, visit, depth+1) {
+			return false
+		}
 	case *Bind:
-		walkRec(n.Comp, visit, depth+1)
-		walkRec(n.Body, visit, depth+1)
+		if !walkRec(n.Comp, visit, depth+1) {
+			return false
+		}
+		if !walkRec(n.Body, visit, depth+1) {
+			return false
+		}
 	case *Thunk:
-		walkRec(n.Comp, visit, depth+1)
+		if !walkRec(n.Comp, visit, depth+1) {
+			return false
+		}
 	case *Force:
-		walkRec(n.Expr, visit, depth+1)
+		if !walkRec(n.Expr, visit, depth+1) {
+			return false
+		}
 	case *Merge:
-		walkRec(n.Left, visit, depth+1)
-		walkRec(n.Right, visit, depth+1)
+		if !walkRec(n.Left, visit, depth+1) {
+			return false
+		}
+		if !walkRec(n.Right, visit, depth+1) {
+			return false
+		}
 	case *PrimOp:
 		for _, arg := range n.Args {
-			walkRec(arg, visit, depth+1)
+			if !walkRec(arg, visit, depth+1) {
+				return false
+			}
 		}
 	case *Lit:
 		// leaf
@@ -62,27 +94,38 @@ func walkRec(c Core, visit func(Core) bool, depth int) {
 		// leaf
 	case *RecordLit:
 		for _, f := range n.Fields {
-			walkRec(f.Value, visit, depth+1)
+			if !walkRec(f.Value, visit, depth+1) {
+				return false
+			}
 		}
 	case *RecordProj:
-		walkRec(n.Record, visit, depth+1)
+		if !walkRec(n.Record, visit, depth+1) {
+			return false
+		}
 	case *RecordUpdate:
-		walkRec(n.Record, visit, depth+1)
+		if !walkRec(n.Record, visit, depth+1) {
+			return false
+		}
 		for _, f := range n.Updates {
-			walkRec(f.Value, visit, depth+1)
+			if !walkRec(f.Value, visit, depth+1) {
+				return false
+			}
 		}
 	case *VariantLit:
-		walkRec(n.Value, visit, depth+1)
+		if !walkRec(n.Value, visit, depth+1) {
+			return false
+		}
 	default:
 		panic(fmt.Sprintf("Walk: unhandled Core node %T", c))
 	}
+	return true
 }
 
 // walkLeftSpine iteratively descends the left spine of App nodes (and
 // transparent wrappers TyApp/TyLam), visiting right-side children
 // recursively. This prevents Go stack overflow on deeply left-nested
 // operator chains while preserving the depth budget for non-spine nodes.
-func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) {
+func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) bool {
 	// Collect right-side children during spine descent; visit them after.
 	type rightChild struct {
 		node  Core
@@ -97,7 +140,7 @@ func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) {
 		case *App:
 			if !(first && skipRoot) {
 				if !visit(n) {
-					return
+					return true // visitor stopped — not truncation
 				}
 			}
 			first = false
@@ -106,25 +149,30 @@ func walkLeftSpine(app *App, visit func(Core) bool, depth int, skipRoot bool) {
 			continue
 		case *TyApp:
 			if !visit(n) {
-				return
+				return true
 			}
 			cur = n.Expr
 			continue
 		case *TyLam:
 			if !visit(n) {
-				return
+				return true
 			}
 			cur = n.Body
 			continue
 		default:
-			walkRec(n, visit, depth+1)
+			if !walkRec(n, visit, depth+1) {
+				return false
+			}
 		}
 		break
 	}
 
 	for i := len(rights) - 1; i >= 0; i-- {
-		walkRec(rights[i].node, visit, rights[i].depth)
+		if !walkRec(rights[i].node, visit, rights[i].depth) {
+			return false
+		}
 	}
+	return true
 }
 
 // Clone creates a deep copy of a Core tree. All nodes including Var and Lit

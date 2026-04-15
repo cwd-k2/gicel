@@ -27,7 +27,7 @@ func SortBindings(bs []Binding) []Binding {
 	rdeps := make([][]int, len(bs)) // reverse edges for Kahn's
 	inDeg := make([]int, len(bs))
 	for i, b := range bs {
-		fv := FreeVars(b.Expr)
+		fv, _ := FreeVars(b.Expr)
 		deps[i] = make(map[int]bool)
 		for key := range fv {
 			if j, ok := nameIdx[key.Name]; ok && j != i {

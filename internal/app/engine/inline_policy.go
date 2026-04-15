@@ -118,7 +118,8 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[ir.VarKey]optimize.Exte
 			case *ir.Con, *ir.App:
 				// Skip recursive dictionaries (self-referential bindings)
 				// to prevent infinite inlining expansion in the optimizer.
-				if _, selfRef := ir.FreeVars(b.Expr)[ir.QualifiedKey(e.name, b.Name)]; selfRef {
+				bfv, bfvOverflow := ir.FreeVars(b.Expr)
+				if _, selfRef := bfv[ir.QualifiedKey(e.name, b.Name)]; selfRef || bfvOverflow {
 					continue
 				}
 				dicts[ir.QualifiedKey(e.name, b.Name)] = optimize.ExternalBinding{
