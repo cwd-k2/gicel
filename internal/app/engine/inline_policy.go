@@ -121,7 +121,7 @@ func (pc *pipelineCtx) collectExternalDictionaries() map[string]optimize.Externa
 				if _, selfRef := ir.FreeVars(b.Expr)[b.Name]; selfRef {
 					continue
 				}
-				key := ir.QualifiedKey(e.name, b.Name)
+				key := string(ir.QualifiedKey(e.name, b.Name))
 				dicts[key] = optimize.ExternalBinding{
 					Module: e.name,
 					Name:   b.Name,

@@ -90,7 +90,7 @@ func substFV(expr ir.Core, name string, replacement ir.Core, replFV map[string]s
 func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}) ir.Core {
 	switch n := expr.(type) {
 	case *ir.Var:
-		if repl, ok := subs[ir.VarKey(n)]; ok {
+		if repl, ok := subs[string(ir.VarKeyOf(n))]; ok {
 			return ir.Clone(repl)
 		}
 		return n

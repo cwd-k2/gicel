@@ -33,7 +33,7 @@ func (r *Runtime) initBuiltinGlobals(gatedBuiltins map[string]bool) {
 	for _, me := range r.moduleEntries {
 		for _, d := range me.prog.DataDecls {
 			for _, con := range d.Cons {
-				globals[ir.QualifiedKey(me.name, con.Name)] = &eval.ConVal{Con: con.Name}
+				globals[string(ir.QualifiedKey(me.name, con.Name))] = &eval.ConVal{Con: con.Name}
 			}
 		}
 	}
@@ -79,9 +79,9 @@ func (r *Runtime) buildGlobalSlots() {
 	// Module binding names.
 	for _, me := range r.moduleEntries {
 		for _, b := range me.prog.Bindings {
-			key := ir.QualifiedKey(me.name, b.Name)
-			if _, ok := slots[key]; !ok {
-				slots[key] = len(slots)
+			sk := string(ir.QualifiedKey(me.name, b.Name))
+			if _, ok := slots[sk]; !ok {
+				slots[sk] = len(slots)
 			}
 		}
 	}
@@ -171,7 +171,7 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 	for _, me := range r.moduleEntries {
 		for _, b := range me.sortedBindings {
 			if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
-				compiler.RecordGlobalPrim(ir.QualifiedKey(me.name, b.Name), po.Name, po.Arity, po.Effectful)
+				compiler.RecordGlobalPrim(string(ir.QualifiedKey(me.name, b.Name)), po.Name, po.Arity, po.Effectful)
 			}
 		}
 	}
@@ -244,7 +244,7 @@ func (r *Runtime) evalPrecompiledBindings(machine *vm.VM, protos []vmBindingProt
 	for i, bp := range protos {
 		key := bp.name
 		if modulePrefix != "" {
-			key = ir.QualifiedKey(modulePrefix, bp.name)
+			key = string(ir.QualifiedKey(modulePrefix, bp.name))
 		}
 		slot := r.globalSlots[key]
 		cell := &eval.IndirectVal{}

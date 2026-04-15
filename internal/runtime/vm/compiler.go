@@ -399,9 +399,9 @@ func (c *Compiler) varGlobalPrim(v *ir.Var) (primInfo, bool) {
 	}
 	key := v.Key
 	if key == "" {
-		key = ir.VarKey(v)
+		key = ir.VarKeyOf(v)
 	}
-	info, ok := c.globalPrims[key]
+	info, ok := c.globalPrims[string(key)]
 	return info, ok
 }
 func (c *Compiler) resolveLocal(name string) (int, bool) {

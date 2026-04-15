@@ -82,14 +82,14 @@ func collectInlineCandidates(prog *ir.Program, userBindings map[string]bool, ext
 	// External bindings: small lambdas and transparent aliases from
 	// imported modules.
 	for _, eb := range external {
-		key := ir.QualifiedKey(eb.Module, eb.Name)
-		if _, exists := candidates[key]; exists {
+		sk := string(ir.QualifiedKey(eb.Module, eb.Name))
+		if _, exists := candidates[sk]; exists {
 			continue
 		}
-		if !eligibleInlineBody(eb.Expr, key) && !IsTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, key) {
+		if !eligibleInlineBody(eb.Expr, sk) && !IsTransparentAlias(eb.Expr) && !eligibleEvidenceBody(eb.Expr, sk) {
 			continue
 		}
-		candidates[key] = &inlineCandidate{body: eb.Expr}
+		candidates[sk] = &inlineCandidate{body: eb.Expr}
 	}
 
 	if len(candidates) == 0 {
@@ -251,7 +251,7 @@ func inlineRule(candidates map[string]*inlineCandidate) func(ir.Core) ir.Core {
 		if !ok {
 			return c
 		}
-		cand, ok := candidates[ir.VarKey(v)]
+		cand, ok := candidates[string(ir.VarKeyOf(v))]
 		if !ok {
 			return c
 		}

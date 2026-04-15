@@ -95,9 +95,9 @@ func (c *Compiler) compileVar(v *ir.Var) {
 	}
 	key := v.Key
 	if key == "" {
-		key = ir.VarKey(v)
+		key = ir.VarKeyOf(v)
 	}
-	if slot, ok := c.globalSlots[key]; ok {
+	if slot, ok := c.globalSlots[string(key)]; ok {
 		c.emitU16(OpLoadGlobal, uint16(slot))
 	} else {
 		panic(fmt.Sprintf("vm/compiler: global %q (key %q) not in globalSlots", v.Name, key))

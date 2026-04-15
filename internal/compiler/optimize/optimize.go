@@ -114,7 +114,7 @@ func caseOfKnownDict(external map[string]ExternalBinding, prog *ir.Program) func
 		if !ok {
 			return c
 		}
-		key := ir.VarKey(v)
+		key := string(ir.VarKeyOf(v))
 		var dictExpr ir.Core
 		if eb, ok := external[key]; ok {
 			dictExpr = eb.Expr

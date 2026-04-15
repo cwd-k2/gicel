@@ -31,7 +31,7 @@ func SortBindings(bs []Binding) []Binding {
 		deps[i] = make(map[int]bool)
 		for name := range fv {
 			// Extract the unqualified component for dependency resolution.
-			_, target := SplitQualifiedKey(name)
+			_, target := SplitQualifiedKey(VarKey(name))
 			if j, ok := nameIdx[target]; ok && j != i {
 				deps[i][j] = true
 			}

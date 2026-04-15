@@ -36,8 +36,9 @@ func freeVarsRec(c Core, bound map[string]int, fv map[string]struct{}, depth int
 		if key == "" {
 			key = varKey(n)
 		}
-		if bound[key] == 0 {
-			fv[key] = struct{}{}
+		sk := string(key)
+		if bound[sk] == 0 {
+			fv[sk] = struct{}{}
 		}
 	case *Lam:
 		bind(bound, n.Param)
@@ -403,7 +404,7 @@ func traverseFV(c Core, depth int, obs fvObserver) fvResult {
 		}
 		// Inline single-var path: no map allocation until mergeFV
 		// promotes the result to multi-var.
-		return fvResult{single: n.Key}
+		return fvResult{single: string(n.Key)}
 	case *Lam:
 		bodyFV := traverseFV(n.Body, depth+1, obs)
 		// Remove the param — it comes from application, not from captured env.
@@ -555,18 +556,24 @@ func setToSlice(s map[string]struct{}) []string {
 	return result
 }
 
+// VarKey is the canonical environment lookup key for a variable.
+// Local variables use the bare name; qualified variables use the
+// "module\x00name" encoding. The type wrapper prevents accidental
+// use of unencoded strings as lookup keys.
+type VarKey string
+
 // varKey returns a map key for a Var node. Qualified vars use "module\x00name"
 // to avoid collisions with local names.
-func varKey(v *Var) string {
+func varKey(v *Var) VarKey {
 	if v.Module != "" {
-		return v.Module + "\x00" + v.Name
+		return VarKey(v.Module + "\x00" + v.Name)
 	}
-	return v.Name
+	return VarKey(v.Name)
 }
 
-// VarKey returns the map key for a Var node (exported for use in evaluator).
+// VarKeyOf returns the map key for a Var node (exported for use in evaluator).
 // Uses the pre-computed Key field when available.
-func VarKey(v *Var) string {
+func VarKeyOf(v *Var) VarKey {
 	if v.Key != "" {
 		return v.Key
 	}
@@ -575,15 +582,15 @@ func VarKey(v *Var) string {
 
 // QualifiedKey builds a qualified environment key from module and name.
 // This is the canonical constructor for the "module\x00name" key format.
-func QualifiedKey(module, name string) string {
-	return module + "\x00" + name
+func QualifiedKey(module, name string) VarKey {
+	return VarKey(module + "\x00" + name)
 }
 
 // SplitQualifiedKey decomposes a qualified key into (module, name).
 // For unqualified keys, module is "" and name is the key itself.
-func SplitQualifiedKey(key string) (module, name string) {
-	if before, after, ok := strings.Cut(key, "\x00"); ok {
+func SplitQualifiedKey(key VarKey) (module, name string) {
+	if before, after, ok := strings.Cut(string(key), "\x00"); ok {
 		return before, after
 	}
-	return "", key
+	return "", string(key)
 }

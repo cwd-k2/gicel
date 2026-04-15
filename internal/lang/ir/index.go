@@ -62,13 +62,12 @@ func assignIndices(c Core, localScope map[string]int, depth int, annots *FVAnnot
 	}
 	switch n := c.(type) {
 	case *Var:
-		key := n.Key
-		if key == "" {
-			key = varKey(n)
-			n.Key = key
+		if n.Key == "" {
+			n.Key = varKey(n)
 		}
+		sk := string(n.Key)
 		if localScope != nil {
-			if idx, ok := localScope[key]; ok {
+			if idx, ok := localScope[sk]; ok {
 				n.Index = idx
 				return
 			}
