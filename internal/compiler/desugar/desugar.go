@@ -13,7 +13,7 @@ import (
 )
 
 // Program desugars all expressions in an AST program.
-func Program(prog *syn.AstProgram) {
+func Program(prog *syn.Program) {
 	for i := range prog.Decls {
 		prog.Decls[i] = desugarDecl(prog.Decls[i])
 	}
@@ -45,7 +45,7 @@ func desugarExpr(e syn.Expr) syn.Expr {
 		els := desugarExpr(e.Else)
 		return &syn.ExprCase{
 			Scrutinee: cond,
-			Alts: []syn.AstAlt{
+			Alts: []syn.Alt{
 				{Pattern: &syn.PatCon{Con: "True", S: e.S}, Body: then, S: e.S},
 				{Pattern: &syn.PatCon{Con: "False", S: e.S}, Body: els, S: e.S},
 			},

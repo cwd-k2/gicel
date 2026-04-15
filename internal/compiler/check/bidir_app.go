@@ -37,7 +37,7 @@ func (ch *Checker) checkLam(e *syntax.ExprLam, expected types.Type) ir.Core {
 		}
 		caseExpr := &syntax.ExprCase{
 			Scrutinee: &syntax.ExprVar{Name: freshName, S: e.S},
-			Alts: []syntax.AstAlt{{
+			Alts: []syntax.Alt{{
 				Pattern: e.Params[0],
 				Body:    innerBody,
 			}},

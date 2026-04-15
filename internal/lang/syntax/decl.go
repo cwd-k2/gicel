@@ -157,8 +157,8 @@ func (d *DeclImport) Mode() ImportMode {
 	return ImportOpen
 }
 
-// AstProgram is the top-level AST.
-type AstProgram struct {
+// Program is the top-level AST.
+type Program struct {
 	Imports []DeclImport
 	Decls   []Decl
 }

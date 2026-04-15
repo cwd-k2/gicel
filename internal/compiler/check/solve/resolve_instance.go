@@ -28,7 +28,7 @@ func (s *Solver) resolveFromContext(className string, args []types.Type, sp span
 	var result ir.Core
 	s.env.ScanContext(func(entry env.CtxEntry) bool {
 		v, ok := entry.(*env.CtxVar)
-		if !ok || v.SolverInvisible || v.HasDictClass() {
+		if !ok || v.IsSolverInvisible || v.HasDictClass() {
 			return true
 		}
 		// Cheap pre-filter: walk the type's TyApp spine without zonking.
@@ -111,7 +111,7 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 	for _, inst := range s.env.InstancesForClass(className) {
 		// Private instances are solver-invisible in global search.
 		// They are accessible only via explicit evidence injection (value => expr).
-		if inst.Private {
+		if inst.IsPrivate {
 			continue
 		}
 		if len(inst.TypeArgs) != len(args) {

@@ -107,9 +107,9 @@ func subPool[T any](pool []T, start, end int) []T {
 // prim-alias binding (an assumption declaration whose IR expression is a
 // 0-arg *ir.PrimOp). Populated by RecordGlobalPrim before compileApp runs.
 type primInfo struct {
-	name      string
-	arity     int
-	effectful bool
+	name        string
+	arity       int
+	isEffectful bool
 }
 
 // frame accumulates bytecode and metadata for a single Proto.
@@ -265,15 +265,15 @@ func (c *Compiler) CompileBinding(b ir.Binding) *Proto {
 // pass in precompileVM, scanning all module entries and main bindings.
 //
 // The invariant: the binding named `key` has IR expression
-// `&ir.PrimOp{Name, Arity, Effectful, Args: nil}`. When compileApp sees a
+// `&ir.PrimOp{Name, Arity, IsEffectful, Args: nil}`. When compileApp sees a
 // global Var with this key and enough arguments in the application spine,
 // it emits a direct saturated prim call instead of loading the stub and
 // going through applyPrim's partial-application path.
-func (c *Compiler) RecordGlobalPrim(key ir.VarKey, name string, arity int, effectful bool) {
+func (c *Compiler) RecordGlobalPrim(key ir.VarKey, name string, arity int, isEffectful bool) {
 	if c.globalPrims == nil {
 		c.globalPrims = make(map[ir.VarKey]primInfo)
 	}
-	c.globalPrims[key] = primInfo{name: name, arity: arity, effectful: effectful}
+	c.globalPrims[key] = primInfo{name: name, arity: arity, isEffectful: isEffectful}
 }
 
 // --- constant / string pool ---

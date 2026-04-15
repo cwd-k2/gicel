@@ -76,10 +76,10 @@ func assertHostBool(t *testing.T, v eval.Value, expected bool) {
 	if !ok {
 		t.Fatalf("expected ConVal(True/False), got %T: %v", v, v)
 	}
-	if expected && con.Con != "True" {
+	if expected && con.Con != eval.BoolTrue {
 		t.Fatalf("expected True, got %s", con.Con)
 	}
-	if !expected && con.Con != "False" {
+	if !expected && con.Con != eval.BoolFalse {
 		t.Fatalf("expected False, got %s", con.Con)
 	}
 }
@@ -160,7 +160,7 @@ func assertList(t *testing.T, v eval.Value, expected []int64) {
 	t.Helper()
 	for i, want := range expected {
 		con, ok := v.(*eval.ConVal)
-		if !ok || con.Con != "Cons" {
+		if !ok || con.Con != eval.ListCons {
 			t.Fatalf("element %d: expected Cons, got %v", i, v)
 		}
 		if len(con.Args) != 2 {
@@ -176,7 +176,7 @@ func assertList(t *testing.T, v eval.Value, expected []int64) {
 		v = con.Args[1]
 	}
 	con, ok := v.(*eval.ConVal)
-	if !ok || con.Con != "Nil" {
+	if !ok || con.Con != eval.ListNil {
 		t.Fatalf("expected Nil at end, got %v", v)
 	}
 }

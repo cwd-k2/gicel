@@ -333,7 +333,7 @@ func (p *Parser) parseCase() syn.Expr {
 	scrut := p.parseExpr()
 	p.noBraceAtom = savedNoBrace
 	openTok := p.expect(syn.TokLBrace)
-	var alts []syn.AstAlt
+	var alts []syn.Alt
 	p.parseBody("case expression", openTok.S, func() {
 		alts = append(alts, p.parseAlt())
 	})
@@ -379,14 +379,14 @@ func (p *Parser) parseIf() syn.Expr {
 	}
 }
 
-func (p *Parser) parseAlt() syn.AstAlt {
+func (p *Parser) parseAlt() syn.Alt {
 	start := p.peek().S.Start
 	pat := p.parsePattern()
 	if p.peek().Kind != syn.TokFatArrow {
 		// Missing =>: report and recover to next alt boundary.
 		p.addErrorCode(diagnostic.ErrUnexpectedToken, "expected => in case alternative")
 		p.syncToStmtBoundary()
-		return syn.AstAlt{
+		return syn.Alt{
 			Pattern: pat,
 			Body:    &syn.ExprError{S: span.Span{Start: p.peek().S.Start, End: p.peek().S.Start}},
 			S:       span.Span{Start: start, End: p.prevEnd()},
@@ -394,7 +394,7 @@ func (p *Parser) parseAlt() syn.AstAlt {
 	}
 	p.advance() // consume =>
 	body := p.parseExpr()
-	return syn.AstAlt{
+	return syn.Alt{
 		Pattern: pat, Body: body,
 		S: span.Span{Start: start, End: p.prevEnd()},
 	}

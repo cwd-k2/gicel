@@ -125,7 +125,7 @@ func bindOfCase(c ir.Core) ir.Core {
 			Body: &ir.Bind{
 				Comp:      comp,
 				Var:       bind.Var,
-				Discard:   bind.Discard,
+				IsDiscard:   bind.IsDiscard,
 				Body:      ir.Clone(bind.Body),
 				Generated: bind.Generated,
 				S:         bind.S,

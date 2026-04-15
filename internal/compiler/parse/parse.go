@@ -155,10 +155,10 @@ func (p *Parser) AddFixity(fixity map[string]syn.Fixity) {
 // nested ExprInfix trees using fixity from:
 //   - external modules (via AddFixity, called before ParseProgram)
 //   - in-module DeclFixity declarations (collected from the AST)
-func (p *Parser) ParseProgram() *syn.AstProgram {
+func (p *Parser) ParseProgram() *syn.Program {
 	imports := p.parseImportBlock()
 	decls := p.parseDeclBlock()
-	ast := &syn.AstProgram{Imports: imports, Decls: decls}
+	ast := &syn.Program{Imports: imports, Decls: decls}
 	p.ResolveInfix(ast)
 	return ast
 }
@@ -166,7 +166,7 @@ func (p *Parser) ParseProgram() *syn.AstProgram {
 // ResolveInfix collects in-module fixity from DeclFixity nodes in the
 // AST, merges with external fixity (from AddFixity), and resolves all
 // ExprInfixSpine nodes into nested ExprInfix trees.
-func (p *Parser) ResolveInfix(ast *syn.AstProgram) {
+func (p *Parser) ResolveInfix(ast *syn.Program) {
 	maps.Copy(p.fixity, CollectModuleFixity(ast.Decls))
 	ResolveFixity(ast, p.fixity, p.errors)
 }

@@ -48,7 +48,7 @@ func TestVMFoldlFst(t *testing.T) {
 		ir.LocalKey("myFst"): 1,
 	}
 	// Build foldl PrimVal.
-	foldlVal := &eval.PrimVal{Name: "_listFoldl", Arity: 3, Effectful: false}
+	foldlVal := &eval.PrimVal{Name: "_listFoldl", Arity: 3, IsEffectful: false}
 	// Build myFst as VMClosure.
 	myFstBody := &ir.RecordProj{Record: &ir.Var{Name: "p", Index: 0}, Label: "_1"}
 	myFstLam := &ir.Lam{Param: "p", Body: myFstBody}

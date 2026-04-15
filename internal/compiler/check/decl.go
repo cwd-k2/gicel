@@ -389,7 +389,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		prog.Bindings = append(prog.Bindings, ir.Binding{
 			Name: d.Name,
 			Type: aTy,
-			Expr: &ir.PrimOp{Name: d.Name, Arity: typeArity(aTy), Effectful: isComputationType(aTy), S: d.S},
+			Expr: &ir.PrimOp{Name: d.Name, Arity: typeArity(aTy), IsEffectful: isComputationType(aTy), S: d.S},
 			S:    d.S,
 		})
 		return

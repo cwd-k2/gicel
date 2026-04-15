@@ -217,7 +217,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			result := vm.pop()
 			// Force auto-force thunks before returning (mirrors tree-walker's
 			// deferred ForceEffectful on Bind body results).
-			if thv, ok := result.(*eval.VMThunkVal); ok && thv.AutoForce {
+			if thv, ok := result.(*eval.VMThunkVal); ok && thv.IsAutoForce {
 				if err := vm.budget.Step(); err != nil {
 					return eval.EvalResult{}, err
 				}
@@ -589,7 +589,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 				Captured:  make([]eval.Value, proto.NumLocals),
 				Proto:     proto,
 				Source:    proto.Source,
-				AutoForce: true,
+				IsAutoForce: true,
 			}
 			copy(thv.Captured, captured)
 			thv.Captured[proto.FixSelfSlot] = thv
@@ -658,7 +658,7 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			}
 			vm.push(&eval.PrimVal{
 				Name: name, Arity: arity,
-				Effectful: true, Args: args,
+				IsEffectful: true, Args: args,
 				S:    frame.proto.SpanAt(frame.ip),
 				Impl: impl,
 			})

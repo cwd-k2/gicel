@@ -3,13 +3,16 @@ package env
 import (
 	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
+	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
 
 // CoreModuleName is the canonical name of the auto-imported Core module.
 const CoreModuleName = "Core"
 
 // DictName returns the dictionary type constructor name for a class.
-func DictName(className string) string { return className + "$Dict" }
+// The suffix is sourced from eval.DictSuffix — the single canonical
+// definition shared between the compiler and the runtime.
+func DictName(className string) string { return className + eval.DictSuffix }
 
 // AliasInfo holds the definition of a type alias: parameter names, their kinds, and the body.
 type AliasInfo struct {
@@ -51,7 +54,7 @@ type InstanceInfo struct {
 	DictBindName string           // e.g. "Eq$Bool" or "Eq$(Maybe 'a)"
 	UserName     string           // user-visible name from `impl name ::` ("" for anonymous)
 	Module       string           // source module that defined this instance
-	Private      bool             // true for impl _name (solver-invisible outside defining module)
+	IsPrivate    bool             // true for impl _name (solver-invisible outside defining module)
 	FreeVars     []FreeVarInfo    // cached free type variables with kinds (computed once at registration)
 	S            span.Span
 }

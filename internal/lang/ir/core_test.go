@@ -142,7 +142,7 @@ func TestTransformDeepBindChain(t *testing.T) {
 	const depth = 600
 	var term Core = &Pure{Expr: &Lit{Value: int64(0)}}
 	for i := depth - 1; i >= 0; i-- {
-		term = &Bind{Comp: &Pure{Expr: &Lit{Value: int64(i)}}, Var: "_", Discard: true, Body: term}
+		term = &Bind{Comp: &Pure{Expr: &Lit{Value: int64(i)}}, Var: "_", IsDiscard: true, Body: term}
 	}
 	count := 0
 	_ = Transform(term, func(c Core) Core {
@@ -161,7 +161,7 @@ func TestTransformMutDeepBindChain(t *testing.T) {
 	const depth = 600
 	var term Core = &Pure{Expr: &Lit{Value: int64(0)}}
 	for i := depth - 1; i >= 0; i-- {
-		term = &Bind{Comp: &Pure{Expr: &Lit{Value: int64(i)}}, Var: "_", Discard: true, Body: term}
+		term = &Bind{Comp: &Pure{Expr: &Lit{Value: int64(i)}}, Var: "_", IsDiscard: true, Body: term}
 	}
 	count := 0
 	_ = TransformMut(term, func(c Core) Core {

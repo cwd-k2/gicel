@@ -169,7 +169,7 @@ func (p *Parser) parseBlock() syn.Expr {
 	//          pattern := expr; (irrefutable pattern binding)
 	//          type Name Pats =: RHS; (associated type definition, inside impl body)
 	//          form Name Pats =: Cons; (associated form definition, inside impl body)
-	var binds []syn.AstBind
+	var binds []syn.Bind
 	var typeDefs []syn.ImplField
 	for p.peek().Kind == syn.TokLower || p.peek().Kind == syn.TokType || p.peek().Kind == syn.TokForm || p.peek().Kind == syn.TokLParen {
 		bindStart := p.peek().S.Start
@@ -225,7 +225,7 @@ func (p *Parser) parseBlock() syn.Expr {
 				}
 				p.advance()
 				expr := p.parseExpr()
-				binds = append(binds, syn.AstBind{
+				binds = append(binds, syn.Bind{
 					Pat: pat, Expr: expr,
 					S: span.Span{Start: bindStart, End: p.prevEnd()},
 				})
@@ -247,7 +247,7 @@ func (p *Parser) parseBlock() syn.Expr {
 			p.tb.commit()
 			p.advance()
 			expr := p.parseExpr()
-			binds = append(binds, syn.AstBind{
+			binds = append(binds, syn.Bind{
 				Pat: &syn.PatVar{Name: name, S: nameTok.S}, Expr: expr,
 				S: span.Span{Start: bindStart, End: p.prevEnd()},
 			})

@@ -1,7 +1,7 @@
 package env
 
 // IsPrivateName reports whether a name is module-private.
-// Private: '_' prefix (user convention) or compiler-generated identifier
+// IsPrivate: '_' prefix (user convention) or compiler-generated identifier
 // containing '$'. The '$' character is not part of the surface identifier
 // grammar (the lexer rejects it), so its presence in a name is an injective
 // signal of compiler generation — not a heuristic. Operator names

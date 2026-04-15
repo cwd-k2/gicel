@@ -153,7 +153,7 @@ func (c *Context) LookupDictVar(className string) []*CtxVar {
 	result := make([]*CtxVar, 0, len(idxs))
 	for i := len(idxs) - 1; i >= 0; i-- {
 		v := c.entries[idxs[i]].(*CtxVar)
-		if !v.SolverInvisible {
+		if !v.IsSolverInvisible {
 			result = append(result, v)
 		}
 	}

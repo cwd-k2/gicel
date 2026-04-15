@@ -100,7 +100,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 
 // populateHoverDecls records declaration-level hover entries from the
 // checked program and the original AST, extracting doc comments from source.
-func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.AstProgram, prog *ir.Program, source string) {
+func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.Program, prog *ir.Program, source string) {
 	doc := func(s span.Span) string {
 		return ExtractDocComment(source, s.Start)
 	}
@@ -190,7 +190,7 @@ func fixityToHover(f syntax.Fixity) *OperatorFixity {
 
 // collectFixityMap gathers the merged fixity map for the given AST:
 // transitive imports (from the module store) + local fixity declarations.
-func (pc *pipelineCtx) collectFixityMap(ast *syntax.AstProgram) map[string]syntax.Fixity {
+func (pc *pipelineCtx) collectFixityMap(ast *syntax.Program) map[string]syntax.Fixity {
 	importNames := make([]string, len(ast.Imports))
 	for i, imp := range ast.Imports {
 		importNames[i] = imp.ModuleName

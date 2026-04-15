@@ -183,13 +183,13 @@ func (r *Runtime) precompileVM(gates map[string]bool) (err error) {
 	for _, me := range r.moduleEntries {
 		for _, b := range me.sortedBindings {
 			if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
-				compiler.RecordGlobalPrim(ir.QualifiedKey(me.name, b.Name), po.Name, po.Arity, po.Effectful)
+				compiler.RecordGlobalPrim(ir.QualifiedKey(me.name, b.Name), po.Name, po.Arity, po.IsEffectful)
 			}
 		}
 	}
 	for _, b := range r.sortedMainBindings {
 		if po, ok := b.Expr.(*ir.PrimOp); ok && len(po.Args) == 0 && po.Arity > 0 {
-			compiler.RecordGlobalPrim(ir.LocalKey(b.Name), po.Name, po.Arity, po.Effectful)
+			compiler.RecordGlobalPrim(ir.LocalKey(b.Name), po.Name, po.Arity, po.IsEffectful)
 		}
 	}
 

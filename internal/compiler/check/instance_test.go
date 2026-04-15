@@ -212,7 +212,7 @@ main := eq MkInt MkInt`
 	checkSource(t, source, nil)
 }
 
-func TestPrivateInstanceSolverInvisible(t *testing.T) {
+func TestPrivateInstanceIsSolverInvisible(t *testing.T) {
 	// When both a public and private instance exist for the same class/type,
 	// the solver should resolve to the public instance (the private one is
 	// still registered but the public one is found first for same-module).

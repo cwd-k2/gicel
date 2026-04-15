@@ -215,9 +215,9 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 			bvar = fresh
 		}
 		if len(active) == 0 {
-			return &ir.Bind{Comp: comp, Var: bvar, Discard: n.Discard, Body: body, Generated: n.Generated, S: n.S}
+			return &ir.Bind{Comp: comp, Var: bvar, IsDiscard: n.IsDiscard, Body: body, Generated: n.Generated, S: n.S}
 		}
-		return &ir.Bind{Comp: comp, Var: bvar, Discard: n.Discard, Body: substMany(body, active, subsFV), Generated: n.Generated, S: n.S}
+		return &ir.Bind{Comp: comp, Var: bvar, IsDiscard: n.IsDiscard, Body: substMany(body, active, subsFV), Generated: n.Generated, S: n.S}
 	case *ir.Thunk:
 		return &ir.Thunk{Comp: substMany(n.Comp, subs, subsFV), S: n.S}
 	case *ir.Force:
@@ -229,7 +229,7 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 		for i, a := range n.Args {
 			args[i] = substMany(a, subs, subsFV)
 		}
-		return &ir.PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S}
+		return &ir.PrimOp{Name: n.Name, Arity: n.Arity, IsEffectful: n.IsEffectful, Args: args, S: n.S}
 	case *ir.Lit:
 		return n
 	case *ir.Error:
@@ -403,7 +403,7 @@ func substTyVarInCore(c ir.Core, tyVar string, ty types.Type) ir.Core {
 			if !changed {
 				return c
 			}
-			return &ir.PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S}
+			return &ir.PrimOp{Name: n.Name, Arity: n.Arity, IsEffectful: n.IsEffectful, Args: args, S: n.S}
 		case *ir.Fix:
 			newBody := walk(n.Body)
 			if newBody == n.Body {
@@ -416,7 +416,7 @@ func substTyVarInCore(c ir.Core, tyVar string, ty types.Type) ir.Core {
 			if newComp == n.Comp && newBody == n.Body {
 				return c
 			}
-			return &ir.Bind{Comp: newComp, Var: n.Var, Discard: n.Discard, Body: newBody, Generated: n.Generated, S: n.S}
+			return &ir.Bind{Comp: newComp, Var: n.Var, IsDiscard: n.IsDiscard, Body: newBody, Generated: n.Generated, S: n.S}
 		case *ir.Pure:
 			newExpr := walk(n.Expr)
 			if newExpr == n.Expr {

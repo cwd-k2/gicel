@@ -227,7 +227,7 @@ type ConstraintInfo = env.ConstraintInfo
 // Check type-checks a surface AST program and produces Core IR.
 // Unlike CheckModule, this does not construct module exports, avoiding
 // the cost of cloning registries when exports are not needed.
-func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*ir.Program, *diagnostic.Errors) {
+func Check(prog *syntax.Program, source *span.Source, config *CheckConfig) (*ir.Program, *diagnostic.Errors) {
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
@@ -238,7 +238,7 @@ func Check(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*
 }
 
 // CheckModule type-checks a program and returns both Core IR and module exports.
-func CheckModule(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) (*ir.Program, *ModuleExports, *diagnostic.Errors) {
+func CheckModule(prog *syntax.Program, source *span.Source, config *CheckConfig) (*ir.Program, *ModuleExports, *diagnostic.Errors) {
 	ch := newChecker(prog, source, config)
 	coreProgram := ch.checkDecls(prog.Decls)
 	ch.validateLabelArgs(coreProgram)
@@ -277,7 +277,7 @@ func (ch *Checker) refineMergeLabels() {
 
 // newChecker initializes a Checker, imports modules, and returns it
 // ready for checkDecls. Shared by Check and CheckModule.
-func newChecker(prog *syntax.AstProgram, source *span.Source, config *CheckConfig) *Checker {
+func newChecker(prog *syntax.Program, source *span.Source, config *CheckConfig) *Checker {
 	if config == nil {
 		config = &CheckConfig{}
 	}
@@ -350,7 +350,7 @@ func (ch *Checker) wireUnifier() {
 	}
 }
 
-func (ch *Checker) importModules(prog *syntax.AstProgram) {
+func (ch *Checker) importModules(prog *syntax.Program) {
 	imp := modscope.NewImporter(modscope.ImportEnv{
 		RegisterTypeKind:     ch.reg.RegisterTypeKind,
 		RegisterAlias:        ch.reg.RegisterAlias,

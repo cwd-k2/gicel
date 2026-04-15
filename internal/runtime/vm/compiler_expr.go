@@ -170,7 +170,7 @@ func (c *Compiler) compileApp(app *ir.App, tail bool) {
 				c.compileExpr(arg, false)
 			}
 			nameIdx := c.addString(info.name)
-			if info.effectful {
+			if info.isEffectful {
 				c.emitU16U8(OpEffectPrim, nameIdx, uint8(info.arity))
 			} else {
 				c.emitU16U8(OpPrim, nameIdx, uint8(info.arity))
@@ -329,7 +329,7 @@ func (c *Compiler) compileBind(bind *ir.Bind, tail bool) {
 	c.compileExpr(bind.Comp, false)
 	slot := c.allocLocal(bind.Var)
 	c.emitU16(OpBind, uint16(slot))
-	if !bind.Discard && !bind.Generated.IsGenerated() {
+	if !bind.IsDiscard && !bind.Generated.IsGenerated() {
 		c.top().bindNames = append(c.top().bindNames, BindInfo{Slot: slot, Name: bind.Var})
 	}
 	c.compileExpr(bind.Body, tail)
@@ -369,27 +369,27 @@ func (c *Compiler) compileForce(force *ir.Force, tail bool) {
 }
 func (c *Compiler) compilePrimOp(prim *ir.PrimOp) {
 	if len(prim.Args) == 0 {
-		if prim.Arity == 0 && !prim.Effectful {
+		if prim.Arity == 0 && !prim.IsEffectful {
 			nameIdx := c.addString(prim.Name)
 			c.emitU16U8(OpPrim, nameIdx, 0)
 			return
 		}
 		stub := &eval.PrimVal{
 			Name: prim.Name, Arity: prim.Arity,
-			Effectful: prim.Effectful, S: prim.S,
+			IsEffectful: prim.IsEffectful, S: prim.S,
 		}
 		idx := c.addConstant(stub)
 		c.emitU16(OpPrimPartial, idx)
 		return
 	}
-	if !prim.Effectful && len(prim.Args) == prim.Arity {
+	if !prim.IsEffectful && len(prim.Args) == prim.Arity {
 		// Saturated non-effectful: push args then invoke directly.
 		for _, arg := range prim.Args {
 			c.compileExpr(arg, false)
 		}
 		nameIdx := c.addString(prim.Name)
 		c.emitU16U8(OpPrim, nameIdx, uint8(prim.Arity))
-	} else if prim.Effectful && len(prim.Args) == prim.Arity {
+	} else if prim.IsEffectful && len(prim.Args) == prim.Arity {
 		// Saturated effectful: push args then construct deferred PrimVal.
 		for _, arg := range prim.Args {
 			c.compileExpr(arg, false)
@@ -402,7 +402,7 @@ func (c *Compiler) compilePrimOp(prim *ir.PrimOp) {
 		// instruction sees the correct fn/args layout.
 		stub := &eval.PrimVal{
 			Name: prim.Name, Arity: prim.Arity,
-			Effectful: prim.Effectful, S: prim.S,
+			IsEffectful: prim.IsEffectful, S: prim.S,
 		}
 		idx := c.addConstant(stub)
 		c.emitU16(OpPrimPartial, idx)

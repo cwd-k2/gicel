@@ -98,7 +98,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		DictBindName: dictName,
 		UserName:     impl.Name,
 		Module:       ch.scope.CurrentModule(),
-		Private:      env.IsPrivateName(impl.Name),
+		IsPrivate:      env.IsPrivateName(impl.Name),
 		FreeVars:     collectInstanceFreeVarsWithKind(typeArgs, context),
 		S:            impl.S,
 	}
@@ -112,7 +112,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		if existing == inst {
 			continue // same pointer (re-exported via module)
 		}
-		if inst.Private || existing.Private {
+		if inst.IsPrivate || existing.IsPrivate {
 			continue // private instances don't participate in public overlap checks
 		}
 		if len(existing.TypeArgs) != len(typeArgs) {

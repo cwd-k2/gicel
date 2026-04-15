@@ -507,7 +507,7 @@ func (e *Engine) Parse(source string) (err error) {
 type AnalysisResult struct {
 	Source           *span.Source
 	Program          *ir.Program
-	AST              *syntax.AstProgram    // original AST (for symbols, definition)
+	AST              *syntax.Program       // original AST (for symbols, definition)
 	ImportedBindings map[string]types.Type // flattened imported names → types (for completion)
 	ImportedModules  map[string]string     // name → source module (for display)
 	Errors           *diagnostic.Errors

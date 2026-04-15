@@ -76,12 +76,12 @@ func CountLeadingDictArgs(args []Value) int {
 // the Constants pool, and propagated to derived PrimVals (partial / over-
 // app intermediates) by every apply site that constructs a fresh PrimVal.
 type PrimVal struct {
-	Name      string
-	Arity     int
-	Effectful bool
-	Args      []Value
-	S         span.Span // source location from the originating PrimOp
-	Impl      PrimImpl  // resolved impl, or nil to fall back to registry lookup
+	Name        string
+	Arity       int
+	IsEffectful bool
+	Args        []Value
+	S           span.Span // source location from the originating PrimOp
+	Impl        PrimImpl  // resolved impl, or nil to fall back to registry lookup
 }
 
 // VariantVal is a variant (labeled coproduct) value — one tag selected from a row.
@@ -219,7 +219,7 @@ type VMThunkVal struct {
 	Captured  []Value
 	Proto     Bytecode     // *vm.Proto (satisfies eval.Bytecode)
 	Source    *span.Source // source where the thunk was created
-	AutoForce bool         // true for rec self-referential thunks
+	IsAutoForce bool       // true for rec self-referential thunks
 }
 
 // PAPVal is a partial application: a multi-parameter closure that has received

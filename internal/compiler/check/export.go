@@ -167,7 +167,7 @@ func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqKey
 func filterPublicInstances(instances []*InstanceInfo) []*InstanceInfo {
 	var result []*InstanceInfo
 	for _, inst := range instances {
-		if !inst.Private {
+		if !inst.IsPrivate {
 			result = append(result, inst)
 		}
 	}

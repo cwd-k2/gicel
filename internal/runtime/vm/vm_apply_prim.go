@@ -55,7 +55,7 @@ func asPartialPrim(pv *eval.PrimVal, args []eval.Value) *eval.PrimVal {
 	return &eval.PrimVal{
 		Name:      pv.Name,
 		Arity:     pv.Arity,
-		Effectful: pv.Effectful,
+		IsEffectful: pv.IsEffectful,
 		Args:      args,
 		S:         pv.S,
 		Impl:      pv.Impl,
@@ -69,7 +69,7 @@ func asDeferredEffectful(pv *eval.PrimVal, args []eval.Value) *eval.PrimVal {
 	return &eval.PrimVal{
 		Name:      pv.Name,
 		Arity:     pv.Arity,
-		Effectful: true,
+		IsEffectful: true,
 		Args:      args,
 		S:         pv.S,
 		Impl:      pv.Impl,
@@ -84,7 +84,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 	// Uses the VM's scratch buffer to avoid a heap allocation for the
 	// transient argument slice. Safe because non-effectful primitives
 	// return before any re-entrant VM execution can alias the buffer.
-	if newLen >= pv.Arity && !pv.Effectful && newLen <= len(vm.primScratch) {
+	if newLen >= pv.Arity && !pv.IsEffectful && newLen <= len(vm.primScratch) {
 		impl, err := vm.resolvePrimImplFrame(pv, frame)
 		if err != nil {
 			return err
@@ -111,7 +111,7 @@ func (vm *VM) applyPrim(pv *eval.PrimVal, arg eval.Value, frame *Frame) error {
 		vm.push(asPartialPrim(pv, args))
 		return nil
 	}
-	if pv.Effectful {
+	if pv.IsEffectful {
 		// Saturated effectful — defer (keep as PrimVal).
 		vm.push(asDeferredEffectful(pv, args))
 		return nil

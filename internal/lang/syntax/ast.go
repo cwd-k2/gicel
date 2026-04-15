@@ -54,7 +54,7 @@ type ExprLam struct {
 
 type ExprCase struct {
 	Scrutinee Expr
-	Alts      []AstAlt
+	Alts      []Alt
 	S         span.Span
 	IfDesugar bool // true when desugared from if-then-else
 }
@@ -65,7 +65,7 @@ type ExprDo struct {
 }
 
 type ExprBlock struct {
-	Binds    []AstBind
+	Binds    []Bind
 	TypeDefs []ImplField // associated type/form definitions (in impl bodies)
 	Body     Expr
 	S        span.Span
@@ -295,7 +295,7 @@ func (s *StmtExpr) Span() span.Span     { return s.S }
 
 // ---- Block bindings ----
 
-type AstBind struct {
+type Bind struct {
 	Pat  Pattern
 	Expr Expr
 	S    span.Span
@@ -303,7 +303,7 @@ type AstBind struct {
 
 // ---- Case alternatives ----
 
-type AstAlt struct {
+type Alt struct {
 	Pattern Pattern
 	Body    Expr
 	S       span.Span

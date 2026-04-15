@@ -113,7 +113,7 @@ type Bind struct {
 	Comp      Core
 	Var       string
 	Body      Core
-	Discard   bool    // true when the bound value is unused (wildcard bind)
+	IsDiscard bool    // true when the bound value is unused (wildcard bind)
 	Generated GenKind // non-zero when Var is compiler-introduced
 	S         span.Span
 }
@@ -153,14 +153,14 @@ type Merge struct {
 }
 
 // PrimOp — host-provided primitive operation.
-// Effectful marks primitives whose return type is Computation (they access CapEnv).
+// IsEffectful marks primitives whose return type is Computation (they access CapEnv).
 // Effectful PrimOps are deferred at evaluation time and forced only in Bind or at top-level.
 type PrimOp struct {
-	Name      string
-	Arity     int
-	Effectful bool
-	Args      []Core
-	S         span.Span
+	Name        string
+	Arity       int
+	IsEffectful bool
+	Args        []Core
+	S           span.Span
 }
 
 // Lit — literal value (Int, Double, String, Rune).

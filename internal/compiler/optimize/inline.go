@@ -147,7 +147,7 @@ func IsTransparentAlias(expr ir.Core) bool {
 	case *ir.Var:
 		return true
 	case *ir.PrimOp:
-		return len(n.Args) == 0 && !n.Effectful
+		return len(n.Args) == 0 && !n.IsEffectful
 	}
 	// Specialization alias: peel App/TyApp spine, checking that all
 	// value arguments are simple (Var or Lit).

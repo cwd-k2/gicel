@@ -27,7 +27,7 @@ func lex(input string) []Token {
 	return tokens
 }
 
-func parse(input string) (*AstProgram, *diagnostic.Errors) {
+func parse(input string) (*Program, *diagnostic.Errors) {
 	src := span.NewSource("test", input)
 	es := &diagnostic.Errors{Source: src}
 	p := NewParser(context.Background(), src, es)
@@ -52,7 +52,7 @@ func lexWithErrors(input string) ([]Token, *diagnostic.Errors) {
 	return tokens, s.Errors()
 }
 
-func parseMustSucceed(t *testing.T, source string) *AstProgram {
+func parseMustSucceed(t *testing.T, source string) *Program {
 	t.Helper()
 	prog, es := parse(source)
 	if es.HasErrors() {

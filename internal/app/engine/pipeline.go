@@ -40,7 +40,7 @@ type pipelineCtx struct {
 // and main-source compilation. Fixity is scoped to the transitive import
 // closure of the module being compiled, preventing unimported modules from
 // affecting operator precedence.
-func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (*syntax.AstProgram, *span.Source, error) {
+func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (*syntax.Program, *span.Source, error) {
 	src := span.NewSource(sourceName, source)
 	parseErrs := &diagnostic.Errors{Source: src}
 	p := parse.NewParser(pc.ctx, src, parseErrs)
@@ -56,7 +56,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	}
 	p.AddFixity(pc.store.CollectFixityMap(importNames))
 	decls := p.ParseDecls()
-	ast := &syntax.AstProgram{Imports: imports, Decls: decls}
+	ast := &syntax.Program{Imports: imports, Decls: decls}
 	p.ResolveInfix(ast)
 	desugar.Program(ast)
 
@@ -72,7 +72,7 @@ func (pc *pipelineCtx) lexAndParse(sourceName, source string, injectCore bool) (
 	return ast, src, nil
 }
 
-func injectCoreImport(ast *syntax.AstProgram) {
+func injectCoreImport(ast *syntax.Program) {
 	for _, imp := range ast.Imports {
 		if imp.ModuleName == env.CoreModuleName {
 			return

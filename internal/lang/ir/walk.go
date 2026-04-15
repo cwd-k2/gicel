@@ -253,7 +253,7 @@ func transformRec(c Core, f func(Core) Core, depth int) Core {
 		if !changed {
 			return f(n)
 		}
-		return f(&PrimOp{Name: n.Name, Arity: n.Arity, Effectful: n.Effectful, Args: args, S: n.S})
+		return f(&PrimOp{Name: n.Name, Arity: n.Arity, IsEffectful: n.IsEffectful, Args: args, S: n.S})
 	case *Lit:
 		return f(n)
 	case *Error:
@@ -625,7 +625,7 @@ func transformBindChain(c Core, f func(Core) Core) Core {
 				cur = r
 				for j := i - 1; j >= 0; j-- {
 					bnj := chain[j]
-					cur = f(&Bind{Comp: bnj.comp, Var: bnj.orig.Var, Discard: bnj.orig.Discard,
+					cur = f(&Bind{Comp: bnj.comp, Var: bnj.orig.Var, IsDiscard: bnj.orig.IsDiscard,
 						Body: cur, Generated: bnj.orig.Generated, S: bnj.orig.S})
 				}
 				return cur
@@ -636,7 +636,7 @@ func transformBindChain(c Core, f func(Core) Core) Core {
 	}
 	for i := len(chain) - 1; i >= 0; i-- {
 		bn := chain[i]
-		cur = f(&Bind{Comp: bn.comp, Var: bn.orig.Var, Discard: bn.orig.Discard,
+		cur = f(&Bind{Comp: bn.comp, Var: bn.orig.Var, IsDiscard: bn.orig.IsDiscard,
 			Body: cur, Generated: bn.orig.Generated, S: bn.orig.S})
 	}
 	return cur

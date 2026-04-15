@@ -75,7 +75,7 @@ func (vm *VM) runCallee(capEnv eval.CapEnv, setup func(barrier *Frame) error) (e
 // callSpan is the source span of the call site (for observer events).
 func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, callSpan span.Span) (eval.Value, eval.CapEnv, error) {
 	// Auto-force rec thunks.
-	if thv, ok := v.(*eval.VMThunkVal); ok && thv.AutoForce {
+	if thv, ok := v.(*eval.VMThunkVal); ok && thv.IsAutoForce {
 		if err := vm.budget.Step(); err != nil {
 			return nil, capEnv, err
 		}
@@ -89,7 +89,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 		return result.Value, result.CapEnv, nil
 	}
 	// Saturated effectful PrimVal.
-	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
+	if pv, ok := v.(*eval.PrimVal); ok && pv.IsEffectful && len(pv.Args) >= pv.Arity {
 		impl, err := vm.resolvePrimImplFrame(pv, frame)
 		if err != nil {
 			return nil, capEnv, err
@@ -122,7 +122,7 @@ func (vm *VM) forceEffectful(v eval.Value, capEnv eval.CapEnv, frame *Frame, cal
 //
 // Values that are neither are returned as-is.
 func (vm *VM) forceEffectfulForPrim(v eval.Value, capEnv eval.CapEnv) (eval.Value, eval.CapEnv, error) {
-	if thv, ok := v.(*eval.VMThunkVal); ok && thv.AutoForce {
+	if thv, ok := v.(*eval.VMThunkVal); ok && thv.IsAutoForce {
 		if err := vm.budget.Step(); err != nil {
 			return nil, capEnv, err
 		}
@@ -135,7 +135,7 @@ func (vm *VM) forceEffectfulForPrim(v eval.Value, capEnv eval.CapEnv) (eval.Valu
 		}
 		return result.Value, result.CapEnv, nil
 	}
-	if pv, ok := v.(*eval.PrimVal); ok && pv.Effectful && len(pv.Args) >= pv.Arity {
+	if pv, ok := v.(*eval.PrimVal); ok && pv.IsEffectful && len(pv.Args) >= pv.Arity {
 		impl, err := vm.resolvePrimImplBare(pv)
 		if err != nil {
 			return nil, capEnv, err
@@ -221,7 +221,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		// Mirrors the applyN/applyPrim fast path; safe in the host
 		// callback context because non-effectful prims do not re-enter
 		// the VM operand stack.
-		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
+		if newLen == f.Arity && !f.IsEffectful && newLen <= len(vm.primScratch) {
 			impl, err := vm.resolvePrimImplBare(f)
 			if err != nil {
 				return nil, capEnv, err
@@ -242,7 +242,7 @@ func (vm *VM) applyForPrim(fn eval.Value, arg eval.Value, capEnv eval.CapEnv) (e
 		if newLen < f.Arity {
 			return asPartialPrim(f, args), capEnv, nil
 		}
-		if f.Effectful {
+		if f.IsEffectful {
 			return asDeferredEffectful(f, args), capEnv, nil
 		}
 		impl, err := vm.resolvePrimImplBare(f)
@@ -353,7 +353,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		// avlInsert -> compareKeys -> apply.ApplyN(_cmpInt, [a,b], ce)
 		// land here, and the cached f.Impl + scratch buffer eliminate
 		// the per-call hash lookup and args slice allocation.
-		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
+		if newLen == f.Arity && !f.IsEffectful && newLen <= len(vm.primScratch) {
 			impl, err := vm.resolvePrimImplBare(f)
 			if err != nil {
 				return nil, capEnv, err
@@ -372,7 +372,7 @@ func (vm *VM) applyNForPrim(fn eval.Value, args []eval.Value, capEnv eval.CapEnv
 		if newLen < f.Arity {
 			return asPartialPrim(f, combined), capEnv, nil
 		}
-		if f.Effectful {
+		if f.IsEffectful {
 			if newLen == f.Arity {
 				return asDeferredEffectful(f, combined), capEnv, nil
 			}

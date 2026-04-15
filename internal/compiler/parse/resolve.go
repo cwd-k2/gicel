@@ -9,7 +9,7 @@ import (
 
 // ResolveFixity walks the AST and resolves all ExprInfixSpine nodes
 // into nested ExprInfix trees using the provided fixity map.
-func ResolveFixity(prog *syn.AstProgram, fixity map[string]syn.Fixity, errors *diagnostic.Errors) {
+func ResolveFixity(prog *syn.Program, fixity map[string]syn.Fixity, errors *diagnostic.Errors) {
 	r := &resolver{fixity: fixity, errors: errors}
 	for i, d := range prog.Decls {
 		prog.Decls[i] = r.resolveDecl(d)

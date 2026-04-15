@@ -78,7 +78,7 @@ func doPatternBind(ch *Checker, strat doStrategy, pat syntax.Pattern, comp synta
 	caseStmt := &syntax.StmtExpr{
 		Expr: &syntax.ExprCase{
 			Scrutinee: &syntax.ExprVar{Name: freshName, S: stmtS},
-			Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
+			Alts:      []syntax.Alt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
 			S:         stmtS,
 		},
 		S: stmtS,
@@ -91,7 +91,7 @@ func doPatternBind(ch *Checker, strat doStrategy, pat syntax.Pattern, comp synta
 func doPatternPureBind(ch *Checker, strat doStrategy, pat syntax.Pattern, expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
 	caseExpr := &syntax.ExprCase{
 		Scrutinee: expr,
-		Alts:      []syntax.AstAlt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
+		Alts:      []syntax.Alt{{Pattern: pat, Body: stmtsToDoExpr(rest, doS), S: stmtS}},
 		S:         stmtS,
 	}
 	stmts := []syntax.Stmt{&syntax.StmtExpr{Expr: caseExpr, S: stmtS}}
@@ -142,7 +142,7 @@ func (d *doInfer) elaborateBind(varName string, comp syntax.Expr, rest []syntax.
 		ch.ctx.Push(&CtxVar{Name: varName, Type: resultTy})
 		restTy, restCore := doElaborate(ch, d, rest, doS)
 		ch.ctx.Pop()
-		return restTy, &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
+		return restTy, &ir.Bind{Comp: compCore, Var: varName, IsDiscard: varName == "_", Body: restCore, S: stmtS}
 	}
 
 	restore := d.pushPost(compTy)
@@ -152,7 +152,7 @@ func (d *doInfer) elaborateBind(varName string, comp syntax.Expr, rest []syntax.
 	restore()
 
 	d.unifyCompPostPre(compTy, restTy, stmtS)
-	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: varName, Discard: varName == "_", Body: restCore, S: stmtS}
+	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: varName, IsDiscard: varName == "_", Body: restCore, S: stmtS}
 }
 
 func (d *doInfer) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS, doS span.Span) (types.Type, ir.Core) {
@@ -166,7 +166,7 @@ func (d *doInfer) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmtS,
 	restore()
 
 	d.unifyCompPostPre(compTy, restTy, stmtS)
-	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
+	return d.withFirstPre(compTy, restTy), &ir.Bind{Comp: compCore, Var: "_", IsDiscard: true, Body: restCore, S: stmtS}
 }
 
 // pushPost saves lastPost and sets it to compTy's Post if compTy is a
@@ -279,14 +279,14 @@ func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)
 		d.comp = savedComp
-		return d.comp, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
+		return d.comp, &ir.Bind{Comp: compCore, Var: "_", IsDiscard: true, Body: restCore, S: stmtS}
 	}
 
 	// Fallback: infer didn't give TyCBPV, continue with infer mode.
 	fallback := &doInfer{ch: ch}
 	restTy, restCore := doElaborate(ch, fallback, rest, doS)
 	ch.emitEq(restTy, d.comp, stmtS, nil)
-	return d.comp, &ir.Bind{Comp: compCore, Var: "_", Discard: true, Body: restCore, S: stmtS}
+	return d.comp, &ir.Bind{Comp: compCore, Var: "_", IsDiscard: true, Body: restCore, S: stmtS}
 }
 
 // --- Entry points ---

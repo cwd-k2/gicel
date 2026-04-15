@@ -202,7 +202,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		// Fast path: saturated non-effectful prim that fits in scratch.
 		// Builds the combined arg view in primScratch with no heap alloc.
 		// Safe because non-effectful primitives never call back into the VM.
-		if newLen == f.Arity && !f.Effectful && newLen <= len(vm.primScratch) {
+		if newLen == f.Arity && !f.IsEffectful && newLen <= len(vm.primScratch) {
 			impl, err := vm.resolvePrimImplFrame(f, frame)
 			if err != nil {
 				return nil, err
@@ -225,7 +225,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		switch {
 		case newLen < f.Arity:
 			return asPartialPrim(f, combined), nil
-		case newLen == f.Arity && f.Effectful:
+		case newLen == f.Arity && f.IsEffectful:
 			// Saturated effectful — defer execution until forced.
 			return asDeferredEffectful(f, combined), nil
 		case newLen == f.Arity:
@@ -246,7 +246,7 @@ func (vm *VM) applyN(fn eval.Value, args []eval.Value, frame *Frame, tail bool) 
 		// ones execute immediately.
 		var head eval.Value
 		callerCapEnv := frame.capEnv
-		if f.Effectful {
+		if f.IsEffectful {
 			head = asDeferredEffectful(f, combined[:f.Arity])
 		} else {
 			impl, err := vm.resolvePrimImplFrame(f, frame)
