@@ -114,7 +114,7 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	ch.reg.RegisterConstructor(dn, conType, ch.scope.CurrentModule(), dataInfo)
 
 	// Core DataDecl.
-	coreDecl := ir.DataDecl{Name: dn, S: d.S}
+	coreDecl := ir.DataDecl{Name: dn, Generated: ir.GenDict, S: d.S}
 	for i, p := range tyParams {
 		coreDecl.TyParams = append(coreDecl.TyParams, ir.TyParam{Name: p, Kind: tyParamKinds[i]})
 	}

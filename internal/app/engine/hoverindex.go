@@ -208,6 +208,17 @@ func (idx *HoverIndex) HoverAt(pos span.Pos) string {
 	return formatHover(e)
 }
 
+// HoverAtWithSpan returns the formatted hover string and the source span
+// for the innermost entry at the given byte offset. Returns ("", zero span)
+// if no entry matches. The span tells the editor which token the hover applies to.
+func (idx *HoverIndex) HoverAtWithSpan(pos span.Pos) (string, span.Span) {
+	e := idx.entryAt(pos)
+	if e == nil {
+		return "", span.Span{}
+	}
+	return formatHover(e), e.span
+}
+
 // TypeAt returns the type of the innermost expression whose span
 // contains the given byte offset. Returns nil if no span matches.
 func (idx *HoverIndex) TypeAt(pos span.Pos) types.Type {

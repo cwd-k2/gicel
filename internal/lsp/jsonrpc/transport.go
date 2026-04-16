@@ -46,16 +46,16 @@ func (t *Transport) Read() (*Message, error) {
 		if after, ok := strings.CutPrefix(line, "Content-Length: "); ok {
 			contentLength, err = strconv.Atoi(after)
 			if err != nil {
-				return nil, fmt.Errorf("invalid Content-Length: %w", err)
+				return nil, &DecodeError{Cause: fmt.Errorf("invalid Content-Length: %w", err)}
 			}
 		}
 		// Ignore other headers (e.g., Content-Type).
 	}
 	if contentLength < 0 {
-		return nil, fmt.Errorf("missing Content-Length header")
+		return nil, &DecodeError{Cause: fmt.Errorf("missing Content-Length header")}
 	}
 	if contentLength > maxContentLength {
-		return nil, fmt.Errorf("Content-Length %d exceeds maximum %d", contentLength, maxContentLength)
+		return nil, &DecodeError{Cause: fmt.Errorf("Content-Length %d exceeds maximum %d", contentLength, maxContentLength)}
 	}
 
 	body := make([]byte, contentLength)

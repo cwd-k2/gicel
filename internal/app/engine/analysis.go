@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"strings"
+
 	"github.com/cwd-k2/gicel/internal/infra/span"
+	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -43,6 +46,7 @@ type DocumentSymbolEntry struct {
 	Detail   string
 	Kind     SymbolKind
 	S        span.Span
+	NameS    span.Span // name-only span for selectionRange (zero → falls back to S)
 	Children []DocumentSymbolEntry
 }
 
@@ -79,6 +83,9 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
+		if dd.Generated.IsGenerated() {
+			continue
+		}
 		kind := types.PrettyTypeAsKind(ComputeFormKind(dd))
 		items = append(items, CompletionEntry{
 			Label:         dd.Name,
@@ -131,6 +138,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 			Detail: types.PrettyDisplay(b.Type),
 			Kind:   SymbolFunction,
 			S:      b.S,
+			NameS:  nameSpan(ar.Source, b.S, b.Name),
 		})
 	}
 
@@ -139,11 +147,23 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 		if dd.S.IsZero() {
 			continue
 		}
+		if dd.Generated == ir.GenDict {
+			// Show class dictionary as the original class name.
+			name := strings.TrimSuffix(dd.Name, ir.DictSuffix)
+			symbols = append(symbols, DocumentSymbolEntry{
+				Name:  name,
+				Kind:  SymbolClass,
+				S:     dd.S,
+				NameS: nameSpan(ar.Source, dd.S, name),
+			})
+			continue
+		}
 		sym := DocumentSymbolEntry{
 			Name:   dd.Name,
 			Detail: types.PrettyTypeAsKind(ComputeFormKind(dd)),
 			Kind:   SymbolStruct,
 			S:      dd.S,
+			NameS:  nameSpan(ar.Source, dd.S, dd.Name),
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
@@ -155,6 +175,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 				Detail: types.PrettyDisplay(BuildConType(dd, con)),
 				Kind:   SymbolConstructor,
 				S:      con.S,
+				NameS:  nameSpan(ar.Source, con.S, con.Name),
 			})
 		}
 		symbols = append(symbols, sym)
@@ -166,16 +187,22 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 			case *syntax.DeclTypeAlias:
 				if !decl.S.IsZero() {
 					symbols = append(symbols, DocumentSymbolEntry{
-						Name: decl.Name,
-						Kind: SymbolStruct,
-						S:    decl.S,
+						Name:  decl.Name,
+						Kind:  SymbolStruct,
+						S:     decl.S,
+						NameS: nameSpan(ar.Source, decl.S, decl.Name),
 					})
 				}
 			case *syntax.DeclImpl:
 				if !decl.S.IsZero() {
 					name := decl.Name
 					if name == "" {
-						name = "impl"
+						if ann := decl.Ann.Span(); !ann.IsZero() && ar.Source != nil &&
+							int(ann.End) <= len(ar.Source.Text) {
+							name = "impl " + ar.Source.Text[ann.Start:ann.End]
+						} else {
+							name = "impl"
+						}
 					}
 					symbols = append(symbols, DocumentSymbolEntry{
 						Name: name,
@@ -188,6 +215,31 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 	}
 
 	return symbols
+}
+
+// nameSpan locates the identifier name within the declaration span and returns
+// a span covering only the name. Falls back to the full span if the name cannot
+// be found (e.g., nil source or name not present in the span text).
+func nameSpan(src *span.Source, declSpan span.Span, name string) span.Span {
+	if src == nil || declSpan.IsZero() || name == "" {
+		return declSpan
+	}
+	text := src.Text
+	start := int(declSpan.Start)
+	end := int(declSpan.End)
+	if end > len(text) {
+		end = len(text)
+	}
+	if start >= end {
+		return declSpan
+	}
+	idx := strings.Index(text[start:end], name)
+	if idx < 0 {
+		return declSpan
+	}
+	ns := span.Pos(start + idx)
+	ne := ns + span.Pos(len(name))
+	return span.Span{Start: ns, End: ne}
 }
 
 // buildDefinitionEntries collects named declarations with their source spans.
@@ -206,9 +258,10 @@ func buildDefinitionEntries(ar *AnalysisResult, store *ModuleStore) []Definition
 
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
-		if !dd.S.IsZero() {
-			entries = append(entries, DefinitionEntry{Name: dd.Name, S: dd.S})
+		if dd.Generated.IsGenerated() || dd.S.IsZero() {
+			continue
 		}
+		entries = append(entries, DefinitionEntry{Name: dd.Name, S: dd.S})
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
 			if !con.S.IsZero() {

@@ -410,18 +410,23 @@ func (s *Server) handleHover(msg *jsonrpc.Message) {
 	}
 
 	offset := posToOffset(doc.Analysis.Source, params.Position)
-	hover := doc.Analysis.HoverIndex.HoverAt(offset)
+	hover, sp := doc.Analysis.HoverIndex.HoverAtWithSpan(offset)
 	if hover == "" {
 		s.respondResult(msg.ID, nil)
 		return
 	}
 
-	s.respondResult(msg.ID, protocol.Hover{
+	result := protocol.Hover{
 		Contents: protocol.MarkupContent{
 			Kind:  protocol.Markdown,
 			Value: "```gicel\n" + hover + "\n```",
 		},
-	})
+	}
+	if !sp.IsZero() {
+		r := spanToRange(doc.Analysis.Source, sp)
+		result.Range = &r
+	}
+	s.respondResult(msg.ID, result)
 }
 
 // ---- Completion ----

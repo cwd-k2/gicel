@@ -67,12 +67,16 @@ func posToOffset(src *span.Source, pos protocol.Position) span.Pos {
 func convertDocumentSymbols(entries []engine.DocumentSymbolEntry, src *span.Source) []protocol.DocumentSymbol {
 	symbols := make([]protocol.DocumentSymbol, 0, len(entries))
 	for _, e := range entries {
+		nameS := e.NameS
+		if nameS.IsZero() {
+			nameS = e.S
+		}
 		sym := protocol.DocumentSymbol{
 			Name:           e.Name,
 			Detail:         e.Detail,
 			Kind:           protocol.SymbolKind(e.Kind),
 			Range:          spanToRange(src, e.S),
-			SelectionRange: spanToRange(src, e.S),
+			SelectionRange: spanToRange(src, nameS),
 		}
 		if len(e.Children) > 0 {
 			sym.Children = convertDocumentSymbols(e.Children, src)

@@ -126,10 +126,11 @@ type Program struct {
 
 // DataDecl is a data type declaration in Core.
 type DataDecl struct {
-	Name     string
-	TyParams []TyParam
-	Cons     []ConDecl
-	S        span.Span
+	Name      string
+	TyParams  []TyParam
+	Cons      []ConDecl
+	Generated GenKind // non-zero when introduced by the compiler (e.g., GenDict for class dictionaries)
+	S         span.Span
 }
 
 // TyParam is a type parameter with its kind.

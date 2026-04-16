@@ -105,6 +105,28 @@ func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
 	}
 }
 
+// flattenStoreExports returns all exported bindings from the module store,
+// flattened into maps suitable for completion. Used as a fallback when the
+// AST parse fails and the normal import resolution path is unreachable.
+func (pc *pipelineCtx) flattenStoreExports() (map[string]types.Type, map[string]string) {
+	imported := make(map[string]types.Type)
+	modules := make(map[string]string)
+	for modName, mod := range pc.store.modules {
+		if mod.exports == nil {
+			continue
+		}
+		for name, ty := range mod.exports.Values {
+			imported[name] = ty
+			modules[name] = modName
+		}
+		for name, ty := range mod.exports.ConTypes {
+			imported[name] = ty
+			modules[name] = modName
+		}
+	}
+	return imported, modules
+}
+
 // compileModule runs the full compilation pipeline for a single module:
 // lex → parse → dep check → type check → optimize → annotate.
 // Results are cached at the process level keyed by (source hash, env fingerprint).

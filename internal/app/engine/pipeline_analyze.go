@@ -23,6 +23,10 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 			result.Errors = ce.errs
 		}
 		result.Program = &ir.Program{}
+		// Provide completion entries from loaded modules even on parse failure,
+		// so that editors can offer import-based completions while typing.
+		result.ImportedBindings, result.ImportedModules = pc.flattenStoreExports()
+		result.CompletionEntries = buildCompletionEntries(result)
 		return result
 	}
 
