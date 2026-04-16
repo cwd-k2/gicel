@@ -12,8 +12,18 @@ import (
 type hoverAdapter struct {
 	idx       *HoverIndexBuilder
 	fixityMap map[string]syntax.Fixity
-	varDocs   map[string]string
+	varDocs   map[varDocKey]string
 	source    string
+}
+
+// varDocKey is the (module, name) identity used to look up doc comments
+// for variable references. Module is "" for local definitions in the
+// currently-analyzed source. Mirrors the structural keying used by
+// ir.VarKey for global slots, so qualified imports (A.foo vs B.foo) and
+// local refs are distinguished by the same identity scheme as the runtime.
+type varDocKey struct {
+	Module string
+	Name   string
 }
 
 func (a *hoverAdapter) RecordType(sp span.Span, ty types.Type) {
@@ -29,7 +39,7 @@ func (a *hoverAdapter) RecordOperator(sp span.Span, name, module string, ty type
 }
 
 func (a *hoverAdapter) RecordVarDoc(sp span.Span, name, module string) {
-	a.idx.AttachVarInfo(sp, name, module, a.varDocs[name])
+	a.idx.AttachVarInfo(sp, name, module, a.varDocs[varDocKey{Module: module, Name: name}])
 }
 
 func (a *hoverAdapter) RecordDecl(sp span.Span, kind check.DeclKind, name string, ty types.Type) {

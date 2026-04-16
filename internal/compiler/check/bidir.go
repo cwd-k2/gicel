@@ -99,7 +99,15 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		if !ok {
 			return ty, coreExpr
 		}
-		ch.recordVarDoc(e.S, e.Name, e.Qualifier)
+		// Use the resolved module name (set by lookupQualVar from
+		// QualifiedScope.ModuleName), not e.Qualifier, since the
+		// surface qualifier may be an alias (`import A as MyA`).
+		// HoverRecorder consumers key by actual module identity.
+		varMod := e.Qualifier
+		if v, ok := coreExpr.(*ir.Var); ok && v.Module != "" {
+			varMod = v.Module
+		}
+		ch.recordVarDoc(e.S, e.Name, varMod)
 		if ch.config.Trace != nil {
 			ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
 		}

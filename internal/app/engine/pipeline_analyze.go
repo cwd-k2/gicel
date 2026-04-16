@@ -39,18 +39,22 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	if pc.typeRecorder {
 		builder = NewHoverIndexBuilder()
 		varDocs := pc.collectVarDocs()
+		// Local definitions in the currently-analyzed source. The checker
+		// records their references with module="" (see RecordVarDoc call
+		// sites in compiler/check), so they live under the empty-module
+		// slot in the keyed map.
 		for _, d := range ast.Decls {
 			switch decl := d.(type) {
 			case *syntax.DeclValueDef:
 				if !decl.S.IsZero() {
 					if doc := ExtractDocComment(source, decl.S.Start); doc != "" {
-						varDocs[decl.Name] = doc
+						varDocs[varDocKey{Name: decl.Name}] = doc
 					}
 				}
 			case *syntax.DeclTypeAnn:
 				if !decl.S.IsZero() {
 					if doc := ExtractDocComment(source, decl.S.Start); doc != "" {
-						varDocs[decl.Name] = doc
+						varDocs[varDocKey{Name: decl.Name}] = doc
 					}
 				}
 			}
@@ -157,9 +161,12 @@ func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.Program, prog *ir.Pr
 	}
 }
 
-// collectVarDocs builds a name→doc map from all imported module bindings.
-func (pc *pipelineCtx) collectVarDocs() map[string]string {
-	docs := make(map[string]string)
+// collectVarDocs builds a (module, name)→doc map from all imported module
+// bindings. Keying by module preserves provenance so qualified imports
+// (A.foo and B.foo) and same-named bindings across modules retain
+// distinct docs instead of being collapsed by registration order.
+func (pc *pipelineCtx) collectVarDocs() map[varDocKey]string {
+	docs := make(map[varDocKey]string)
 	for _, name := range pc.store.order {
 		mod, ok := pc.store.modules[name]
 		if !ok || mod.source == nil {
@@ -170,7 +177,7 @@ func (pc *pipelineCtx) collectVarDocs() map[string]string {
 				continue
 			}
 			if d := ExtractDocComment(mod.source.Text, b.S.Start); d != "" {
-				docs[b.Name] = d
+				docs[varDocKey{Module: name, Name: b.Name}] = d
 			}
 		}
 		// Form declarations (class methods have doc on the form, not individual fields).
@@ -180,7 +187,7 @@ func (pc *pipelineCtx) collectVarDocs() map[string]string {
 				continue
 			}
 			if d := ExtractDocComment(mod.source.Text, dd.S.Start); d != "" {
-				docs[dd.Name] = d
+				docs[varDocKey{Module: name, Name: dd.Name}] = d
 			}
 		}
 	}
