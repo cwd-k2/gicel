@@ -226,9 +226,20 @@ func (e *Engine) EnableVerifyIR() {
 
 // SetCacheStore sets a custom CacheStore. Defaults to the process-global store.
 // Use NewCacheStore to create an isolated store for testing or multi-tenant use.
+//
+// Panics on nil: cacheStore is dereferenced unconditionally on every
+// NewRuntime / RegisterModule call, so nil has no meaningful behavior.
+// To restore the default, pass the value returned by DefaultCacheStore.
 func (e *Engine) SetCacheStore(cs *CacheStore) {
+	if cs == nil {
+		panic("engine: SetCacheStore(nil): pass DefaultCacheStore() to restore the default")
+	}
 	e.cacheStore = cs
 }
+
+// DefaultCacheStore returns the process-global default CacheStore.
+// Useful for restoring the default after a temporary override.
+func DefaultCacheStore() *CacheStore { return defaultCacheStore }
 
 // SetWarnFunc sets the warning callback. Defaults to os.Stderr output.
 func (e *Engine) SetWarnFunc(f func(string)) {
