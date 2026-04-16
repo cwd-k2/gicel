@@ -1,0 +1,6 @@
+compare' Low High:  LT
+compare' High High: EQ
+eq' Low High:       False
+eq' High High:      True
+toBool High:        True
+eq' Medium Medium:  True

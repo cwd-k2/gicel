@@ -1,0 +1,6 @@
+root:       1
+children:   2
+child vals: [2, 3]
+fmap (*10): 10
+fmap deep:  [102, 103]
+nel head:   1

@@ -1,0 +1,10 @@
+point.x:        3
+point.y:        4
+moved.x:        10
+getX row-poly:  1, 5
+fst pair:       True
+snd pair:       42
+eq tuples:      True
+cmp tuples:     LT
+swap:           (False, True)
+nested.inner.a: True

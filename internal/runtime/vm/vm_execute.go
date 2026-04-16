@@ -588,9 +588,9 @@ func (vm *VM) execute() (eval.EvalResult, error) {
 			}
 			captured := vm.captureLocals(frame, proto.Captures)
 			thv := &eval.VMThunkVal{
-				Captured:  make([]eval.Value, proto.NumLocals),
-				Proto:     proto,
-				Source:    proto.Source,
+				Captured:    make([]eval.Value, proto.NumLocals),
+				Proto:       proto,
+				Source:      proto.Source,
 				IsAutoForce: true,
 			}
 			copy(thv.Captured, captured)

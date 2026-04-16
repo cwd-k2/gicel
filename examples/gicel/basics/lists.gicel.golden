@@ -1,0 +1,11 @@
+nums:     [1, 2, 3, 4, 5]
+length:   5
+doubled:  [2, 4, 6, 8, 10]
+evens:    [2, 4]
+sum:      15
+reverse:  [5, 4, 3, 2, 1]
+take 3:   [1, 2, 3]
+joined:   [1, 2, 3, 4]
+zipped:   [(1, 10), (2, 20), (3, 30)]
+index 2:  Just 3
+pipeline: 50

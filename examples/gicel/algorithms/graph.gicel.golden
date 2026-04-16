@@ -1,0 +1,7 @@
+DFS from 1:     [1, 2, 4, 5, 3]
+BFS from 1:     [1, 2, 3, 4, 5]
+path 1->5:      True
+path 5->1:      False
+topo sort:      [1, 2, 3, 4]
+undirected DFS: [1, 2, 3, 6, 5, 4]
+undirected BFS: [1, 2, 4, 3, 5, 6]

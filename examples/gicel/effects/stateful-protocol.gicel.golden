@@ -1,0 +1,10 @@
+=== Stateful Protocol ===
+
+Transaction log:
+  deposit 1000
+  deposit 500
+  withdraw 200
+  REJECTED withdraw 9999 (insufficient)
+  deposit 100
+
+Final balance: 1400

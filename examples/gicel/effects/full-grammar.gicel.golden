@@ -1,0 +1,5 @@
+2 <+> 3 =         6
+2 <**> 3 <**> 1 = 6
+a === b:          True
+describe Green:   green
+describe True:    true

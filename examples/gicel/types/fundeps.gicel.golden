@@ -1,0 +1,5 @@
+convert True:    1
+convert Just 42: [42]
+encode 42:       42
+encode True:     1
+getFirst [1,2]:  Just 1

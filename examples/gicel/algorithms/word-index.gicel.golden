@@ -1,0 +1,19 @@
+=== Document ===
+1: the quick brown fox jumps over the lazy dog
+2: the dog barked at the fox
+3: a quick red fox ran past the lazy dog
+4: the fox and the dog became friends
+
+=== Inverted Index (sample) ===
+fox       → lines 1, 2, 3, 4
+dog       → lines 1, 2, 3, 4
+the       → lines 1, 2, 3, 4
+quick     → lines 1, 3
+lazy      → lines 1, 3
+friends   → lines 4
+
+=== Queries ===
+'fox':     1, 2, 3, 4
+'cat':     (not found)
+'became':  4
+total unique words: 17

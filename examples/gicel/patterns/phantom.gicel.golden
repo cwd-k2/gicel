@@ -1,0 +1,5 @@
+door name:   Front
+unlock+open: Opened: Front
+relock name: Front
+read token:  read:42
+write token: write:42

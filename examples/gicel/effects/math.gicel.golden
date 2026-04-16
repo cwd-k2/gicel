@@ -1,0 +1,27 @@
+=== Integer Operations ===
+2^10:      1024
+divMod:    (3, 2)
+
+=== Bitwise ===
+and 0xF0 0x0F: 0
+or  0xF0 0x0F: 255
+xor 0xFF 0x0F: 240
+shiftL 1 8:    256
+popCount 255:  8
+
+=== Trigonometry ===
+sin(pi/6):  0.5000010603626028
+cos(pi/3):  0.49999787927254574
+atan2(1,1): 0.7853981633974483
+
+=== Exponentials & Logs ===
+exp(1):   2.718281828459045
+log(e):   0.999999327347282
+log2(8):  3
+log10(1000): 3
+sqrt(2):  1.4142135623730951
+cbrt(27): 3
+
+=== Special values ===
+isNaN(0/0):   True
+isInfinite:   True

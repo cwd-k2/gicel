@@ -1,0 +1,15 @@
+=== Multiplicity Annotations ===
+
+Linear:       linear: must use exactly once
+Affine:       affine: use at most once
+Unrestricted: unrestricted: use freely
+
+=== LUB (Least Upper Bound) ===
+LUB Linear Affine:       linear: must use exactly once
+LUB Affine Unrestricted: affine: use at most once
+LUB Linear Linear:       linear: must use exactly once
+
+=== @Linear lifecycle (type-level) ===
+open -> readFile -> close   ✓  well-typed
+open                        ✗  @Linear not consumed
+open -> close -> close      ✗  already consumed

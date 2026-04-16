@@ -1,0 +1,17 @@
+add3 7:        10
+double 5:      10
+prepend:       hello world
+doubleAdd3 4:  11
+showLen:       3
+negateDouble:  -10
+pipeline:      -20
+pipelineFwd:   -20
+listPipeline:  30
+sumPosDbl:     72
+countPos:      5
+transform:     ["2", "6", "12", "16", "22", "26"]
+reverseConcat: hello world
+ones:          [1, 1, 1]
+descSort:      [9, 5, 4, 3, 1, 1]
+cmpLen:        LT
+smallEven:     [0, 2]

@@ -1,0 +1,9 @@
+Just True:         yes
+Nothing:           empty
+deep Just True:    deeply true
+Just Nothing:      one level
+Wrap Nothing:      True
+classify 0:        zero
+classify 42:       many
+greet Alice:       Hello, Alice!
+greet Charlie:     Hi, Charlie!

@@ -1,0 +1,25 @@
+=== ToJSON ===
+42
+3.14
+"hello"
+true
+[]
+
+=== Compound types ===
+[1,2,3]
+"world"
+null
+{"tag":"Ok","value":42}
+{"tag":"Err","value":"oops"}
+["key",100]
+
+=== Nested structures ===
+[1,null,3]
+[[1,"one"],[2,"two"],[3,"three"]]
+
+=== FromJSON (parsing) ===
+Just 42
+Just 3.14
+Just "hello"
+Just True
+Just ([1, 2, 3])

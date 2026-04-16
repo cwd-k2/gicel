@@ -1,0 +1,7 @@
+sum (id):       60
+sum (*2):       120
+early exit:     42
+clamp negative: 0
+multi-shot:     20
+CPS (3+4)*2:    14
+branch sum:     100

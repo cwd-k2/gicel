@@ -1,0 +1,5 @@
+Env:       Hello world
+Store:     30, peek 4: 40
+extend:    70
+smoothed:  [3, 6, 9, 12, 9]
+diff:      [1, 1, 1, 1, 0]

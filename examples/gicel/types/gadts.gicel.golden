@@ -1,0 +1,8 @@
+3 + 4:         7
+not False:     True
+if T 42 0:     42
+(1+2) + 3:     6
+getBool:       Just True
+getInt:        Just 42
+isLiteral T:   True
+isLiteral Not: False

@@ -1,0 +1,12 @@
+concat:    Hello World
+charAt 0:  Just 'G'
+substring: GICEL
+toUpper:   HELLO
+toLower:   hello
+trim:      spaces
+contains:  True
+split:     ["a", "b", "c"]
+join:      x-y-z
+show 42:   42
+read 123:  Just 123
+compare:   LT

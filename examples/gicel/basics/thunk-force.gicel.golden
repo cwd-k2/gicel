@@ -1,0 +1,5 @@
+basic:     42
+branch T:  100
+branch F:  200
+capturing: 30
+nested:    99

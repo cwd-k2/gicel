@@ -1,0 +1,23 @@
+── Lazy Pair ──
+fst: 3, snd: 7
+
+── Lazy Maybe ──
+LJust 42:   42
+LNothing:   0
+
+── Lazy List ──
+range 1..20, take 5:  [1, 2, 3, 4, 5]
+length range 1..20:   20
+doubled, take 5:      [2, 4, 6, 8, 10]
+evens, take 5:        [2, 4, 6, 8, 10]
+
+── Empty ──
+empty take 3:         []
+
+── Infinite ──
+nats, take 8:         [0, 1, 2, 3, 4, 5, 6, 7]
+squares, take 6:      [1, 4, 9, 16, 25, 36]
+odd squares, take 5:  [1, 9, 25, 49, 81]
+
+── Nested Lazy ──
+pairs take 4:         [(1, 1), (2, 4), (3, 9), (4, 16)]

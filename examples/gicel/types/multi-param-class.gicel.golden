@@ -1,0 +1,6 @@
+coerce Just T:    Just True
+coerce id:        True
+convert True Ord: GT
+convert LT Bool:  False
+roundtrip True:   True
+roundtrip False:  False

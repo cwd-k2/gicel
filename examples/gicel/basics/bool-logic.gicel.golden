@@ -1,0 +1,4 @@
+not False AND True   = True
+True => False        = False
+True XOR True        = False
+(not True) OR False  = False

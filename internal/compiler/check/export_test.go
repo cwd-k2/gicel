@@ -160,7 +160,7 @@ func TestExport_PrivateInstancesExcluded(t *testing.T) {
 		ClassName:    "PubClass",
 		TypeArgs:     []types.Type{types.Con("Bool")},
 		DictBindName: "PubClass$Bool",
-		IsPrivate:      true,
+		IsPrivate:    true,
 	})
 	exports := ch.ExportModule(makeExportProgram())
 

@@ -1,0 +1,7 @@
+inorder:    [1, 2, 3, 4, 5, 6, 7, 8]
+lookup 4:   True
+lookup 9:   False
+min:        Just 1
+max:        Just 8
+size:       8
+depth:      4

@@ -1,0 +1,5 @@
+counter: 3
+name: Alice
+ref: 150
+array[1]: Just 20
+map[1]: Just "one"

@@ -9,11 +9,11 @@ type CtxEntry interface {
 
 // CtxVar holds a variable binding in the context.
 type CtxVar struct {
-	Name            string
-	Type            types.Type
-	Module          string // source module ("" = local/builtin, "Prelude" = from module)
-	IsSolverInvisible bool // true: not used by instance resolution (private instance user names)
-	DictClassName   string // non-empty for class dictionary variables (enables indexed lookup)
+	Name              string
+	Type              types.Type
+	Module            string // source module ("" = local/builtin, "Prelude" = from module)
+	IsSolverInvisible bool   // true: not used by instance resolution (private instance user names)
+	DictClassName     string // non-empty for class dictionary variables (enables indexed lookup)
 }
 
 // CtxTyVar holds a type variable binding in the context.

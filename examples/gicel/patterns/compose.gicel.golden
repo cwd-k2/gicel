@@ -1,0 +1,3 @@
+Maybe∘List fmap: Just ([10, 20, 30])
+List∘Maybe fmap: [Just 101, Nothing, Just 103]
+Id∘Maybe fmap:   Just "HELLO"

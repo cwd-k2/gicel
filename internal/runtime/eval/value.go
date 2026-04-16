@@ -47,7 +47,6 @@ type ConVal struct {
 	DictArgCount int  // number of leading evidence/dictionary arguments (hidden from display)
 }
 
-
 // PrimVal is a partially or fully applied primitive operation.
 // Non-effectful PrimVals are called when len(Args) == Arity.
 // Effectful PrimVals (those returning Computation) are deferred until forced in Bind or top-level.
@@ -198,10 +197,10 @@ type VMClosure struct {
 
 // VMThunkVal is a suspended computation in the bytecode VM.
 type VMThunkVal struct {
-	Captured  []Value
-	Proto     Bytecode     // *vm.Proto (satisfies eval.Bytecode)
-	Source    *span.Source // source where the thunk was created
-	IsAutoForce bool       // true for rec self-referential thunks
+	Captured    []Value
+	Proto       Bytecode     // *vm.Proto (satisfies eval.Bytecode)
+	Source      *span.Source // source where the thunk was created
+	IsAutoForce bool         // true for rec self-referential thunks
 }
 
 // PAPVal is a partial application: a multi-parameter closure that has received

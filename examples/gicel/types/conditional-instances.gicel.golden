@@ -1,0 +1,8 @@
+eq' True True:   True
+eq' True False:  False
+eq' Just Just:   True
+eq' Nothing:     True
+eq' nested same: True
+eq' nested diff: False
+eq' tuple same:  True
+eq' tuple diff:  False

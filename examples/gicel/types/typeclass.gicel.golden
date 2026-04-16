@@ -1,0 +1,7 @@
+isWarm Spring:    True
+isWarm Winter:    False
+isWarm Summer:    True
+Just T == Just T: True
+Just T /= Just F: True
+warmOrCold True:  True
+warmOrCold False: False

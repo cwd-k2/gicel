@@ -1,0 +1,5 @@
+area circle:   75
+area rect:     60
+isLarge circ:  True
+isLarge rect:  True
+describeShape: True

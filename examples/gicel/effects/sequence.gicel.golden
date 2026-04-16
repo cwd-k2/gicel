@@ -1,0 +1,24 @@
+=== Seq Construction ===
+seq:    Seq.fromList [0, 1, 2]
+length: 3
+
+=== Indexing ===
+index 0: Just 0
+index 1: Just 1
+index 2: Just 2
+
+=== Properties ===
+empty?:  empty
+non-e?:  non-empty (length 3)
+head:      Just 0
+last:      Just 2
+singleton: Seq.fromList [99]
+
+=== Transformations ===
+doubled: Seq.fromList [0, 2, 4]
+evens:   Seq.fromList [0, 2]
+reverse: Seq.fromList [2, 1, 0]
+
+=== Append & FromList ===
+append:   Seq.fromList [0, 1, 2, 10, 20, 30]
+foldl(+): 63

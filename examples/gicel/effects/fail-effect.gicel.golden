@@ -1,0 +1,7 @@
+fromMaybe Just: 42
+fromResult Ok:  100
+chain Maybe:    30
+chain Result:   15
+mixed:          50
+safe Just 99:   99
+safe Nothing:   0

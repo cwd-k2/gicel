@@ -1,0 +1,22 @@
+=== CSV Parsing ===
+["name", "age", "city"]
+["Alice", "30", "Tokyo"]
+["Bob", "25", "Osaka"]
+
+=== Word Frequency ===
+the     3
+cat     2
+sat     1
+on      1
+mat     1
+
+=== Formatted Table ===
+Name        Alice
+Role        Engineer
+City        Tokyo
+
+=== String Transforms ===
+reverse:  lanoitcnuf
+replace:  f00 b00 m00
+strip:    Just "fix"
+count:    2

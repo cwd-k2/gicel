@@ -1,0 +1,6 @@
+runTest 3==4:   False
+runTest 5==5:   True
+checkEq diff:   False
+checkEq same:   True
+transform not:  True
+transform None: False

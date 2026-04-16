@@ -1,0 +1,8 @@
+scores:    [85, 92, 67, 95, 43, 78, 88, 55]
+total:     8
+passing:   [85, 92, 95, 78, 88]
+boosted:   [90, 97, 100, 83, 93]
+sum:       463
+highest:   95
+lowest:    43
+above 80:  4

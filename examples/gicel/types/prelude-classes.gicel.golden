@@ -1,0 +1,10 @@
+Eq Bool:     True
+Eq Maybe:    True
+Eq List:     True
+Ord Bool:    LT
+Ord ():      EQ
+Functor:     Just 42
+Applicative: Just 11
+maybe Just:  42
+maybe None:  0
+fst/snd:     10, 20

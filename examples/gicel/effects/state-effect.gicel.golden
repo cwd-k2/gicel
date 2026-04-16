@@ -1,0 +1,6 @@
+basic (init 42):       42
+counter (3x inc):      3
+accumulate (5^2):      25
+pipeline (*5*10):      100
+order state:           162
+order result:          152

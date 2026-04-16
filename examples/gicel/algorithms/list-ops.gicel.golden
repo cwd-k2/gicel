@@ -1,0 +1,7 @@
+map (*2):     [2, 4, 6, 8, 10]
+filter even:  [2, 4]
+foldl (+):    15
+reverse:      [5, 4, 3, 2, 1]
+sort:         [1, 2, 3, 4, 5]
+sort strings: ["apple", "banana", "cherry"]
+top 3 desc:   [10, 9, 8]

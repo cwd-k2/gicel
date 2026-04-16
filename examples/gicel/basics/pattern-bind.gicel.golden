@@ -1,0 +1,7 @@
+swap (1,2):   (2, 1)
+flatten:      (1, 2, 3)
+sndOf3:       world
+getName:      Alice
+compute:      41
+pure bind:    7
+monadic bind: 42

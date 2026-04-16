@@ -98,7 +98,7 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		DictBindName: dictName,
 		UserName:     impl.Name,
 		Module:       ch.scope.CurrentModule(),
-		IsPrivate:      env.IsPrivateName(impl.Name),
+		IsPrivate:    env.IsPrivateName(impl.Name),
 		FreeVars:     collectInstanceFreeVarsWithKind(typeArgs, context),
 		S:            impl.S,
 	}

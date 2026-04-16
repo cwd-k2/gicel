@@ -1,0 +1,8 @@
+0,1,2,3:  0, 1, 2, 3
+succ 3:   4
+2 + 3:    5
+2 * 3:    6
+2 * 4:    8
+toBool 0: False
+toBool 1: True
+toList 3: ["x", "x", "x"]

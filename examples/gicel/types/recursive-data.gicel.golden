@@ -1,0 +1,7 @@
+isZero zero:  True
+isZero three: False
+toInt three:  3
+isLeaf leaf:  True
+leafValue:    Just True
+depth:        2
+size:         3

@@ -1,0 +1,5 @@
+lookup hello:   Just 2
+lookup nope:    Nothing
+after adjust:   Just 2
+size after del: 2
+entries:        [("hello", 2), ("world", 2)]

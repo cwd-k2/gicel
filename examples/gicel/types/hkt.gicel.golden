@@ -1,0 +1,4 @@
+mmap not (Just T): Just False
+mmap not Nothing:  Nothing
+mmap id id:        True
+nested mmap:       Just (Branch (Leaf False) (Leaf True))

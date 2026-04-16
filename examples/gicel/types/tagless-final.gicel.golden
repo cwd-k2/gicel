@@ -1,0 +1,14 @@
+── Evaluator ──
+term1: 20
+term2: 45
+term3: 1
+term4: 42
+
+── Pretty-printer ──
+term1: if (3 <= 5) then ((2 + 3) * 4) else 0
+term2: ((2 + 3) * (4 + 5))
+term3: if True then 1 else 2
+
+── Constant folder ──
+term2: 45
+term3: 1

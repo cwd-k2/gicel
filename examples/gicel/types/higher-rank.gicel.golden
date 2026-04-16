@@ -1,0 +1,4 @@
+applyToBoth id:   (True, Just False)
+applyToBoth Just: (Just True, Just EQ)
+applyEq eq:       (False, True)
+wrapBoth Just:    (Just True, Just GT)

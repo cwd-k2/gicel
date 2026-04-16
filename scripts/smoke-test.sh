@@ -438,6 +438,84 @@ expect_output "trailing flag warns" "warning" \
 
 echo ""
 
+# === Flag Coverage ===
+echo "Flag coverage:"
+
+# --no-color: explain trace must work and must not emit ANSI.
+expect_ok "--no-color runs" \
+  "$GICEL" run --no-color --explain -e 'import Prelude; main := 1 + 2'
+
+# Defensive: --no-color output must not contain ESC (ANSI CSI introducer).
+if "$GICEL" run --no-color --explain -e 'import Prelude; main := 1 + 2' 2>&1 \
+     | grep -q $'\033'; then
+  fail "--no-color suppresses ANSI"
+else
+  pass "--no-color suppresses ANSI"
+fi
+
+# --verbose pairs with --explain; source context (| 1 | ) appears in trace.
+expect_output "--verbose shows source context" "│" \
+  "$GICEL" run --no-color --explain --verbose -e 'import Prelude; main := 1 + 2'
+
+# --explain-all traces stdlib internals; without it, stdlib frames are hidden.
+expect_ok "--explain-all traces stdlib" \
+  "$GICEL" run --no-color --explain --explain-all -e 'import Prelude; main := 1 + 2'
+
+# --max-nesting guards structural depth; a deep list nesting should be rejected.
+expect_error_contains "--max-nesting rejects deep structure" "nesting" \
+  bash -c "$GICEL run --max-nesting 4 -e 'import Prelude; main := [[[[[[[1]]]]]]]' 2>&1"
+
+# --max-depth guards call stack; recursion that accumulates frames via a
+# non-tail continuation (here: (+) after self) should be rejected. A
+# plain tail-recursive fix would be optimized and would not trigger this.
+expect_error_contains "--max-depth rejects deep call" "depth" \
+  "$GICEL" run --recursion --max-depth 4 -e '
+import Prelude
+f := fix (\self n. case n { 0 => 0; _ => 1 + self (n - 1) })
+main := f 100
+'
+
+# check --json with a failing program must emit a structured JSON error.
+expect_error_contains "check --json structured error" '"phase": "compile"' \
+  "$GICEL" check --json -e 'import Prelude; main := 1 + "bad"'
+
+# --entry missing: --entry pointing to a non-existent binding must error.
+expect_error_contains "--entry missing binding" "not found" \
+  "$GICEL" run --entry noSuch -e 'import Prelude; main := 1'
+
+# check --json succeeds with ok:true on a valid program.
+expect_output "check --json ok" '"ok": true' \
+  "$GICEL" check --json -e 'import Prelude; main := 1 + 2'
+
+echo ""
+
+# === LSP Smoke ===
+echo "LSP smoke:"
+
+# Minimal LSP handshake: send initialize + shutdown + exit over stdio.
+# Each message is framed with Content-Length. Server exits with code 0
+# after shutdown; without shutdown, code 1.
+lsp_smoke() {
+  local init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+  local initd='{"jsonrpc":"2.0","method":"initialized","params":{}}'
+  local shut='{"jsonrpc":"2.0","id":2,"method":"shutdown","params":null}'
+  local exitm='{"jsonrpc":"2.0","method":"exit","params":null}'
+  {
+    printf 'Content-Length: %d\r\n\r\n%s' ${#init} "$init"
+    printf 'Content-Length: %d\r\n\r\n%s' ${#initd} "$initd"
+    printf 'Content-Length: %d\r\n\r\n%s' ${#shut} "$shut"
+    printf 'Content-Length: %d\r\n\r\n%s' ${#exitm} "$exitm"
+  } | "$GICEL" lsp >/dev/null 2>&1
+}
+
+if lsp_smoke; then
+  pass "lsp init/shutdown/exit roundtrip"
+else
+  fail "lsp init/shutdown/exit roundtrip"
+fi
+
+echo ""
+
 # === Summary ===
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Passed: $PASS"
