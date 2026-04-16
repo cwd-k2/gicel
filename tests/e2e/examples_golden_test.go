@@ -1,12 +1,21 @@
 // Examples golden tests — run every examples/gicel/**/*.gicel and compare
-// stdout against a sidecar .golden file. The golden files capture the
-// expected runtime output and are the primary regression net for the
+// stdout against a sidecar .golden file stored under tests/e2e/testdata/
+// mirroring the example's category/name layout. The golden files capture
+// the expected runtime output and are the primary regression net for the
 // end-to-end pipeline (compile + execute + format).
 //
 // Workflow:
 //
 //	go test ./tests/e2e/                   # verify
 //	go test ./tests/e2e/ -update           # regenerate golden files
+//
+// Layout:
+//
+//	examples/gicel/basics/hello.gicel      → the source
+//	tests/e2e/testdata/basics/hello.golden → expected stdout
+//
+// The golden tree is deliberately outside examples/ so the embed-friendly
+// examples directory stays free of test artifacts.
 //
 // Examples that read stdin stay determinate because the test drives
 // each run with /dev/null as stdin. The scripts/run-examples.sh script
@@ -28,9 +37,25 @@ import (
 
 var updateGolden = flag.Bool("update", false, "update .golden files instead of comparing")
 
-// examplesRoot is resolved relative to the test binary's working directory,
-// which is the package directory (tests/e2e). Examples live at the repo root.
-const examplesRoot = "../../examples/gicel"
+// examplesRoot and goldenRoot are resolved relative to the test binary's
+// working directory, which is the package directory (tests/e2e). Examples
+// live at the repo root; goldens live beside this test file under
+// testdata/ (Go-standard layout).
+const (
+	examplesRoot = "../../examples/gicel"
+	goldenRoot   = "testdata"
+)
+
+// goldenPathFor returns the golden file path for a given example path.
+// example:
+//
+//	examplePath = "../../examples/gicel/basics/hello.gicel"
+//	returns     = "testdata/basics/hello.golden"
+func goldenPathFor(examplePath string) string {
+	rel := strings.TrimPrefix(examplePath, examplesRoot+"/")
+	rel = strings.TrimSuffix(rel, ".gicel")
+	return filepath.Join(goldenRoot, rel+".golden")
+}
 
 // binaryPath points to the test-scope CLI binary built in TestMain.
 // A fresh build per run guarantees the golden comparison reflects
@@ -112,17 +137,20 @@ func checkExample(t *testing.T, path string) {
 		// run-examples.sh falls back to `check` when run fails (check-only
 		// examples have no main). We do NOT golden check-only examples:
 		// their run-time output is empty, not meaningful. Mark the example
-		// as skip via a sentinel .skip file to opt out.
+		// as skip via a sentinel .skip file beside the golden tree.
 		if isCheckOnly(path) {
 			t.Skipf("declared check-only via .skip sidecar")
 		}
 		t.Fatalf("run failed: %v\n--- stderr ---\n%s", err, stderr.String())
 	}
 
-	goldenPath := path + ".golden"
+	goldenPath := goldenPathFor(path)
 	got := stdout.Bytes()
 
 	if *updateGolden {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+			t.Fatalf("mkdir golden dir: %v", err)
+		}
 		if err := os.WriteFile(goldenPath, got, 0o644); err != nil {
 			t.Fatalf("write golden: %v", err)
 		}
@@ -142,8 +170,11 @@ func checkExample(t *testing.T, path string) {
 	}
 }
 
+// isCheckOnly reports whether the example is explicitly marked skip via
+// a sentinel <category>/<name>.skip file beside the golden tree.
 func isCheckOnly(path string) bool {
-	_, err := os.Stat(path + ".skip")
+	skipPath := strings.TrimSuffix(goldenPathFor(path), ".golden") + ".skip"
+	_, err := os.Stat(skipPath)
 	return err == nil
 }
 
