@@ -22,6 +22,7 @@ func TestPublicConstructorsNonNil(t *testing.T) {
 	}{
 		{"NewEngine", gicel.NewEngine},
 		{"NewCacheStore", gicel.NewCacheStore},
+		{"DefaultCacheStore", gicel.DefaultCacheStore},
 		{"RunSandbox", gicel.RunSandbox},
 		{"ToValue", gicel.ToValue},
 		{"FromBool", gicel.FromBool},

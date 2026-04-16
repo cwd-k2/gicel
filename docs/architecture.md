@@ -2,7 +2,7 @@
 
 Package dependency diagram for the GICEL compiler and runtime.
 
-_Last updated: v0.31.0 (2026-04-12)._
+_Last updated: v0.33.0 (2026-04-16)._
 
 ## Layer Model
 
@@ -26,11 +26,11 @@ gicel (root)   ──→ app/engine
                ──→ lang/{ir,types}
                ──→ infra/budget
 
-app/engine ──→ compiler/{check,parse,optimize}
+app/engine ──→ compiler/{check,parse,optimize,desugar}
              ──→ host/{stdlib,registry}
              ──→ runtime/{eval,vm}
              ──→ lang/{ir,syntax,types}
-             ──→ infra/{budget,diagnostic,span}
+             ──→ infra/{budget,cache,diagnostic,span}
 
 host/stdlib ──→ host/registry
             ──→ runtime/eval
@@ -76,7 +76,9 @@ compiler/check ──→ check/{solve,unify,family,exhaust,env,modscope}
 compiler/parse ──→ lang/{syntax,types}
                ──→ infra/{span,diagnostic}
 
-compiler/optimize ──→ lang/ir
+compiler/optimize ──→ lang/{ir,types}
+
+compiler/desugar ──→ lang/syntax
 
 lang/ir ──→ lang/types
         ──→ infra/span
@@ -89,6 +91,7 @@ lang/syntax ──→ lang/{ir,types}
 infra/diagnostic ──→ infra/span
 
 infra/budget ──→ (isolated)
+infra/cache  ──→ (isolated)
 infra/span   ──→ (isolated)
 ```
 
@@ -101,6 +104,7 @@ infra/span   ──→ (isolated)
 | `infra/span`       | Source positions and spans         |
 | `infra/diagnostic` | Structured compiler diagnostics    |
 | `infra/budget`     | Step, depth, and allocation limits |
+| `infra/cache`      | Generic content-addressed cache    |
 
 ### lang — language definition
 

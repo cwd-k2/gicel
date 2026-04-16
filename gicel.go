@@ -74,11 +74,18 @@ type RowBuilder = engine.RowBuilder
 
 // CacheStore is a thread-safe cache for compiled modules and Runtimes.
 // Use NewCacheStore to create an isolated store; pass to Engine.SetCacheStore.
+// Engine.SetCacheStore panics on nil — use DefaultCacheStore() to restore
+// the process-global default after a temporary override.
 type CacheStore = engine.CacheStore
 
 // NewCacheStore creates a CacheStore with per-sub-cache capacity limit.
 // Pass 0 for unlimited (suitable for CLI one-shot processes).
 var NewCacheStore = engine.NewCacheStore
+
+// DefaultCacheStore returns the process-global default CacheStore.
+// Pass to Engine.SetCacheStore to restore the default after a temporary
+// override (e.g., test isolation followed by reset).
+var DefaultCacheStore = engine.DefaultCacheStore
 
 // CoreProgram is an opaque compiled Core IR for inspection.
 type CoreProgram = engine.CoreProgram

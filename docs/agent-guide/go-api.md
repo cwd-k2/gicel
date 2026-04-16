@@ -143,26 +143,27 @@ eng.DeclareBinding("myInput", gicel.ConType("Int"))
 
 ### Engine Configuration
 
-| Method                                     | Description                       |
-| ------------------------------------------ | --------------------------------- |
-| `eng.Use(pack) error`                      | Apply a stdlib pack               |
-| `eng.RegisterPrim(name, impl)`             | Register a primitive              |
-| `eng.RegisterType(name, kind)`             | Register an opaque host type      |
-| `eng.DeclareBinding(name, ty)`             | Declare a host-provided variable  |
-| `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins  |
-| `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                   |
-| `eng.SetNestingLimit(n)`                   | Structural nesting depth limit    |
-| `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)   |
-| `eng.SetEntryPoint(name)`                  | Entry point name (default: main)  |
-| `eng.SetCompileContext(ctx)`               | Context for module compilation    |
-| `eng.RegisterModule(name, src)`            | Register a custom module          |
-| `eng.RegisterModuleFile(path)`             | Register module from .gicel file  |
-| `eng.RegisterModuleRec(name, src)`         | Register module with fix/rec      |
-| `eng.DenyAssumptions()`                    | Block user `assumption` decls     |
-| `eng.DisableInlining()`                    | Disable optimizer inlining pass   |
-| `eng.NewRuntime(ctx, source)`              | Compile to Runtime                |
-| `eng.Compile(ctx, source)`                 | Type-check; returns CompileResult |
-| `eng.Parse(source)`                        | Parse-only (syntax errors)        |
+| Method                                     | Description                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `eng.Use(pack) error`                      | Apply a stdlib pack                                                                 |
+| `eng.RegisterPrim(name, impl)`             | Register a primitive                                                                |
+| `eng.RegisterType(name, kind)`             | Register an opaque host type                                                        |
+| `eng.DeclareBinding(name, ty)`             | Declare a host-provided variable                                                    |
+| `eng.EnableRecursion()`                    | Enable `rec` and `fix` built-ins                                                    |
+| `eng.SetStepLimit(n)` / `SetDepthLimit(n)` | Resource limits                                                                     |
+| `eng.SetNestingLimit(n)`                   | Structural nesting depth limit                                                      |
+| `eng.SetAllocLimit(bytes)`                 | Allocation limit (0 = disabled)                                                     |
+| `eng.SetEntryPoint(name)`                  | Entry point name (default: main)                                                    |
+| `eng.SetCompileContext(ctx)`               | Context for module compilation                                                      |
+| `eng.SetCacheStore(cs)`                    | Override compile cache (panics on nil — use `gicel.DefaultCacheStore()` to restore) |
+| `eng.RegisterModule(name, src)`            | Register a custom module                                                            |
+| `eng.RegisterModuleFile(path)`             | Register module from .gicel file                                                    |
+| `eng.RegisterModuleRec(name, src)`         | Register module with fix/rec                                                        |
+| `eng.DenyAssumptions()`                    | Block user `assumption` decls                                                       |
+| `eng.DisableInlining()`                    | Disable optimizer inlining pass                                                     |
+| `eng.NewRuntime(ctx, source)`              | Compile to Runtime                                                                  |
+| `eng.Compile(ctx, source)`                 | Type-check; returns CompileResult                                                   |
+| `eng.Parse(source)`                        | Parse-only (syntax errors)                                                          |
 
 ### Error Handling
 
@@ -206,10 +207,13 @@ if errors.As(err, &cancelErr) { /* context cancelled */ }
 
 **ExplainHook** fires at semantic boundaries. Signature: `func(ExplainStep)`. Fields: `Seq int`, `Depth int`, `Kind ExplainKind`, `SourceName string`, `Line int`, `Col int`, `Detail ExplainDetail`. Kinds: `ExplainBind`, `ExplainMatch`, `ExplainEffect`, `ExplainLabel`, `ExplainResult`.
 
+**Warn** receives runtime warnings (currently: undeclared host bindings in `RunOptions.Bindings`, likely typos). Signature: `func(string)`. Nil falls back to `os.Stderr`. Per-call by design — `*Runtime` may be shared via the process-global cache, so a per-Engine sink would leak warnings across embedders.
+
 ```go
 rt.RunWith(ctx, &gicel.RunOptions{
     Explain: func(s gicel.ExplainStep) { /* ... */ },
     Trace:   func(e gicel.TraceEvent) error { return nil },
+    Warn:    func(msg string) { log.Print(msg) },
 })
 ```
 
@@ -227,6 +231,7 @@ rt.RunWith(ctx, &gicel.RunOptions{
 | -------------------- | ---------- | ------------------------------------------------- |
 | `RunOptions.Explain` | Evaluation | Semantic trace: binds, effects, matches, sections |
 | `RunOptions.Trace`   | Evaluation | Low-level step-by-step evaluation events          |
+| `RunOptions.Warn`    | Evaluation | Runtime warning sink (undeclared bindings, etc.)  |
 
 ### Trust Boundary
 

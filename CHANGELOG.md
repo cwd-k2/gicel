@@ -1,5 +1,73 @@
 # Changelog
 
+## v0.33.0 — 2026-04-16
+
+Type-theoretic correctness pass, field-test bug closures, internal symmetry restoration, and engine API hardening. Includes the v0.32.1 LSP source-preservation fix.
+
+### Engine API
+
+- **`RunOptions.Warn`** (new) — Per-call warning sink (currently: undeclared host bindings in `RunOptions.Bindings`, likely typos). Replaces the removed `Engine.SetWarnFunc`. Per-call by design: `*Runtime` is shared via the process-global cache, so a per-Engine sink would leak warnings across embedders.
+- **`Engine.SetWarnFunc` removed** — Stamped a callback onto the cached `*Runtime`, leaking warnings across distinct Engines that hit the same cached runtime. Had no in-tree callers and was not re-exported. Use `RunOptions.Warn` instead.
+- **`Engine.SetCacheStore(nil)` now panics** — Previously installed nil silently, surfacing as `*InternalPanicError` on the next compile call. The contract ("non-nil required") is now enforced at the boundary.
+- **`gicel.DefaultCacheStore()`** (new) — Returns the process-global default. Pass to `SetCacheStore` to restore the default after a temporary override.
+- **Recover boundary on all public API** — `Parse`, `Analyze`, `Compile`, `NewRuntime` now catch internal panics and convert to errors via `recoverAsError` / `panicToErrors`. Previously only `RegisterModule` had this guard. `recoverAsError` re-panics on concurrent-map-access panics (process-level corruption is unsafe to continue).
+
+### Type Checker
+
+- **Quick Look kind comparison** — TyCon comparison in `qlUnify` now checks `Level` and `IsLabel` fields. Previously, name-only comparison could pre-accept kind-incorrect matches and bias later inference (Phase 3-A).
+- **Row family label requirement** — `Without` and `Lookup` reducers now require `TyCon.IsLabel`, rejecting promoted data kinds and builtin kind constants that happen to live at L1 (3-B).
+- **Quantified-constraint normalization** — Context entries are now normalized by canonical sort key before pairwise comparison, fixing positional-matching failures on semantically equivalent constraints declared in different order (3-C).
+- **Family pattern kind propagation** — Pattern argument positions receive the real kind from the context's arrow shape (`k1 -> k2`) instead of unconditionally defaulting to `Type` (3-D).
+- **Diamond import family coherence** — `RegisterFamily` errors during module import propagate as diagnostics. Conflicting type family equations across diamond imports now produce a coherence error (3-E).
+- **CBPV `Bind` invariant verifier** — IR verifier checks V8: `Bind.Comp` must not be a `Thunk` or `Lam` directly (a suspended value or lambda in computation position is a structural error) (3-F).
+- **Cyclic instance dependency** — Instance resolution detects cycles via a `(class, args)` resolution stack, producing a "cyclic instance dependency" diagnostic instead of hitting the generic depth limit (3-G).
+
+### Runtime / Stdlib
+
+- **Variant case dispatch crash** — `compiler_match` emitted labels without the `#` prefix, mismatching the runtime tag from label erasure. Fixed double-`#` in `VariantVal.String()` and the explain printer (B1).
+- **`Data.Sequence` finger tree corruption** — `ftSingle.ftreeSize()` hardcoded 1 instead of `elemSize`; `mkNode2`/`mkNode3` ignored nested node sizes; `toList`/`foldl`/`ftCollect` failed to recurse into nested `node23` values at deeper spine levels (B2).
+- **`Data.Map.union`/`intersection` left-bias** — Combiner was right-biased despite documentation. Changed `(\_ b. b)` → `(\a _. a)` (B3).
+- **`mod` span corruption** — Optimizer `primOpAbsorb` preserved definition-site span instead of call-site span when absorbing args into `PrimOp` (B4).
+- **`strlen`/`charAt`/`substring` documentation** — Were described as byte-indexed but actually operate on runes. Corrected (aa92429).
+- **Substitution exhaustiveness** — `substDepth`, `substLevel`, `substManyOpt`, `equalAlpha`, `occursIn` now panic on unknown type variants instead of silently returning unchanged. Added `TyEvidence`/`TyEvidenceRow` coverage to `substLevel`. Added `VariantVal` case to `PrettyValue` (was leaking internal `@#tag` notation into explain output).
+- **VarKey FV-capture regression** — Qualified module references (`Prelude.x`) no longer collide with local binders of the same name in `FVInfo.Vars`. `substMany` similarly guards against substituting into qualified refs during beta-reduction.
+
+### LSP
+
+- **Transport resync** — Header-level framing errors (missing/invalid/oversized `Content-Length`) return `DecodeError` instead of fatal exit, letting the server log and continue.
+- **Symbol display fixes** — Class dictionaries show the original class name instead of `$Dict`; unnamed `impl` declarations show their type annotation (`impl Eq Bool`); `selectionRange` covers only the identifier, not the full declaration span.
+- **Completion fallback on parse failure** — Editors get import-based completions while typing incomplete code.
+- **Hover `range` field** — Responses indicate which source span the hover applies to.
+- **Hover doc keyed by (module, name)** — Docs were stored and retrieved by name only; two modules exporting the same name (`A.foo` and `B.foo`) collapsed in registration order. Qualified imports now return distinct docs. The aliased path (`import Long as L; L.greet`) is now resolved via the actual module name.
+- **`span.Source` preserved on lex/parse errors** (was v0.32.1) — `lexAndParse` no longer returns nil `Source` on error, restoring correct line/col mapping for LSP diagnostics.
+
+### CLI
+
+- **Nesting limit diagnostic** — Stuttered "nesting limit: nesting limit exceeded". Context changed to "structural depth" (B6).
+
+### Internal Refactors (no behavior change)
+
+- **`ir.VarKey` is now a struct** — Replaced the historical `module\x00name` string encoding with `type VarKey struct { Module, Name string }`. Eliminates null-byte encoding overhead, `QualifiedKey` string concatenation (was the dominant alloc source), `SplitQualifiedKey` parsing, and the `Var.Key` cache field.
+- **Compiler → runtime dependency eliminated** — `DictSuffix` moved to `ir/core.go` (its semantic home alongside `GenDict`); `CountLeadingDictArgs` relocated from `eval` to `vm` (its sole consumer). Result: `compiler/ → runtime/` and `lang/ → runtime/` imports are zero.
+- **Pipeline seam split** — `postCheck` separated into backend-agnostic (`erase → optimize`) and VM-specific (`annotateForVM`: FV analysis → de Bruijn assignment).
+- **Structural dictionary detection** — `countLeadingDictArgs` no longer uses `strings.HasSuffix(..., "$Dict")`. `ir.Con` carries an `IsDict` flag, encoded as the high bit of the arity byte in `OpCon`, propagated through `ConVal`. `DictSuffix` remains only in its canonical role (name generation).
+- **FV traversal unified** — `FreeVars` reimplemented via `traverseFV` with explicit overflow bool. `Walk` returns a completion bool. Truncated traversals are now visible to all 17 call sites.
+- **`HoverIndex` split** — `HoverIndexBuilder` (write-side) and `HoverIndex` (read-side, immutable). Lifecycle is enforced at the type level — `Record` after `Finalize` is structurally impossible.
+- **`HoverRecorder.RecordDecl`** — Untyped `declType string` replaced with `DeclKind` enum. Unknown values now cause a compile error.
+- **LSP → Engine dependency inverted** — `AnalysisEngine` interface defined consumer-side in `lsp/`, decoupling the server from the concrete `*engine.Engine`.
+- **`KindScope` extracted from `Registry`** (SRP) — Kind/level variable scope tracking separated from write-once semantic registries.
+- **AVL operations deduplicated** — `avlMergeSorted` parameterizes the two-pointer merge loop; `avlProjectToConsList` parameterizes the list builders. Eliminates ~60 lines of identical loop skeleton and 6 nearly-identical recursive functions.
+- **`pipeline_analyze.go` separated** from the compilation path (`pipeline.go`).
+- **Naming consistency** — AST stuttering removed (`syntax.AstProgram` → `syntax.Program`); Boolean fields adopt `Is-` prefix (`PrimOp.Effectful` → `IsEffectful`, `Bind.Discard` → `IsDiscard`, etc.); `env.DictName` references `eval.DictSuffix` as the single source of truth; `GradeAlgebra` associated type names extracted into constants; CtOrigin getter renamed `GetContext()` → `Context()`; `NewCheck` → `NewCheckBudget`; `CheckTraceKind` → `TraceKind`.
+- **Semantic vocabulary** — Constructor names, module names, row family names, level expression names, CBPV type names extracted into constants. Semantic methods added: `Span.IsZero`, `TyCBPV.IsGraded`, `TyEvidenceRow.IsClosed/IsOpen`, `RowField.IsGraded`, `ConstructorInfo.IsGADT`, `TypeFamilyInfo.IsInjective/IsAssocFor`, `InstanceInfo.IsNamed`, `CtxVar.HasDictClass`, `CtxEvidence.IsClassEvidence`, `PLabel.HasPayload`, `DeclImport.Mode`, `types.IsTupleLabel`. Migration covers 68 files.
+- **Exhaustiveness guards hardened** — Default-panic on `ForEachChild`, `MapType`, `prettyCore` (where safe), `assignIndices`. `InstructionSize` is now a `[opcodeCount]` table matching `opNames`.
+- **`SymbolKind` compile-time guard** — Build fails if `engine.SymbolKind` and `protocol.SymbolKind` diverge.
+
+### Tests
+
+- **Root / CLI / stdlib / LSP coverage gaps filled** — Root package (was 0 tests), `cmd/gicel` (was: byteSize + packMap only), stdlib probes for Stream/JSON/Math/Sequence/Ref, LSP server pre-init/double-init/concurrency cases.
+- **Example goldens relocated** — 74 `.gicel.golden` sidecars moved out of `examples/gicel/` (which is embedded into the binary and surfaced via `gicel example`) into `testdata/`.
+
 ## v0.32.0 — 2026-04-14
 
 Embedding support for long-lived event loops with per-event budget enforcement.
