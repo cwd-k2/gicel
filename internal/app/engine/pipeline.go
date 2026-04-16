@@ -28,10 +28,9 @@ type pipelineCtx struct {
 	compilerLimits *CompilerLimits
 	runtimeLimits  *RuntimeLimits
 	pipelineFlags  *PipelineFlags
-	cacheStore     *CacheStore  // cache for compiled modules and runtimes
-	modEnvFp       [32]byte     // pre-computed module environment fingerprint
-	runtimeFp      [32]byte     // pre-computed runtime fingerprint
-	warnFunc       func(string) // warning callback (nil = stderr)
+	cacheStore     *CacheStore // cache for compiled modules and runtimes
+	modEnvFp       [32]byte    // pre-computed module environment fingerprint
+	runtimeFp      [32]byte    // pre-computed runtime fingerprint
 	traceHook      check.CheckTraceHook
 	typeRecorder   bool // when true, analyze() populates TypeIndex
 }
@@ -261,7 +260,6 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 		nestingLimit:       pc.compilerLimits.nestingLimit,
 		allocLimit:         pc.runtimeLimits.allocLimit,
 		source:             src,
-		warnFunc:           pc.warnFunc,
 		bindings:           maps.Clone(pc.host.bindings),
 		moduleEntries:      entries,
 		sortedMainBindings: sortedMain,

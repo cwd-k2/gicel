@@ -111,7 +111,11 @@ func sortVarKeys(keys []ir.VarKey) {
 // buildGlobalArray creates the global value array from the slot map.
 // Builtin values and host bindings are filled; module/main bindings
 // are left nil (filled by evalPrecompiledBindings).
-func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.Value, error) {
+//
+// warn receives messages about undeclared (likely typo) bindings;
+// nil falls back to os.Stderr. Per-call rather than per-Runtime so
+// that cross-engine cache hits do not leak warnings to a stale sink.
+func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value, warn func(string)) ([]eval.Value, error) {
 	arr := make([]eval.Value, r.numGlobals)
 	for k, v := range r.builtinGlobals {
 		arr[r.globalSlots[k]] = v
@@ -134,8 +138,8 @@ func (r *Runtime) buildGlobalArray(hostBindings map[string]eval.Value) ([]eval.V
 		if _, isDeclared := r.bindings[name]; !isDeclared {
 			if _, isBuiltin := r.builtinGlobals[ir.LocalKey(name)]; !isBuiltin {
 				msg := fmt.Sprintf("gicel: warning: host binding %q was provided but not declared (possible typo)\n", name)
-				if r.warnFunc != nil {
-					r.warnFunc(msg)
+				if warn != nil {
+					warn(msg)
 				} else {
 					fmt.Fprint(os.Stderr, msg)
 				}

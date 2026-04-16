@@ -43,6 +43,12 @@ type RunOptions struct {
 	ExplainDepth ExplainDepth
 	// Trace receives low-level evaluation step events. Nil disables trace.
 	Trace eval.TraceHook
+	// Warn receives runtime warnings, currently emitted only when
+	// RunOptions.Bindings contains names not declared via DeclareBinding
+	// (likely typos). Nil falls back to os.Stderr. Per-call by design:
+	// *Runtime is shared via the process-global cache, so a callback
+	// stored on the Runtime would leak warnings across embedders.
+	Warn func(string)
 }
 
 // Runtime is an immutable, compiled GICEL program.
@@ -56,7 +62,6 @@ type Runtime struct {
 	nestingLimit       int
 	allocLimit         int64
 	source             *span.Source
-	warnFunc           func(string)
 	bindings           map[string]types.Type
 	moduleEntries      []moduleEntry            // ALL module programs in registration order
 	builtinGlobals     map[ir.VarKey]eval.Value // pre-built pure/bind/force/fix/rec closures + constructors
@@ -131,6 +136,7 @@ type runRequest struct {
 	entry     string
 	obs       *eval.ExplainObserver
 	traceHook eval.TraceHook
+	warn      func(string) // nil = stderr
 }
 
 // execute runs the program using the bytecode VM.
@@ -142,7 +148,7 @@ func (r *Runtime) execute(ctx context.Context, req *runRequest) (eval.EvalResult
 		return eval.EvalResult{}, eval.EvalStats{}, budget.WrapCtxErr(err)
 	}
 
-	globalArray, err := r.buildGlobalArray(req.bindings)
+	globalArray, err := r.buildGlobalArray(req.bindings, req.warn)
 	if err != nil {
 		return eval.EvalResult{}, eval.EvalStats{}, err
 	}
@@ -283,6 +289,7 @@ func (r *Runtime) RunWith(ctx context.Context, opts *RunOptions) (*RunResult, er
 		entry:     entry,
 		obs:       obs,
 		traceHook: opts.Trace,
+		warn:      opts.Warn,
 	})
 	if err != nil {
 		return &RunResult{Stats: stats}, r.annotateError(err)

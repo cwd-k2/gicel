@@ -60,7 +60,6 @@ type Engine struct {
 
 	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
 	typeRecorder   bool                 // when true, Analyze populates TypeIndex
-	warnFunc       func(string)         // warning callback (default: stderr)
 
 	// Cached cache-key fingerprints. Computing these is the dominant
 	// alloc source on the warm NewRuntime path (profiled at ~94% of
@@ -241,20 +240,6 @@ func (e *Engine) SetCacheStore(cs *CacheStore) {
 // Useful for restoring the default after a temporary override.
 func DefaultCacheStore() *CacheStore { return defaultCacheStore }
 
-// SetWarnFunc sets the warning callback. Defaults to os.Stderr output.
-func (e *Engine) SetWarnFunc(f func(string)) {
-	e.warnFunc = f
-}
-
-// warn emits a warning through the configured callback.
-func (e *Engine) warn(msg string) {
-	if e.warnFunc != nil {
-		e.warnFunc(msg)
-	} else {
-		fmt.Fprint(os.Stderr, msg)
-	}
-}
-
 // RegisterRewriteRule adds a fusion rule to the optimization pipeline.
 // Rewrite rules are not part of the cache key — see moduleEnvFingerprint
 // docs for the rationale. No fingerprint invalidation is needed.
@@ -396,7 +381,6 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		cacheStore:     e.cacheStore,
 		modEnvFp:       e.moduleEnvFingerprint(),
 		runtimeFp:      e.runtimeFingerprint(),
-		warnFunc:       e.warnFunc,
 		traceHook:      e.checkTraceHook,
 		typeRecorder:   e.typeRecorder,
 	}
