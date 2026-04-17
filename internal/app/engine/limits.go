@@ -1,8 +1,9 @@
 package engine
 
 import (
-	"bytes"
 	"strconv"
+
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // CompilerLimits holds limits that affect type-checked / compiled output.
@@ -17,7 +18,7 @@ type CompilerLimits struct {
 
 // writeKey serializes CompilerLimits into b for fingerprint computation.
 // The byte format must remain stable to preserve cache compatibility.
-func (cl *CompilerLimits) writeKey(b *bytes.Buffer) {
+func (cl *CompilerLimits) writeKey(b types.KeyWriter) {
 	var numBuf [20]byte
 	b.Write(strconv.AppendInt(numBuf[:0], int64(cl.nestingLimit), 10))
 	b.WriteByte('/')
@@ -39,7 +40,7 @@ type RuntimeLimits struct {
 
 // writeKey serializes RuntimeLimits into b for fingerprint computation.
 // The byte format must remain stable to preserve cache compatibility.
-func (rl *RuntimeLimits) writeKey(b *bytes.Buffer) {
+func (rl *RuntimeLimits) writeKey(b types.KeyWriter) {
 	var numBuf [20]byte
 	b.WriteString("rl:")
 	b.Write(strconv.AppendInt(numBuf[:0], int64(rl.stepLimit), 10))
@@ -70,7 +71,7 @@ func (pf *PipelineFlags) effectiveEntryPoint() string {
 
 // writeKey serializes PipelineFlags into b for fingerprint computation.
 // The byte format must remain stable to preserve cache compatibility.
-func (pf *PipelineFlags) writeKey(b *bytes.Buffer) {
+func (pf *PipelineFlags) writeKey(b types.KeyWriter) {
 	ep := pf.effectiveEntryPoint()
 	b.WriteString("pf:")
 	b.WriteString(ep)

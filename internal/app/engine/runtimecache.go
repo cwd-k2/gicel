@@ -1,12 +1,11 @@
 package engine
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"reflect"
 	"strconv"
 
 	"github.com/cwd-k2/gicel/internal/infra/cache"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // CacheStore holds the compilation caches for modules and runtimes.
@@ -61,14 +60,14 @@ func ModuleCacheLen() int  { return defaultCacheStore.ModuleLen() }
 
 func (pc *pipelineCtx) computeRuntimeCacheKey(source string) runtimeCacheKey {
 	return runtimeCacheKey{
-		sourceHash:         sha256.Sum256([]byte(source)),
+		sourceHash:         hashString(source),
 		runtimeFingerprint: pc.runtimeFp,
 	}
 }
 
 func (pc *pipelineCtx) computeModuleCacheKey(source string) moduleCacheKey {
 	return moduleCacheKey{
-		sourceHash:     sha256.Sum256([]byte(source)),
+		sourceHash:     hashString(source),
 		envFingerprint: pc.modEnvFp,
 	}
 }
@@ -93,9 +92,9 @@ func (e *Engine) moduleEnvFingerprint() [32]byte {
 	if e.moduleEnvFpValid {
 		return e.moduleEnvFp
 	}
-	e.fpScratch.Reset()
-	e.writeModuleEnvSection(&e.fpScratch)
-	e.moduleEnvFp = sha256.Sum256(e.fpScratch.Bytes())
+	e.fpHasher.h.Reset()
+	e.writeModuleEnvSection(&e.fpHasher)
+	e.moduleEnvFp = e.fpHasher.Sum()
 	e.moduleEnvFpValid = true
 	return e.moduleEnvFp
 }
@@ -104,37 +103,48 @@ func (e *Engine) runtimeFingerprint() [32]byte {
 	if e.runtimeFpValid {
 		return e.runtimeFp
 	}
+	// moduleEnvFingerprint may have used fpHasher transiently; by the
+	// time it returns, the digest is captured in moduleEnvFp and the
+	// hasher state is no longer needed. Reset before our own use.
 	moduleFp := e.moduleEnvFingerprint()
-	e.fpScratch.Reset()
-	e.fpScratch.Write(moduleFp[:])
-	e.fpScratch.WriteByte(0)
-	e.writeRuntimeSpecificSection(&e.fpScratch)
-	e.runtimeFp = sha256.Sum256(e.fpScratch.Bytes())
+	e.fpHasher.h.Reset()
+	_, _ = e.fpHasher.Write(moduleFp[:])
+	_ = e.fpHasher.WriteByte(0)
+	e.writeRuntimeSpecificSection(&e.fpHasher)
+	e.runtimeFp = e.fpHasher.Sum()
 	e.runtimeFpValid = true
 	return e.runtimeFp
 }
 
-func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
+func (e *Engine) writeModuleEnvSection(b types.KeyWriter) {
 	writeTypesMap(b, e.host.registeredTys)
-	b.WriteByte(0)
+	_ = b.WriteByte(0)
 	writeTypesMap(b, e.host.assumptions)
-	b.WriteByte(0)
+	_ = b.WriteByte(0)
 	writeTypesMap(b, e.host.bindings)
-	b.WriteByte(0)
+	_ = b.WriteByte(0)
 	writeBoolMap(b, e.host.gatedBuiltins)
-	b.WriteByte(0)
+	_ = b.WriteByte(0)
 	modNames := e.store.sortedModuleNames()
 	for _, n := range modNames {
-		b.WriteString(n)
-		b.WriteByte('=')
+		_, _ = b.WriteString(n)
+		_ = b.WriteByte('=')
 		mod := e.store.modules[n]
 		if mod.source != nil {
-			h := sha256.Sum256([]byte(mod.source.Text))
-			b.Write(h[:])
+			// Per-module source is hashed to a fixed 32 bytes before
+			// being written into the outer stream. The double hash
+			// preserves injectivity against arbitrary source content
+			// (delimiter-free), and bounds per-module contribution to
+			// the outer hash regardless of source size.
+			//
+			// hashString (vs sha256.Sum256([]byte(s))) elides the
+			// string→[]byte copy — see hashkey.go.
+			h := hashString(mod.source.Text)
+			_, _ = b.Write(h[:])
 		}
-		b.WriteByte(0)
+		_ = b.WriteByte(0)
 	}
-	b.WriteByte(0)
+	_ = b.WriteByte(0)
 	e.compilerLimits.writeKey(b)
 }
 
@@ -142,17 +152,17 @@ func (e *Engine) writeModuleEnvSection(b *bytes.Buffer) {
 // Prim identity uses a monotonic registration counter (primSeq) instead
 // of function pointers, eliminating the closure-capture blindness (L1)
 // and removing the reflect/unsafe dependencies.
-func (e *Engine) writeRuntimeSpecificSection(b *bytes.Buffer) {
+func (e *Engine) writeRuntimeSpecificSection(b types.KeyWriter) {
 	var numBuf [20]byte
 
 	e.runtimeLimits.writeKey(b)
 
 	if e.store.recursion {
-		b.WriteString("rec:1")
+		_, _ = b.WriteString("rec:1")
 	} else {
-		b.WriteString("rec:0")
+		_, _ = b.WriteString("rec:0")
 	}
-	b.WriteByte(0)
+	_ = b.WriteByte(0)
 
 	e.pipelineFlags.writeKey(b)
 
@@ -163,28 +173,28 @@ func (e *Engine) writeRuntimeSpecificSection(b *bytes.Buffer) {
 	// function pointer is used (which cannot distinguish closures with
 	// identical code but different captured state).
 	for _, name := range e.host.prims.SortedNames() {
-		b.WriteString("p:")
-		b.WriteString(name)
-		b.WriteByte('=')
+		_, _ = b.WriteString("p:")
+		_, _ = b.WriteString(name)
+		_ = b.WriteByte('=')
 		if key, ok := e.primKeys[name]; ok {
-			b.WriteString("k:")
-			b.WriteString(key)
+			_, _ = b.WriteString("k:")
+			_, _ = b.WriteString(key)
 		} else {
 			impl, _ := e.host.prims.Lookup(name)
 			ptr := reflect.ValueOf(impl).Pointer()
-			b.Write(strconv.AppendUint(numBuf[:0], uint64(ptr), 16))
+			_, _ = b.Write(strconv.AppendUint(numBuf[:0], uint64(ptr), 16))
 		}
-		b.WriteByte('\n')
+		_ = b.WriteByte('\n')
 	}
-	b.WriteString("ps:")
-	b.Write(strconv.AppendUint(numBuf[:0], e.primSeq, 10))
-	b.WriteByte(0)
+	_, _ = b.WriteString("ps:")
+	_, _ = b.Write(strconv.AppendUint(numBuf[:0], e.primSeq, 10))
+	_ = b.WriteByte(0)
 }
 
-func writeBool(b *bytes.Buffer, v bool) {
+func writeBool(b types.KeyWriter, v bool) {
 	if v {
-		b.WriteString("true")
+		_, _ = b.WriteString("true")
 	} else {
-		b.WriteString("false")
+		_, _ = b.WriteString("false")
 	}
 }

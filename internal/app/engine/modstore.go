@@ -23,10 +23,16 @@ type compiledModule struct {
 }
 
 // ModuleStore manages compiled modules, their ordering, and dependency checking.
+//
+// sortedNames caches the lexicographically ordered module names used by
+// the engine fingerprint. It is nil (stale) until sortedModuleNames is
+// called, and invalidated by Register. Callers MUST NOT mutate the
+// returned slice.
 type ModuleStore struct {
-	modules   map[string]*compiledModule
-	order     []string
-	recursion bool
+	modules     map[string]*compiledModule
+	order       []string
+	sortedNames []string // nil = stale; rebuilt lazily on sortedModuleNames
+	recursion   bool
 }
 
 func newModuleStore() ModuleStore {
@@ -45,6 +51,7 @@ func (s *ModuleStore) Has(name string) bool {
 func (s *ModuleStore) Register(name string, mod *compiledModule) {
 	s.modules[name] = mod
 	s.order = append(s.order, name)
+	s.sortedNames = nil // invalidate sorted-names cache
 }
 
 // CheckCircularDeps detects circular dependencies before registering a module.
@@ -93,12 +100,19 @@ func (s *ModuleStore) Entries() []moduleEntry {
 // sortedModuleNames returns registered module names in lexicographic
 // order. Used by cache fingerprinting paths that require deterministic
 // traversal of the module set.
+//
+// The returned slice is cached and shared; callers MUST NOT mutate it.
+// Register invalidates the cache, so subsequent calls reflect new modules.
 func (s *ModuleStore) sortedModuleNames() []string {
+	if s.sortedNames != nil {
+		return s.sortedNames
+	}
 	names := make([]string, 0, len(s.modules))
 	for n := range s.modules {
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	s.sortedNames = names
 	return names
 }
 

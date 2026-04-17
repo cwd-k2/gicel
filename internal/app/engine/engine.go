@@ -23,8 +23,8 @@
 package engine
 
 import (
-	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"maps"
 	"os"
@@ -78,16 +78,19 @@ type Engine struct {
 	//     the runtime-specific parts (prim impls, runtime limits,
 	//     store.recursion, pipeline flags).
 	//
-	// fpScratch is a reusable bytes.Buffer for fingerprint computation:
-	// bytes.Buffer.Reset() preserves the underlying byte slice (unlike
-	// strings.Builder.Reset() which frees it), so subsequent
-	// invalidations don't pay re-allocation cost. The first compute
-	// allocates the buffer; later computes reuse it.
+	// Fingerprint computation streams bytes directly into a SHA-256
+	// state via keyHasher (see hashkey.go); no *bytes.Buffer middleman.
+	//
+	// fpHasher is a per-Engine reusable streaming hasher. Reset before
+	// each use; the underlying sha256 state is restored to initial. The
+	// buffers it holds (byteBuf/digest) live inline inside the Engine
+	// struct, so no per-fingerprint allocation is required — matching
+	// the zero-alloc reuse semantics of the old fpScratch.
 	moduleEnvFpValid bool
 	moduleEnvFp      [32]byte
 	runtimeFpValid   bool
 	runtimeFp        [32]byte
-	fpScratch        bytes.Buffer
+	fpHasher         keyHasher
 
 	// cacheStore holds the process-level compilation cache. Defaults to
 	// the global defaultCacheStore. Set via SetCacheStore for testing or
@@ -124,6 +127,8 @@ func NewEngine() *Engine {
 			depthLimit: 1_000,
 		},
 	}
+	// Initialize the streaming hasher once; reset per use.
+	e.fpHasher.h = sha256.New()
 	// Core primitives (SMC: parallel composition, dagger) are always registered.
 	if err := e.Use(stdlib.Core); err != nil {
 		panic("internal: core pack: " + err.Error())

@@ -44,8 +44,17 @@ func ApplierFrom(apply func(fn Value, arg Value, capEnv CapEnv) (Value, CapEnv, 
 type PrimImpl func(ctx context.Context, capEnv CapEnv, args []Value, apply Applier) (Value, CapEnv, error)
 
 // PrimRegistry maps assumption names to their implementations.
+//
+// sortedNames is a lazy, mutation-invalidated cache of the lexicographically
+// ordered keys of impls. The engine's fingerprint path calls SortedNames
+// once per fresh Engine; without caching, each call re-allocates the slice
+// and re-sorts. Register nils the cache so the next read rebuilds.
+//
+// Callers MUST NOT mutate the returned slice — it is shared with the
+// registry. The contract is "read-only snapshot of sorted names".
 type PrimRegistry struct {
-	impls map[string]PrimImpl
+	impls       map[string]PrimImpl
+	sortedNames []string // nil = stale; rebuilt lazily on next SortedNames
 }
 
 // NewPrimRegistry creates an empty primitive registry.
@@ -56,6 +65,7 @@ func NewPrimRegistry() *PrimRegistry {
 // Register adds a primitive implementation.
 func (r *PrimRegistry) Register(name string, impl PrimImpl) {
 	r.impls[name] = impl
+	r.sortedNames = nil // invalidate sorted-names cache
 }
 
 // Lookup retrieves a primitive by name.
@@ -65,6 +75,7 @@ func (r *PrimRegistry) Lookup(name string) (PrimImpl, bool) {
 }
 
 // Clone returns a shallow copy of the registry, decoupled from the original.
+// The sorted-names cache is not copied; the clone rebuilds on first access.
 func (r *PrimRegistry) Clone() *PrimRegistry {
 	c := &PrimRegistry{impls: make(map[string]PrimImpl, len(r.impls))}
 	maps.Copy(c.impls, r.impls)
@@ -74,11 +85,18 @@ func (r *PrimRegistry) Clone() *PrimRegistry {
 // SortedNames returns the registered prim names in lexicographic order.
 // Used by callers (e.g. the engine's runtime cache fingerprint) that need
 // a deterministic traversal of the registry.
+//
+// The returned slice is cached and shared; callers MUST NOT mutate it.
+// Register invalidates the cache, so subsequent calls see the new name set.
 func (r *PrimRegistry) SortedNames() []string {
+	if r.sortedNames != nil {
+		return r.sortedNames
+	}
 	names := make([]string, 0, len(r.impls))
 	for name := range r.impls {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	r.sortedNames = names
 	return names
 }
