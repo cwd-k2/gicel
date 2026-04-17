@@ -45,22 +45,22 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		}
 		if r.reg.IsLevelVar(ke.Name) {
 			// Level variable in kind position: treat as Type at that level.
-			return &types.TyCon{Name: "Type", Level: &types.LevelVar{Name: ke.Name}}
+			return r.typeOps.ConLevel("Type", &types.LevelVar{Name: ke.Name}, false, span.Span{})
 		}
 		// Lowercase names in kind position get a fresh LevelMeta, making
 		// the universe level inferrable. This replaces the former
 		// TypeOfTypes default with evidence-based level inference.
-		return &types.TyCon{Name: "Type", Level: r.unifier.FreshLevelMeta()}
+		return r.typeOps.ConLevel("Type", r.unifier.FreshLevelMeta(), false, span.Span{})
 	case *syntax.TyExprApp:
 		// Handle Type l (Type applied to a level argument).
 		if con, ok := ke.Fun.(*syntax.TyExprCon); ok && con.Name == "Type" {
 			level := r.resolveLevelExpr(ke.Arg)
-			return &types.TyCon{Name: "Type", Level: level}
+			return r.typeOps.ConLevel("Type", level, false, span.Span{})
 		}
 		// Kind-level application (e.g., F A in kind position).
-		return &types.TyApp{Fun: r.resolveKindExpr(ke.Fun), Arg: r.resolveKindExpr(ke.Arg)}
+		return r.typeOps.App(r.resolveKindExpr(ke.Fun), r.resolveKindExpr(ke.Arg), span.Span{})
 	case *syntax.TyExprArrow:
-		return &types.TyArrow{From: r.resolveKindExpr(ke.From), To: r.resolveKindExpr(ke.To)}
+		return r.typeOps.Arrow(r.resolveKindExpr(ke.From), r.resolveKindExpr(ke.To), span.Span{})
 	case *syntax.TyExprParen:
 		return r.resolveKindExpr(ke.Inner)
 	case *syntax.TyExprError:
@@ -249,6 +249,19 @@ func typeAtMaxLevel(kindA, kindB types.Type) types.Type {
 	return types.TypeOfTypes
 }
 
+// typeAtMaxLevelOps is the TypeOps-aware variant of typeAtMaxLevel.
+func typeAtMaxLevelOps(ops *types.TypeOps, kindA, kindB types.Type) types.Type {
+	if kindA == nil || kindB == nil {
+		return types.TypeOfTypes
+	}
+	la, okA := extractTypeLevel(kindA)
+	lb, okB := extractTypeLevel(kindB)
+	if okA && okB {
+		return ops.ConLevel("Type", joinLevel(la, lb), false, span.Span{})
+	}
+	return types.TypeOfTypes
+}
+
 // kindOfType returns the kind of a resolved type, or nil if unknown.
 func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 	switch t := ty.(type) {
@@ -274,7 +287,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 			var kind types.Type = types.TypeOfTypes
 			for i := len(info.Params) - 1; i >= 0; i-- {
 				paramKind := r.aliasParamKind(t.Name, i)
-				kind = &types.TyArrow{From: paramKind, To: kind}
+				kind = r.typeOps.Arrow(paramKind, kind, span.Span{})
 			}
 			return kind
 		}
@@ -285,7 +298,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 		if cls, ok := r.reg.LookupClass(t.Name); ok {
 			var kind types.Type = types.TypeOfConstraints
 			for i := len(cls.TyParamKinds) - 1; i >= 0; i-- {
-				kind = &types.TyArrow{From: cls.TyParamKinds[i], To: kind}
+				kind = r.typeOps.Arrow(cls.TyParamKinds[i], kind, span.Span{})
 			}
 			return kind
 		}
@@ -293,7 +306,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 		if fam, ok := r.lookupFamily(t.Name); ok {
 			var kind types.Type = fam.ResultKind
 			for i := len(fam.Params) - 1; i >= 0; i-- {
-				kind = &types.TyArrow{From: fam.Params[i].Kind, To: kind}
+				kind = r.typeOps.Arrow(fam.Params[i].Kind, kind, span.Span{})
 			}
 			return kind
 		}
@@ -304,7 +317,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 	case *types.TyArrow:
 		// Universe-polymorphic function arrow:
 		// (A : Type l₁) -> (B : Type l₂) has kind Type(max(l₁, l₂)).
-		return typeAtMaxLevel(r.kindOfType(t.From), r.kindOfType(t.To))
+		return typeAtMaxLevelOps(r.typeOps, r.kindOfType(t.From), r.kindOfType(t.To))
 	case *types.TyApp:
 		funKind := r.kindOfType(t.Fun)
 		if ka, ok := funKind.(*types.TyArrow); ok {

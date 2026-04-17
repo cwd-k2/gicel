@@ -69,7 +69,7 @@ func (ch *Checker) substVarsWithMetas(u *unify.Unifier, ty types.Type, vars map[
 		if f == t.Fun && a == t.Arg {
 			return ty
 		}
-		return &types.TyApp{Fun: f, Arg: a, S: t.S}
+		return ch.typeOps.App(f, a, t.S)
 	case *types.TyCon:
 		return ty
 	case *types.TyArrow:
@@ -78,7 +78,7 @@ func (ch *Checker) substVarsWithMetas(u *unify.Unifier, ty types.Type, vars map[
 		if from == t.From && to == t.To {
 			return ty
 		}
-		return &types.TyArrow{From: from, To: to, S: t.S}
+		return ch.typeOps.Arrow(from, to, t.S)
 	default:
 		return ty
 	}

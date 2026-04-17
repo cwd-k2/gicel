@@ -62,6 +62,9 @@ type HoverIndexBuilder struct {
 
 // NewHoverIndexBuilder creates an empty builder with the given TypeOps.
 func NewHoverIndexBuilder(ops *types.TypeOps) *HoverIndexBuilder {
+	if ops == nil {
+		panic("NewHoverIndexBuilder: nil TypeOps")
+	}
 	return &HoverIndexBuilder{typeOps: ops}
 }
 

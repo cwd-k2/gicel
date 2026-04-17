@@ -51,6 +51,9 @@ type Solver struct {
 
 // New creates a Solver backed by the given environment.
 func New(e Env, ops *types.TypeOps) *Solver {
+	if ops == nil {
+		panic("solve.New: nil TypeOps")
+	}
 	return &Solver{
 		inertSet: NewInertSet(),
 		env:      e,

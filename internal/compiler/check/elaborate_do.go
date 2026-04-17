@@ -189,15 +189,7 @@ func (d *doInfer) withFirstPre(compTy, restTy types.Type) types.Type {
 	if !ok1 || !ok2 || comp.Tag != types.TagComp || rest.Tag != types.TagComp {
 		return restTy
 	}
-	return &types.TyCBPV{
-		Tag:    types.TagComp,
-		Pre:    comp.Pre,
-		Post:   rest.Post,
-		Result: rest.Result,
-		Grade:  rest.Grade,
-		Flags:  types.MetaFreeFlags(comp.Pre, rest.Post, rest.Result),
-		S:      rest.S,
-	}
+	return d.ch.typeOps.Comp(comp.Pre, rest.Post, rest.Result, rest.Grade, rest.S)
 }
 
 func (d *doInfer) unifyCompPostPre(compTy, restTy types.Type, s span.Span) {
@@ -243,7 +235,7 @@ func (d *doChecked) elaborateBind(varName string, comp syntax.Expr, rest []synta
 					Args: []any{ch.typeOps.Pretty(ch.unifier.Zonk(d.comp.Pre)), ch.typeOps.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
 		ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
-		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, Flags: types.MetaFreeFlags(inferredComp.Post, d.comp.Post, d.comp.Result), S: d.comp.S}
+		restComp := ch.typeOps.Comp(inferredComp.Post, d.comp.Post, d.comp.Result, nil, d.comp.S)
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)
@@ -274,7 +266,7 @@ func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 				diagFmt{Format: "do statement: pre-state mismatch: expected %s, got %s",
 					Args: []any{ch.typeOps.Pretty(ch.unifier.Zonk(d.comp.Pre)), ch.typeOps.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
-		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, Flags: types.MetaFreeFlags(inferredComp.Post, d.comp.Post, d.comp.Result), S: d.comp.S}
+		restComp := ch.typeOps.Comp(inferredComp.Post, d.comp.Post, d.comp.Result, nil, d.comp.S)
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)

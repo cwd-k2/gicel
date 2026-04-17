@@ -97,9 +97,28 @@ func (o *TypeOps) Con(name string, s span.Span) *TyCon {
 	return &TyCon{Name: name, S: s}
 }
 
+// ConLevel creates a type constructor with an explicit universe level.
+// Use for kind-level constructors (Level: L1), sort-level (Level: L2),
+// promoted data kinds, and label literals (isLabel: true).
+func (o *TypeOps) ConLevel(name string, level LevelExpr, isLabel bool, s span.Span) *TyCon {
+	return &TyCon{Name: name, Level: level, IsLabel: isLabel, S: s}
+}
+
 // Var creates a type variable.
 func (o *TypeOps) Var(name string, s span.Span) *TyVar {
 	return &TyVar{Name: name, S: s}
+}
+
+// EvidenceWrap creates a TyEvidence from an existing evidence row and body.
+// Unlike Evidence (which takes []ConstraintEntry), this takes a pre-built
+// *TyEvidenceRow — used when wrapping a type with an existing constraint row.
+func (o *TypeOps) EvidenceWrap(constraints *TyEvidenceRow, body Type, s span.Span) *TyEvidence {
+	return &TyEvidence{
+		Constraints: constraints,
+		Body:        body,
+		Flags:       MetaFreeFlags(constraints, body),
+		S:           s,
+	}
 }
 
 // FamilyApp creates a type family application. FlagNoFamilyApp is

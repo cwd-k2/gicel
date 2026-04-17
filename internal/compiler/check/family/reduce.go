@@ -217,7 +217,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 			if e.tfCache == nil {
 				e.tfCache = make(map[string]types.Type)
 			}
-			stuck := &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, Flags: types.MetaFreeFlags(append(rArgs, tf.Kind)...) &^ types.FlagNoFamilyApp, S: tf.S}
+			stuck := e.TypeOps.FamilyApp(tf.Name, rArgs, tf.Kind, tf.S)
 			e.tfCache[key] = stuck
 			r := e.reduceFamilyAppsN(result)
 			e.tfCache[key] = r
@@ -226,7 +226,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 		if placeholder := e.registerStuckFamily(tf.Name, rArgs, tf.Kind, tf.S); placeholder != nil {
 			return placeholder
 		}
-		return &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, Flags: types.MetaFreeFlags(append(rArgs, tf.Kind)...) &^ types.FlagNoFamilyApp, S: tf.S}
+		return e.TypeOps.FamilyApp(tf.Name, rArgs, tf.Kind, tf.S)
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
 	// Two-phase: first check head+arity (no alloc), then unwind only on hit.
@@ -249,7 +249,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 					if e.tfCache == nil {
 						e.tfCache = make(map[string]types.Type)
 					}
-					stuck := &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(append(args, fam.ResultKind)...) &^ types.FlagNoFamilyApp, S: t.Span()}
+					stuck := e.TypeOps.FamilyApp(con.Name, args, fam.ResultKind, t.Span())
 					e.tfCache[key] = stuck
 					r := e.reduceFamilyAppsN(result)
 					e.tfCache[key] = r
@@ -326,7 +326,7 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 		if !ok {
 			cr = ty.Constraints
 		}
-		return &types.TyEvidence{Constraints: cr, Body: rBody, Flags: types.MetaFreeFlags(cr, rBody), S: ty.S}
+		return e.TypeOps.EvidenceWrap(cr, rBody, ty.S)
 	case *types.TyEvidenceRow:
 		newEntries, changed := ty.Entries.MapChildren(func(child types.Type) types.Type {
 			return e.reduceFamilyAppsN(child)

@@ -21,9 +21,9 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// The result kind is Type at a level computed from parameter kinds:
 	// if all params are Type l_i, result is Type (max l_1 ... l_n).
 	// If any param is not Type-kinded, result defaults to TypeOfTypes (L1).
-	var kind types.Type = formResultKind(paramKinds)
+	var kind types.Type = formResultKind(ch.typeOps, paramKinds)
 	for i := len(parts.Params) - 1; i >= 0; i-- {
-		kind = &types.TyArrow{From: paramKinds[i], To: kind, Flags: types.MetaFreeFlags(paramKinds[i], kind)}
+		kind = ch.typeOps.Arrow(paramKinds[i], kind, span.Span{})
 	}
 	if d.KindAnn != nil {
 		annKind := ch.resolveKindExpr(d.KindAnn)
@@ -42,8 +42,8 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// Build result type: T a b c ...
 	var resultType types.Type = ch.typeOps.Con(d.Name, d.S)
 	for _, p := range parts.Params {
-		arg := &types.TyVar{Name: p.Name, S: p.S}
-		resultType = &types.TyApp{Fun: resultType, Arg: arg, Flags: types.MetaFreeFlags(resultType, arg), S: d.S}
+		arg := ch.typeOps.Var(p.Name, p.S)
+		resultType = ch.typeOps.App(resultType, arg, d.S)
 	}
 
 	// Register each constructor from row fields.
@@ -100,7 +100,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		// Build kind arrow from field types (right to left).
 		for i := len(con.Fields) - 1; i >= 0; i-- {
 			fieldKind := ch.promotedFieldKind(con.Fields[i])
-			conKind = &types.TyArrow{From: fieldKind, To: conKind, Flags: types.MetaFreeFlags(fieldKind, conKind)}
+			conKind = ch.typeOps.Arrow(fieldKind, conKind, span.Span{})
 		}
 		ch.reg.RegisterPromotedCon(con.Name, conKind)
 	}
@@ -197,7 +197,7 @@ func typeArity(ops *types.TypeOps, ty types.Type) int {
 // formResultKind computes the result kind for a form declaration from its
 // parameter kinds. If all parameters are Type l_i, the result is Type (max l_1 ... l_n).
 // Otherwise, defaults to TypeOfTypes (Type at level 1).
-func formResultKind(paramKinds []types.Type) types.Type {
+func formResultKind(ops *types.TypeOps, paramKinds []types.Type) types.Type {
 	if len(paramKinds) == 0 {
 		return types.TypeOfTypes
 	}
@@ -212,5 +212,5 @@ func formResultKind(paramKinds []types.Type) types.Type {
 		}
 		level = joinLevel(level, l)
 	}
-	return &types.TyCon{Name: "Type", Level: level}
+	return ops.ConLevel("Type", level, false, span.Span{})
 }

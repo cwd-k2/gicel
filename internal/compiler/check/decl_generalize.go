@@ -97,12 +97,7 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 		expr = &ir.Lam{Param: uc.Placeholder, Body: expr, Generated: ir.GenDict, S: uc.S}
 		// Wrap type: ClassName args => ty
 		constraints := types.SingleConstraint(uc.ClassName, zonkedArgs)
-		ty = &types.TyEvidence{
-			Constraints: constraints,
-			Body:        ty,
-			Flags:       types.MetaFreeFlags(constraints, ty),
-			S:           uc.S,
-		}
+		ty = ch.typeOps.EvidenceWrap(constraints, ty, uc.S)
 	}
 
 	// Re-zonk recorded expression types while temp solutions

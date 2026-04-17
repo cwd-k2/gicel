@@ -195,7 +195,7 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 		_ = ch.reg.RegisterFamily(family.RowFamilyMapRow, &TypeFamilyInfo{
 			Name: family.RowFamilyMapRow,
 			Params: []TFParam{
-				{Name: "f", Kind: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}},
+				{Name: "f", Kind: ch.typeOps.Arrow(types.TypeOfTypes, types.TypeOfTypes, span.Span{})},
 				{Name: "r", Kind: types.TypeOfRows},
 			},
 			ResultKind: types.TypeOfRows,

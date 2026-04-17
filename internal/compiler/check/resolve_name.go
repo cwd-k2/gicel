@@ -19,7 +19,7 @@ func (r *typeResolver) resolveUnqualifiedTypeCon(name string, s span.Span) types
 	}
 	// Zero-arity type family: immediate TyFamilyApp.
 	if fam, ok := r.lookupFamily(name); ok && len(fam.Params) == 0 {
-		return &types.TyFamilyApp{Name: name, Args: nil, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(fam.ResultKind) &^ types.FlagNoFamilyApp, S: s}
+		return r.typeOps.FamilyApp(name, nil, fam.ResultKind, s)
 	}
 	// Strict mode: validate that the type constructor is known.
 	if *r.strictTypeNames && !r.isKnownTypeName(name) {
@@ -49,7 +49,7 @@ func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Sp
 	// Type families: zero-arity → immediate; parameterized → inject into scope.
 	if fam, ok := qs.Exports.TypeFamilies[name]; ok {
 		if len(fam.Params) == 0 {
-			return &types.TyFamilyApp{Name: name, Args: nil, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(fam.ResultKind) &^ types.FlagNoFamilyApp, S: s}
+			return r.typeOps.FamilyApp(name, nil, fam.ResultKind, s)
 		}
 		r.scope.InjectFamily(name, fam.Clone())
 		return r.typeOps.Con(name, s)

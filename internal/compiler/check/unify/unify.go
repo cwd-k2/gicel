@@ -114,6 +114,9 @@ type Unifier struct {
 // closure-allocation cost at all (the Tier 4 micro benchmarks observed
 // a 1-alloc/iter regression when the binding was eager in NewUnifier).
 func NewUnifier(ops *types.TypeOps) *Unifier {
+	if ops == nil {
+		panic("unify.NewUnifier: nil TypeOps")
+	}
 	id := 0
 	return &Unifier{
 		soln:        make(map[int]types.Type),
@@ -128,6 +131,9 @@ func NewUnifier(ops *types.TypeOps) *Unifier {
 // NewUnifierShared creates a Unifier that shares a fresh ID counter
 // with the calling Checker, ensuring no ID collisions.
 func NewUnifierShared(freshID *int, ops *types.TypeOps) *Unifier {
+	if ops == nil {
+		panic("unify.NewUnifierShared: nil TypeOps")
+	}
 	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),

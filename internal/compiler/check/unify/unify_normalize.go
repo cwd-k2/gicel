@@ -20,7 +20,7 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 	if u.FamilyReducer != nil {
 		t = u.FamilyReducer(t)
 	}
-	return normalizeCompApp(t)
+	return normalizeCompApp(u.TypeOps, t)
 }
 
 // normalizeCompApp converts fully-applied TyApp chains to their TyCBPV
@@ -36,7 +36,7 @@ func (u *Unifier) normalize(t types.Type) types.Type {
 // `Computation pre post a` where pre is a TyVar). At normalization time,
 // the depth-3 chain with Computation/Thunk head is unambiguously the
 // ungraded form.
-func normalizeCompApp(t types.Type) types.Type {
+func normalizeCompApp(ops *types.TypeOps, t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
 	if !ok {
 		return t
@@ -54,9 +54,9 @@ func normalizeCompApp(t types.Type) types.Type {
 		if con, ok := app4.Fun.(*types.TyCon); ok {
 			switch con.Name {
 			case types.TyConComputation:
-				return &types.TyCBPV{Tag: types.TagComp, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+				return ops.Comp(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 			case types.TyConThunk:
-				return &types.TyCBPV{Tag: types.TagThunk, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+				return ops.ThunkGraded(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 			}
 		}
 	}
@@ -71,16 +71,16 @@ func normalizeCompApp(t types.Type) types.Type {
 	}
 	switch con.Name {
 	case types.TyConComputation:
-		return &types.TyCBPV{Tag: types.TagComp, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+		return ops.Comp(app3.Arg, app2.Arg, app1.Arg, nil, t.Span())
 	case types.TyConThunk:
-		return &types.TyCBPV{Tag: types.TagThunk, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+		return ops.Thunk(app3.Arg, app2.Arg, app1.Arg, t.Span())
 	}
 	return t
 }
 
 // normalizeCompApp4Only normalizes only 4-arg Computation/Thunk TyApp chains.
 // Used in Zonk where 3-arg normalization would be premature.
-func normalizeCompApp4Only(t types.Type) types.Type {
+func normalizeCompApp4Only(ops *types.TypeOps, t types.Type) types.Type {
 	app1, ok := t.(*types.TyApp)
 	if !ok {
 		return t
@@ -103,9 +103,9 @@ func normalizeCompApp4Only(t types.Type) types.Type {
 	}
 	switch con.Name {
 	case types.TyConComputation:
-		return &types.TyCBPV{Tag: types.TagComp, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+		return ops.Comp(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 	case types.TyConThunk:
-		return &types.TyCBPV{Tag: types.TagThunk, Grade: app4.Arg, Pre: app3.Arg, Post: app2.Arg, Result: app1.Arg, Flags: types.MetaFreeFlags(app4.Arg, app3.Arg, app2.Arg, app1.Arg), S: t.Span()}
+		return ops.ThunkGraded(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 	}
 	return t
 }

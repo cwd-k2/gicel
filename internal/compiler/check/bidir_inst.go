@@ -187,7 +187,7 @@ func (ch *Checker) patternName(p syntax.Pattern) string {
 // inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.
 func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	elemTy := ch.freshMeta(types.TypeOfTypes)
-	listTy := &types.TyApp{Fun: ch.typeOps.Con("List", span.Span{}), Arg: elemTy, Flags: types.MetaFreeFlags(ch.typeOps.Con("List", span.Span{}), elemTy)}
+	listTy := ch.typeOps.App(ch.typeOps.Con("List", span.Span{}), elemTy, span.Span{})
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
 	nilMod, nilOk := ch.reg.LookupConModule("Nil")

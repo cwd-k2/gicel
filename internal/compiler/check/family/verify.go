@@ -5,6 +5,7 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -50,7 +51,7 @@ func (e *ReduceEnv) VerifyInjectivity(info *env.TypeFamilyInfo) {
 // the connection between pattern variables and their RHS occurrences is preserved.
 func (e *ReduceEnv) freshPatVarSubst(patterns []types.Type, params []env.TFParam) map[string]types.Type {
 	vars := CollectPatternVars(patterns)
-	varKinds := collectPatternVarKinds(patterns, params)
+	varKinds := collectPatternVarKinds(e.TypeOps, patterns, params)
 	subs := make(map[string]types.Type, len(vars))
 	for _, v := range vars {
 		subs[v] = e.FreshMeta(varKinds[v])
@@ -92,7 +93,7 @@ func CollectPatternVarsRec(t types.Type, seen map[string]bool, result *[]string)
 
 // collectPatternVarKinds maps each pattern variable to its kind based on the
 // parameter position where it first appears.
-func collectPatternVarKinds(patterns []types.Type, params []env.TFParam) map[string]types.Type {
+func collectPatternVarKinds(ops *types.TypeOps, patterns []types.Type, params []env.TFParam) map[string]types.Type {
 	result := make(map[string]types.Type)
 	for i, p := range patterns {
 		var paramKind types.Type
@@ -101,12 +102,12 @@ func collectPatternVarKinds(patterns []types.Type, params []env.TFParam) map[str
 		} else {
 			paramKind = types.TypeOfTypes
 		}
-		collectVarKindsRec(p, paramKind, result)
+		collectVarKindsRec(ops, p, paramKind, result)
 	}
 	return result
 }
 
-func collectVarKindsRec(t types.Type, contextKind types.Type, result map[string]types.Type) {
+func collectVarKindsRec(ops *types.TypeOps, t types.Type, contextKind types.Type, result map[string]types.Type) {
 	switch ty := t.(type) {
 	case *types.TyVar:
 		if ty.Name != "_" {
@@ -123,8 +124,8 @@ func collectVarKindsRec(t types.Type, contextKind types.Type, result map[string]
 		if arr, ok := contextKind.(*types.TyArrow); ok {
 			argKind = arr.From
 		}
-		funKind := &types.TyArrow{From: argKind, To: contextKind}
-		collectVarKindsRec(ty.Fun, funKind, result)
-		collectVarKindsRec(ty.Arg, argKind, result)
+		funKind := ops.Arrow(argKind, contextKind, span.Span{})
+		collectVarKindsRec(ops, ty.Fun, funKind, result)
+		collectVarKindsRec(ops, ty.Arg, argKind, result)
 	}
 }

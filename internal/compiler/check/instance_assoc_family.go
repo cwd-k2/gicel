@@ -53,13 +53,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if args, ok := fa[t.Name]; ok {
 			fam, ok := ch.reg.LookupFamily(t.Name)
 			if ok {
-				return &types.TyFamilyApp{
-					Name:  t.Name,
-					Args:  args,
-					Kind:  fam.ResultKind,
-					Flags: types.MetaFreeFlags(append([]types.Type{fam.ResultKind}, args...)...) &^ types.FlagNoFamilyApp,
-					S:     t.S,
-				}
+				return ch.typeOps.FamilyApp(t.Name, args, fam.ResultKind, t.S)
 			}
 		}
 		return ty
@@ -77,16 +71,10 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 			if !assocArgsMatch(ch.typeOps, t.Args, famClassArgs) {
 				fam, famOK := ch.reg.LookupFamily(t.Name)
 				if famOK {
-					var result types.Type = &types.TyFamilyApp{
-						Name:  t.Name,
-						Args:  famClassArgs,
-						Kind:  fam.ResultKind,
-						Flags: types.MetaFreeFlags(append([]types.Type{fam.ResultKind}, famClassArgs...)...) &^ types.FlagNoFamilyApp,
-						S:     t.S,
-					}
+					var result types.Type = ch.typeOps.FamilyApp(t.Name, famClassArgs, fam.ResultKind, t.S)
 					for _, a := range t.Args {
 						rA := ch.satAssocWalk(a, fa)
-						result = &types.TyApp{Fun: result, Arg: rA, Flags: types.MetaFreeFlags(result, rA), S: t.S}
+						result = ch.typeOps.App(result, rA, t.S)
 					}
 					return result
 				}
@@ -104,7 +92,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if !changed {
 			return ty
 		}
-		return &types.TyFamilyApp{Name: t.Name, Args: newArgs, Kind: t.Kind, Flags: t.Flags &^ types.FlagNoFamilyApp, S: t.S}
+		return ch.typeOps.FamilyApp(t.Name, newArgs, t.Kind, t.S)
 
 	case *types.TyApp:
 		// Unwind the app chain to check if head is an associated type family.
@@ -115,16 +103,10 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 				if famOK {
 					// Convert head to TyFamilyApp with class args,
 					// then re-apply the remaining (user-supplied) args.
-					var result types.Type = &types.TyFamilyApp{
-						Name:  con.Name,
-						Args:  famClassArgs,
-						Kind:  fam.ResultKind,
-						Flags: types.MetaFreeFlags(append([]types.Type{fam.ResultKind}, famClassArgs...)...) &^ types.FlagNoFamilyApp,
-						S:     con.S,
-					}
+					var result types.Type = ch.typeOps.FamilyApp(con.Name, famClassArgs, fam.ResultKind, con.S)
 					for _, a := range appArgs {
 						rA := ch.satAssocWalk(a, fa)
-						result = &types.TyApp{Fun: result, Arg: rA, Flags: types.MetaFreeFlags(result, rA), S: t.S}
+						result = ch.typeOps.App(result, rA, t.S)
 					}
 					return result
 				}
@@ -136,7 +118,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rFun == t.Fun && rArg == t.Arg {
 			return ty
 		}
-		return &types.TyApp{Fun: rFun, Arg: rArg, Flags: types.MetaFreeFlags(rFun, rArg), S: t.S}
+		return ch.typeOps.App(rFun, rArg, t.S)
 
 	case *types.TyArrow:
 		rFrom := ch.satAssocWalk(t.From, fa)
@@ -144,7 +126,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rFrom == t.From && rTo == t.To {
 			return ty
 		}
-		return &types.TyArrow{From: rFrom, To: rTo, Flags: types.MetaFreeFlags(rFrom, rTo), S: t.S}
+		return ch.typeOps.Arrow(rFrom, rTo, t.S)
 
 	case *types.TyForall:
 		rKind := ch.satAssocWalk(t.Kind, fa)
@@ -152,7 +134,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rKind == t.Kind && rBody == t.Body {
 			return ty
 		}
-		return &types.TyForall{Var: t.Var, Kind: rKind, Body: rBody, Flags: types.MetaFreeFlags(rKind, rBody), S: t.S}
+		return ch.typeOps.Forall(t.Var, rKind, rBody, t.S)
 
 	case *types.TyCBPV:
 		rPre := ch.satAssocWalk(t.Pre, fa)
@@ -165,14 +147,20 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rPre == t.Pre && rPost == t.Post && rResult == t.Result && rGrade == t.Grade {
 			return ty
 		}
-		return &types.TyCBPV{Tag: t.Tag, Pre: rPre, Post: rPost, Result: rResult, Grade: rGrade, Flags: types.MetaFreeFlags(rPre, rPost, rResult, rGrade), S: t.S}
+		if t.Tag == types.TagComp {
+			return ch.typeOps.Comp(rPre, rPost, rResult, rGrade, t.S)
+		}
+		if rGrade != nil {
+			return ch.typeOps.ThunkGraded(rPre, rPost, rResult, rGrade, t.S)
+		}
+		return ch.typeOps.Thunk(rPre, rPost, rResult, t.S)
 
 	case *types.TyEvidence:
 		rBody := ch.satAssocWalk(t.Body, fa)
 		if rBody == t.Body {
 			return ty
 		}
-		return &types.TyEvidence{Constraints: t.Constraints, Body: rBody, Flags: t.Flags, S: t.S}
+		return ch.typeOps.EvidenceWrap(t.Constraints, rBody, t.S)
 
 	default:
 		// True leaves: TyMeta, TySkolem, TyVar, TyError, TyEvidenceRow.

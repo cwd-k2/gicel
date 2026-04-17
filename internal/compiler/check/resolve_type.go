@@ -137,20 +137,20 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			lhs := r.resolveTypeExpr(eq.Lhs)
 			rhs := r.resolveTypeExpr(eq.Rhs)
 			entry := &types.EqualityEntry{Lhs: lhs, Rhs: rhs, S: eq.S}
-			return qualifyBody(entry, body, t.S)
+			return qualifyBody(r.typeOps, entry, body, t.S)
 		}
 		body := r.resolveTypeExpr(t.Body)
 		constraint := r.resolveTypeExpr(t.Constraint)
 		// Quantified constraint: (\ a. C1 a => C2 (f a)) => T
 		if qc := r.decomposeQuantifiedConstraint(constraint); qc != nil {
 			qc.S = t.S
-			return qualifyBody(qc, body, t.S)
+			return qualifyBody(r.typeOps, qc, body, t.S)
 		}
 		// Simple constraint: C a => T
 		head, args := types.UnwindApp(constraint)
 		if con, ok := head.(*types.TyCon); ok {
 			entry := &types.ClassEntry{ClassName: con.Name, Args: args, S: t.S}
-			return qualifyBody(entry, body, t.S)
+			return qualifyBody(r.typeOps, entry, body, t.S)
 		}
 		r.addDiag(diagnostic.ErrNoInstance, t.S, diagWithType{Context: "invalid constraint: ", Type: constraint})
 		return body
@@ -167,7 +167,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		return r.resolveTypeExpr(t.Inner)
 	case *syntax.TyExprLabelLit:
 		// Label literals are type-level constants of kind Label.
-		return &types.TyCon{Name: t.Label, Level: types.L1, IsLabel: true, S: t.S}
+		return r.typeOps.ConLevel(t.Label, types.L1, true, t.S)
 	case *syntax.TyExprError:
 		return &types.TyError{S: t.S}
 	default:
@@ -178,7 +178,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 
 // qualifyBody prepends a constraint entry to a body type, folding into an
 // existing TyEvidence if the body is already qualified.
-func qualifyBody(entry types.ConstraintEntry, body types.Type, s span.Span) *types.TyEvidence {
+func qualifyBody(ops *types.TypeOps, entry types.ConstraintEntry, body types.Type, s span.Span) *types.TyEvidence {
 	if ev, ok := body.(*types.TyEvidence); ok {
 		old := ev.Constraints.ConEntries()
 		entries := make([]types.ConstraintEntry, 0, 1+len(old))
@@ -186,21 +186,11 @@ func qualifyBody(entry types.ConstraintEntry, body types.Type, s span.Span) *typ
 		entries = append(entries, old...)
 		ce := &types.ConstraintEntries{Entries: entries}
 		cr := &types.TyEvidenceRow{Entries: ce, Flags: types.EvidenceRowFlags(ce, nil)}
-		return &types.TyEvidence{
-			Constraints: cr,
-			Body:        ev.Body,
-			Flags:       types.MetaFreeFlags(cr, ev.Body),
-			S:           s,
-		}
+		return ops.EvidenceWrap(cr, ev.Body, s)
 	}
 	ce := &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}
 	cr := &types.TyEvidenceRow{Entries: ce, Flags: types.EvidenceRowFlags(ce, nil)}
-	return &types.TyEvidence{
-		Constraints: cr,
-		Body:        body,
-		Flags:       types.MetaFreeFlags(cr, body),
-		S:           s,
-	}
+	return ops.EvidenceWrap(cr, body, s)
 }
 
 // decomposeQuantifiedConstraint checks if a resolved type is a quantified constraint

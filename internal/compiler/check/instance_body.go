@@ -182,14 +182,14 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 
 	// For each pattern var, wrap the mangled result type with a type application.
 	for _, pv := range patVars {
-		mangledResultType = &types.TyApp{
-			Fun: mangledResultType,
-			Arg: &types.TyVar{Name: pv, S: field.S},
-			S:   field.S,
-		}
+		mangledResultType = ch.typeOps.App(
+			mangledResultType,
+			ch.typeOps.Var(pv, field.S),
+			field.S,
+		)
 		// Update the registered kind to accept this parameter.
 		existingKind, _ := ch.reg.LookupTypeKind(mangledName)
-		ch.reg.RegisterTypeKind(mangledName, &types.TyArrow{From: types.TypeOfTypes, To: existingKind})
+		ch.reg.RegisterTypeKind(mangledName, ch.typeOps.Arrow(types.TypeOfTypes, existingKind, span.Span{}))
 	}
 
 	dataInfo := &DataTypeInfo{Name: mangledName}
@@ -270,7 +270,7 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ty
 		liftKind := ch.kindOfType(ch.typeOps.Con("Lift", span.Span{}))
 		if liftKind != nil {
 			if ka, ok := liftKind.(*types.TyArrow); ok && ch.typeOps.Equal(ka.From, argKind) {
-				lifted := &types.TyApp{Fun: ch.typeOps.Con("Lift", span.Span{}), Arg: typeArgs[i]}
+				lifted := ch.typeOps.App(ch.typeOps.Con("Lift", span.Span{}), typeArgs[i], span.Span{})
 				liftedKind := ka.To
 				if ch.withTrial(func() bool {
 					return ch.unifier.Unify(liftedKind, paramKind) == nil

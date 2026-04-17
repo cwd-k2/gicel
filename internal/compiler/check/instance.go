@@ -130,18 +130,14 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 
 	if ch.config.HoverRecorder != nil {
 		// Build the impl type: context => ClassName TypeArg1 TypeArg2 ...
-		var implTy types.Type = &types.TyCon{Name: className}
+		var implTy types.Type = ch.typeOps.Con(className, span.Span{})
 		for _, arg := range typeArgs {
-			implTy = &types.TyApp{Fun: implTy, Arg: arg, Flags: types.MetaFreeFlags(implTy, arg)}
+			implTy = ch.typeOps.App(implTy, arg, span.Span{})
 		}
 		// Wrap context constraints.
 		for i := len(context) - 1; i >= 0; i-- {
 			constraints := types.SingleConstraint(context[i].ClassName, context[i].Args)
-			implTy = &types.TyEvidence{
-				Constraints: constraints,
-				Body:        implTy,
-				Flags:       types.MetaFreeFlags(constraints, implTy),
-			}
+			implTy = ch.typeOps.EvidenceWrap(constraints, implTy, span.Span{})
 		}
 		label := className
 		if impl.Name != "" {
