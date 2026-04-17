@@ -79,7 +79,7 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 	if !s.trialScope(func() bool {
 		// Head match.
 		for i := range args {
-			headArg := ps.Apply(qc.Head.Args[i])
+			headArg := ps.Apply(s.TypeOps, qc.Head.Args[i])
 			if err := s.env.Unify(headArg, args[i]); err != nil {
 				return false
 			}
@@ -96,8 +96,8 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 		// - Other variants: skip (not currently generated).
 		for _, ctx := range qc.Context {
 			if eqEntry, ok := ctx.(*types.EqualityEntry); ok {
-				lhs := s.env.Zonk(ps.Apply(eqEntry.Lhs))
-				rhs := s.env.Zonk(ps.Apply(eqEntry.Rhs))
+				lhs := s.env.Zonk(ps.Apply(s.TypeOps, eqEntry.Lhs))
+				rhs := s.env.Zonk(ps.Apply(s.TypeOps, eqEntry.Rhs))
 				if err := s.env.Unify(lhs, rhs); err != nil {
 					return false
 				}
@@ -109,7 +109,7 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 			}
 			ctxArgs := make([]types.Type, len(ctxCls.Args))
 			for j, a := range ctxCls.Args {
-				ctxArgs[j] = s.env.Zonk(ps.Apply(a))
+				ctxArgs[j] = s.env.Zonk(ps.Apply(s.TypeOps, a))
 			}
 			ctxDict := s.resolveInstance(ctxCls.ClassName, ctxArgs, sp)
 			dictExpr = &ir.App{Fun: dictExpr, Arg: ctxDict, S: sp}
@@ -150,8 +150,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		psInst := s.TypeOps.PrepareSubst(instSubst)
 		if !s.probeScope(func() bool {
 			for i := range qc.Head.Args {
-				headArg := psHead.Apply(qc.Head.Args[i])
-				instArg := psInst.Apply(inst.TypeArgs[i])
+				headArg := psHead.Apply(s.TypeOps, qc.Head.Args[i])
+				instArg := psInst.Apply(s.TypeOps, inst.TypeArgs[i])
 				if err := s.env.Unify(headArg, instArg); err != nil {
 					return false
 				}
@@ -175,8 +175,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 					return false
 				}
 				for j := range ic.Args {
-					instArg := psInst.Apply(ic.Args[j])
-					qcArg := psHead.Apply(qccArgs[j])
+					instArg := psInst.Apply(s.TypeOps, ic.Args[j])
+					qcArg := psHead.Apply(s.TypeOps, qccArgs[j])
 					if err := s.env.Unify(instArg, qcArg); err != nil {
 						return false
 					}
@@ -217,8 +217,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		psEvidence := s.TypeOps.PrepareSubst(evidenceSubst)
 		if !s.probeScope(func() bool {
 			for i := range qc.Head.Args {
-				wantedArg := psWanted.Apply(qc.Head.Args[i])
-				evidenceArg := psEvidence.Apply(eq.Head.Args[i])
+				wantedArg := psWanted.Apply(s.TypeOps, qc.Head.Args[i])
+				evidenceArg := psEvidence.Apply(s.TypeOps, eq.Head.Args[i])
 				if err := s.env.Unify(wantedArg, evidenceArg); err != nil {
 					return false
 				}
@@ -238,10 +238,10 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 					if !ok {
 						return false
 					}
-					if err := s.env.Unify(psEvidence.Apply(ecEq.Lhs), psWanted.Apply(qccEq.Lhs)); err != nil {
+					if err := s.env.Unify(psEvidence.Apply(s.TypeOps, ecEq.Lhs), psWanted.Apply(s.TypeOps, qccEq.Lhs)); err != nil {
 						return false
 					}
-					if err := s.env.Unify(psEvidence.Apply(ecEq.Rhs), psWanted.Apply(qccEq.Rhs)); err != nil {
+					if err := s.env.Unify(psEvidence.Apply(s.TypeOps, ecEq.Rhs), psWanted.Apply(s.TypeOps, qccEq.Rhs)); err != nil {
 						return false
 					}
 					continue
@@ -256,8 +256,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 					return false
 				}
 				for j := range ecArgs {
-					eArg := psEvidence.Apply(ecArgs[j])
-					qArg := psWanted.Apply(qccArgs[j])
+					eArg := psEvidence.Apply(s.TypeOps, ecArgs[j])
+					qArg := psWanted.Apply(s.TypeOps, qccArgs[j])
 					if err := s.env.Unify(eArg, qArg); err != nil {
 						return false
 					}

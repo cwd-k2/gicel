@@ -324,19 +324,19 @@ func SingleConstraint(className string, args []Type) *TyEvidenceRow {
 // Used for sorting and as a bucketing key for non-class-headed entries
 // in ClassifyConstraints. Class-headed entries use HeadClassName instead.
 // Delegates to TypeKey for injective encoding.
-func ConstraintKey(e ConstraintEntry) string {
+func (o *TypeOps) ConstraintKey(e ConstraintEntry) string {
 	switch e := e.(type) {
 	case *ClassEntry:
 		parts := make([]string, 0, 1+len(e.Args))
 		parts = append(parts, e.ClassName)
 		for _, a := range e.Args {
-			parts = append(parts, TypeKey(a))
+			parts = append(parts, o.TypeKey(a))
 		}
 		return strings.Join(parts, " ")
 	case *EqualityEntry:
-		return "~ " + TypeKey(e.Lhs) + " " + TypeKey(e.Rhs)
+		return "~ " + o.TypeKey(e.Lhs) + " " + o.TypeKey(e.Rhs)
 	case *VarEntry:
-		return "$" + TypeKey(e.Var)
+		return "$" + o.TypeKey(e.Var)
 	case *QuantifiedConstraint:
 		if e.Head == nil {
 			return "forall"
@@ -344,7 +344,7 @@ func ConstraintKey(e ConstraintEntry) string {
 		parts := make([]string, 0, 2+len(e.Head.Args))
 		parts = append(parts, "forall", e.Head.ClassName)
 		for _, a := range e.Head.Args {
-			parts = append(parts, TypeKey(a))
+			parts = append(parts, o.TypeKey(a))
 		}
 		return strings.Join(parts, " ")
 	}

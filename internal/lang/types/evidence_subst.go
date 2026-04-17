@@ -17,16 +17,16 @@ package types
 // Field types and grades are substituted via substDepth; label-variable
 // fields named varName are rewritten to the replacement's label name when
 // replacement is a label literal (a TyCon at kind level).
-func (c *CapabilityEntries) SubstEntries(varName string, replacement Type, depth int) (EvidenceEntries, bool) {
+func (c *CapabilityEntries) SubstEntries(ops *TypeOps, varName string, replacement Type, depth int) (EvidenceEntries, bool) {
 	labelRepl, hasLabelRepl := capabilityLabelLiteral(replacement)
 	var fields []RowField // nil until first change (lazy alloc)
 	for i, f := range c.Fields {
-		newT := substDepth(f.Type, varName, replacement, depth)
+		newT := substDepth(ops, f.Type, varName, replacement, depth)
 		newLabel, newIsLabelVar, labelChanged := f.Label, f.IsLabelVar, false
 		if hasLabelRepl && f.IsLabelVar && f.Label == varName {
 			newLabel, newIsLabelVar, labelChanged = labelRepl, false, true
 		}
-		newGrades, gradesChanged := substRowGrades(f.Grades, varName, replacement, depth)
+		newGrades, gradesChanged := substRowGrades(ops, f.Grades, varName, replacement, depth)
 		fieldChanged := newT != f.Type || labelChanged || gradesChanged
 		if fieldChanged && fields == nil {
 			fields = make([]RowField, len(c.Fields))
@@ -49,10 +49,10 @@ func (c *CapabilityEntries) SubstEntries(varName string, replacement Type, depth
 }
 
 // SubstEntriesMany applies a parallel substitution to a capability fiber.
-func (c *CapabilityEntries) SubstEntriesMany(subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
+func (c *CapabilityEntries) SubstEntriesMany(ops *TypeOps, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
 	var fields []RowField // nil until first change (lazy alloc)
 	for i, f := range c.Fields {
-		newT := substManyOpt(f.Type, subs, levelSubs, fvUnion, depth)
+		newT := substManyOpt(ops, f.Type, subs, levelSubs, fvUnion, depth)
 		newLabel, newIsLabelVar, labelChanged := f.Label, f.IsLabelVar, false
 		if f.IsLabelVar {
 			if repl, ok := subs[f.Label]; ok {
@@ -61,7 +61,7 @@ func (c *CapabilityEntries) SubstEntriesMany(subs map[string]Type, levelSubs map
 				}
 			}
 		}
-		newGrades, gradesChanged := substManyRowGrades(f.Grades, subs, levelSubs, fvUnion, depth)
+		newGrades, gradesChanged := substManyRowGrades(ops, f.Grades, subs, levelSubs, fvUnion, depth)
 		fieldChanged := newT != f.Type || labelChanged || gradesChanged
 		if fieldChanged && fields == nil {
 			fields = make([]RowField, len(c.Fields))
@@ -95,10 +95,10 @@ func capabilityLabelLiteral(t Type) (string, bool) {
 
 // substRowGrades applies single-var substDepth to a grade slice, lazy-allocating
 // on first change.
-func substRowGrades(grades []Type, varName string, replacement Type, depth int) ([]Type, bool) {
+func substRowGrades(ops *TypeOps, grades []Type, varName string, replacement Type, depth int) ([]Type, bool) {
 	var out []Type // nil until first change
 	for j, g := range grades {
-		ng := substDepth(g, varName, replacement, depth)
+		ng := substDepth(ops, g, varName, replacement, depth)
 		if out == nil && ng != g {
 			out = make([]Type, len(grades))
 			copy(out[:j], grades[:j])
@@ -115,10 +115,10 @@ func substRowGrades(grades []Type, varName string, replacement Type, depth int) 
 
 // substManyRowGrades applies parallel substManyOpt to a grade slice,
 // lazy-allocating on first change.
-func substManyRowGrades(grades []Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) ([]Type, bool) {
+func substManyRowGrades(ops *TypeOps, grades []Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) ([]Type, bool) {
 	var out []Type // nil until first change
 	for j, g := range grades {
-		ng := substManyOpt(g, subs, levelSubs, fvUnion, depth)
+		ng := substManyOpt(ops, g, subs, levelSubs, fvUnion, depth)
 		if out == nil && ng != g {
 			out = make([]Type, len(grades))
 			copy(out[:j], grades[:j])
@@ -136,10 +136,10 @@ func substManyRowGrades(grades []Type, subs map[string]Type, levelSubs map[strin
 // --- ConstraintEntries ---
 
 // SubstEntries applies [varName := replacement] to a constraint fiber.
-func (c *ConstraintEntries) SubstEntries(varName string, replacement Type, depth int) (EvidenceEntries, bool) {
+func (c *ConstraintEntries) SubstEntries(ops *TypeOps, varName string, replacement Type, depth int) (EvidenceEntries, bool) {
 	var entries []ConstraintEntry // nil until first change (lazy alloc)
 	for i, e := range c.Entries {
-		newE, entryChanged := substConstraintEntry(e, varName, replacement, depth)
+		newE, entryChanged := substConstraintEntry(ops, e, varName, replacement, depth)
 		if entryChanged && entries == nil {
 			entries = make([]ConstraintEntry, len(c.Entries))
 			copy(entries[:i], c.Entries[:i])
@@ -155,10 +155,10 @@ func (c *ConstraintEntries) SubstEntries(varName string, replacement Type, depth
 }
 
 // SubstEntriesMany applies a parallel substitution to a constraint fiber.
-func (c *ConstraintEntries) SubstEntriesMany(subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
+func (c *ConstraintEntries) SubstEntriesMany(ops *TypeOps, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
 	var entries []ConstraintEntry // nil until first change (lazy alloc)
 	for i, e := range c.Entries {
-		newE, entryChanged := substManyConstraintEntry(e, subs, levelSubs, fvUnion, depth)
+		newE, entryChanged := substManyConstraintEntry(ops, e, subs, levelSubs, fvUnion, depth)
 		if entryChanged && entries == nil {
 			entries = make([]ConstraintEntry, len(c.Entries))
 			copy(entries[:i], c.Entries[:i])

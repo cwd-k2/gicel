@@ -32,14 +32,14 @@ func (o *TypeOps) Subst(t Type, varName string, replacement Type) Type {
 	if !occursIn(varName, t, nil, 0) {
 		return t
 	}
-	return substDepth(t, varName, replacement, 0)
+	return substDepth(o, t, varName, replacement, 0)
 }
 
 // SubstLevel replaces a level variable inside TyCon.Level fields throughout a type.
 // This is separate from Subst because level variables live in LevelExpr positions
 // inside TyCon (and TyCBPV grade), not in Type positions.
 func (o *TypeOps) SubstLevel(t Type, levelVarName string, replacement LevelExpr) Type {
-	return substLevel(t, levelVarName, replacement, 0)
+	return substLevel(o, t, levelVarName, replacement, 0)
 }
 
 // SubstMany applies a parallel substitution: every variable in typeSubs
@@ -56,7 +56,7 @@ func (o *TypeOps) SubstMany(t Type, typeSubs map[string]Type, levelSubs map[stri
 		return t
 	}
 	var fvUnion map[string]bool
-	return substManyOpt(t, typeSubs, levelSubs, &fvUnion, 0)
+	return substManyOpt(o, t, typeSubs, levelSubs, &fvUnion, 0)
 }
 
 // PeelForalls instantiates a chain of TyForall binders by repeatedly calling
@@ -142,7 +142,7 @@ func (o *TypeOps) PrepareSubst(subs map[string]Type) *PreparedSubst {
 
 // --- Internal implementation (package-level, original signatures) ---
 
-func substDepth(t Type, varName string, replacement Type, depth int) Type {
+func substDepth(ops *TypeOps, t Type, varName string, replacement Type, depth int) Type {
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
@@ -157,26 +157,26 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		if ty.Var == varName {
 			return ty // shadowed
 		}
-		newKind := substDepth(ty.Kind, varName, replacement, depth+1)
+		newKind := substDepth(ops, ty.Kind, varName, replacement, depth+1)
 		// Capture avoidance.
 		if occursIn(ty.Var, replacement, nil, 0) {
 			fresh := freshName(ty.Var)
-			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-			body = substDepth(body, varName, replacement, depth+1)
+			body := substDepth(ops, ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+			body = substDepth(ops, body, varName, replacement, depth+1)
 			return &TyForall{Var: fresh, Kind: newKind, Body: body, Flags: MetaFreeFlags(newKind, body), S: ty.S}
 		}
-		newBody := substDepth(ty.Body, varName, replacement, depth+1)
+		newBody := substDepth(ops, ty.Body, varName, replacement, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 
 	case *TyEvidenceRow:
-		newEntries, entriesChanged := ty.Entries.SubstEntries(varName, replacement, depth+1)
+		newEntries, entriesChanged := ty.Entries.SubstEntries(ops, varName, replacement, depth+1)
 		newTail := ty.Tail
 		tailChanged := false
 		if ty.IsOpen() {
-			nt := substDepth(ty.Tail, varName, replacement, depth+1)
+			nt := substDepth(ops, ty.Tail, varName, replacement, depth+1)
 			if nt != ty.Tail {
 				newTail = nt
 				tailChanged = true
@@ -188,13 +188,13 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
 
 	default:
-		return MapType(t, func(child Type) Type {
-			return substDepth(child, varName, replacement, depth+1)
+		return ops.MapType(t, func(child Type) Type {
+			return substDepth(ops, child, varName, replacement, depth+1)
 		})
 	}
 }
 
-func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
+func substLevel(ops *TypeOps, t Type, name string, repl LevelExpr, depth int) Type {
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
@@ -209,15 +209,15 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 		if ty.Var == name {
 			return ty // shadowed
 		}
-		newKind := substLevel(ty.Kind, name, repl, depth+1)
-		newBody := substLevel(ty.Body, name, repl, depth+1)
+		newKind := substLevel(ops, ty.Kind, name, repl, depth+1)
+		newBody := substLevel(ops, ty.Body, name, repl, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 	default:
-		return MapType(t, func(child Type) Type {
-			return substLevel(child, name, repl, depth+1)
+		return ops.MapType(t, func(child Type) Type {
+			return substLevel(ops, child, name, repl, depth+1)
 		})
 	}
 }

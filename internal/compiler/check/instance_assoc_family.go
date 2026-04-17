@@ -28,7 +28,7 @@ func (ch *Checker) buildAssocFamilyArgs(classInfo *ClassInfo, ps *types.Prepared
 		}
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {
-			superArgs[j] = ps.Apply(a)
+			superArgs[j] = ps.Apply(ch.typeOps, a)
 		}
 		for _, name := range superInfo.AssocTypes {
 			m[name] = superArgs

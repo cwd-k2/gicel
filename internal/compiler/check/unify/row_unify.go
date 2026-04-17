@@ -156,10 +156,10 @@ func (u *Unifier) unifyEvConRows(
 	aEntries []types.ConstraintEntry, aTail types.Type,
 	bEntries []types.ConstraintEntry, bTail types.Type,
 ) error {
-	aN := types.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: aEntries}, Tail: aTail})
-	bN := types.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: bEntries}, Tail: bTail})
+	aN := u.TypeOps.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: aEntries}, Tail: aTail})
+	bN := u.TypeOps.NormalizeConstraints(&types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: bEntries}, Tail: bTail})
 
-	shared, onlyLeft, onlyRight := types.ClassifyConstraints(aN.ConEntries(), bN.ConEntries())
+	shared, onlyLeft, onlyRight := u.TypeOps.ClassifyConstraints(aN.ConEntries(), bN.ConEntries())
 
 	for _, m := range shared {
 		// Dispatch by variant: each constraint entry kind carries different

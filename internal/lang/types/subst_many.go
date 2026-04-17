@@ -14,26 +14,26 @@ type PreparedSubst struct {
 // Apply applies the prepared substitution to a type.
 // The fvUnion is computed lazily on the first TyForall encounter and
 // shared across all subsequent Apply calls on the same PreparedSubst.
-func (ps *PreparedSubst) Apply(t Type) Type {
+func (ps *PreparedSubst) Apply(ops *TypeOps, t Type) Type {
 	if len(ps.subs) == 0 {
 		return t
 	}
-	return substManyOpt(t, ps.subs, nil, &ps.fvUnion, 0)
+	return substManyOpt(ops, t, ps.subs, nil, &ps.fvUnion, 0)
 }
 
 // substManyFVUnion computes the free variable union of all substitution
 // values. Called lazily when capture avoidance is needed (TyForall).
-func substManyFVUnion(subs map[string]Type) map[string]bool {
+func substManyFVUnion(ops *TypeOps, subs map[string]Type) map[string]bool {
 	fvUnion := make(map[string]bool)
 	for _, v := range subs {
-		for name := range FreeVars(v) {
+		for name := range ops.FreeVars(v) {
 			fvUnion[name] = true
 		}
 	}
 	return fvUnion
 }
 
-func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) Type {
+func substManyOpt(ops *TypeOps, t Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) Type {
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
@@ -54,13 +54,13 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 		return &TyCon{Name: ty.Name, Level: newLevel, IsLabel: ty.IsLabel, S: ty.S}
 	case *TyForall:
 		if len(subs) > 0 && *fvUnion == nil {
-			*fvUnion = substManyFVUnion(subs)
+			*fvUnion = substManyFVUnion(ops, subs)
 		}
 		var fv map[string]bool
 		if *fvUnion != nil {
 			fv = *fvUnion
 		}
-		newKind := substManyOpt(ty.Kind, subs, levelSubs, fvUnion, depth+1)
+		newKind := substManyOpt(ops, ty.Kind, subs, levelSubs, fvUnion, depth+1)
 		if _, shadowed := subs[ty.Var]; shadowed {
 			reduced := make(map[string]Type, len(subs)-1)
 			for k, v := range subs {
@@ -76,11 +76,11 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 			}
 			if fv[ty.Var] {
 				fresh := freshName(ty.Var)
-				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-				body = substManyOpt(body, reduced, levelSubs, fvUnion, depth+1)
+				body := substDepth(ops, ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+				body = substManyOpt(ops, body, reduced, levelSubs, fvUnion, depth+1)
 				return &TyForall{Var: fresh, Kind: newKind, Body: body, Flags: MetaFreeFlags(newKind, body), S: ty.S}
 			}
-			newBody := substManyOpt(ty.Body, reduced, levelSubs, fvUnion, depth+1)
+			newBody := substManyOpt(ops, ty.Body, reduced, levelSubs, fvUnion, depth+1)
 			if newKind == ty.Kind && newBody == ty.Body {
 				return ty
 			}
@@ -88,42 +88,42 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 		}
 		if fv[ty.Var] {
 			fresh := freshName(ty.Var)
-			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
-			body = substManyOpt(body, subs, levelSubs, fvUnion, depth+1)
+			body := substDepth(ops, ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
+			body = substManyOpt(ops, body, subs, levelSubs, fvUnion, depth+1)
 			return &TyForall{Var: fresh, Kind: newKind, Body: body, Flags: MetaFreeFlags(newKind, body), S: ty.S}
 		}
-		newBody := substManyOpt(ty.Body, subs, levelSubs, fvUnion, depth+1)
+		newBody := substManyOpt(ops, ty.Body, subs, levelSubs, fvUnion, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
 		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 	case *TyEvidenceRow:
-		return substManyEvidenceRow(ty, subs, levelSubs, fvUnion, depth+1)
+		return substManyEvidenceRow(ops, ty, subs, levelSubs, fvUnion, depth+1)
 	case *TyEvidence:
-		newConstraints := substManyEvidenceRow(ty.Constraints, subs, levelSubs, fvUnion, depth+1)
-		newBody := substManyOpt(ty.Body, subs, levelSubs, fvUnion, depth+1)
+		newConstraints := substManyEvidenceRow(ops, ty.Constraints, subs, levelSubs, fvUnion, depth+1)
+		newBody := substManyOpt(ops, ty.Body, subs, levelSubs, fvUnion, depth+1)
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
 		return &TyEvidence{Constraints: newConstraints, Body: newBody, Flags: MetaFreeFlags(newConstraints, newBody), S: ty.S}
 	default:
-		return MapType(t, func(child Type) Type {
-			return substManyOpt(child, subs, levelSubs, fvUnion, depth+1)
+		return ops.MapType(t, func(child Type) Type {
+			return substManyOpt(ops, child, subs, levelSubs, fvUnion, depth+1)
 		})
 	}
 }
 
-func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) *TyEvidenceRow {
+func substManyEvidenceRow(ops *TypeOps, row *TyEvidenceRow, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) *TyEvidenceRow {
 	if row == nil {
 		return nil
 	}
 	if depth > maxTraversalDepth {
 		depthExceeded()
 	}
-	newEntries, changed := row.Entries.SubstEntriesMany(subs, levelSubs, fvUnion, depth+1)
+	newEntries, changed := row.Entries.SubstEntriesMany(ops, subs, levelSubs, fvUnion, depth+1)
 	var newTail Type
 	if row.IsOpen() {
-		newTail = substManyOpt(row.Tail, subs, levelSubs, fvUnion, depth+1)
+		newTail = substManyOpt(ops, row.Tail, subs, levelSubs, fvUnion, depth+1)
 		if newTail != row.Tail {
 			changed = true
 		}
@@ -136,10 +136,10 @@ func substManyEvidenceRow(row *TyEvidenceRow, subs map[string]Type, levelSubs ma
 
 // substTypeSlice applies substDepth to every element of ts, returning the
 // original slice unchanged (and false) when no element was modified.
-func substTypeSlice(ts []Type, varName string, replacement Type, depth int) ([]Type, bool) {
+func substTypeSlice(ops *TypeOps, ts []Type, varName string, replacement Type, depth int) ([]Type, bool) {
 	var out []Type // nil until first change (lazy alloc)
 	for j, t := range ts {
-		newT := substDepth(t, varName, replacement, depth)
+		newT := substDepth(ops, t, varName, replacement, depth)
 		if out == nil && newT != t {
 			out = make([]Type, len(ts))
 			copy(out[:j], ts[:j])
@@ -156,10 +156,10 @@ func substTypeSlice(ts []Type, varName string, replacement Type, depth int) ([]T
 
 // substManyTypeSlice applies substManyOpt to every element of ts, returning
 // the original slice unchanged (and false) when no element was modified.
-func substManyTypeSlice(ts []Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) ([]Type, bool) {
+func substManyTypeSlice(ops *TypeOps, ts []Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) ([]Type, bool) {
 	var out []Type // nil until first change (lazy alloc)
 	for j, t := range ts {
-		newT := substManyOpt(t, subs, levelSubs, fvUnion, depth)
+		newT := substManyOpt(ops, t, subs, levelSubs, fvUnion, depth)
 		if out == nil && newT != t {
 			out = make([]Type, len(ts))
 			copy(out[:j], ts[:j])

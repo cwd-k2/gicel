@@ -782,7 +782,7 @@ func TestNormalizeConstraints(t *testing.T) {
 			&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Var("a")}},
 		}},
 	}
-	norm := NormalizeConstraints(cr)
+	norm := testOps.NormalizeConstraints(cr)
 	if HeadClassName(norm.ConEntries()[0]) != "Eq" {
 		t.Errorf("first entry should be Eq, got %s", HeadClassName(norm.ConEntries()[0]))
 	}
@@ -799,7 +799,7 @@ func TestNormalizeConstraintsSameClassName(t *testing.T) {
 			&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Var("a")}},
 		}},
 	}
-	norm := NormalizeConstraints(cr)
+	norm := testOps.NormalizeConstraints(cr)
 	// "Eq a" < "Eq b" canonically.
 	first := norm.ConEntries()[0].(*ClassEntry)
 	if testOps.Pretty(first.Args[0]) != "a" {
@@ -809,7 +809,7 @@ func TestNormalizeConstraintsSameClassName(t *testing.T) {
 
 func TestNormalizeConstraintsSingle(t *testing.T) {
 	cr := SingleConstraint("Eq", []Type{testOps.Var("a")})
-	norm := NormalizeConstraints(cr)
+	norm := testOps.NormalizeConstraints(cr)
 	if norm != cr {
 		t.Error("single-entry normalization should return same pointer")
 	}
@@ -820,9 +820,9 @@ func TestConstraintKey(t *testing.T) {
 	e2 := &ClassEntry{ClassName: "Eq", Args: []Type{testOps.Var("b")}}
 	e3 := &ClassEntry{ClassName: "Ord", Args: []Type{testOps.Var("a")}}
 
-	k1 := ConstraintKey(e1)
-	k2 := ConstraintKey(e2)
-	k3 := ConstraintKey(e3)
+	k1 := testOps.ConstraintKey(e1)
+	k2 := testOps.ConstraintKey(e2)
+	k3 := testOps.ConstraintKey(e3)
 
 	if k1 == k2 {
 		t.Error("Eq a and Eq b should have different keys")
@@ -831,14 +831,14 @@ func TestConstraintKey(t *testing.T) {
 		t.Error("Eq a and Ord a should have different keys")
 	}
 	// Deterministic.
-	if k1 != ConstraintKey(e1) {
+	if k1 != testOps.ConstraintKey(e1) {
 		t.Error("key should be deterministic")
 	}
 }
 
 func TestExtendConstraint(t *testing.T) {
 	cr := SingleConstraint("Eq", []Type{testOps.Var("a")})
-	extended := ExtendConstraint(cr, &ClassEntry{ClassName: "Ord", Args: []Type{testOps.Var("a")}})
+	extended := testOps.ExtendConstraint(cr, &ClassEntry{ClassName: "Ord", Args: []Type{testOps.Var("a")}})
 	if len(extended.ConEntries()) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(extended.ConEntries()))
 	}

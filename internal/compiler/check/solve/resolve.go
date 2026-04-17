@@ -206,7 +206,7 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 	for superIdx, sup := range classInfo.Supers {
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {
-			superArgs[j] = ps.Apply(a)
+			superArgs[j] = ps.Apply(sd.solver.TypeOps, a)
 		}
 
 		extractExpr := sd.solver.ExtractDictField(classInfo, dictExpr, superIdx, "sf", sd.s)

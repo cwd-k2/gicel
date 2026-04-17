@@ -90,7 +90,7 @@ func (s *Solver) isAmbiguousInstance(className string, args []types.Type) bool {
 		ps := s.TypeOps.PrepareSubst(freshSubst)
 		matched := s.probeScope(func() bool {
 			for i := range args {
-				instArg := ps.Apply(inst.TypeArgs[i])
+				instArg := ps.Apply(s.TypeOps, inst.TypeArgs[i])
 				if err := s.env.Unify(instArg, args[i]); err != nil {
 					return false
 				}

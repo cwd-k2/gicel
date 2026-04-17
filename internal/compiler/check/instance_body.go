@@ -47,7 +47,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	for _, sup := range classInfo.Supers {
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {
-			superArgs[j] = ps.Apply(a)
+			superArgs[j] = ps.Apply(ch.typeOps, a)
 		}
 		superDictExpr := ch.solver.ResolveInstance(sup.ClassName, superArgs, inst.S)
 		dictArgs = append(dictArgs, superDictExpr)
@@ -66,7 +66,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 		if !ok {
 			continue
 		}
-		expectedTy := ps.Apply(m.Type)
+		expectedTy := ps.Apply(ch.typeOps, m.Type)
 		if len(familyArgs) > 0 {
 			expectedTy = ch.saturateAssocFamilies(expectedTy, familyArgs)
 		}

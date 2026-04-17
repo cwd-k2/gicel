@@ -242,8 +242,8 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 	psA := ch.typeOps.PrepareSubst(ch.freshInstanceSubst(a))
 	psB := ch.typeOps.PrepareSubst(ch.freshInstanceSubst(b))
 	for i := range a.TypeArgs {
-		argA := psA.Apply(a.TypeArgs[i])
-		argB := psB.Apply(b.TypeArgs[i])
+		argA := psA.Apply(ch.typeOps, a.TypeArgs[i])
+		argB := psB.Apply(ch.typeOps, b.TypeArgs[i])
 		if err := ch.unifier.Unify(argA, argB); err != nil {
 			return false
 		}

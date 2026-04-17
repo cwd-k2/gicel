@@ -20,12 +20,6 @@ type TypeOps struct {
 	// future: allocation state (hash table, arena, etc.)
 }
 
-// defaultOps is the package-level TypeOps instance used by the backward-
-// compatible wrapper functions below. Edge-case callers (ir, optimize)
-// that do not receive a TypeOps from the compiler pipeline use these
-// wrappers and get the zero-value (default) allocation behavior.
-var defaultOps TypeOps
-
 // ---------------------------------------------------------------------------
 // Construction — span-free (default) and span-aware (At suffix) variants.
 //
@@ -176,63 +170,4 @@ func (o *TypeOps) FamilyApp(name string, args []Type, kind Type) *TyFamilyApp {
 // FamilyAppAt creates a type family application with source location.
 func (o *TypeOps) FamilyAppAt(name string, args []Type, kind Type, s span.Span) *TyFamilyApp {
 	return &TyFamilyApp{Name: name, Args: args, Kind: kind, Flags: metaFreeSlice(kind, args) &^ FlagNoFamilyApp, S: s}
-}
-
-// ---------------------------------------------------------------------------
-// Backward-compatible wrapper functions.
-// ---------------------------------------------------------------------------
-
-// --- Construction wrappers ---
-
-func MkApp(fun, arg Type) *TyApp                     { return defaultOps.App(fun, arg) }
-func MkAppGrade(fun, arg Type) *TyApp                { return defaultOps.AppGrade(fun, arg) }
-func MkArrow(from, to Type) *TyArrow                 { return defaultOps.Arrow(from, to) }
-func MkForall(v string, k Type, body Type) *TyForall { return defaultOps.Forall(v, k, body) }
-func MkComp(pre, post, result Type) *TyCBPV          { return defaultOps.Comp(pre, post, result, nil) }
-func MkCompGraded(pre, post, result, grade Type) *TyCBPV {
-	return defaultOps.Comp(pre, post, result, grade)
-}
-func MkThunk(pre, post, result Type) *TyCBPV { return defaultOps.Thunk(pre, post, result, nil) }
-func MkThunkGraded(pre, post, result, grade Type) *TyCBPV {
-	return defaultOps.Thunk(pre, post, result, grade)
-}
-func MkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
-	return defaultOps.Evidence(entries, body)
-}
-func MkCon(name string) *TyCon                { return defaultOps.Con(name) }
-func MkConAt(name string, s span.Span) *TyCon { return defaultOps.ConAt(name, s) }
-func MkVar(name string) *TyVar                { return defaultOps.Var(name) }
-
-// --- Transformation wrappers ---
-
-func MapType(t Type, f func(Type) Type) Type { return defaultOps.MapType(t, f) }
-func Subst(t Type, varName string, replacement Type) Type {
-	return defaultOps.Subst(t, varName, replacement)
-}
-func SubstMany(t Type, typeSubs map[string]Type, levelSubs map[string]LevelExpr) Type {
-	return defaultOps.SubstMany(t, typeSubs, levelSubs)
-}
-func SubstLevel(t Type, levelVarName string, replacement LevelExpr) Type {
-	return defaultOps.SubstLevel(t, levelVarName, replacement)
-}
-func PeelForalls(t Type, visit func(f *TyForall) (typeRepl Type, levelRepl LevelExpr)) Type {
-	return defaultOps.PeelForalls(t, visit)
-}
-func PrepareSubst(subs map[string]Type) *PreparedSubst { return defaultOps.PrepareSubst(subs) }
-
-// --- Query wrappers ---
-
-func Equal(a, b Type) bool                { return defaultOps.Equal(a, b) }
-func FreeVars(t Type) map[string]struct{} { return defaultOps.FreeVars(t) }
-func OccursIn(name string, t Type) bool   { return defaultOps.OccursIn(name, t) }
-
-// --- Display wrappers ---
-
-func Pretty(t Type) string             { return defaultOps.Pretty(t) }
-func PrettyDisplay(t Type) string      { return defaultOps.PrettyDisplay(t) }
-func PrettyTypeAsKind(t Type) string   { return defaultOps.PrettyTypeAsKind(t) }
-func WriteTypeKey(b KeyWriter, t Type) { defaultOps.WriteTypeKey(b, t) }
-func TypeKey(t Type) string            { return defaultOps.TypeKey(t) }
-func TypeListKey(prefix string, sep byte, args []Type) string {
-	return defaultOps.TypeListKey(prefix, sep, args)
 }

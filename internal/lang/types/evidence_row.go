@@ -69,7 +69,7 @@ func RemoveLabel(r *TyEvidenceRow, label string) (RowField, *TyEvidenceRow, bool
 // --- Constraint row operations ---
 
 // NormalizeConstraints sorts constraint entries by canonical key.
-func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
+func (o *TypeOps) NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 	entries := r.ConEntries()
 	if len(entries) <= 1 {
 		return r
@@ -77,7 +77,7 @@ func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 	sorted := make([]ConstraintEntry, len(entries))
 	copy(sorted, entries)
 	slices.SortFunc(sorted, func(a, b ConstraintEntry) int {
-		ka, kb := ConstraintKey(a), ConstraintKey(b)
+		ka, kb := o.ConstraintKey(a), o.ConstraintKey(b)
 		if ka < kb {
 			return -1
 		}
@@ -97,19 +97,19 @@ func NormalizeConstraints(r *TyEvidenceRow) *TyEvidenceRow {
 
 // ExtendConstraint adds a constraint entry to a constraint evidence row,
 // maintaining sorted order by canonical key.
-func ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
+func (o *TypeOps) ExtendConstraint(r *TyEvidenceRow, e ConstraintEntry) *TyEvidenceRow {
 	old := r.ConEntries()
 	entries := make([]ConstraintEntry, len(old)+1)
-	key := ConstraintKey(e)
+	key := o.ConstraintKey(e)
 	inserted := false
 	j := 0
-	for _, o := range old {
-		if !inserted && key < ConstraintKey(o) {
+	for _, existing := range old {
+		if !inserted && key < o.ConstraintKey(existing) {
 			entries[j] = e
 			j++
 			inserted = true
 		}
-		entries[j] = o
+		entries[j] = existing
 		j++
 	}
 	if !inserted {
@@ -238,7 +238,7 @@ type constraintMatch struct {
 // classHeadArgsEqual checks if two class-headed constraint entries have the
 // same class name and structurally equal head args. Non-class variants and
 // mismatched classes return false.
-func classHeadArgsEqual(a, b ConstraintEntry) bool {
+func classHeadArgsEqual(ops *TypeOps, a, b ConstraintEntry) bool {
 	clsA := HeadClassName(a)
 	if clsA == "" || clsA != HeadClassName(b) {
 		return false
@@ -249,7 +249,7 @@ func classHeadArgsEqual(a, b ConstraintEntry) bool {
 		return false
 	}
 	for i := range argsA {
-		if !Equal(argsA[i], argsB[i]) {
+		if !ops.Equal(argsA[i], argsB[i]) {
 			return false
 		}
 	}
@@ -262,7 +262,7 @@ func classHeadArgsEqual(a, b ConstraintEntry) bool {
 //
 // Non-class variants (equality, var) are classified by canonical key so each such
 // entry must find an exact-key match in b; otherwise it falls into onlyA/onlyB.
-func ClassifyConstraints(a, b []ConstraintEntry) (
+func (o *TypeOps) ClassifyConstraints(a, b []ConstraintEntry) (
 	shared []constraintMatch,
 	onlyA, onlyB []ConstraintEntry,
 ) {
@@ -274,7 +274,7 @@ func ClassifyConstraints(a, b []ConstraintEntry) (
 		if cls := HeadClassName(e); cls != "" {
 			bByClass[cls] = append(bByClass[cls], i)
 		} else {
-			bByKey[ConstraintKey(e)] = append(bByKey[ConstraintKey(e)], i)
+			bByKey[o.ConstraintKey(e)] = append(bByKey[o.ConstraintKey(e)], i)
 		}
 	}
 	bUsed := make([]bool, len(b))
@@ -287,7 +287,7 @@ func ClassifyConstraints(a, b []ConstraintEntry) (
 				if bUsed[bi] {
 					continue
 				}
-				if classHeadArgsEqual(ea, b[bi]) {
+				if classHeadArgsEqual(o, ea, b[bi]) {
 					shared = append(shared, constraintMatch{A: ea, B: b[bi]})
 					bUsed[bi] = true
 					matched = true
@@ -306,7 +306,7 @@ func ClassifyConstraints(a, b []ConstraintEntry) (
 				}
 			}
 		} else {
-			key := ConstraintKey(ea)
+			key := o.ConstraintKey(ea)
 			for _, bi := range bByKey[key] {
 				if bUsed[bi] {
 					continue

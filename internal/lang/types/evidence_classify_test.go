@@ -19,7 +19,7 @@ func classKeyOf(e ConstraintEntry) string {
 	if name := HeadClassName(e); name != "" {
 		return name
 	}
-	return ConstraintKey(e)
+	return testOps.ConstraintKey(e)
 }
 
 // --- Class-only matching (regression baseline) ---
@@ -31,7 +31,7 @@ func TestClassifyConstraints_ClassIdentical(t *testing.T) {
 	b := []ConstraintEntry{
 		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 1 {
 		t.Fatalf("expected 1 shared, got %d", len(shared))
 	}
@@ -49,7 +49,7 @@ func TestClassifyConstraints_ClassDifferentArgs(t *testing.T) {
 	b := []ConstraintEntry{
 		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Bool")}},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 1 {
 		t.Fatalf("expected 1 shared (same class name), got %d", len(shared))
 	}
@@ -65,7 +65,7 @@ func TestClassifyConstraints_ClassDifferentClasses(t *testing.T) {
 	b := []ConstraintEntry{
 		&ClassEntry{ClassName: "Ord", Args: []Type{testOps.Con("Int")}},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 0 {
 		t.Errorf("expected 0 shared, got %d", len(shared))
 	}
@@ -87,7 +87,7 @@ func TestClassifyConstraints_EqualityIdentical(t *testing.T) {
 	b := []ConstraintEntry{
 		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 1 {
 		t.Fatalf("expected 1 shared, got %d", len(shared))
 	}
@@ -104,7 +104,7 @@ func TestClassifyConstraints_EqualityDifferentRhs(t *testing.T) {
 	b := []ConstraintEntry{
 		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Bool")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 0 {
 		t.Errorf("expected 0 shared, got %d", len(shared))
 	}
@@ -121,7 +121,7 @@ func TestClassifyConstraints_EqualityDifferentLhs(t *testing.T) {
 	b := []ConstraintEntry{
 		&EqualityEntry{Lhs: testOps.Var("b"), Rhs: testOps.Con("Int")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 0 {
 		t.Errorf("expected 0 shared, got %d", len(shared))
 	}
@@ -139,7 +139,7 @@ func TestClassifyConstraints_VarIdentical(t *testing.T) {
 	b := []ConstraintEntry{
 		&VarEntry{Var: testOps.Var("c")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 1 {
 		t.Fatalf("expected 1 shared, got %d", len(shared))
 	}
@@ -155,7 +155,7 @@ func TestClassifyConstraints_VarDifferent(t *testing.T) {
 	b := []ConstraintEntry{
 		&VarEntry{Var: testOps.Var("c2")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 0 {
 		t.Errorf("expected 0 shared, got %d", len(shared))
 	}
@@ -176,7 +176,7 @@ func TestClassifyConstraints_MixedAllMatched(t *testing.T) {
 		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 2 {
 		t.Fatalf("expected 2 shared, got %d", len(shared))
 	}
@@ -195,7 +195,7 @@ func TestClassifyConstraints_MixedPartialMatch(t *testing.T) {
 		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Bool")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 1 {
 		t.Fatalf("expected 1 shared, got %d", len(shared))
 	}
@@ -218,7 +218,7 @@ func TestClassifyConstraints_OrderIndependence(t *testing.T) {
 		&ClassEntry{ClassName: "Ord", Args: []Type{testOps.Con("Bool")}},
 		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 2 {
 		t.Fatalf("expected 2 shared, got %d", len(shared))
 	}
@@ -235,7 +235,7 @@ func TestClassifyConstraints_EmptyA(t *testing.T) {
 		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 0 {
 		t.Errorf("expected 0 shared, got %d", len(shared))
 	}
@@ -253,7 +253,7 @@ func TestClassifyConstraints_EmptyB(t *testing.T) {
 		&VarEntry{Var: testOps.Var("c")},
 	}
 	b := []ConstraintEntry{}
-	shared, onlyA, onlyB := ClassifyConstraints(a, b)
+	shared, onlyA, onlyB := testOps.ClassifyConstraints(a, b)
 	if len(shared) != 0 {
 		t.Errorf("expected 0 shared, got %d", len(shared))
 	}
