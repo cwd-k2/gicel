@@ -118,7 +118,7 @@ func (s *Solver) resolveFromGlobalInstances(className string, args []types.Type,
 			continue
 		}
 		freshSubst := s.FreshInstanceSubst(inst)
-		ps := types.PrepareSubst(freshSubst)
+		ps := s.TypeOps.PrepareSubst(freshSubst)
 		var dictExpr ir.Core
 		// Wrap both head unification and context resolution in a single trial
 		// so that if context resolution fails, head solutions are rolled back.

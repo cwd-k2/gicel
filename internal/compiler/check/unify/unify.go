@@ -72,6 +72,9 @@ type Unifier struct {
 	// The checker uses this to re-activate stuck type family applications.
 	OnSolve func(metaID int)
 
+	// TypeOps is the type-level operation owner, injected by the Checker.
+	TypeOps *types.TypeOps
+
 	// Budget tracks structural nesting depth. If nil, nesting is unbounded.
 	Budget *budget.CheckBudget
 
@@ -331,8 +334,8 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			freshName := "$u" + strconv.Itoa(*u.freshID)
 			*u.freshID++
 			fresh := &types.TyVar{Name: freshName}
-			bodyA := types.Subst(at.Body, at.Var, fresh)
-			bodyB := types.Subst(bt.Body, bt.Var, fresh)
+			bodyA := u.TypeOps.Subst(at.Body, at.Var, fresh)
+			bodyB := u.TypeOps.Subst(bt.Body, bt.Var, fresh)
 			return u.Unify(bodyA, bodyB)
 		}
 	case *types.TyCBPV:
@@ -390,7 +393,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			// Reflexivity: structurally identical stuck applications always
 			// unify regardless of injectivity. Both sides are already zonked
 			// (lines 195-196), so Equal sees resolved args.
-			if types.Equal(at, bt) {
+			if u.TypeOps.Equal(at, bt) {
 				return nil
 			}
 			// Decompose F(a₁..aₙ) ~ F(b₁..bₙ) only when F is injective.
@@ -419,14 +422,14 @@ func (u *Unifier) Unify(a, b types.Type) error {
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)
 	if len(args) < 3 {
-		return &MismatchError{A: app, B: types.Con(conName)}
+		return &MismatchError{A: app, B: u.TypeOps.Con(conName, span.Span{})}
 	}
 	// Reconstruct head with excess leading args (handles len(args) > 3).
 	conHead := head
 	for _, arg := range args[:len(args)-3] {
 		conHead = &types.TyApp{Fun: conHead, Arg: arg}
 	}
-	if err := u.Unify(conHead, types.Con(conName)); err != nil {
+	if err := u.Unify(conHead, u.TypeOps.Con(conName, span.Span{})); err != nil {
 		return err
 	}
 	for i := range 3 {

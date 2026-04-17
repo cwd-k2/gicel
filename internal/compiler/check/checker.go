@@ -307,6 +307,7 @@ func newChecker(prog *syntax.Program, source *span.Source, config *CheckConfig) 
 		},
 	}
 	ch.solver = solve.New(ch)
+	ch.solver.TypeOps = ch.typeOps
 	ch.solverLevel = ch.solver.Level
 	ch.wireUnifier()
 	ch.initContext()
@@ -350,6 +351,7 @@ func newBudget(ctx context.Context, config *CheckConfig) *budget.CheckBudget {
 // must be free to solve outer metas (e.g. case result type).
 func (ch *Checker) wireUnifier() {
 	ch.unifier = unify.NewUnifierShared(&ch.freshID)
+	ch.unifier.TypeOps = ch.typeOps
 	ch.unifier.SolverLevel = 0
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {

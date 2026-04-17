@@ -127,7 +127,7 @@ func (s *Solver) partitionResiduals(residuals []*CtPlainClass, localSkolems map[
 	for _, r := range residuals {
 		if s.constraintMentionsLocal(r, localSkolems, level) {
 			s.env.AddCodedError(diagnostic.ErrNoInstance, r.S,
-				"cannot resolve "+constraintKey(r.ClassName, s.zonkAll(r.Args))+" (mentions GADT-local type variables)")
+				"cannot resolve "+s.constraintKey(r.ClassName, s.zonkAll(r.Args))+" (mentions GADT-local type variables)")
 		} else {
 			floatable = append(floatable, r)
 		}

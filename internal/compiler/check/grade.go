@@ -66,7 +66,7 @@ func (ch *Checker) resolveGradeAlgebra(gradeKind types.Type) resolvedGradeAlgebr
 			if !hasPromoted {
 				continue
 			}
-			if types.Equal(promoted, gradeKind) {
+			if ch.typeOps.Equal(promoted, gradeKind) {
 				result := ch.extractGradeAlgebra(classInfo, inst)
 				result.valid = true
 				return result

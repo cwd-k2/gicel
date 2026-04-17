@@ -51,7 +51,7 @@ func (ch *Checker) checkDo(e *syntax.ExprDo, expected types.Type) ir.Core {
 			return ch.check(desugared, expected)
 		}
 		ch.addDiag(diagnostic.ErrNoInstance, e.S,
-			diagFmt{Format: "do notation for %s requires a GIMonad or Monad instance", Args: []any{types.Pretty(expected)}})
+			diagFmt{Format: "do notation for %s requires a GIMonad or Monad instance", Args: []any{ch.typeOps.Pretty(expected)}})
 		return &ir.Error{S: e.S}
 	}
 
@@ -87,7 +87,7 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 	result := ch.freshMeta(types.TypeOfTypes)
 	headApp := &types.TyApp{Fun: monadHead, Arg: result}
 	ch.emitEq(ty, headApp, s, solve.WithLazyContext(diagnostic.ErrBadComputation, func() string {
-		return "expected " + types.Pretty(monadHead) + " type, got " + types.Pretty(ty)
+		return "expected " + ch.typeOps.Pretty(monadHead) + " type, got " + ch.typeOps.Pretty(ty)
 	}))
 	return result
 }
@@ -134,7 +134,7 @@ func (ch *Checker) resolveGIMonadDict(monadHead types.Type, s span.Span) (ir.Cor
 	// Lift fallback: GIMonad g (Lift head).
 	// Safe for Type→Type monads; do-block elaboration for Lift-wrapped types
 	// produces correct results because these monads have no row parameters.
-	liftedHead := &types.TyApp{Fun: types.Con("Lift"), Arg: head}
+	liftedHead := &types.TyApp{Fun: ch.typeOps.Con("Lift", span.Span{}), Arg: head}
 	gradeMeta2 := ch.freshMeta(types.TypeOfTypes)
 	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta2, liftedHead}, s); ok {
 		return dict, classInfo, true

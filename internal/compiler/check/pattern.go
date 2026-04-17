@@ -121,7 +121,7 @@ func (ch *Checker) checkLabelPattern(p *syntax.PatLabel, scrutTy types.Type) pat
 	choices, _, ok := decomposeVariantType(scrutTy)
 	if !ok {
 		ch.addDiag(diagnostic.ErrTypeMismatch, p.S,
-			diagFmt{Format: "label pattern #%s requires Variant scrutinee, got %s", Args: []any{p.Label, types.Pretty(scrutTy)}})
+			diagFmt{Format: "label pattern #%s requires Variant scrutinee, got %s", Args: []any{p.Label, ch.typeOps.Pretty(scrutTy)}})
 		return patternResult{Pattern: &ir.PLabel{Label: p.Label, S: p.S}}
 	}
 
@@ -136,7 +136,7 @@ func (ch *Checker) checkLabelPattern(p *syntax.PatLabel, scrutTy types.Type) pat
 	fieldTy := types.RowFieldType(row.CapFields(), p.Label)
 	if fieldTy == nil {
 		ch.addDiag(diagnostic.ErrTypeMismatch, p.S,
-			diagFmt{Format: "label #%s not present in Variant row %s", Args: []any{p.Label, types.Pretty(choices)}})
+			diagFmt{Format: "label #%s not present in Variant row %s", Args: []any{p.Label, ch.typeOps.Pretty(choices)}})
 		return patternResult{Pattern: &ir.PLabel{Label: p.Label, S: p.S}}
 	}
 
@@ -198,10 +198,10 @@ type pendingCV struct {
 func (ch *Checker) instantiateConForalls(conTy types.Type) (types.Type, map[int]string) {
 	// Get the return type's free vars (strip arrows from after foralls).
 	_, retTy := decomposeConSig(conTy)
-	retFreeVars := types.FreeVars(retTy)
+	retFreeVars := ch.typeOps.FreeVars(retTy)
 
 	skolemIDs := map[int]string{}
-	body := types.PeelForalls(conTy, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+	body := ch.typeOps.PeelForalls(conTy, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 		if _, isUniversal := retFreeVars[f.Var]; isUniversal {
 			return ch.freshMeta(f.Kind), nil
 		}

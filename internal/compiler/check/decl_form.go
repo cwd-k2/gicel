@@ -2,6 +2,7 @@ package check
 
 import (
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -39,7 +40,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	ch.reg.RegisterDataType(d.Name, dataInfo)
 
 	// Build result type: T a b c ...
-	var resultType types.Type = types.ConAt(d.Name, d.S)
+	var resultType types.Type = ch.typeOps.Con(d.Name, d.S)
 	for _, p := range parts.Params {
 		arg := &types.TyVar{Name: p.Name, S: p.S}
 		resultType = &types.TyApp{Fun: resultType, Arg: arg, Flags: types.MetaFreeFlags(resultType, arg), S: d.S}
@@ -70,13 +71,13 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		// Detect GADT: if the constructor's return type differs from the
 		// generic result type (T a b c ...), this is a refined return type.
 		var gadtReturnType types.Type
-		if !types.Equal(retTy, resultType) {
+		if !ch.typeOps.Equal(retTy, resultType) {
 			gadtReturnType = retTy
 		}
 
 		// Wrap in forall for type params.
 		for i := len(parts.Params) - 1; i >= 0; i-- {
-			conType = types.MkForall(parts.Params[i].Name, paramKinds[i], conType)
+			conType = ch.typeOps.Forall(parts.Params[i].Name, paramKinds[i], conType, span.Span{})
 		}
 
 		ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})

@@ -22,10 +22,10 @@ func (e *ReduceEnv) VerifyInjectivity(info *env.TypeFamilyInfo) {
 			// variables in the RHS and LHS share the same fresh metas.
 			subsI := e.freshPatVarSubst(eqI.Patterns, info.Params)
 			subsJ := e.freshPatVarSubst(eqJ.Patterns, info.Params)
-			rhsI := types.SubstMany(eqI.RHS, subsI, nil)
-			rhsJ := types.SubstMany(eqJ.RHS, subsJ, nil)
-			patsI := substManyList(eqI.Patterns, subsI)
-			patsJ := substManyList(eqJ.Patterns, subsJ)
+			rhsI := e.TypeOps.SubstMany(eqI.RHS, subsI, nil)
+			rhsJ := e.TypeOps.SubstMany(eqJ.RHS, subsJ, nil)
+			patsI := e.substManyList(eqI.Patterns, subsI)
+			patsJ := e.substManyList(eqJ.Patterns, subsJ)
 
 			if e.TryUnify(rhsI, rhsJ) {
 				allMatch := true
@@ -59,10 +59,10 @@ func (e *ReduceEnv) freshPatVarSubst(patterns []types.Type, params []env.TFParam
 }
 
 // substManyList applies a substitution to each element of a type list.
-func substManyList(ts []types.Type, subs map[string]types.Type) []types.Type {
+func (e *ReduceEnv) substManyList(ts []types.Type, subs map[string]types.Type) []types.Type {
 	result := make([]types.Type, len(ts))
 	for i, t := range ts {
-		result[i] = types.SubstMany(t, subs, nil)
+		result[i] = e.TypeOps.SubstMany(t, subs, nil)
 	}
 	return result
 }

@@ -28,7 +28,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 		coreFields = append(coreFields, ir.Field{Label: f.Label, Value: coreVal})
 	}
 	row := types.ClosedRow(fields...)
-	recTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: row, S: e.S}
+	recTy := &types.TyApp{Fun: ch.typeOps.Con(types.TyConRecord, span.Span{}), Arg: row, S: e.S}
 	return ch.unifier.Zonk(recTy), &ir.RecordLit{Fields: coreFields, S: e.S}
 }
 
@@ -85,7 +85,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 		Tail: tailMeta,
 		S:    s,
 	}
-	expectedRecTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: expectedRow, S: s}
+	expectedRecTy := &types.TyApp{Fun: ch.typeOps.Con(types.TyConRecord, span.Span{}), Arg: expectedRow, S: s}
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
 		ch.addDiag(diagnostic.ErrRowMismatch, s, diagWithType{Context: "expected record with field " + label + ", got ", Type: ty})
 		return ch.freshMeta(types.TypeOfTypes)
@@ -145,7 +145,7 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 		}
 	}
 	row := types.ClosedRow(rowFields...)
-	recTy := &types.TyApp{Fun: types.Con(types.TyConRecord), Arg: row, S: e.S}
+	recTy := &types.TyApp{Fun: ch.typeOps.Con(types.TyConRecord, span.Span{}), Arg: row, S: e.S}
 	coreExpr := &ir.RecordLit{Fields: coreFields, S: e.S}
 	return ch.subsCheck(ch.unifier.Zonk(recTy), expected, coreExpr, e.S)
 }

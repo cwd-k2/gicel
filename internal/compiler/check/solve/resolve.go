@@ -89,7 +89,7 @@ func (s *Solver) resolveInstance(className string, args []types.Type, sp span.Sp
 	defer s.env.LeaveResolve()
 
 	// Cycle detection: build a key from (class, zonked args) and check the stack.
-	key := types.TypeListKey(className, ' ', args)
+	key := s.TypeOps.TypeListKey(className, ' ', args)
 	if slices.Contains(s.resolveStack, key) {
 		s.env.AddCodedError(diagnostic.ErrResolutionDepth, sp,
 			"cyclic instance dependency: "+className+" "+s.prettyTypeArgs(args))
@@ -202,7 +202,7 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 		}
 	}
 
-	ps := types.PrepareSubst(subst)
+	ps := sd.solver.TypeOps.PrepareSubst(subst)
 	for superIdx, sup := range classInfo.Supers {
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {

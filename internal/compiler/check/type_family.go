@@ -104,7 +104,7 @@ func (ch *Checker) processTypeFamilyDecl(
 	if ch.config.HoverRecorder != nil {
 		var kind types.Type = resultKind
 		for i := len(params) - 1; i >= 0; i-- {
-			kind = types.MkArrow(params[i].Kind, kind)
+			kind = ch.typeOps.Arrow(params[i].Kind, kind, span.Span{})
 		}
 		ch.config.HoverRecorder.RecordDecl(s, DeclAlias, name, kind)
 	}
@@ -121,6 +121,7 @@ func (ch *Checker) familyEnv() *family.ReduceEnv {
 			LookupFamily: ch.lookupFamily,
 			Budget:       ch.budget,
 			Unifier:      ch.unifier,
+			TypeOps:      ch.typeOps,
 			FreshMeta:    ch.freshMeta,
 			AddError: func(code diagnostic.Code, s span.Span, msg string) {
 				ch.addDiag(code, s, diagMsg(msg))
@@ -240,5 +241,5 @@ func (ch *Checker) registerStuckViaInert(name string, args []types.Type, resultK
 // pattern lists always produce distinct mangled names.
 func (ch *Checker) mangledDataFamilyName(familyName string, patterns []types.Type) string {
 	prefix := fmt.Sprintf("%s$$%d", familyName, len(patterns))
-	return types.TypeListKey(prefix, '$', patterns)
+	return ch.typeOps.TypeListKey(prefix, '$', patterns)
 }

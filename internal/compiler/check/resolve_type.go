@@ -166,7 +166,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// Emit immediately — this handles edge cases where ~ appears
 		// outside constraint position (e.g. in standalone type expressions).
 		r.emitEq(lhs, rhs, t.S, nil)
-		return types.Con("()")
+		return r.unifier.TypeOps.Con("()", span.Span{})
 	case *syntax.TyExprParen:
 		return r.resolveTypeExpr(t.Inner)
 	case *syntax.TyExprLabelLit:
@@ -303,13 +303,13 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 			}
 			var body types.Type
 			if len(info.Params) == 1 {
-				body = types.Subst(info.Body, info.Params[0], args[0])
+				body = r.unifier.TypeOps.Subst(info.Body, info.Params[0], args[0])
 			} else {
 				subs := make(map[string]types.Type, len(info.Params))
 				for i, p := range info.Params {
 					subs[p] = args[i]
 				}
-				body = types.SubstMany(info.Body, subs, nil)
+				body = r.unifier.TypeOps.SubstMany(info.Body, subs, nil)
 			}
 			// Re-check the expanded result: alias expansion may produce a
 			// saturated Computation/Thunk TyApp chain that needs TyCBPV conversion.

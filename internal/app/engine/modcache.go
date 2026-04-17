@@ -8,7 +8,7 @@ import (
 
 // writeTypesMap writes a sorted map[string]types.Type as a deterministic
 // byte sequence using WriteTypeKey (injective).
-func writeTypesMap(b types.KeyWriter, m map[string]types.Type) {
+func writeTypesMap(b types.KeyWriter, m map[string]types.Type, ops *types.TypeOps) {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -17,7 +17,7 @@ func writeTypesMap(b types.KeyWriter, m map[string]types.Type) {
 	for _, k := range keys {
 		b.WriteString(k)
 		b.WriteByte('=')
-		types.WriteTypeKey(b, m[k])
+		ops.WriteTypeKey(b, m[k])
 		b.WriteByte(0)
 	}
 }

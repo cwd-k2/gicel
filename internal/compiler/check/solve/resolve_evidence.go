@@ -73,7 +73,7 @@ func (s *Solver) applyQuantifiedEvidence(e *env.CtxEvidence, className string, a
 
 	// Wrap head unification and context resolution in a single trial
 	// so that if context resolution fails, head solutions are rolled back.
-	ps := types.PrepareSubst(freshSubst)
+	ps := s.TypeOps.PrepareSubst(freshSubst)
 	var dictExpr ir.Core
 	savedErrs := s.env.ErrorCount()
 	if !s.trialScope(func() bool {
@@ -146,8 +146,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		// Also create fresh metas for the instance's own free vars.
 		instSubst := s.FreshInstanceSubst(inst)
 
-		psHead := types.PrepareSubst(freshSubst)
-		psInst := types.PrepareSubst(instSubst)
+		psHead := s.TypeOps.PrepareSubst(freshSubst)
+		psInst := s.TypeOps.PrepareSubst(instSubst)
 		if !s.probeScope(func() bool {
 			for i := range qc.Head.Args {
 				headArg := psHead.Apply(qc.Head.Args[i])
@@ -213,8 +213,8 @@ func (s *Solver) resolveQuantifiedConstraint(qc *types.QuantifiedConstraint, sp 
 		for _, v := range eq.Vars {
 			evidenceSubst[v.Name] = s.env.FreshMeta(v.Kind)
 		}
-		psWanted := types.PrepareSubst(wantedSubst)
-		psEvidence := types.PrepareSubst(evidenceSubst)
+		psWanted := s.TypeOps.PrepareSubst(wantedSubst)
+		psEvidence := s.TypeOps.PrepareSubst(evidenceSubst)
 		if !s.probeScope(func() bool {
 			for i := range qc.Head.Args {
 				wantedArg := psWanted.Apply(qc.Head.Args[i])

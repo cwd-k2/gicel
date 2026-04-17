@@ -117,11 +117,11 @@ func (e *Engine) runtimeFingerprint() [32]byte {
 }
 
 func (e *Engine) writeModuleEnvSection(b types.KeyWriter) {
-	writeTypesMap(b, e.host.registeredTys)
+	writeTypesMap(b, e.host.registeredTys, e.typeOps)
 	_ = b.WriteByte(0)
-	writeTypesMap(b, e.host.assumptions)
+	writeTypesMap(b, e.host.assumptions, e.typeOps)
 	_ = b.WriteByte(0)
-	writeTypesMap(b, e.host.bindings)
+	writeTypesMap(b, e.host.bindings, e.typeOps)
 	_ = b.WriteByte(0)
 	writeBoolMap(b, e.host.gatedBuiltins)
 	_ = b.WriteByte(0)

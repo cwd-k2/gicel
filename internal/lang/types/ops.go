@@ -211,6 +211,9 @@ func Pretty(t Type) string { return defaultOps.Pretty(t) }
 // PrettyDisplay renders a type for IDE display (backward-compatible wrapper).
 func PrettyDisplay(t Type) string { return defaultOps.PrettyDisplay(t) }
 
+// PrettyTypeAsKind renders a kind-level type (backward-compatible wrapper).
+func PrettyTypeAsKind(t Type) string { return defaultOps.PrettyTypeAsKind(t) }
+
 // WriteTypeKey writes a canonical structural key (backward-compatible wrapper).
 func WriteTypeKey(b KeyWriter, t Type) { defaultOps.WriteTypeKey(b, t) }
 

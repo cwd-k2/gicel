@@ -114,7 +114,7 @@ func (ch *Checker) checkAppQL(head syntax.Expr, args []spineArg, expected types.
 	for range args {
 		ty = ch.unifier.Zonk(ty)
 		// Peel foralls (standard instantiation).
-		ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+		ty = ch.typeOps.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 			if isLevelKind(f.Kind) {
 				return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
 			}

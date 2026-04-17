@@ -71,7 +71,7 @@ func typeHasMeta(ty types.Type) bool {
 // could match more than one instance. All trial unifications are rolled back
 // to avoid committing any solutions. Results are cached per-solveWanteds scope.
 func (s *Solver) isAmbiguousInstance(className string, args []types.Type) bool {
-	key := constraintKey(className, args)
+	key := s.constraintKey(className, args)
 	if cached, found := s.LookupAmbiguity(key); found {
 		return cached
 	}
@@ -87,7 +87,7 @@ func (s *Solver) isAmbiguousInstance(className string, args []types.Type) bool {
 			continue
 		}
 		freshSubst := s.FreshInstanceSubst(inst)
-		ps := types.PrepareSubst(freshSubst)
+		ps := s.TypeOps.PrepareSubst(freshSubst)
 		matched := s.probeScope(func() bool {
 			for i := range args {
 				instArg := ps.Apply(inst.TypeArgs[i])

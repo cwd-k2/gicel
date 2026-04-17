@@ -60,7 +60,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 		preTy := ch.unifier.Zonk(f.Type)
 		postTy = ch.unifier.Zonk(postTy)
 
-		if !types.Equal(preTy, postTy) {
+		if !ch.typeOps.Equal(preTy, postTy) {
 			continue // transitioned: type changed → OK
 		}
 
@@ -81,7 +81,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 			if !algebra.valid {
 				ch.addDiag(diagnostic.ErrMultiplicity, s,
 					diagFmt{Format: "grade @%s on capability %q requires impl %s %s",
-						Args: []any{types.Pretty(grade), f.Label, gradeAlgebraClassName, types.Pretty(gk)}})
+						Args: []any{ch.typeOps.Pretty(grade), f.Label, gradeAlgebraClassName, ch.typeOps.Pretty(gk)}})
 				continue
 			}
 
@@ -97,7 +97,7 @@ func (ch *Checker) checkGradeBoundary(comp *types.TyCBPV, s span.Span) {
 			if !ch.gradeCanPreserveDynamic(grade, gk) {
 				ch.addDiag(diagnostic.ErrMultiplicity, s,
 					diagFmt{Format: "@%s capability %q must be consumed (type unchanged across computation boundary)",
-						Args: []any{types.Pretty(grade), f.Label}})
+						Args: []any{ch.typeOps.Pretty(grade), f.Label}})
 			}
 		}
 	}
@@ -116,7 +116,7 @@ func (ch *Checker) gradeCanPreserveDynamic(grade types.Type, gradeKind types.Typ
 		// Assume OK; will be checked when the meta solves.
 		return true
 	}
-	return types.Equal(joined, grade)
+	return ch.typeOps.Equal(joined, grade)
 }
 
 // emitGradePreserveConstraint emits a CtFunEq constraint encoding the
@@ -140,7 +140,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		// and here. Fall back to the concrete fast path.
 		if !ch.gradeCanPreserveDynamic(ch.unifier.Zonk(grade), gradeKind) {
 			ch.addDiag(diagnostic.ErrMultiplicity, s,
-				diagFmt{Format: "@%s capability must be consumed (type unchanged across computation boundary)", Args: []any{types.Pretty(grade)}})
+				diagFmt{Format: "@%s capability must be consumed (type unchanged across computation boundary)", Args: []any{ch.typeOps.Pretty(grade)}})
 		}
 		return
 	}
@@ -152,7 +152,7 @@ func (ch *Checker) emitGradePreserveConstraint(grade types.Type, gradeKind types
 		BlockingOn: blocking,
 		OnFailure: func(errSpan span.Span, expected, actual types.Type) {
 			ch.addDiag(diagnostic.ErrMultiplicity, errSpan,
-				diagFmt{Format: "@%s capability must be consumed (grade preservation violation: expected %s, got %s)", Args: []any{types.Pretty(grade), types.Pretty(expected), types.Pretty(actual)}})
+				diagFmt{Format: "@%s capability must be consumed (grade preservation violation: expected %s, got %s)", Args: []any{ch.typeOps.Pretty(grade), ch.typeOps.Pretty(expected), ch.typeOps.Pretty(actual)}})
 		},
 		S: s,
 	}

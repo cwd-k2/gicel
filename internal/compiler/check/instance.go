@@ -171,7 +171,7 @@ func (ch *Checker) validateInstanceContext(className string, typeArgs []types.Ty
 		if ctx.ClassName == className && len(ctx.Args) == len(typeArgs) {
 			selfCycle := true
 			for i := range ctx.Args {
-				if !types.Equal(ctx.Args[i], typeArgs[i]) {
+				if !ch.typeOps.Equal(ctx.Args[i], typeArgs[i]) {
 					selfCycle = false
 					break
 				}
@@ -243,8 +243,8 @@ func (ch *Checker) instancesOverlap(a, b *InstanceInfo) bool {
 	saved := ch.saveState()
 	defer ch.restoreState(saved)
 
-	psA := types.PrepareSubst(ch.freshInstanceSubst(a))
-	psB := types.PrepareSubst(ch.freshInstanceSubst(b))
+	psA := ch.typeOps.PrepareSubst(ch.freshInstanceSubst(a))
+	psB := ch.typeOps.PrepareSubst(ch.freshInstanceSubst(b))
 	for i := range a.TypeArgs {
 		argA := psA.Apply(a.TypeArgs[i])
 		argB := psB.Apply(b.TypeArgs[i])

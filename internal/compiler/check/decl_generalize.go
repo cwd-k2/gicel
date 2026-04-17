@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
+	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -125,7 +126,7 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 	// Wrap in forall.
 	for i := len(unique) - 1; i >= 0; i-- {
 		kind := ch.unifier.Zonk(unique[i].kind)
-		ty = types.MkForall(unique[i].name, kind, ty)
+		ty = ch.typeOps.Forall(unique[i].name, kind, ty, span.Span{})
 	}
 
 	return ty, expr

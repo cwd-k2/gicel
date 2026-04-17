@@ -83,7 +83,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		}
 		ch.recordVarDoc(e.S, e.Name, varMod)
 		if ch.config.Trace != nil {
-			ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, types.Pretty(ty))
+			ch.trace(TraceInfer, e.S, "infer: %s ⇒ %s", e.Name, ch.typeOps.Pretty(ty))
 		}
 		return ch.instantiate(ty, coreExpr)
 
@@ -109,7 +109,7 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		}
 		ch.recordVarDoc(e.S, e.Name, varMod)
 		if ch.config.Trace != nil {
-			ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, types.Pretty(ty))
+			ch.trace(TraceInfer, e.S, "infer: %s.%s ⇒ %s", e.Qualifier, e.Name, ch.typeOps.Pretty(ty))
 		}
 		return ch.instantiate(ty, coreExpr)
 
@@ -246,8 +246,8 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 		// In infer mode, generate fresh metas for param types.
 		paramTy := ch.freshMeta(types.TypeOfTypes)
 		retTy := ch.freshMeta(types.TypeOfTypes)
-		lamCore := ch.checkLam(e, types.MkArrow(paramTy, retTy))
-		return ch.unifier.Zonk(types.MkArrow(paramTy, retTy)), lamCore
+		lamCore := ch.checkLam(e, ch.typeOps.Arrow(paramTy, retTy, span.Span{}))
+		return ch.unifier.Zonk(ch.typeOps.Arrow(paramTy, retTy, span.Span{})), lamCore
 
 	case *syntax.ExprCase:
 		return ch.inferCase(e)
@@ -258,10 +258,10 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 			ch.addDiag(diagnostic.ErrTypeMismatch, e.S, diagMsg("invalid integer literal: "+e.Value))
 			return ch.errorPair(e.S)
 		}
-		return types.Con("Int"), &ir.Lit{Value: val, S: e.S}
+		return ch.typeOps.Con("Int", span.Span{}), &ir.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprStrLit:
-		return types.Con("String"), &ir.Lit{Value: e.Value, S: e.S}
+		return ch.typeOps.Con("String", span.Span{}), &ir.Lit{Value: e.Value, S: e.S}
 
 	case *syntax.ExprDoubleLit:
 		val, err := strconv.ParseFloat(strings.ReplaceAll(e.Value, "_", ""), 64)
@@ -269,10 +269,10 @@ func (ch *Checker) infer(expr syntax.Expr) (ty types.Type, core ir.Core) {
 			ch.addDiag(diagnostic.ErrTypeMismatch, e.S, diagMsg("invalid double literal: "+e.Value))
 			return ch.errorPair(e.S)
 		}
-		return types.Con("Double"), &ir.Lit{Value: val, S: e.S}
+		return ch.typeOps.Con("Double", span.Span{}), &ir.Lit{Value: val, S: e.S}
 
 	case *syntax.ExprRuneLit:
-		return types.Con("Rune"), &ir.Lit{Value: e.Value, S: e.S}
+		return ch.typeOps.Con("Rune", span.Span{}), &ir.Lit{Value: e.Value, S: e.S}
 
 	case *syntax.ExprList:
 		return ch.inferList(e)

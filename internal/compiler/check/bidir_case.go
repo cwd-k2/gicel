@@ -48,7 +48,7 @@ func (ch *Checker) lubPostStates(posts []types.Type, s span.Span) types.Type {
 	for i := 1; i < len(zonked); i++ {
 		r, z := result, zonked[i]
 		ch.emitEq(r, z, s, solve.WithLazyContext(0, func() string {
-			return "divergent post-states in case branches: " + types.Pretty(r) + " vs " + types.Pretty(z)
+			return "divergent post-states in case branches: " + ch.typeOps.Pretty(r) + " vs " + ch.typeOps.Pretty(z)
 		}))
 	}
 	return result
@@ -192,11 +192,11 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	// on failure, then override scrutTy so the per-branch pattern checks do not
 	// produce duplicate "constructor type mismatch" errors.
 	if e.IfDesugar {
-		boolTy := types.Con("Bool")
+		boolTy := ch.typeOps.Con("Bool", span.Span{})
 		if !ch.tryTrivialUnify(scrutTy, boolTy) {
 			// Capture the actual type eagerly: once emitEq unifies the meta,
 			// a lazy Zonk would return Bool (the expected type), not the actual type.
-			actualPretty := types.Pretty(ch.unifier.Zonk(scrutTy))
+			actualPretty := ch.typeOps.Pretty(ch.unifier.Zonk(scrutTy))
 			ch.emitEq(scrutTy, boolTy, e.Scrutinee.Span(), solve.WithLazyContext(0, func() string {
 				return "type mismatch in if-condition: expected Bool, got " + actualPretty
 			}))
@@ -282,7 +282,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	if isComp && len(branchPosts) > 0 {
 		joinedPost := ch.lubPostStates(branchPosts, e.S)
 		ch.emitEq(comp.Post, joinedPost, e.S, solve.WithLazyContext(0, func() string {
-			return "cannot unify case post-state: expected " + types.Pretty(comp.Post) + ", got " + types.Pretty(joinedPost)
+			return "cannot unify case post-state: expected " + ch.typeOps.Pretty(comp.Post) + ", got " + ch.typeOps.Pretty(joinedPost)
 		}))
 	}
 

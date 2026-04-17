@@ -45,7 +45,8 @@ type Solver struct {
 	// If the same key appears twice, the resolution is cyclic.
 	resolveStack []string
 
-	env Env
+	env     Env
+	TypeOps *types.TypeOps // type-level operation owner, injected by the Checker
 }
 
 // New creates a Solver backed by the given environment.
@@ -222,7 +223,7 @@ func (s *Solver) SolveWanteds(
 		}
 		// Discharge from inert set: resolve if not already resolved.
 		if _, exists := resolutions[ct.Placeholder]; !exists {
-			key := constraintKey(ct.ClassName, ct.Args)
+			key := s.constraintKey(ct.ClassName, ct.Args)
 			s.resolveCtPlainClassKeyed(ct, key, resolutions)
 		}
 	}
@@ -237,7 +238,7 @@ func (s *Solver) SolveWanteds(
 			if shouldDefer(ct.ClassName, ct.Args) {
 				stillDeferred = append(stillDeferred, ct)
 			} else {
-				key := constraintKey(ct.ClassName, ct.Args)
+				key := s.constraintKey(ct.ClassName, ct.Args)
 				s.resolveCtPlainClassKeyed(ct, key, resolutions)
 			}
 		}
@@ -261,7 +262,7 @@ func (s *Solver) processCtPlainClass(
 	ct.Args = s.zonkAll(ct.Args)
 
 	// Build canonical key for cache lookup.
-	key := constraintKey(ct.ClassName, ct.Args)
+	key := s.constraintKey(ct.ClassName, ct.Args)
 
 	// Check if the inert set already has an identical resolved constraint.
 	if cachedPlaceholder := s.inertSet.LookupResolution(key); cachedPlaceholder != "" {
@@ -296,7 +297,7 @@ func (s *Solver) processCtVarClass(
 	cn, cArgs, ok := types.DecomposeConstraintType(cv)
 	if !ok {
 		s.env.AddCodedError(diagnostic.ErrNoInstance, ct.S,
-			"cannot resolve constraint variable "+types.Pretty(cv))
+			"cannot resolve constraint variable "+s.TypeOps.Pretty(cv))
 		resolutions[ct.Placeholder] = &ir.Var{Name: "<no-instance>", S: ct.S}
 		return
 	}
@@ -331,8 +332,8 @@ func (s *Solver) resolveCtPlainClassKeyed(ct *CtPlainClass, key string, resoluti
 
 // constraintKey builds a canonical key for a class constraint.
 // Injective: distinct (className, zonked args) produce distinct keys.
-func constraintKey(className string, args []types.Type) string {
-	return types.TypeListKey(className, ' ', args)
+func (s *Solver) constraintKey(className string, args []types.Type) string {
+	return s.TypeOps.TypeListKey(className, ' ', args)
 }
 
 // processCtEq handles a type equality constraint: Lhs ~ Rhs.
@@ -437,7 +438,7 @@ func (s *Solver) reportEqError(ct *CtEq, lhs, rhs types.Type) {
 		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S, ct.Origin.Context())
 	} else {
 		s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
-			"unsatisfiable type equality: "+types.Pretty(lhs)+" ~ "+types.Pretty(rhs))
+			"unsatisfiable type equality: "+s.TypeOps.Pretty(lhs)+" ~ "+s.TypeOps.Pretty(rhs))
 	}
 }
 
@@ -515,8 +516,8 @@ func (s *Solver) processCtFunEq(ct *CtFunEq) {
 			} else {
 				s.env.AddCodedError(diagnostic.ErrTypeMismatch, ct.S,
 					"type family "+ct.FamilyName+": reduced to "+
-						types.Pretty(s.env.Zonk(result))+
-						", but expected "+types.Pretty(s.env.Zonk(ct.ResultMeta)))
+						s.TypeOps.Pretty(s.env.Zonk(result))+
+						", but expected "+s.TypeOps.Pretty(s.env.Zonk(ct.ResultMeta)))
 			}
 		}
 		return

@@ -118,12 +118,13 @@ type Engine struct {
 
 // NewEngine creates a new Engine with default limits.
 func NewEngine() *Engine {
+	ops := &types.TypeOps{}
 	e := &Engine{
-		host:       newHostEnv(),
+		host:       newHostEnv(ops),
 		store:      newModuleStore(),
 		compileCtx: context.Background(),
 		cacheStore: defaultCacheStore,
-		typeOps:    &types.TypeOps{},
+		typeOps:    ops,
 		runtimeLimits: RuntimeLimits{
 			stepLimit:  1_000_000,
 			depthLimit: 1_000,

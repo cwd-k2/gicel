@@ -240,7 +240,7 @@ func (d *doChecked) elaborateBind(varName string, comp syntax.Expr, rest []synta
 		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
 			ch.addDiag(diagnostic.ErrTypeMismatch, stmtS,
 				diagFmt{Format: "do bind: pre-state mismatch: expected %s, got %s",
-					Args: []any{types.Pretty(ch.unifier.Zonk(d.comp.Pre)), types.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
+					Args: []any{ch.typeOps.Pretty(ch.unifier.Zonk(d.comp.Pre)), ch.typeOps.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
 		ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, Flags: types.MetaFreeFlags(inferredComp.Post, d.comp.Post, d.comp.Result), S: d.comp.S}
@@ -272,7 +272,7 @@ func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 		if err := ch.unifier.Unify(inferredComp.Pre, d.comp.Pre); err != nil {
 			ch.addDiag(diagnostic.ErrTypeMismatch, stmtS,
 				diagFmt{Format: "do statement: pre-state mismatch: expected %s, got %s",
-					Args: []any{types.Pretty(ch.unifier.Zonk(d.comp.Pre)), types.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
+					Args: []any{ch.typeOps.Pretty(ch.unifier.Zonk(d.comp.Pre)), ch.typeOps.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
 		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, Flags: types.MetaFreeFlags(inferredComp.Post, d.comp.Post, d.comp.Result), S: d.comp.S}
 		savedComp := d.comp
@@ -329,9 +329,9 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	pre := ch.freshMeta(types.TypeOfRows)
 	post := ch.freshMeta(types.TypeOfRows)
 	result := ch.freshMeta(types.TypeOfTypes)
-	expected := types.MkCompGraded(pre, post, result, grade)
+	expected := ch.typeOps.Comp(pre, post, result, grade, span.Span{})
 	if err := ch.unifier.Unify(ty, expected); err != nil {
-		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, "expected computation type, got "+types.Pretty(ty))
+		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, "expected computation type, got "+ch.typeOps.Pretty(ty))
 		return &types.TyError{S: s}
 	}
 	return result

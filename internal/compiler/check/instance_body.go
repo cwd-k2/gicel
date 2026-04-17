@@ -43,7 +43,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 	var dictArgTypes []types.Type
 
 	// Superclass dictionaries.
-	ps := types.PrepareSubst(subst)
+	ps := ch.typeOps.PrepareSubst(subst)
 	for _, sup := range classInfo.Supers {
 		superArgs := make([]types.Type, len(sup.Args))
 		for j, a := range sup.Args {
@@ -102,7 +102,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 				Param: ctxParams[i].name, ParamType: ctxParams[i].ty,
 				Body: dictExpr, Generated: ir.GenDict, S: inst.S,
 			}
-			dictTy = types.MkArrow(ctxParams[i].ty, dictTy)
+			dictTy = ch.typeOps.Arrow(ctxParams[i].ty, dictTy, span.Span{})
 		}
 	}
 
@@ -135,7 +135,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 // instanceDictName generates a dictionary binding name for an instance.
 // Uses types.TypeListKey for collision-free structural encoding of type arguments.
 func (ch *Checker) instanceDictName(className string, typeArgs []types.Type) string {
-	return types.TypeListKey(className, '$', typeArgs)
+	return ch.typeOps.TypeListKey(className, '$', typeArgs)
 }
 
 // processAssocDataDef registers constructors for an associated data family definition
@@ -175,7 +175,7 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	ch.reg.RegisterTypeKind(mangledName, types.TypeOfTypes)
 
 	// Build result type for the mangled data type.
-	var mangledResultType types.Type = types.ConAt(mangledName, field.S)
+	var mangledResultType types.Type = ch.typeOps.Con(mangledName, field.S)
 
 	// Collect free vars from patterns (they become type params of the mangled data type).
 	patVars := collectPatternVars(resolvedPats)
@@ -208,16 +208,16 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	for i := len(conFields) - 1; i >= 0; i-- {
 		fieldTy := ch.resolveTypeExpr(conFields[i])
 		fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
-		conType = types.MkArrow(fieldTy, conType)
+		conType = ch.typeOps.Arrow(fieldTy, conType, span.Span{})
 	}
 	// Wrap in forall for pattern vars.
 	for i := len(patVars) - 1; i >= 0; i-- {
-		conType = types.MkForall(patVars[i], types.TypeOfTypes, conType)
+		conType = ch.typeOps.Forall(patVars[i], types.TypeOfTypes, conType, span.Span{})
 	}
 	// Guard against constructor name collision with existing constructors.
 	if existing, dup := ch.reg.LookupConType(conName); dup {
 		ch.addDiag(diagnostic.ErrDuplicateDecl, field.S,
-			diagFmt{Format: "form family instance %s: constructor %s conflicts with existing constructor (type: %s)", Args: []any{field.Name, conName, types.Pretty(existing)}})
+			diagFmt{Format: "form family instance %s: constructor %s conflicts with existing constructor (type: %s)", Args: []any{field.Name, conName, ch.typeOps.Pretty(existing)}})
 		return
 	}
 	ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
@@ -267,10 +267,10 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ty
 		}) {
 			continue
 		}
-		liftKind := ch.kindOfType(types.Con("Lift"))
+		liftKind := ch.kindOfType(ch.typeOps.Con("Lift", span.Span{}))
 		if liftKind != nil {
-			if ka, ok := liftKind.(*types.TyArrow); ok && types.Equal(ka.From, argKind) {
-				lifted := &types.TyApp{Fun: types.Con("Lift"), Arg: typeArgs[i]}
+			if ka, ok := liftKind.(*types.TyArrow); ok && ch.typeOps.Equal(ka.From, argKind) {
+				lifted := &types.TyApp{Fun: ch.typeOps.Con("Lift", span.Span{}), Arg: typeArgs[i]}
 				liftedKind := ka.To
 				if ch.withTrial(func() bool {
 					return ch.unifier.Unify(liftedKind, paramKind) == nil

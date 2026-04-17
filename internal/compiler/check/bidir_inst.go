@@ -14,7 +14,7 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	ty = ch.unifier.Zonk(ty)
 	// Peel foralls: a higher-rank return type (e.g., from mkId :: () -> \a. a -> a)
 	// must be instantiated before arrow decomposition.
-	ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+	ty = ch.typeOps.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 		if isLevelKind(f.Kind) {
 			return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
 		}
@@ -32,7 +32,7 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	// two statements as a single application `(put (x + 1)) get`, and the
 	// return type of `put (x + 1)` is Computation — not a function.
 	if cbpv, ok := ty.(*types.TyCBPV); ok && cbpv.Tag == types.TagComp {
-		msg := "expected function type, got " + types.Pretty(ty)
+		msg := "expected function type, got " + ch.typeOps.Pretty(ty)
 		hints := []diagnostic.Hint{{Message: "did you forget a ';' between statements in a do-block?"}}
 		ch.addDiagHints(diagnostic.ErrBadApplication, s, diagMsg(msg), hints)
 		return ch.freshMeta(types.TypeOfTypes), ch.freshMeta(types.TypeOfTypes)
@@ -45,8 +45,8 @@ func (ch *Checker) matchArrow(ty types.Type, s span.Span) (types.Type, types.Typ
 	// decomposition metas unsolved when callers need them.
 	argTy := ch.freshMeta(types.TypeOfTypes)
 	retTy := ch.freshMeta(types.TypeOfTypes)
-	if err := ch.unifier.Unify(ty, types.MkArrow(argTy, retTy)); err != nil {
-		ch.addSemanticUnifyError(diagnostic.ErrBadApplication, err, s, "expected function type, got "+types.Pretty(ty))
+	if err := ch.unifier.Unify(ty, ch.typeOps.Arrow(argTy, retTy, span.Span{})); err != nil {
+		ch.addSemanticUnifyError(diagnostic.ErrBadApplication, err, s, "expected function type, got "+ch.typeOps.Pretty(ty))
 	}
 	return argTy, retTy
 }
@@ -126,7 +126,7 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, ir.Core) {
 				}
 			}
 		}
-		resultTy := types.Subst(f.Body, f.Var, ty)
+		resultTy := ch.typeOps.Subst(f.Body, f.Var, ty)
 		return resultTy, &ir.TyApp{Expr: innerCore, TyArg: ty, S: e.S}
 	default:
 		// Non-variable/constructor/TyApp expressions cannot be targets of explicit
@@ -155,7 +155,7 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 			}
 			return ty, expr
 		}
-		ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+		ty = ch.typeOps.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 			if isLevelKind(f.Kind) {
 				// Levels are erased — no TyApp node emitted.
 				return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
@@ -163,7 +163,7 @@ func (ch *Checker) instantiate(ty types.Type, expr ir.Core) (types.Type, ir.Core
 			meta := ch.freshMeta(f.Kind)
 			if ch.config.Trace != nil {
 				ch.trace(TraceInstantiate, span.Span{}, "instantiate: %s → %s[%s := ?%d]",
-					types.Pretty(f), f.Var, types.Pretty(meta), meta.ID)
+					ch.typeOps.Pretty(f), f.Var, ch.typeOps.Pretty(meta), meta.ID)
 			}
 			expr = &ir.TyApp{Expr: expr, TyArg: meta, S: expr.Span()}
 			return meta, nil
@@ -187,7 +187,7 @@ func (ch *Checker) patternName(p syntax.Pattern) string {
 // inferList handles list literal [e1, e2, ...] by desugaring to Cons/Nil chain.
 func (ch *Checker) inferList(e *syntax.ExprList) (types.Type, ir.Core) {
 	elemTy := ch.freshMeta(types.TypeOfTypes)
-	listTy := &types.TyApp{Fun: types.Con("List"), Arg: elemTy, Flags: types.MetaFreeFlags(types.Con("List"), elemTy)}
+	listTy := &types.TyApp{Fun: ch.typeOps.Con("List", span.Span{}), Arg: elemTy, Flags: types.MetaFreeFlags(ch.typeOps.Con("List", span.Span{}), elemTy)}
 
 	// Build from the end: Nil, then Cons e_n (Cons e_{n-1} ...)
 	nilMod, nilOk := ch.reg.LookupConModule("Nil")

@@ -321,7 +321,7 @@ func prettyDisplayAtom(t Type) string {
 
 // PrettyTypeAsKind renders a type that represents a kind (level >= 1).
 // Used for error messages and diagnostics during/after Type/Kind unification.
-func PrettyTypeAsKind(t Type) string {
+func (o *TypeOps) PrettyTypeAsKind(t Type) string {
 	switch ty := t.(type) {
 	case *TyCon:
 		return ty.Name

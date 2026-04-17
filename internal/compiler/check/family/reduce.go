@@ -14,6 +14,7 @@ type ReduceEnv struct {
 	LookupFamily func(name string) (*env.TypeFamilyInfo, bool) // family lookup (includes Scope injections)
 	Budget       *budget.CheckBudget
 	Unifier      *unify.Unifier
+	TypeOps      *types.TypeOps // type-level operation owner
 	FreshMeta    func(k types.Type) *types.TyMeta
 	AddError     func(code diagnostic.Code, s span.Span, msg string)
 	TryUnify     func(a, b types.Type) bool
@@ -81,7 +82,7 @@ func (e *ReduceEnv) ReduceTyFamily(name string, args []types.Type, s span.Span) 
 		subst, result := e.MatchTyPatterns(eq.Patterns, args)
 		switch result {
 		case env.MatchSuccess:
-			rhs, ok := safeSubstMany(eq.RHS, subst)
+			rhs, ok := e.safeSubstMany(eq.RHS, subst)
 			if !ok || types.TypeSize(rhs, maxReductionTypeSize) > maxReductionTypeSize {
 				e.AddError(diagnostic.ErrTypeFamilyReduction, s,
 					"type family "+name+": result type too large (possible exponential growth)")
@@ -122,7 +123,7 @@ func (e *ReduceEnv) MatchTyPattern(pat, arg types.Type, subst map[string]types.T
 			return env.MatchSuccess
 		}
 		if existing, ok := subst[p.Name]; ok {
-			if types.Equal(existing, arg) {
+			if e.TypeOps.Equal(existing, arg) {
 				return env.MatchSuccess
 			}
 			return env.MatchFail
@@ -199,7 +200,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 		if rArgs == nil {
 			rArgs = tf.Args
 		}
-		key := familyAppKey(tf.Name, rArgs)
+		key := e.familyAppKey(tf.Name, rArgs)
 		if e.tfCache != nil {
 			if cached, ok := e.tfCache[key]; ok {
 				return cached
@@ -237,7 +238,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 				for i, a := range args {
 					args[i] = e.reduceFamilyAppsN(a)
 				}
-				key := familyAppKey(con.Name, args)
+				key := e.familyAppKey(con.Name, args)
 				if e.tfCache != nil {
 					if cached, ok := e.tfCache[key]; ok {
 						return cached
@@ -358,7 +359,7 @@ func (e *ReduceEnv) registerStuckFamily(name string, args []types.Type, resultKi
 // than catching all panics: a nil dereference or index-out-of-range from a
 // programming bug should crash loudly, not be silently misclassified as a
 // recoverable depth condition.
-func safeSubstMany(t types.Type, subs map[string]types.Type) (result types.Type, ok bool) {
+func (e *ReduceEnv) safeSubstMany(t types.Type, subs map[string]types.Type) (result types.Type, ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, isDepth := r.(*types.DepthExceededError); isDepth {
@@ -368,10 +369,10 @@ func safeSubstMany(t types.Type, subs map[string]types.Type) (result types.Type,
 			panic(r) // re-panic unrelated panics (real bugs)
 		}
 	}()
-	return types.SubstMany(t, subs, nil), true
+	return e.TypeOps.SubstMany(t, subs, nil), true
 }
 
 // familyAppKey produces a structural cache key for a type family application.
-func familyAppKey(name string, args []types.Type) string {
-	return types.TypeListKey(name, ' ', args)
+func (e *ReduceEnv) familyAppKey(name string, args []types.Type) string {
+	return e.TypeOps.TypeListKey(name, ' ', args)
 }

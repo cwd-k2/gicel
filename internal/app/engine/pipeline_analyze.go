@@ -26,7 +26,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 		// Provide completion entries from loaded modules even on parse failure,
 		// so that editors can offer import-based completions while typing.
 		result.ImportedBindings, result.ImportedModules = pc.flattenStoreExports()
-		result.CompletionEntries = buildCompletionEntries(result)
+		result.CompletionEntries = buildCompletionEntries(result, pc.typeOps)
 		return result
 	}
 
@@ -99,8 +99,8 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 	}
 
 	// Pre-compute LSP data so the server needs no lang/types or lang/syntax imports.
-	result.CompletionEntries = buildCompletionEntries(result)
-	result.DocumentSymbols = buildDocumentSymbolEntries(result)
+	result.CompletionEntries = buildCompletionEntries(result, pc.typeOps)
+	result.DocumentSymbols = buildDocumentSymbolEntries(result, pc.typeOps)
 	result.Definitions = buildDefinitionEntries(result, pc.store)
 
 	return result

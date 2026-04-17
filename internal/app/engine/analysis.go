@@ -64,7 +64,7 @@ func completionDoc(name, sig string) string {
 }
 
 // buildCompletionEntries produces completion data from a compiled program.
-func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
+func buildCompletionEntries(ar *AnalysisResult, ops *types.TypeOps) []CompletionEntry {
 	prog := ar.Program
 	var items []CompletionEntry
 
@@ -72,7 +72,7 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 		if b.Generated.IsGenerated() {
 			continue
 		}
-		sig := types.PrettyDisplay(b.Type)
+		sig := ops.PrettyDisplay(b.Type)
 		items = append(items, CompletionEntry{
 			Label:         b.Name,
 			Kind:          CompletionFunction,
@@ -95,7 +95,7 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 		})
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
-			sig := types.PrettyDisplay(BuildConType(dd, con))
+			sig := ops.PrettyDisplay(BuildConType(dd, con))
 			items = append(items, CompletionEntry{
 				Label:         con.Name,
 				Kind:          CompletionConstructor,
@@ -106,7 +106,7 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 	}
 
 	for name, ty := range ar.ImportedBindings {
-		sig := types.PrettyDisplay(ty)
+		sig := ops.PrettyDisplay(ty)
 		mod := ar.ImportedModules[name]
 		qualName := name
 		if mod != "" {
@@ -125,7 +125,7 @@ func buildCompletionEntries(ar *AnalysisResult) []CompletionEntry {
 }
 
 // buildDocumentSymbolEntries produces document symbol data from analysis results.
-func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
+func buildDocumentSymbolEntries(ar *AnalysisResult, ops *types.TypeOps) []DocumentSymbolEntry {
 	prog := ar.Program
 	var symbols []DocumentSymbolEntry
 
@@ -135,7 +135,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 		}
 		symbols = append(symbols, DocumentSymbolEntry{
 			Name:   b.Name,
-			Detail: types.PrettyDisplay(b.Type),
+			Detail: ops.PrettyDisplay(b.Type),
 			Kind:   SymbolFunction,
 			S:      b.S,
 			NameS:  nameSpan(ar.Source, b.S, b.Name),
@@ -172,7 +172,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult) []DocumentSymbolEntry {
 			}
 			sym.Children = append(sym.Children, DocumentSymbolEntry{
 				Name:   con.Name,
-				Detail: types.PrettyDisplay(BuildConType(dd, con)),
+				Detail: ops.PrettyDisplay(BuildConType(dd, con)),
 				Kind:   SymbolConstructor,
 				S:      con.S,
 				NameS:  nameSpan(ar.Source, con.S, con.Name),

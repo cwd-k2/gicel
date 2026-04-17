@@ -147,11 +147,11 @@ func (ch *Checker) subsCheck(inferred, expected types.Type, expr ir.Core, s span
 			// Default: unify eagerly. subsCheck is on the critical path for type
 			// information flow — metas must be solved immediately for downstream code.
 			if err := ch.unifier.Unify(inferred, expected); err != nil {
-				ch.addUnifyError(err, s, "type mismatch: expected "+types.Pretty(expected)+", got "+types.Pretty(inferred))
+				ch.addUnifyError(err, s, "type mismatch: expected "+ch.typeOps.Pretty(expected)+", got "+ch.typeOps.Pretty(inferred))
 			}
 			return expr
 		}
-		inferred = types.PeelForalls(inferred, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+		inferred = ch.typeOps.PeelForalls(inferred, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 			if isLevelKind(f.Kind) {
 				return ch.freshMeta(types.SortZero), ch.unifier.FreshLevelMeta()
 			}
@@ -243,7 +243,7 @@ func (ch *Checker) withPeeledForallScope(expected types.Type, sp span.Span, chec
 	var lamSpecs []tyLamSpec
 	var pushedCtxs int
 
-	body := types.PeelForalls(expected, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+	body := ch.typeOps.PeelForalls(expected, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 		lamSpecs = append(lamSpecs, tyLamSpec{name: f.Var, kind: f.Kind})
 		if isLevelKind(f.Kind) {
 			freshName := fmt.Sprintf("%s$%d", f.Var, ch.fresh())
