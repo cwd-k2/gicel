@@ -72,7 +72,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 				impFamilyEqKeys[n] = make(map[string]bool)
 			}
 			for _, eq := range fam.Equations {
-				impFamilyEqKeys[n][equationPatternKey(ch.typeOps, eq)] = true
+				impFamilyEqKeys[n][ch.reg.equationPatternKey(eq)] = true
 			}
 		}
 	}
@@ -149,7 +149,7 @@ func filterOwnedOrEnrichedFamilies(ops *types.TypeOps, families map[string]*Type
 		// Check if any local equation is not in any import (= locally enriched).
 		enriched := false
 		for _, eq := range fam.Equations {
-			if !importedKeys[equationPatternKey(ops, eq)] {
+			if !importedKeys[ops.TypeListKey("", ' ', eq.Patterns)] {
 				enriched = true
 				break
 			}

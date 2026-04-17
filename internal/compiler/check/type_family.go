@@ -109,7 +109,7 @@ func (ch *Checker) processTypeFamilyDecl(
 		ch.config.HoverRecorder.RecordDecl(s, DeclAlias, name, kind)
 	}
 
-	_ = ch.reg.RegisterFamily(ch.typeOps, name, info) // closed type families never conflict by name
+	_ = ch.reg.RegisterFamily(name, info) // closed type families never conflict by name
 }
 
 // familyEnv returns the cached family.ReduceEnv, constructing it on first use.
@@ -159,7 +159,7 @@ func (ch *Checker) installFamilyReducer() {
 func (ch *Checker) registerBuiltinRowFamilies() {
 	// Merge :: Row -> Row -> Row
 	if _, exists := ch.reg.LookupFamily(family.RowFamilyMerge); !exists {
-		_ = ch.reg.RegisterFamily(ch.typeOps, family.RowFamilyMerge, &TypeFamilyInfo{
+		_ = ch.reg.RegisterFamily(family.RowFamilyMerge, &TypeFamilyInfo{
 			Name: family.RowFamilyMerge,
 			Params: []TFParam{
 				{Name: "r1", Kind: types.TypeOfRows},
@@ -170,7 +170,7 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 	}
 	// Without :: Label -> Row -> Row
 	if _, exists := ch.reg.LookupFamily(family.RowFamilyWithout); !exists {
-		_ = ch.reg.RegisterFamily(ch.typeOps, family.RowFamilyWithout, &TypeFamilyInfo{
+		_ = ch.reg.RegisterFamily(family.RowFamilyWithout, &TypeFamilyInfo{
 			Name: family.RowFamilyWithout,
 			Params: []TFParam{
 				{Name: "l", Kind: types.TypeOfLabels},
@@ -181,7 +181,7 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 	}
 	// Lookup :: Label -> Row -> Type
 	if _, exists := ch.reg.LookupFamily(family.RowFamilyLookup); !exists {
-		_ = ch.reg.RegisterFamily(ch.typeOps, family.RowFamilyLookup, &TypeFamilyInfo{
+		_ = ch.reg.RegisterFamily(family.RowFamilyLookup, &TypeFamilyInfo{
 			Name: family.RowFamilyLookup,
 			Params: []TFParam{
 				{Name: "l", Kind: types.TypeOfLabels},
@@ -192,7 +192,7 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 	}
 	// MapRow :: (Type -> Type) -> Row -> Row
 	if _, exists := ch.reg.LookupFamily(family.RowFamilyMapRow); !exists {
-		_ = ch.reg.RegisterFamily(ch.typeOps, family.RowFamilyMapRow, &TypeFamilyInfo{
+		_ = ch.reg.RegisterFamily(family.RowFamilyMapRow, &TypeFamilyInfo{
 			Name: family.RowFamilyMapRow,
 			Params: []TFParam{
 				{Name: "f", Kind: &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}},

@@ -33,6 +33,9 @@ type typeResolver struct {
 	// Unifier for kind checking (Zonk, Unify).
 	unifier *unify.Unifier
 
+	// typeOps is the type-level operation owner.
+	typeOps *types.TypeOps
+
 	// Scope-aware alias and family lookups (registry + injected).
 	lookupAlias  func(string) (*AliasInfo, bool)
 	lookupFamily func(string) (*TypeFamilyInfo, bool)
@@ -68,6 +71,7 @@ func (ch *Checker) typeResolver() *typeResolver {
 			reg:             ch.reg,
 			scope:           ch.scope,
 			unifier:         ch.unifier,
+			typeOps:         ch.typeOps,
 			lookupAlias:     ch.lookupAlias,
 			lookupFamily:    ch.lookupFamily,
 			lookupTyVar:     ch.ctx.LookupTyVar,

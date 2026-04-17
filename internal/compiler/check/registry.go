@@ -52,14 +52,20 @@ type Registry struct {
 	promotedKinds     map[string]types.Type      // DataKinds: data name → promoted data kind
 	promotedCons      map[string]types.Type      // DataKinds: nullary con → promoted data kind
 	families          map[string]*TypeFamilyInfo // type family declarations
+	typeOps           *types.TypeOps             // type-level operation owner
 }
 
 func newRegistry(config *CheckConfig) *Registry {
+	ops := config.TypeOps
+	if ops == nil {
+		ops = &types.TypeOps{}
+	}
 	r := &Registry{
 		KindScope: KindScope{
 			kindVars:  make(map[string]bool),
 			levelVars: make(map[string]bool),
 		},
+		typeOps: ops,
 		typeKinds:         make(map[string]types.Type),
 		conModules:        make(map[string]string),
 		conTypes:          make(map[string]types.Type),
@@ -117,7 +123,7 @@ func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 // into an existing family. When multiple modules independently enrich
 // the same associated type family (diamond import), equations from all
 // sources are collected and deduplicated by structural pattern identity.
-func (r *Registry) RegisterFamily(ops *types.TypeOps, name string, info *TypeFamilyInfo) error {
+func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 	existing, ok := r.families[name]
 	if !ok {
 		r.families[name] = info
@@ -138,14 +144,14 @@ func (r *Registry) RegisterFamily(ops *types.TypeOps, name string, info *TypeFam
 	// order. Report an error rather than silently keeping the first.
 	seen := make(map[string]string, len(existing.Equations))
 	for _, eq := range existing.Equations {
-		seen[equationPatternKey(ops, eq)] = equationRHSKey(ops, eq)
+		seen[r.equationPatternKey(eq)] = r.equationRHSKey(eq)
 	}
 	for _, eq := range info.Equations {
-		key := equationPatternKey(ops, eq)
+		key := r.equationPatternKey(eq)
 		if existingRHS, ok := seen[key]; !ok {
 			existing.Equations = append(existing.Equations, eq)
-			seen[key] = equationRHSKey(ops, eq)
-		} else if equationRHSKey(ops, eq) != existingRHS {
+			seen[key] = r.equationRHSKey(eq)
+		} else if r.equationRHSKey(eq) != existingRHS {
 			return fmt.Errorf("type family %s: conflicting equations for pattern %s",
 				name, key)
 		}
@@ -153,18 +159,12 @@ func (r *Registry) RegisterFamily(ops *types.TypeOps, name string, info *TypeFam
 	return nil
 }
 
-// equationPatternKey produces a canonical key from the LHS patterns of a
-// type family equation. Two equations with structurally equal patterns
-// are considered identical for deduplication purposes.
-func equationPatternKey(ops *types.TypeOps, eq tfEquation) string {
-	return ops.TypeListKey("", ' ', eq.Patterns)
+func (r *Registry) equationPatternKey(eq tfEquation) string {
+	return r.typeOps.TypeListKey("", ' ', eq.Patterns)
 }
 
-// equationRHSKey produces a canonical key from the RHS of a type family
-// equation. Used to detect conflicting equations: same LHS patterns but
-// different RHS is a coherence violation.
-func equationRHSKey(ops *types.TypeOps, eq tfEquation) string {
-	return ops.TypeKey(eq.RHS)
+func (r *Registry) equationRHSKey(eq tfEquation) string {
+	return r.typeOps.TypeKey(eq.RHS)
 }
 
 // RegisterDataType records a data type's reverse lookup entry.

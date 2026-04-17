@@ -175,7 +175,7 @@ func (ch *Checker) registerAssocTypes(parts formBodyParts, className string) []s
 			atParams = append(atParams, TFParam{Name: p.Name, Kind: ch.resolveKindExpr(p.Kind)})
 		}
 		resultKind := ch.resolveKindExpr(td.KindAnn)
-		if err := ch.reg.RegisterFamily(ch.typeOps, td.Name, &TypeFamilyInfo{
+		if err := ch.reg.RegisterFamily(td.Name, &TypeFamilyInfo{
 			Name:       td.Name,
 			Params:     atParams,
 			ResultKind: resultKind,

@@ -26,7 +26,7 @@ func (r *typeResolver) resolveUnqualifiedTypeCon(name string, s span.Span) types
 		r.addDiag(diagnostic.ErrUnboundCon, s, diagUnknown{Kind: "type", Name: name})
 		return &types.TyError{S: s}
 	}
-	return r.unifier.TypeOps.Con(name, s)
+	return r.typeOps.Con(name, s)
 }
 
 // resolveQualifiedTypeCon resolves a qualified type constructor name (Mod.Name).
@@ -44,7 +44,7 @@ func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Sp
 			return info.Body
 		}
 		r.scope.InjectAlias(name, info)
-		return r.unifier.TypeOps.Con(name, s)
+		return r.typeOps.Con(name, s)
 	}
 	// Type families: zero-arity → immediate; parameterized → inject into scope.
 	if fam, ok := qs.Exports.TypeFamilies[name]; ok {
@@ -52,25 +52,25 @@ func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Sp
 			return &types.TyFamilyApp{Name: name, Args: nil, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(fam.ResultKind) &^ types.FlagNoFamilyApp, S: s}
 		}
 		r.scope.InjectFamily(name, fam.Clone())
-		return r.unifier.TypeOps.Con(name, s)
+		return r.typeOps.Con(name, s)
 	}
 	// Module-defined types (data declarations, class types).
 	if isModuleDefinedType(qs.Exports, name) {
-		return r.unifier.TypeOps.Con(name, s)
+		return r.typeOps.Con(name, s)
 	}
 	// Promoted kinds and constructors.
 	if _, ok := qs.Exports.PromotedKinds[name]; ok {
-		return r.unifier.TypeOps.Con(name, s)
+		return r.typeOps.Con(name, s)
 	}
 	if _, ok := qs.Exports.PromotedCons[name]; ok {
-		return r.unifier.TypeOps.Con(name, s)
+		return r.typeOps.Con(name, s)
 	}
 	// Host-registered types (e.g., Map, Set, Slice) are globally visible.
 	// A qualified reference M.T is valid when M is a known module and T
 	// is a host-registered type, since host types are ambient — not owned
 	// by any single module.
 	if _, ok := r.reg.LookupTypeKind(name); ok {
-		return r.unifier.TypeOps.Con(name, s)
+		return r.typeOps.Con(name, s)
 	}
 	r.addDiag(diagnostic.ErrImport, s,
 		diagMsg("module "+qs.ModuleName+" does not export type: "+name))

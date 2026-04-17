@@ -364,9 +364,7 @@ func (ch *Checker) importModules(prog *syntax.Program) {
 		RegisterTypeKind: ch.reg.RegisterTypeKind,
 		RegisterAlias:    ch.reg.RegisterAlias,
 		RegisterClass:    ch.reg.RegisterClass,
-		RegisterFamily: func(name string, info *TypeFamilyInfo) error {
-			return ch.reg.RegisterFamily(ch.typeOps, name, info)
-		},
+		RegisterFamily:       ch.reg.RegisterFamily,
 		RegisterDataType:     ch.reg.RegisterDataType,
 		RegisterPromotedKind: ch.reg.RegisterPromotedKind,
 		RegisterPromotedCon:  ch.reg.RegisterPromotedCon,

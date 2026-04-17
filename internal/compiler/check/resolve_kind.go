@@ -129,7 +129,7 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		if r.hasDeterministicKind(fun) {
 			r.addDiag(diagnostic.ErrKindMismatch, s,
 				diagFmt{Format: "type %s has kind %s and cannot be applied to a type argument",
-					Args: []any{r.unifier.TypeOps.Pretty(fun), r.unifier.TypeOps.PrettyTypeAsKind(funKind)}})
+					Args: []any{r.typeOps.Pretty(fun), r.typeOps.PrettyTypeAsKind(funKind)}})
 		}
 		return
 	}
@@ -153,7 +153,7 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		return
 	}
 	argKind = r.unifier.Zonk(argKind)
-	if m, isMeta := argKind.(*types.TyMeta); isMeta && r.unifier.TypeOps.Equal(m.Kind, types.SortZero) {
+	if m, isMeta := argKind.(*types.TyMeta); isMeta && r.typeOps.Equal(m.Kind, types.SortZero) {
 		return
 	}
 	// Skip when the expected parameter kind is a type variable (kind-polymorphic).
@@ -162,7 +162,7 @@ func (r *typeResolver) checkTypeAppKind(fun, arg types.Type, s span.Span) {
 		return
 	}
 	r.emitEq(ka.From, argKind, s, solve.WithLazyContext(diagnostic.ErrKindMismatch, func() string {
-		return "kind mismatch in type application: expected kind " + r.unifier.TypeOps.PrettyTypeAsKind(ka.From) + ", got " + r.unifier.TypeOps.PrettyTypeAsKind(argKind)
+		return "kind mismatch in type application: expected kind " + r.typeOps.PrettyTypeAsKind(ka.From) + ", got " + r.typeOps.PrettyTypeAsKind(argKind)
 	}))
 }
 
