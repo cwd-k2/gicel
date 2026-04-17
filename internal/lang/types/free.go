@@ -1,7 +1,7 @@
 package types
 
 // FreeVars returns the set of free type/row variables in a type.
-func FreeVars(t Type) map[string]struct{} {
+func (o *TypeOps) FreeVars(t Type) map[string]struct{} {
 	fv := make(map[string]struct{})
 	freeVarsRec(t, nil, fv, 0)
 	return fv
@@ -82,7 +82,7 @@ func freeVarsRec(t Type, bound map[string]bool, fv map[string]struct{}, depth in
 
 // OccursIn checks if a variable name appears free in a type.
 // Uses early-exit traversal to avoid building the full free variable set.
-func OccursIn(name string, t Type) bool {
+func (o *TypeOps) OccursIn(name string, t Type) bool {
 	return occursIn(name, t, nil, 0)
 }
 

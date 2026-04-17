@@ -315,7 +315,7 @@ func thunkIfBareComputation(ty types.Type, core ir.Core, s span.Span) (types.Typ
 	case *types.TyEvidence:
 		if lam, ok := core.(*ir.Lam); ok && lam.Generated.IsGenerated() {
 			innerTy, innerCore := thunkIfBareComputation(t.Body, lam.Body, s)
-			newTy := &types.TyEvidence{Constraints: t.Constraints, Body: innerTy, S: t.S}
+			newTy := &types.TyEvidence{Constraints: t.Constraints, Body: innerTy, Flags: types.MetaFreeFlags(t.Constraints, innerTy), S: t.S}
 			newCore := &ir.Lam{
 				Param: lam.Param, ParamType: lam.ParamType,
 				Body: innerCore, Generated: lam.Generated, S: lam.S,

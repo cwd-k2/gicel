@@ -56,6 +56,7 @@ type CheckConfig struct {
 	MaxSolverSteps  int                 // constraint solver step limit (0 = default 100000)
 	MaxResolveDepth int                 // instance resolution depth limit (0 = default 64)
 	HoverRecorder   HoverRecorder       // when non-nil, receives hover events during checking
+	TypeOps         *types.TypeOps      // type-level operation owner (nil → default zero value)
 }
 
 // ModuleExports is the type-level information exported by a compiled module.
@@ -137,6 +138,7 @@ type CheckState struct {
 	errors          *diagnostic.Errors
 	source          *span.Source
 	config          *CheckConfig
+	typeOps         *types.TypeOps // type-level operation owner
 	freshID         int
 	depth           int
 	strictTypeNames bool       // enabled after declaration processing
@@ -285,12 +287,17 @@ func newChecker(prog *syntax.Program, source *span.Source, config *CheckConfig) 
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ops := config.TypeOps
+	if ops == nil {
+		ops = &types.TypeOps{}
+	}
 	session := &CheckState{
-		ctx:    NewContext(),
-		budget: newBudget(ctx, config),
-		errors: &diagnostic.Errors{Source: source},
-		source: source,
-		config: config,
+		ctx:     NewContext(),
+		budget:  newBudget(ctx, config),
+		errors:  &diagnostic.Errors{Source: source},
+		source:  source,
+		config:  config,
+		typeOps: ops,
 	}
 	ch := &Checker{
 		CheckState: session,

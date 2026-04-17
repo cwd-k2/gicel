@@ -7,7 +7,7 @@ import (
 )
 
 // Pretty renders a type as human-readable text.
-func Pretty(t Type) string {
+func (o *TypeOps) Pretty(t Type) string {
 	switch ty := t.(type) {
 	case *TyVar:
 		return ty.Name
@@ -280,7 +280,7 @@ func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
 
 // PrettyDisplay renders a type for IDE display (hover, completion).
 // Unlike Pretty, it shows TySkolem as plain type variables without the # prefix.
-func PrettyDisplay(t Type) string {
+func (o *TypeOps) PrettyDisplay(t Type) string {
 	switch ty := t.(type) {
 	case *TySkolem:
 		return ty.Name

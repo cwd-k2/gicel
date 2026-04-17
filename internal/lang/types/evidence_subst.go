@@ -49,13 +49,6 @@ func (c *CapabilityEntries) SubstEntries(varName string, replacement Type, depth
 }
 
 // SubstEntriesMany applies a parallel substitution to a capability fiber.
-// Field types and grades are substituted via substManyOpt; label-variable
-// fields whose label name appears in subs mapped to a label literal are
-// rewritten in the same pass.
-//
-// Prior to this method the parallel path went through MapChildren and lost
-// label-variable rewriting because MapChildren only walks type children.
-// Pinning that the two paths are now consistent: see TestSubstManyLabelVar.
 func (c *CapabilityEntries) SubstEntriesMany(subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
 	var fields []RowField // nil until first change (lazy alloc)
 	for i, f := range c.Fields {
@@ -91,9 +84,7 @@ func (c *CapabilityEntries) SubstEntriesMany(subs map[string]Type, levelSubs map
 }
 
 // capabilityLabelLiteral returns the label name of a label-literal type and
-// true when the type is a TyCon at kind level. Used by both SubstEntries and
-// SubstEntriesMany — the single source of truth for "label var → label literal"
-// rewriting in capability rows.
+// true when the type is a TyCon at kind level.
 func capabilityLabelLiteral(t Type) (string, bool) {
 	lc, ok := t.(*TyCon)
 	if !ok || !IsKindLevel(lc.Level) {
@@ -145,9 +136,6 @@ func substManyRowGrades(grades []Type, subs map[string]Type, levelSubs map[strin
 // --- ConstraintEntries ---
 
 // SubstEntries applies [varName := replacement] to a constraint fiber.
-// Each entry is substituted via substConstraintEntry, which handles the
-// per-variant traversal (ClassEntry args, EqualityEntry sides, VarEntry
-// var, QuantifiedConstraint with capture avoidance).
 func (c *ConstraintEntries) SubstEntries(varName string, replacement Type, depth int) (EvidenceEntries, bool) {
 	var entries []ConstraintEntry // nil until first change (lazy alloc)
 	for i, e := range c.Entries {
@@ -167,16 +155,6 @@ func (c *ConstraintEntries) SubstEntries(varName string, replacement Type, depth
 }
 
 // SubstEntriesMany applies a parallel substitution to a constraint fiber.
-// Each entry is dispatched through substManyConstraintEntry, which mirrors
-// the single-var substConstraintEntry — QuantifiedConstraint shadowing and
-// capture avoidance are handled by substManyQuantifiedConstraint, keeping
-// the two paths semantically equivalent.
-//
-// Prior to this method the parallel path delegated to MapChildren with a
-// substManyOpt closure, which walked QuantifiedConstraint children
-// unconditionally and silently dropped both shadowing and capture
-// avoidance. Pinning that the two paths now agree:
-// TestSubstManyQuantifiedConstraint*.
 func (c *ConstraintEntries) SubstEntriesMany(subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) (EvidenceEntries, bool) {
 	var entries []ConstraintEntry // nil until first change (lazy alloc)
 	for i, e := range c.Entries {

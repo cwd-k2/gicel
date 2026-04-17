@@ -3,7 +3,7 @@ package types
 // Equal checks structural equality of two types.
 // For rows: compares normalized forms (label order irrelevant).
 // For forall: alpha-equivalence (bound variable names irrelevant).
-func Equal(a, b Type) bool {
+func (o *TypeOps) Equal(a, b Type) bool {
 	return equalAlpha(a, b, nil)
 }
 

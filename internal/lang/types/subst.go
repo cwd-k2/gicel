@@ -24,14 +24,123 @@ func ResetFreshCounter() {
 	freshCounter.Store(0)
 }
 
+// --- TypeOps methods (public API) ---
+
 // Subst applies a substitution [varName := replacement] throughout a type.
 // Fast-path: if varName does not occur in t, the type is returned unchanged.
-func Subst(t Type, varName string, replacement Type) Type {
-	if !OccursIn(varName, t) {
+func (o *TypeOps) Subst(t Type, varName string, replacement Type) Type {
+	if !occursIn(varName, t, nil, 0) {
 		return t
 	}
 	return substDepth(t, varName, replacement, 0)
 }
+
+// SubstLevel replaces a level variable inside TyCon.Level fields throughout a type.
+// This is separate from Subst because level variables live in LevelExpr positions
+// inside TyCon (and TyCBPV grade), not in Type positions.
+func (o *TypeOps) SubstLevel(t Type, levelVarName string, replacement LevelExpr) Type {
+	return substLevel(t, levelVarName, replacement, 0)
+}
+
+// SubstMany applies a parallel substitution: every variable in typeSubs
+// (TyVar → Type) and levelSubs (LevelVar → LevelExpr) is replaced in a
+// single tree walk. Either map may be nil. Substitutions are simultaneous:
+// substitution values do not interfere with each other.
+//
+// Capture avoidance: TyForall bound variables are alpha-renamed against the
+// free TyVar union of typeSubs values when needed. Level capture avoidance
+// is NOT performed; callers passing levelSubs must ensure replacements have
+// no free LevelVars (in practice, callers use fresh LevelMetas).
+func (o *TypeOps) SubstMany(t Type, typeSubs map[string]Type, levelSubs map[string]LevelExpr) Type {
+	if len(typeSubs) == 0 && len(levelSubs) == 0 {
+		return t
+	}
+	var fvUnion map[string]bool
+	return substManyOpt(t, typeSubs, levelSubs, &fvUnion, 0)
+}
+
+// PeelForalls instantiates a chain of TyForall binders by repeatedly calling
+// visit for each peeled binder. visit returns the replacement type for the
+// binder; for level-kinded binders it also returns a LevelExpr that targets
+// level positions of the same name (the type half is still required because
+// the same variable name can flow into both type and level positions).
+//
+// Substitution is applied lazily: when the chain has exactly one binder, a
+// single Subst (plus optional SubstLevel) is used with no map allocation.
+// Two or more binders allocate the substitution map at the second binder.
+//
+// Returns the body type after all substitutions, or t unchanged when t is
+// not a TyForall.
+func (o *TypeOps) PeelForalls(t Type, visit func(f *TyForall) (typeRepl Type, levelRepl LevelExpr)) Type {
+	var (
+		firstVar   string
+		firstRepl  Type
+		firstLevel LevelExpr
+		hasFirst   bool
+		typeSubs   map[string]Type
+		levelSubs  map[string]LevelExpr
+	)
+	for {
+		f, ok := t.(*TyForall)
+		if !ok {
+			break
+		}
+		visited := f
+		if hasFirst {
+			var adjustedKind Type
+			if typeSubs != nil {
+				adjustedKind = o.SubstMany(f.Kind, typeSubs, levelSubs)
+			} else {
+				adjustedKind = o.Subst(f.Kind, firstVar, firstRepl)
+				if firstLevel != nil {
+					adjustedKind = o.SubstLevel(adjustedKind, firstVar, firstLevel)
+				}
+			}
+			if adjustedKind != f.Kind {
+				visited = &TyForall{Var: f.Var, Kind: adjustedKind, Body: f.Body}
+			}
+		}
+		repl, lvl := visit(visited)
+		if !hasFirst {
+			firstVar = f.Var
+			firstRepl = repl
+			firstLevel = lvl
+			hasFirst = true
+		} else {
+			if typeSubs == nil {
+				typeSubs = map[string]Type{firstVar: firstRepl}
+				if firstLevel != nil {
+					levelSubs = map[string]LevelExpr{firstVar: firstLevel}
+				}
+			}
+			typeSubs[f.Var] = repl
+			if lvl != nil {
+				if levelSubs == nil {
+					levelSubs = map[string]LevelExpr{}
+				}
+				levelSubs[f.Var] = lvl
+			}
+		}
+		t = f.Body
+	}
+	if !hasFirst {
+		return t
+	}
+	if typeSubs != nil {
+		return o.SubstMany(t, typeSubs, levelSubs)
+	}
+	if firstLevel != nil {
+		t = o.SubstLevel(t, firstVar, firstLevel)
+	}
+	return o.Subst(t, firstVar, firstRepl)
+}
+
+// PrepareSubst creates a PreparedSubst for batch application.
+func (o *TypeOps) PrepareSubst(subs map[string]Type) *PreparedSubst {
+	return &PreparedSubst{subs: subs}
+}
+
+// --- Internal implementation (package-level, original signatures) ---
 
 func substDepth(t Type, varName string, replacement Type, depth int) Type {
 	if depth > maxTraversalDepth {
@@ -50,17 +159,17 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		}
 		newKind := substDepth(ty.Kind, varName, replacement, depth+1)
 		// Capture avoidance.
-		if OccursIn(ty.Var, replacement) {
+		if occursIn(ty.Var, replacement, nil, 0) {
 			fresh := freshName(ty.Var)
 			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 			body = substDepth(body, varName, replacement, depth+1)
-			return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
+			return &TyForall{Var: fresh, Kind: newKind, Body: body, Flags: MetaFreeFlags(newKind, body), S: ty.S}
 		}
 		newBody := substDepth(ty.Body, varName, replacement, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
-		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 
 	case *TyEvidenceRow:
 		newEntries, entriesChanged := ty.Entries.SubstEntries(varName, replacement, depth+1)
@@ -79,20 +188,10 @@ func substDepth(t Type, varName string, replacement Type, depth int) Type {
 		return &TyEvidenceRow{Entries: newEntries, Tail: newTail, Flags: EvidenceRowFlags(newEntries, newTail), S: ty.S}
 
 	default:
-		// All non-binding, non-evidence types: delegate structural child
-		// traversal to MapType. This keeps substDepth closed under new
-		// Type variants — only MapType needs updating.
 		return MapType(t, func(child Type) Type {
 			return substDepth(child, varName, replacement, depth+1)
 		})
 	}
-}
-
-// SubstLevel replaces a level variable inside TyCon.Level fields throughout a type.
-// This is separate from Subst because level variables live in LevelExpr positions
-// inside TyCon (and TyCBPV grade), not in Type positions.
-func SubstLevel(t Type, levelVarName string, replacement LevelExpr) Type {
-	return substLevel(t, levelVarName, replacement, 0)
 }
 
 func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
@@ -101,7 +200,6 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 	}
 	switch ty := t.(type) {
 	case *TyCon:
-		// TyCon carries LevelExpr directly — this is the substitution target.
 		newLevel := substLevelExpr(ty.Level, name, repl)
 		if newLevel == ty.Level {
 			return ty
@@ -116,9 +214,8 @@ func substLevel(t Type, name string, repl LevelExpr, depth int) Type {
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
-		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 	default:
-		// All non-TyCon, non-binder types: delegate to MapType.
 		return MapType(t, func(child Type) Type {
 			return substLevel(child, name, repl, depth+1)
 		})
@@ -181,108 +278,4 @@ func substLevelExprMany(l LevelExpr, levelSubs map[string]LevelExpr) LevelExpr {
 	default:
 		return l
 	}
-}
-
-// SubstMany applies a parallel substitution: every variable in typeSubs
-// (TyVar → Type) and levelSubs (LevelVar → LevelExpr) is replaced in a
-// single tree walk. Either map may be nil. Substitutions are simultaneous:
-// substitution values do not interfere with each other.
-//
-// Capture avoidance: TyForall bound variables are alpha-renamed against the
-// free TyVar union of typeSubs values when needed. Level capture avoidance
-// is NOT performed; callers passing levelSubs must ensure replacements have
-// no free LevelVars (in practice, callers use fresh LevelMetas).
-func SubstMany(t Type, typeSubs map[string]Type, levelSubs map[string]LevelExpr) Type {
-	if len(typeSubs) == 0 && len(levelSubs) == 0 {
-		return t
-	}
-	var fvUnion map[string]bool
-	return substManyOpt(t, typeSubs, levelSubs, &fvUnion, 0)
-}
-
-// PeelForalls instantiates a chain of TyForall binders by repeatedly calling
-// visit for each peeled binder. visit returns the replacement type for the
-// binder; for level-kinded binders it also returns a LevelExpr that targets
-// level positions of the same name (the type half is still required because
-// the same variable name can flow into both type and level positions).
-//
-// Substitution is applied lazily: when the chain has exactly one binder, a
-// single Subst (plus optional SubstLevel) is used with no map allocation.
-// Two or more binders allocate the substitution map at the second binder
-// — the "deferred materialization" pattern. This replaces the K=1 / K>=2
-// dispatch that previously had to live in line at every call site, where
-// it duplicated ~30 lines of bookkeeping each. The performance trade-off
-// of the look-ahead `f1.Body.(*TyForall)` type assertion (which leaked into
-// Tier 4 micro benches as a +1-5% regression after S2) is gone — the new
-// dispatch is a single bool check on the second iteration only.
-//
-// Returns the body type after all substitutions, or t unchanged when t is
-// not a TyForall.
-func PeelForalls(t Type, visit func(f *TyForall) (typeRepl Type, levelRepl LevelExpr)) Type {
-	var (
-		firstVar   string
-		firstRepl  Type
-		firstLevel LevelExpr
-		hasFirst   bool
-		typeSubs   map[string]Type
-		levelSubs  map[string]LevelExpr
-	)
-	for {
-		f, ok := t.(*TyForall)
-		if !ok {
-			break
-		}
-		// For K>=2 binders, apply accumulated substitutions to f.Kind
-		// before calling the visitor. Without this, the visitor receives
-		// stale TyVar references in the Kind field (e.g., TyVar{k} instead
-		// of the meta that replaced k in the first iteration).
-		visited := f
-		if hasFirst {
-			var adjustedKind Type
-			if typeSubs != nil {
-				adjustedKind = SubstMany(f.Kind, typeSubs, levelSubs)
-			} else {
-				adjustedKind = Subst(f.Kind, firstVar, firstRepl)
-				if firstLevel != nil {
-					adjustedKind = SubstLevel(adjustedKind, firstVar, firstLevel)
-				}
-			}
-			if adjustedKind != f.Kind {
-				visited = &TyForall{Var: f.Var, Kind: adjustedKind, Body: f.Body}
-			}
-		}
-		repl, lvl := visit(visited)
-		if !hasFirst {
-			firstVar = f.Var
-			firstRepl = repl
-			firstLevel = lvl
-			hasFirst = true
-		} else {
-			if typeSubs == nil {
-				typeSubs = map[string]Type{firstVar: firstRepl}
-				if firstLevel != nil {
-					levelSubs = map[string]LevelExpr{firstVar: firstLevel}
-				}
-			}
-			typeSubs[f.Var] = repl
-			if lvl != nil {
-				if levelSubs == nil {
-					levelSubs = map[string]LevelExpr{}
-				}
-				levelSubs[f.Var] = lvl
-			}
-		}
-		t = f.Body
-	}
-	if !hasFirst {
-		return t
-	}
-	if typeSubs != nil {
-		return SubstMany(t, typeSubs, levelSubs)
-	}
-	// K=1: single binder, fast path with no map.
-	if firstLevel != nil {
-		t = SubstLevel(t, firstVar, firstLevel)
-	}
-	return Subst(t, firstVar, firstRepl)
 }

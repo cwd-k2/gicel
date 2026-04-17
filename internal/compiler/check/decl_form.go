@@ -22,7 +22,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// If any param is not Type-kinded, result defaults to TypeOfTypes (L1).
 	var kind types.Type = formResultKind(paramKinds)
 	for i := len(parts.Params) - 1; i >= 0; i-- {
-		kind = &types.TyArrow{From: paramKinds[i], To: kind}
+		kind = &types.TyArrow{From: paramKinds[i], To: kind, Flags: types.MetaFreeFlags(paramKinds[i], kind)}
 	}
 	if d.KindAnn != nil {
 		annKind := ch.resolveKindExpr(d.KindAnn)
@@ -41,7 +41,8 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// Build result type: T a b c ...
 	var resultType types.Type = types.ConAt(d.Name, d.S)
 	for _, p := range parts.Params {
-		resultType = &types.TyApp{Fun: resultType, Arg: &types.TyVar{Name: p.Name, S: p.S}, S: d.S}
+		arg := &types.TyVar{Name: p.Name, S: p.S}
+		resultType = &types.TyApp{Fun: resultType, Arg: arg, Flags: types.MetaFreeFlags(resultType, arg), S: d.S}
 	}
 
 	// Register each constructor from row fields.
@@ -98,7 +99,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		// Build kind arrow from field types (right to left).
 		for i := len(con.Fields) - 1; i >= 0; i-- {
 			fieldKind := ch.promotedFieldKind(con.Fields[i])
-			conKind = &types.TyArrow{From: fieldKind, To: conKind}
+			conKind = &types.TyArrow{From: fieldKind, To: conKind, Flags: types.MetaFreeFlags(fieldKind, conKind)}
 		}
 		ch.reg.RegisterPromotedCon(con.Name, conKind)
 	}

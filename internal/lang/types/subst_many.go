@@ -11,11 +11,6 @@ type PreparedSubst struct {
 	fvDone  bool
 }
 
-// PrepareSubst creates a PreparedSubst for batch application.
-func PrepareSubst(subs map[string]Type) *PreparedSubst {
-	return &PreparedSubst{subs: subs}
-}
-
 // Apply applies the prepared substitution to a type.
 // The fvUnion is computed lazily on the first TyForall encounter and
 // shared across all subsequent Apply calls on the same PreparedSubst.
@@ -58,9 +53,6 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 		}
 		return &TyCon{Name: ty.Name, Level: newLevel, IsLabel: ty.IsLabel, S: ty.S}
 	case *TyForall:
-		// Lazy-compute fvUnion on first TyForall encounter when type subs
-		// are present. Level subs do not require fvUnion (no level capture
-		// avoidance is performed; see SubstMany godoc).
 		if len(subs) > 0 && *fvUnion == nil {
 			*fvUnion = substManyFVUnion(subs)
 		}
@@ -69,7 +61,6 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 			fv = *fvUnion
 		}
 		newKind := substManyOpt(ty.Kind, subs, levelSubs, fvUnion, depth+1)
-		// Remove shadowed variable from substitution.
 		if _, shadowed := subs[ty.Var]; shadowed {
 			reduced := make(map[string]Type, len(subs)-1)
 			for k, v := range subs {
@@ -81,33 +72,31 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 				if newKind == ty.Kind {
 					return ty
 				}
-				return &TyForall{Var: ty.Var, Kind: newKind, Body: ty.Body, S: ty.S}
+				return &TyForall{Var: ty.Var, Kind: newKind, Body: ty.Body, Flags: MetaFreeFlags(newKind, ty.Body), S: ty.S}
 			}
-			// Capture avoidance: use FV union for O(1) check.
 			if fv[ty.Var] {
 				fresh := freshName(ty.Var)
 				body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 				body = substManyOpt(body, reduced, levelSubs, fvUnion, depth+1)
-				return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
+				return &TyForall{Var: fresh, Kind: newKind, Body: body, Flags: MetaFreeFlags(newKind, body), S: ty.S}
 			}
 			newBody := substManyOpt(ty.Body, reduced, levelSubs, fvUnion, depth+1)
 			if newKind == ty.Kind && newBody == ty.Body {
 				return ty
 			}
-			return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
+			return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 		}
-		// Not shadowed: capture avoidance via FV union (type subs only).
 		if fv[ty.Var] {
 			fresh := freshName(ty.Var)
 			body := substDepth(ty.Body, ty.Var, &TyVar{Name: fresh}, depth+1)
 			body = substManyOpt(body, subs, levelSubs, fvUnion, depth+1)
-			return &TyForall{Var: fresh, Kind: newKind, Body: body, S: ty.S}
+			return &TyForall{Var: fresh, Kind: newKind, Body: body, Flags: MetaFreeFlags(newKind, body), S: ty.S}
 		}
 		newBody := substManyOpt(ty.Body, subs, levelSubs, fvUnion, depth+1)
 		if newKind == ty.Kind && newBody == ty.Body {
 			return ty
 		}
-		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, S: ty.S}
+		return &TyForall{Var: ty.Var, Kind: newKind, Body: newBody, Flags: MetaFreeFlags(newKind, newBody), S: ty.S}
 	case *TyEvidenceRow:
 		return substManyEvidenceRow(ty, subs, levelSubs, fvUnion, depth+1)
 	case *TyEvidence:
@@ -116,13 +105,8 @@ func substManyOpt(t Type, subs map[string]Type, levelSubs map[string]LevelExpr, 
 		if newConstraints == ty.Constraints && newBody == ty.Body {
 			return ty
 		}
-		return &TyEvidence{Constraints: newConstraints, Body: newBody, S: ty.S}
+		return &TyEvidence{Constraints: newConstraints, Body: newBody, Flags: MetaFreeFlags(newConstraints, newBody), S: ty.S}
 	default:
-		// Non-binding, non-evidence types: delegate to MapType.
-		// MapType recurses into children via the closure, which calls
-		// substManyOpt — hitting the explicit TyCon/TyForall cases
-		// at the top of this function for level substitution and
-		// capture avoidance respectively.
 		return MapType(t, func(child Type) Type {
 			return substManyOpt(child, subs, levelSubs, fvUnion, depth+1)
 		})
@@ -172,7 +156,6 @@ func substTypeSlice(ts []Type, varName string, replacement Type, depth int) ([]T
 
 // substManyTypeSlice applies substManyOpt to every element of ts, returning
 // the original slice unchanged (and false) when no element was modified.
-// Multi-variable counterpart of substTypeSlice.
 func substManyTypeSlice(ts []Type, subs map[string]Type, levelSubs map[string]LevelExpr, fvUnion *map[string]bool, depth int) ([]Type, bool) {
 	var out []Type // nil until first change (lazy alloc)
 	for j, t := range ts {

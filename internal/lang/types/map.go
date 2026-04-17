@@ -12,7 +12,7 @@ package types
 // path compression on TyMeta (mutating the solution map during traversal)
 // and identity-preserving return via pointer equality checks. MapType is
 // the correct default for all other structural traversals.
-func MapType(t Type, f func(Type) Type) Type {
+func (o *TypeOps) MapType(t Type, f func(Type) Type) Type {
 	switch ty := t.(type) {
 	case *TyApp:
 		fun := f(ty.Fun)
@@ -20,21 +20,24 @@ func MapType(t Type, f func(Type) Type) Type {
 		if fun == ty.Fun && arg == ty.Arg {
 			return t
 		}
-		return &TyApp{Fun: fun, Arg: arg, IsGrade: ty.IsGrade, Flags: MetaFreeFlags(fun, arg), S: ty.S}
+		if ty.IsGrade {
+			return o.AppGrade(fun, arg, ty.S)
+		}
+		return o.App(fun, arg, ty.S)
 	case *TyArrow:
 		from := f(ty.From)
 		to := f(ty.To)
 		if from == ty.From && to == ty.To {
 			return t
 		}
-		return &TyArrow{From: from, To: to, Flags: MetaFreeFlags(from, to), S: ty.S}
+		return o.Arrow(from, to, ty.S)
 	case *TyForall:
 		kind := f(ty.Kind)
 		body := f(ty.Body)
 		if kind == ty.Kind && body == ty.Body {
 			return t
 		}
-		return &TyForall{Var: ty.Var, Kind: kind, Body: body, Flags: MetaFreeFlags(kind, body), S: ty.S}
+		return o.Forall(ty.Var, kind, body, ty.S)
 	case *TyCBPV:
 		pre := f(ty.Pre)
 		post := f(ty.Post)
@@ -46,7 +49,10 @@ func MapType(t Type, f func(Type) Type) Type {
 		if pre == ty.Pre && post == ty.Post && result == ty.Result && grade == ty.Grade {
 			return t
 		}
-		return &TyCBPV{Tag: ty.Tag, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade), S: ty.S}
+		if ty.Tag == TagThunk {
+			return o.ThunkGraded(pre, post, result, grade, ty.S)
+		}
+		return o.Comp(pre, post, result, grade, ty.S)
 	case *TyEvidence:
 		constraints := f(ty.Constraints)
 		body := f(ty.Body)
@@ -55,10 +61,6 @@ func MapType(t Type, f func(Type) Type) Type {
 		}
 		cr, ok := constraints.(*TyEvidenceRow)
 		if !ok {
-			// f transformed constraints into a non-evidence-row type.
-			// This is a structural invariant violation — TyEvidence.Constraints
-			// must always be *TyEvidenceRow. Panic rather than silently
-			// discarding the transformation.
 			panic("MapType: TyEvidence.Constraints transformed to non-*TyEvidenceRow")
 		}
 		return &TyEvidence{Constraints: cr, Body: body, Flags: MetaFreeFlags(cr, body), S: ty.S}
@@ -79,7 +81,7 @@ func MapType(t Type, f func(Type) Type) Type {
 		return &TyEvidenceRow{Entries: newEntries, Tail: tail, Flags: EvidenceRowFlags(newEntries, tail), S: ty.S}
 	case *TyFamilyApp:
 		kind := f(ty.Kind)
-		var args []Type // nil until first change (lazy-init)
+		var args []Type
 		for i, a := range ty.Args {
 			nA := f(a)
 			if args == nil && nA != a {
@@ -96,9 +98,8 @@ func MapType(t Type, f func(Type) Type) Type {
 		if args == nil {
 			args = ty.Args
 		}
-		return &TyFamilyApp{Name: ty.Name, Args: args, Kind: kind, Flags: metaFreeSlice(kind, args) &^ FlagNoFamilyApp, S: ty.S}
+		return o.FamilyApp(ty.Name, args, kind, ty.S)
 	case *TyVar, *TyCon, *TyMeta, *TySkolem, *TyError:
-		// Leaves — no children to map.
 		return t
 	default:
 		panic(unhandledTypeMsg("MapType", t))

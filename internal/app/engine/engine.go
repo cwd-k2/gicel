@@ -60,6 +60,7 @@ type Engine struct {
 
 	checkTraceHook check.CheckTraceHook // diagnostic hook for type checking
 	typeRecorder   bool                 // when true, Analyze populates TypeIndex
+	typeOps        *types.TypeOps       // type-level operation owner (default: zero value)
 
 	// Cached cache-key fingerprints. Computing these is the dominant
 	// alloc source on the warm NewRuntime path (profiled at ~94% of
@@ -122,6 +123,7 @@ func NewEngine() *Engine {
 		store:      newModuleStore(),
 		compileCtx: context.Background(),
 		cacheStore: defaultCacheStore,
+		typeOps:    &types.TypeOps{},
 		runtimeLimits: RuntimeLimits{
 			stepLimit:  1_000_000,
 			depthLimit: 1_000,
@@ -388,6 +390,7 @@ func (e *Engine) pipeline(ctx context.Context) *pipelineCtx {
 		runtimeFp:      e.runtimeFingerprint(),
 		traceHook:      e.checkTraceHook,
 		typeRecorder:   e.typeRecorder,
+		typeOps:        e.typeOps,
 	}
 }
 

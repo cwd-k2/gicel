@@ -243,7 +243,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 			}
 
 			branchExpected = &types.TyCBPV{
-				Tag: types.TagComp, Pre: zonkedPre, Post: freshPost, Result: comp.Result, S: comp.S,
+				Tag: types.TagComp, Pre: zonkedPre, Post: freshPost, Result: comp.Result, Flags: types.MetaFreeFlags(zonkedPre, freshPost, comp.Result), S: comp.S,
 			}
 			branchPosts = append(branchPosts, freshPost)
 		}

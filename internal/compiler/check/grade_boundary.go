@@ -197,7 +197,7 @@ func (ch *Checker) composeGrades(g1, g2 types.Type) types.Type {
 	composed, ok := ch.reduceTyFamily(algebra.composeFamily, []types.Type{g1, g2}, span.Span{})
 	if !ok {
 		// Family reduction stuck — return a TyFamilyApp to defer.
-		return &types.TyFamilyApp{Name: algebra.composeFamily, Args: []types.Type{g1, g2}}
+		return &types.TyFamilyApp{Name: algebra.composeFamily, Args: []types.Type{g1, g2}, Flags: types.MetaFreeFlags(g1, g2) &^ types.FlagNoFamilyApp}
 	}
 	return composed
 }

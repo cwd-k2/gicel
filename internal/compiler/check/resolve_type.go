@@ -282,9 +282,9 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 				if _, isRow := app1.Arg.(*types.TyEvidenceRow); isRow {
 					switch con.Name {
 					case types.TyConComputation:
-						return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
+						return &types.TyCBPV{Tag: types.TagComp, Pre: app1.Arg, Post: app2.Arg, Result: arg, Flags: types.MetaFreeFlags(app1.Arg, app2.Arg, arg), S: s}
 					case types.TyConThunk:
-						return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, S: s}
+						return &types.TyCBPV{Tag: types.TagThunk, Pre: app1.Arg, Post: app2.Arg, Result: arg, Flags: types.MetaFreeFlags(app1.Arg, app2.Arg, arg), S: s}
 					}
 				}
 			}
@@ -322,7 +322,7 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 		}
 		// Type family: saturated application → TyFamilyApp.
 		if fam, ok := r.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
-			return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: s}
+			return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(append(args, fam.ResultKind)...) &^ types.FlagNoFamilyApp, S: s}
 		}
 	}
 	return nil

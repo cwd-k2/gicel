@@ -57,7 +57,7 @@ func VarType(name string) types.Type {
 
 // AppType creates a type application: f a.
 func AppType(f, arg types.Type) types.Type {
-	return &types.TyApp{Fun: f, Arg: arg}
+	return &types.TyApp{Fun: f, Arg: arg, Flags: types.MetaFreeFlags(f, arg)}
 }
 
 // RowBuilder helps construct row types incrementally.
@@ -104,7 +104,7 @@ func EmptyRowType() types.Type {
 
 // KindArrow creates a kind arrow: from -> to.
 func KindArrow(from, to types.Type) types.Type {
-	return &types.TyArrow{From: from, To: to}
+	return &types.TyArrow{From: from, To: to, Flags: types.MetaFreeFlags(from, to)}
 }
 
 // ForallKind creates a universally quantified type with explicit kind.
@@ -119,9 +119,12 @@ func ClosedRowType(fields ...types.RowField) types.Type {
 
 // RecordType creates a closed record type: Record { l1: T1, ..., ln: Tn }.
 func RecordType(fields ...types.RowField) types.Type {
+	fun := types.Con(types.TyConRecord)
+	arg := types.ClosedRow(fields...)
 	return &types.TyApp{
-		Fun: types.Con(types.TyConRecord),
-		Arg: types.ClosedRow(fields...),
+		Fun:   fun,
+		Arg:   arg,
+		Flags: types.MetaFreeFlags(fun, arg),
 	}
 }
 

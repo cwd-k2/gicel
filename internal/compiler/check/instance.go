@@ -132,13 +132,15 @@ func (ch *Checker) processImplHeader(impl *syntax.DeclImpl) (*InstanceInfo, map[
 		// Build the impl type: context => ClassName TypeArg1 TypeArg2 ...
 		var implTy types.Type = &types.TyCon{Name: className}
 		for _, arg := range typeArgs {
-			implTy = &types.TyApp{Fun: implTy, Arg: arg}
+			implTy = &types.TyApp{Fun: implTy, Arg: arg, Flags: types.MetaFreeFlags(implTy, arg)}
 		}
 		// Wrap context constraints.
 		for i := len(context) - 1; i >= 0; i-- {
+			constraints := types.SingleConstraint(context[i].ClassName, context[i].Args)
 			implTy = &types.TyEvidence{
-				Constraints: types.SingleConstraint(context[i].ClassName, context[i].Args),
+				Constraints: constraints,
 				Body:        implTy,
+				Flags:       types.MetaFreeFlags(constraints, implTy),
 			}
 		}
 		label := className

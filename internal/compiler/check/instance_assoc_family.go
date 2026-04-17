@@ -85,7 +85,8 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 						S:     t.S,
 					}
 					for _, a := range t.Args {
-						result = &types.TyApp{Fun: result, Arg: ch.satAssocWalk(a, fa), S: t.S}
+						rA := ch.satAssocWalk(a, fa)
+						result = &types.TyApp{Fun: result, Arg: rA, Flags: types.MetaFreeFlags(result, rA), S: t.S}
 					}
 					return result
 				}
@@ -122,7 +123,8 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 						S:     con.S,
 					}
 					for _, a := range appArgs {
-						result = &types.TyApp{Fun: result, Arg: ch.satAssocWalk(a, fa), S: t.S}
+						rA := ch.satAssocWalk(a, fa)
+						result = &types.TyApp{Fun: result, Arg: rA, Flags: types.MetaFreeFlags(result, rA), S: t.S}
 					}
 					return result
 				}
@@ -134,7 +136,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rFun == t.Fun && rArg == t.Arg {
 			return ty
 		}
-		return &types.TyApp{Fun: rFun, Arg: rArg, S: t.S}
+		return &types.TyApp{Fun: rFun, Arg: rArg, Flags: types.MetaFreeFlags(rFun, rArg), S: t.S}
 
 	case *types.TyArrow:
 		rFrom := ch.satAssocWalk(t.From, fa)
@@ -142,7 +144,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rFrom == t.From && rTo == t.To {
 			return ty
 		}
-		return &types.TyArrow{From: rFrom, To: rTo, S: t.S}
+		return &types.TyArrow{From: rFrom, To: rTo, Flags: types.MetaFreeFlags(rFrom, rTo), S: t.S}
 
 	case *types.TyForall:
 		rKind := ch.satAssocWalk(t.Kind, fa)
@@ -150,7 +152,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		if rKind == t.Kind && rBody == t.Body {
 			return ty
 		}
-		return &types.TyForall{Var: t.Var, Kind: rKind, Body: rBody, S: t.S}
+		return &types.TyForall{Var: t.Var, Kind: rKind, Body: rBody, Flags: types.MetaFreeFlags(rKind, rBody), S: t.S}
 
 	case *types.TyCBPV:
 		rPre := ch.satAssocWalk(t.Pre, fa)

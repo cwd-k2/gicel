@@ -40,7 +40,7 @@ type KeyWriter interface {
 //   - TyEvidence: {E Constraints Body}
 //   - TyEvidenceRow: capability = {R Label:Type ...}, constraint = {Q Class Args ...}
 //   - TyError: !
-func WriteTypeKey(b KeyWriter, t Type) {
+func (o *TypeOps) WriteTypeKey(b KeyWriter, t Type) {
 	switch ty := t.(type) {
 	case *TyCon:
 		b.WriteString(ty.Name)
@@ -131,7 +131,7 @@ var builderPool = sync.Pool{
 }
 
 // TypeKey returns the canonical structural key for a type as a string.
-func TypeKey(t Type) string {
+func (o *TypeOps) TypeKey(t Type) string {
 	b := builderPool.Get().(*strings.Builder)
 	b.Reset()
 	WriteTypeKey(b, t)
@@ -142,7 +142,7 @@ func TypeKey(t Type) string {
 
 // TypeListKey serializes a prefix followed by type arguments into a canonical key.
 // Each argument is preceded by the given separator byte.
-func TypeListKey(prefix string, sep byte, args []Type) string {
+func (o *TypeOps) TypeListKey(prefix string, sep byte, args []Type) string {
 	b := builderPool.Get().(*strings.Builder)
 	b.Reset()
 	b.Grow(len(prefix) + len(args)*16)

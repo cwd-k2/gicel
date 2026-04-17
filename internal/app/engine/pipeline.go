@@ -32,7 +32,8 @@ type pipelineCtx struct {
 	modEnvFp       [32]byte    // pre-computed module environment fingerprint
 	runtimeFp      [32]byte    // pre-computed runtime fingerprint
 	traceHook      check.CheckTraceHook
-	typeRecorder   bool // when true, analyze() populates TypeIndex
+	typeRecorder   bool           // when true, analyze() populates TypeIndex
+	typeOps        *types.TypeOps // type-level operation owner
 }
 
 // lexAndParse is the shared lex/parse pipeline for both module registration
@@ -101,6 +102,7 @@ func (pc *pipelineCtx) makeCheckConfig() *check.CheckConfig {
 		MaxTFSteps:      pc.compilerLimits.maxTFSteps,
 		MaxSolverSteps:  pc.compilerLimits.maxSolverSteps,
 		MaxResolveDepth: pc.compilerLimits.maxResolveDepth,
+		TypeOps:         pc.typeOps,
 	}
 }
 
@@ -301,7 +303,8 @@ func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
 	// Fallback: reconstruct from data type params + fields.
 	var ret types.Type = &types.TyCon{Name: dd.Name}
 	for _, p := range dd.TyParams {
-		ret = &types.TyApp{Fun: ret, Arg: &types.TyVar{Name: p.Name}}
+		arg := &types.TyVar{Name: p.Name}
+		ret = &types.TyApp{Fun: ret, Arg: arg, Flags: types.MetaFreeFlags(ret, arg)}
 	}
 	if con.IsGADT() {
 		ret = con.ReturnType

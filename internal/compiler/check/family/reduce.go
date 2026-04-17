@@ -216,7 +216,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 			if e.tfCache == nil {
 				e.tfCache = make(map[string]types.Type)
 			}
-			stuck := &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
+			stuck := &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, Flags: types.MetaFreeFlags(append(rArgs, tf.Kind)...) &^ types.FlagNoFamilyApp, S: tf.S}
 			e.tfCache[key] = stuck
 			r := e.reduceFamilyAppsN(result)
 			e.tfCache[key] = r
@@ -225,7 +225,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 		if placeholder := e.registerStuckFamily(tf.Name, rArgs, tf.Kind, tf.S); placeholder != nil {
 			return placeholder
 		}
-		return &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, S: tf.S}
+		return &types.TyFamilyApp{Name: tf.Name, Args: rArgs, Kind: tf.Kind, Flags: types.MetaFreeFlags(append(rArgs, tf.Kind)...) &^ types.FlagNoFamilyApp, S: tf.S}
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
 	// Two-phase: first check head+arity (no alloc), then unwind only on hit.
@@ -248,7 +248,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 					if e.tfCache == nil {
 						e.tfCache = make(map[string]types.Type)
 					}
-					stuck := &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
+					stuck := &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(append(args, fam.ResultKind)...) &^ types.FlagNoFamilyApp, S: t.Span()}
 					e.tfCache[key] = stuck
 					r := e.reduceFamilyAppsN(result)
 					e.tfCache[key] = r
@@ -257,7 +257,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 				if placeholder := e.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
 					return placeholder
 				}
-				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, S: t.Span()}
+				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(append(args, fam.ResultKind)...) &^ types.FlagNoFamilyApp, S: t.Span()}
 			}
 		}
 		rFun := e.reduceFamilyAppsN(app.Fun)

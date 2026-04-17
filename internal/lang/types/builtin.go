@@ -1,7 +1,5 @@
 package types
 
-import "github.com/cwd-k2/gicel/internal/infra/span"
-
 // Pre-defined type constructor kinds (expressed as Type after Kind→Type unification).
 var (
 	// KindOfComputation: g → Row → Row → Type → Type
@@ -55,31 +53,6 @@ func SortAt(n int) *TyCon {
 	return &TyCon{Name: "Sort", Level: &LevelLit{N: n + 2}}
 }
 
-// MkComp creates a Computation type (ungraded).
-func MkComp(pre, post, result Type) *TyCBPV {
-	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
-}
-
-// MkCompGraded creates a graded Computation type.
-func MkCompGraded(pre, post, result, grade Type) *TyCBPV {
-	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade)}
-}
-
-// MkThunk creates a Thunk type.
-func MkThunk(pre, post, result Type) *TyCBPV {
-	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
-}
-
-// MkArrow creates a function type.
-func MkArrow(from, to Type) *TyArrow {
-	return &TyArrow{From: from, To: to, Flags: MetaFreeFlags(from, to)}
-}
-
-// MkForall creates a universally quantified type.
-func MkForall(v string, k Type, body Type) *TyForall {
-	return &TyForall{Var: v, Kind: k, Body: body, Flags: MetaFreeFlags(k, body)}
-}
-
 // builtinTyCons holds singleton instances for frequently used type constructors.
 // Safe to share: type equality is structural (Name ==), not pointer-based.
 // Singleton pointer identity improves Zonk's unchanged-detection hit rate.
@@ -93,35 +66,4 @@ var builtinTyCons = map[string]*TyCon{
 	"Pair": {Name: "Pair"}, "Lift": {Name: "Lift"},
 	"Zero": {Name: "Zero"}, "Linear": {Name: "Linear"},
 	"Affine": {Name: "Affine"}, "Unrestricted": {Name: "Unrestricted"},
-}
-
-// Con returns a TyCon for the given name, reusing a singleton for built-in names.
-// Use ConAt when source position must be preserved.
-func Con(name string) *TyCon {
-	if c, ok := builtinTyCons[name]; ok {
-		return c
-	}
-	return &TyCon{Name: name}
-}
-
-// ConAt creates a TyCon with a source span. Always allocates a fresh struct
-// because the span is position-specific and cannot be shared.
-func ConAt(name string, s span.Span) *TyCon {
-	return &TyCon{Name: name, S: s}
-}
-
-// Var creates a TyVar.
-func Var(name string) *TyVar {
-	return &TyVar{Name: name}
-}
-
-// MkEvidence creates a TyEvidence from constraint entries and a body type.
-func MkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
-	ce := &ConstraintEntries{Entries: entries}
-	cr := &TyEvidenceRow{Entries: ce, Flags: EvidenceRowFlags(ce, nil)}
-	return &TyEvidence{
-		Constraints: cr,
-		Body:        body,
-		Flags:       MetaFreeFlags(cr, body),
-	}
 }

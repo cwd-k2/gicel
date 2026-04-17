@@ -243,7 +243,7 @@ func (d *doChecked) elaborateBind(varName string, comp syntax.Expr, rest []synta
 					Args: []any{types.Pretty(ch.unifier.Zonk(d.comp.Pre)), types.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
 		ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
-		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
+		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, Flags: types.MetaFreeFlags(inferredComp.Post, d.comp.Post, d.comp.Result), S: d.comp.S}
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)
@@ -274,7 +274,7 @@ func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 				diagFmt{Format: "do statement: pre-state mismatch: expected %s, got %s",
 					Args: []any{types.Pretty(ch.unifier.Zonk(d.comp.Pre)), types.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
-		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, S: d.comp.S}
+		restComp := &types.TyCBPV{Tag: types.TagComp, Pre: inferredComp.Post, Post: d.comp.Post, Result: d.comp.Result, Flags: types.MetaFreeFlags(inferredComp.Post, d.comp.Post, d.comp.Result), S: d.comp.S}
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)
