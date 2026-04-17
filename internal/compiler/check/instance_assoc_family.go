@@ -74,7 +74,7 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		//   - Mismatch: wrong args consumed (e.g. GradeCompose e1 instead of GradeCompose g)
 		//     → replace with class params, push original args to TyApp positions
 		if famClassArgs, ok := fa[t.Name]; ok {
-			if !assocArgsMatch(t.Args, famClassArgs) {
+			if !assocArgsMatch(ch.typeOps, t.Args, famClassArgs) {
 				fam, famOK := ch.reg.LookupFamily(t.Name)
 				if famOK {
 					var result types.Type = &types.TyFamilyApp{
@@ -184,12 +184,12 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 // assocArgsMatch checks if the TyFamilyApp's existing args structurally
 // match the expected class params. If they match, the family is already
 // correctly applied and no saturation is needed.
-func assocArgsMatch(existing, expected []types.Type) bool {
+func assocArgsMatch(ops *types.TypeOps, existing, expected []types.Type) bool {
 	if len(existing) != len(expected) {
 		return false
 	}
 	for i := range existing {
-		if !types.Equal(existing[i], expected[i]) {
+		if !ops.Equal(existing[i], expected[i]) {
 			return false
 		}
 	}

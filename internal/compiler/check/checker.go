@@ -361,10 +361,12 @@ func (ch *Checker) wireUnifier() {
 
 func (ch *Checker) importModules(prog *syntax.Program) {
 	imp := modscope.NewImporter(modscope.ImportEnv{
-		RegisterTypeKind:     ch.reg.RegisterTypeKind,
-		RegisterAlias:        ch.reg.RegisterAlias,
-		RegisterClass:        ch.reg.RegisterClass,
-		RegisterFamily:       ch.reg.RegisterFamily,
+		RegisterTypeKind: ch.reg.RegisterTypeKind,
+		RegisterAlias:    ch.reg.RegisterAlias,
+		RegisterClass:    ch.reg.RegisterClass,
+		RegisterFamily: func(name string, info *TypeFamilyInfo) error {
+			return ch.reg.RegisterFamily(ch.typeOps, name, info)
+		},
 		RegisterDataType:     ch.reg.RegisterDataType,
 		RegisterPromotedKind: ch.reg.RegisterPromotedKind,
 		RegisterPromotedCon:  ch.reg.RegisterPromotedCon,

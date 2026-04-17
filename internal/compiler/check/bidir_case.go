@@ -239,7 +239,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 			// type for this branch. We create a fresh pre-state meta per
 			// branch and unify it with the field-type-substituted row.
 			if isVariantCase && pr.VariantFieldTy != nil && variantSMeta != nil {
-				zonkedPre = variantSubstPreState(zonkedPre, variantSMeta, pr.VariantFieldTy)
+				zonkedPre = variantSubstPreState(ch.typeOps, zonkedPre, variantSMeta, pr.VariantFieldTy)
 			}
 
 			branchExpected = &types.TyCBPV{
@@ -293,7 +293,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 // variantSubstPreState replaces the Variant index meta in a pre-state row
 // with the concrete field type for this branch. Comparison uses the meta
 // variable's ID (stable across zonking) rather than pointer equality.
-func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) types.Type {
+func variantSubstPreState(ops *types.TypeOps, pre types.Type, sMeta types.Type, fieldTy types.Type) types.Type {
 	row, ok := pre.(*types.TyEvidenceRow)
 	if !ok || !row.IsCapabilityRow() {
 		return pre
@@ -303,7 +303,7 @@ func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) 
 	newFields := make([]types.RowField, len(fields))
 	for i, f := range fields {
 		newFields[i] = f
-		if sameMetaOrEqual(f.Type, sMeta) {
+		if sameMetaOrEqual(ops, f.Type, sMeta) {
 			newFields[i].Type = fieldTy
 			changed = true
 		}
@@ -320,13 +320,13 @@ func variantSubstPreState(pre types.Type, sMeta types.Type, fieldTy types.Type) 
 // sameMetaOrEqual compares two types for identity. When both are TyMeta,
 // uses the stable ID (survives zonking). Otherwise falls back to
 // types.Equal for structural comparison.
-func sameMetaOrEqual(a, b types.Type) bool {
+func sameMetaOrEqual(ops *types.TypeOps, a, b types.Type) bool {
 	if ma, ok := a.(*types.TyMeta); ok {
 		if mb, ok := b.(*types.TyMeta); ok {
 			return ma.ID == mb.ID
 		}
 	}
-	return types.Equal(a, b)
+	return ops.Equal(a, b)
 }
 
 // autoForceLazy handles lazy co-data pattern matching. For lazy constructors,

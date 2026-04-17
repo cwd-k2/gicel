@@ -122,7 +122,7 @@ func gradeContainsMeta(ty types.Type) bool {
 
 // reduceConcreteEqs matches type family equations against concrete
 // (meta-free) args. Pure function — no side effects.
-func reduceConcreteEqs(eqs []env.TFEquation, args []types.Type) (types.Type, bool) {
+func reduceConcreteEqs(ops *types.TypeOps, eqs []env.TFEquation, args []types.Type) (types.Type, bool) {
 	for _, eq := range eqs {
 		if len(eq.Patterns) != len(args) {
 			continue
@@ -130,7 +130,7 @@ func reduceConcreteEqs(eqs []env.TFEquation, args []types.Type) (types.Type, boo
 		subst := make(map[string]types.Type)
 		matched := true
 		for i, pat := range eq.Patterns {
-			if !matchConcretePattern(pat, args[i], subst) {
+			if !matchConcretePattern(ops, pat, args[i], subst) {
 				matched = false
 				break
 			}
@@ -147,26 +147,26 @@ func reduceConcreteEqs(eqs []env.TFEquation, args []types.Type) (types.Type, boo
 // potentially different Level fields (equation RHS vs freshly constructed).
 // Since grade constructors are always nullary promoted data constructors,
 // name equality is sufficient and correct.
-func gradeConEqual(a, b types.Type) bool {
+func gradeConEqual(ops *types.TypeOps, a, b types.Type) bool {
 	ac, ok1 := a.(*types.TyCon)
 	bc, ok2 := b.(*types.TyCon)
 	if ok1 && ok2 {
 		return ac.Name == bc.Name
 	}
-	return types.Equal(a, b)
+	return ops.Equal(a, b)
 }
 
 // matchConcretePattern matches a TF equation pattern against a concrete
 // (meta-free) argument. Handles TyVar (pattern variable), TyCon
 // (constructor literal), and TyApp (type application, e.g. tuple patterns).
-func matchConcretePattern(pat, arg types.Type, subst map[string]types.Type) bool {
+func matchConcretePattern(ops *types.TypeOps, pat, arg types.Type, subst map[string]types.Type) bool {
 	switch p := pat.(type) {
 	case *types.TyVar:
 		if p.Name == "_" {
 			return true
 		}
 		if existing, ok := subst[p.Name]; ok {
-			return types.Equal(existing, arg)
+			return ops.Equal(existing, arg)
 		}
 		subst[p.Name] = arg
 		return true
@@ -178,10 +178,10 @@ func matchConcretePattern(pat, arg types.Type, subst map[string]types.Type) bool
 		if !ok {
 			return false
 		}
-		return matchConcretePattern(p.Fun, a.Fun, subst) &&
-			matchConcretePattern(p.Arg, a.Arg, subst)
+		return matchConcretePattern(ops, p.Fun, a.Fun, subst) &&
+			matchConcretePattern(ops, p.Arg, a.Arg, subst)
 	default:
-		return types.Equal(pat, arg)
+		return ops.Equal(pat, arg)
 	}
 }
 

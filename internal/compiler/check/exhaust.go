@@ -17,6 +17,7 @@ func (ch *Checker) checkExhaustive(scrutTy types.Type, alts []ir.Alt, s span.Spa
 		ConTypes:     ch.reg.AllConTypes(),
 		Fresh:        ch.fresh,
 		Unifier:      ch.unifier,
+		TypeOps:      ch.typeOps,
 		ReduceFamily: ch.reduceFamilyInType,
 		CanUnifyWith: ch.canUnifyWith,
 		AddError: func(code diagnostic.Code, s span.Span, msg string) {

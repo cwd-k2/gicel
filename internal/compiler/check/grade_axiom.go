@@ -24,7 +24,7 @@ type gradeAxiomViolation struct {
 // altering allocation patterns enough to perturb budget-sensitive module
 // compilations. By collecting violations as data and deferring diagnostic
 // emission to the caller, the axiom checker is invisible to escape analysis.
-func collectGradeAxiomViolations(reg *Registry, currentMod string) []gradeAxiomViolation {
+func collectGradeAxiomViolations(ops *types.TypeOps, reg *Registry, currentMod string) []gradeAxiomViolation {
 	classInfo, hasClass := reg.LookupClass(gradeAlgebraClassName)
 	if !hasClass || classInfo == nil {
 		return nil
@@ -46,7 +46,7 @@ func collectGradeAxiomViolations(reg *Registry, currentMod string) []gradeAxiomV
 		if !hasPromoted {
 			continue
 		}
-		algebra := extractGradeAlgebraFromRegistry(reg, classInfo, inst)
+		algebra := extractGradeAlgebraFromRegistry(ops, reg, classInfo, inst)
 		if algebra.joinFamily == "" || algebra.dropValue == nil {
 			continue
 		}
@@ -58,7 +58,7 @@ func collectGradeAxiomViolations(reg *Registry, currentMod string) []gradeAxiomV
 		if !famOk || len(fam.Equations) == 0 {
 			continue
 		}
-		if v := verifyGradeAxiomsForKind(dt, fam.Equations, algebra.dropValue); v > 0 {
+		if v := verifyGradeAxiomsForKind(ops, dt, fam.Equations, algebra.dropValue); v > 0 {
 			result = append(result, gradeAxiomViolation{kindName: con.Name, violations: v})
 		}
 	}
@@ -80,7 +80,7 @@ func emitGradeAxiomViolations(violations []gradeAxiomViolation, errs *diagnostic
 
 // extractGradeAlgebraFromRegistry extracts GradeAlgebra fields without
 // touching any Checker state. Uses standalone pattern matching.
-func extractGradeAlgebraFromRegistry(reg *Registry, classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
+func extractGradeAlgebraFromRegistry(ops *types.TypeOps, reg *Registry, classInfo *ClassInfo, inst *InstanceInfo) resolvedGradeAlgebra {
 	var result resolvedGradeAlgebra
 	for _, assocName := range classInfo.AssocTypes {
 		fam, ok := reg.LookupFamily(assocName)
@@ -94,7 +94,7 @@ func extractGradeAlgebraFromRegistry(reg *Registry, classInfo *ClassInfo, inst *
 			subst := make(map[string]types.Type)
 			matched := true
 			for i, pat := range eq.Patterns {
-				if !matchConcretePattern(pat, inst.TypeArgs[i], subst) {
+				if !matchConcretePattern(ops, pat, inst.TypeArgs[i], subst) {
 					matched = false
 					break
 				}
@@ -127,6 +127,7 @@ func extractGradeAlgebraFromRegistry(reg *Registry, classInfo *ClassInfo, inst *
 // the number of violations. Not a Checker method — deliberately avoids
 // any reference to the Checker to prevent escape analysis side effects.
 func verifyGradeAxiomsForKind(
+	ops *types.TypeOps,
 	dt *DataTypeInfo,
 	joinEqs []env.TFEquation,
 	dropValue types.Type,
@@ -140,13 +141,13 @@ func verifyGradeAxiomsForKind(
 	if len(cons) < 2 {
 		return 0
 	}
-	return checkGradeAxiomsConcrete(joinEqs, cons, dropValue)
+	return checkGradeAxiomsConcrete(ops, joinEqs, cons, dropValue)
 }
 
 // checkGradeAxiomsConcrete verifies commutativity and left-identity axioms
 // for a concrete (finite-domain) grade kind. Returns the number of violations.
 // Standalone function — no Checker dependency, no budget/unifier interaction.
-func checkGradeAxiomsConcrete(joinEqs []env.TFEquation, cons []*types.TyCon, _ types.Type) int {
+func checkGradeAxiomsConcrete(ops *types.TypeOps, joinEqs []env.TFEquation, cons []*types.TyCon, _ types.Type) int {
 	violations := 0
 	// Commutativity: Join(a, b) = Join(b, a)
 	//
@@ -160,9 +161,9 @@ func checkGradeAxiomsConcrete(joinEqs []env.TFEquation, cons []*types.TyCon, _ t
 	for i, a := range cons {
 		for j := i + 1; j < len(cons); j++ {
 			b := cons[j]
-			ab, okAB := reduceConcreteEqs(joinEqs, []types.Type{a, b})
-			ba, okBA := reduceConcreteEqs(joinEqs, []types.Type{b, a})
-			if okAB && okBA && !gradeConEqual(ab, ba) {
+			ab, okAB := reduceConcreteEqs(ops, joinEqs, []types.Type{a, b})
+			ba, okBA := reduceConcreteEqs(ops, joinEqs, []types.Type{b, a})
+			if okAB && okBA && !gradeConEqual(ops, ab, ba) {
 				violations++
 			}
 		}

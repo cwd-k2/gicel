@@ -117,7 +117,7 @@ func (r *Registry) RegisterClass(name string, info *ClassInfo) {
 // into an existing family. When multiple modules independently enrich
 // the same associated type family (diamond import), equations from all
 // sources are collected and deduplicated by structural pattern identity.
-func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
+func (r *Registry) RegisterFamily(ops *types.TypeOps, name string, info *TypeFamilyInfo) error {
 	existing, ok := r.families[name]
 	if !ok {
 		r.families[name] = info
@@ -138,14 +138,14 @@ func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 	// order. Report an error rather than silently keeping the first.
 	seen := make(map[string]string, len(existing.Equations))
 	for _, eq := range existing.Equations {
-		seen[equationPatternKey(eq)] = equationRHSKey(eq)
+		seen[equationPatternKey(ops, eq)] = equationRHSKey(ops, eq)
 	}
 	for _, eq := range info.Equations {
-		key := equationPatternKey(eq)
+		key := equationPatternKey(ops, eq)
 		if existingRHS, ok := seen[key]; !ok {
 			existing.Equations = append(existing.Equations, eq)
-			seen[key] = equationRHSKey(eq)
-		} else if equationRHSKey(eq) != existingRHS {
+			seen[key] = equationRHSKey(ops, eq)
+		} else if equationRHSKey(ops, eq) != existingRHS {
 			return fmt.Errorf("type family %s: conflicting equations for pattern %s",
 				name, key)
 		}
@@ -156,15 +156,15 @@ func (r *Registry) RegisterFamily(name string, info *TypeFamilyInfo) error {
 // equationPatternKey produces a canonical key from the LHS patterns of a
 // type family equation. Two equations with structurally equal patterns
 // are considered identical for deduplication purposes.
-func equationPatternKey(eq tfEquation) string {
-	return types.TypeListKey("", ' ', eq.Patterns)
+func equationPatternKey(ops *types.TypeOps, eq tfEquation) string {
+	return ops.TypeListKey("", ' ', eq.Patterns)
 }
 
 // equationRHSKey produces a canonical key from the RHS of a type family
 // equation. Used to detect conflicting equations: same LHS patterns but
 // different RHS is a coherence violation.
-func equationRHSKey(eq tfEquation) string {
-	return types.TypeKey(eq.RHS)
+func equationRHSKey(ops *types.TypeOps, eq tfEquation) string {
+	return ops.TypeKey(eq.RHS)
 }
 
 // RegisterDataType records a data type's reverse lookup entry.

@@ -57,11 +57,12 @@ type HoverIndexBuilder struct {
 	pendingDocs    map[span.Pos]string // span.Start → doc
 	pendingModules map[span.Pos]string // span.Start → module
 	pendingLabels  map[span.Pos]string // span.Start → var name
+	typeOps        *types.TypeOps      // type-level operation owner
 }
 
-// NewHoverIndexBuilder creates an empty builder.
-func NewHoverIndexBuilder() *HoverIndexBuilder {
-	return &HoverIndexBuilder{}
+// NewHoverIndexBuilder creates an empty builder with the given TypeOps.
+func NewHoverIndexBuilder(ops *types.TypeOps) *HoverIndexBuilder {
+	return &HoverIndexBuilder{typeOps: ops}
 }
 
 // Record adds an expression type entry. Entries with zero-width spans
@@ -178,7 +179,7 @@ func (b *HoverIndexBuilder) Finalize() *HoverIndex {
 		}
 		return int((a.span.End - a.span.Start) - (c.span.End - c.span.Start))
 	})
-	idx := &HoverIndex{entries: b.entries}
+	idx := &HoverIndex{entries: b.entries, typeOps: b.typeOps}
 	// Prevent further use of builder.
 	b.entries = nil
 	b.pendingDocs = nil
@@ -193,6 +194,7 @@ func (b *HoverIndexBuilder) Finalize() *HoverIndex {
 // Created by HoverIndexBuilder.Finalize(). All methods are safe for concurrent use.
 type HoverIndex struct {
 	entries []hoverEntry
+	typeOps *types.TypeOps // type-level operation owner
 }
 
 // Len returns the number of recorded entries.
@@ -205,7 +207,7 @@ func (idx *HoverIndex) HoverAt(pos span.Pos) string {
 	if e == nil {
 		return ""
 	}
-	return formatHover(e)
+	return formatHover(e, idx.typeOps)
 }
 
 // HoverAtWithSpan returns the formatted hover string and the source span
@@ -216,7 +218,7 @@ func (idx *HoverIndex) HoverAtWithSpan(pos span.Pos) (string, span.Span) {
 	if e == nil {
 		return "", span.Span{}
 	}
-	return formatHover(e), e.span
+	return formatHover(e, idx.typeOps), e.span
 }
 
 // TypeAt returns the type of the innermost expression whose span
@@ -251,38 +253,38 @@ func (idx *HoverIndex) entryAt(pos span.Pos) *hoverEntry {
 	return best
 }
 
-func formatHover(e *hoverEntry) string {
+func formatHover(e *hoverEntry, ops *types.TypeOps) string {
 	var sig string
 	switch e.kind {
 	case HoverExpr:
 		if e.module != "" && e.label != "" {
-			sig = e.module + "." + e.label + " :: " + types.PrettyDisplay(e.ty)
+			sig = e.module + "." + e.label + " :: " + ops.PrettyDisplay(e.ty)
 		} else {
-			sig = types.PrettyDisplay(e.ty)
+			sig = ops.PrettyDisplay(e.ty)
 		}
 	case HoverBinding:
-		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
+		sig = e.label + " :: " + ops.PrettyDisplay(e.ty)
 	case HoverForm:
 		if e.ty != nil {
-			sig = "form " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
+			sig = "form " + e.label + " :: " + ops.PrettyTypeAsKind(e.ty)
 		} else {
 			sig = "form " + e.label
 		}
 	case HoverTypeAlias:
 		if e.ty != nil {
-			sig = "type " + e.label + " :: " + types.PrettyTypeAsKind(e.ty)
+			sig = "type " + e.label + " :: " + ops.PrettyTypeAsKind(e.ty)
 		} else {
 			sig = "type " + e.label
 		}
 	case HoverTypeAnn:
-		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
+		sig = e.label + " :: " + ops.PrettyDisplay(e.ty)
 	case HoverConstructor:
-		sig = e.label + " :: " + types.PrettyDisplay(e.ty)
+		sig = e.label + " :: " + ops.PrettyDisplay(e.ty)
 	case HoverImport:
 		sig = "import " + e.label
 	case HoverImpl:
 		if e.ty != nil {
-			sig = "impl " + types.PrettyDisplay(e.ty)
+			sig = "impl " + ops.PrettyDisplay(e.ty)
 		} else {
 			sig = "impl " + e.label
 		}
@@ -291,13 +293,13 @@ func formatHover(e *hoverEntry) string {
 		if e.module != "" {
 			name = e.module + "." + e.label
 		}
-		sig = "(" + name + ") :: " + types.PrettyDisplay(e.ty)
+		sig = "(" + name + ") :: " + ops.PrettyDisplay(e.ty)
 		if e.fixity != nil {
 			sig += "\n" + e.fixity.String()
 		}
 	default:
 		if e.ty != nil {
-			sig = types.PrettyDisplay(e.ty)
+			sig = ops.PrettyDisplay(e.ty)
 		}
 	}
 	if e.doc != "" && sig != "" {

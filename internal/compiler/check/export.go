@@ -72,7 +72,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 				impFamilyEqKeys[n] = make(map[string]bool)
 			}
 			for _, eq := range fam.Equations {
-				impFamilyEqKeys[n][equationPatternKey(eq)] = true
+				impFamilyEqKeys[n][equationPatternKey(ch.typeOps, eq)] = true
 			}
 		}
 	}
@@ -104,7 +104,7 @@ func (ch *Checker) ExportModule(prog *ir.Program) *ModuleExports {
 		// TypeFamilies: export locally defined families and imported families
 		// that were enriched with new equations by this module (e.g. associated
 		// type instances). Purely inherited families are excluded.
-		TypeFamilies: filterOwnedOrEnrichedFamilies(ch.reg.AllFamilies(), impFamilyEqKeys),
+		TypeFamilies: filterOwnedOrEnrichedFamilies(ch.typeOps, ch.reg.AllFamilies(), impFamilyEqKeys),
 		ModuleOwnership: env.ModuleOwnership{
 			OwnedTypeNames:     ownedDataNames,
 			OwnedNames:         ownedAllNames(ownedDataNames, prog),
@@ -134,7 +134,7 @@ func filterOwnedMap[V any](m map[string]V, imported map[string]bool) map[string]
 // handles diamond imports where multiple sibling modules independently enrich the
 // same family: each module exports only its own new equations, and the importer
 // merges them at the consumer.
-func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqKeys map[string]map[string]bool) map[string]*TypeFamilyInfo {
+func filterOwnedOrEnrichedFamilies(ops *types.TypeOps, families map[string]*TypeFamilyInfo, impEqKeys map[string]map[string]bool) map[string]*TypeFamilyInfo {
 	result := make(map[string]*TypeFamilyInfo, len(families))
 	for name, fam := range families {
 		if env.IsPrivateName(name) {
@@ -149,7 +149,7 @@ func filterOwnedOrEnrichedFamilies(families map[string]*TypeFamilyInfo, impEqKey
 		// Check if any local equation is not in any import (= locally enriched).
 		enriched := false
 		for _, eq := range fam.Equations {
-			if !importedKeys[equationPatternKey(eq)] {
+			if !importedKeys[equationPatternKey(ops, eq)] {
 				enriched = true
 				break
 			}

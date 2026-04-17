@@ -42,7 +42,7 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 		types.Con("Int"),
 	)
 	arrowTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: compTy}
-	result := quantifyFreeVars(arrowTy)
+	result := quantifyFreeVars(&types.TypeOps{}, arrowTy)
 
 	forall1, ok := result.(*types.TyForall)
 	if !ok {
@@ -69,7 +69,7 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 
 	// Pure type variable should get Type.
 	pureTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "a"}}
-	pureResult := quantifyFreeVars(pureTy)
+	pureResult := quantifyFreeVars(&types.TypeOps{}, pureTy)
 	pureForall, ok := pureResult.(*types.TyForall)
 	if !ok {
 		t.Fatalf("expected TyForall, got %T", pureResult)

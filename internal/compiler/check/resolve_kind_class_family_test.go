@@ -48,7 +48,7 @@ func TestKindOfTypeFamily(t *testing.T) {
 	// Elem (a: Type) :: Type → kind = Type → Type
 	ch := newTestChecker()
 	ch.installFamilyReducer()
-	_ = ch.reg.RegisterFamily("Elem", &TypeFamilyInfo{
+	_ = ch.reg.RegisterFamily(ch.typeOps, "Elem", &TypeFamilyInfo{
 		Name:       "Elem",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,

@@ -451,7 +451,8 @@ func (c *CoreProgram) Pretty() string { return ir.PrettyProgram(c.prog) }
 
 // CompileResult holds all static information produced by compilation.
 type CompileResult struct {
-	prog *ir.Program
+	prog    *ir.Program
+	typeOps *types.TypeOps
 }
 
 // Pretty returns the Core IR as a human-readable string.
@@ -471,7 +472,7 @@ func (cr *CompileResult) BindingNames() []string {
 func (cr *CompileResult) PrettyBindingTypes() map[string]string {
 	m := make(map[string]string, len(cr.prog.Bindings))
 	for _, b := range cr.prog.Bindings {
-		m[b.Name] = types.Pretty(b.Type)
+		m[b.Name] = cr.typeOps.Pretty(b.Type)
 	}
 	return m
 }
@@ -573,7 +574,7 @@ func (e *Engine) Compile(ctx context.Context, source string) (cr *CompileResult,
 	if checkErrs.HasErrors() {
 		return nil, &CompileError{errs: checkErrs}
 	}
-	return &CompileResult{prog: prog}, nil
+	return &CompileResult{prog: prog, typeOps: e.typeOps}, nil
 }
 
 // NewRuntime compiles source code into an immutable, goroutine-safe Runtime.

@@ -19,6 +19,7 @@ type CheckEnv struct {
 	ConTypes     map[string]types.Type        // constructor name → full type scheme
 	Fresh        func() int                   // fresh ID generator (delegates to CheckState.fresh)
 	Unifier      *unify.Unifier               // main unifier (for Zonk)
+	TypeOps      *types.TypeOps               // type-level operation owner
 	ReduceFamily func(types.Type) types.Type
 	CanUnifyWith func(retTy, scrutTy types.Type) bool
 	AddError     func(code diagnostic.Code, s span.Span, msg string)
@@ -115,7 +116,7 @@ func (e *CheckEnv) instantiateForExhaust(ty types.Type) types.Type {
 			}
 			return ty
 		}
-		ty = types.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
+		ty = e.TypeOps.PeelForalls(ty, func(f *types.TyForall) (types.Type, types.LevelExpr) {
 			return &types.TyMeta{ID: e.Fresh(), Kind: f.Kind}, nil
 		})
 	}

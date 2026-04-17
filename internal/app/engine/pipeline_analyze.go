@@ -37,7 +37,7 @@ func (pc *pipelineCtx) analyze(source string) *AnalysisResult {
 
 	var builder *HoverIndexBuilder
 	if pc.typeRecorder {
-		builder = NewHoverIndexBuilder()
+		builder = NewHoverIndexBuilder(pc.typeOps)
 		varDocs := pc.collectVarDocs()
 		// Local definitions in the currently-analyzed source. The checker
 		// records their references with module="" (see RecordVarDoc call
@@ -121,15 +121,16 @@ func populateHoverDecls(idx *HoverIndexBuilder, ast *syntax.Program, prog *ir.Pr
 	}
 
 	// Form declarations and constructors.
+	ops := idx.typeOps
 	for i := range prog.DataDecls {
 		dd := &prog.DataDecls[i]
 		if !dd.S.IsZero() {
-			idx.RecordDecl(dd.S, HoverForm, dd.Name, ComputeFormKind(dd), doc(dd.S))
+			idx.RecordDecl(dd.S, HoverForm, dd.Name, computeFormKindOps(ops, dd), doc(dd.S))
 		}
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
 			if !con.S.IsZero() {
-				idx.RecordDecl(con.S, HoverConstructor, con.Name, BuildConType(dd, con), "")
+				idx.RecordDecl(con.S, HoverConstructor, con.Name, buildConTypeOps(ops, dd, con), "")
 			}
 		}
 	}

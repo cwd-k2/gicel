@@ -86,7 +86,7 @@ func buildCompletionEntries(ar *AnalysisResult, ops *types.TypeOps) []Completion
 		if dd.Generated.IsGenerated() {
 			continue
 		}
-		kind := types.PrettyTypeAsKind(ComputeFormKind(dd))
+		kind := ops.PrettyTypeAsKind(computeFormKindOps(ops, dd))
 		items = append(items, CompletionEntry{
 			Label:         dd.Name,
 			Kind:          CompletionStruct,
@@ -95,7 +95,7 @@ func buildCompletionEntries(ar *AnalysisResult, ops *types.TypeOps) []Completion
 		})
 		for j := range dd.Cons {
 			con := &dd.Cons[j]
-			sig := ops.PrettyDisplay(BuildConType(dd, con))
+			sig := ops.PrettyDisplay(buildConTypeOps(ops, dd, con))
 			items = append(items, CompletionEntry{
 				Label:         con.Name,
 				Kind:          CompletionConstructor,
@@ -160,7 +160,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult, ops *types.TypeOps) []Docume
 		}
 		sym := DocumentSymbolEntry{
 			Name:   dd.Name,
-			Detail: types.PrettyTypeAsKind(ComputeFormKind(dd)),
+			Detail: ops.PrettyTypeAsKind(computeFormKindOps(ops, dd)),
 			Kind:   SymbolStruct,
 			S:      dd.S,
 			NameS:  nameSpan(ar.Source, dd.S, dd.Name),
@@ -172,7 +172,7 @@ func buildDocumentSymbolEntries(ar *AnalysisResult, ops *types.TypeOps) []Docume
 			}
 			sym.Children = append(sym.Children, DocumentSymbolEntry{
 				Name:   con.Name,
-				Detail: ops.PrettyDisplay(BuildConType(dd, con)),
+				Detail: ops.PrettyDisplay(buildConTypeOps(ops, dd, con)),
 				Kind:   SymbolConstructor,
 				S:      con.S,
 				NameS:  nameSpan(ar.Source, con.S, con.Name),

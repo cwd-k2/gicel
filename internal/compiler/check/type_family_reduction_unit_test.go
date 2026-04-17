@@ -262,7 +262,7 @@ func TestReduceTyFamilyUnit_UnknownFamily(t *testing.T) {
 
 func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
+	ch.reg.RegisterFamily(ch.typeOps, "F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
@@ -279,7 +279,7 @@ func TestReduceTyFamilyUnit_EmptyEquations(t *testing.T) {
 
 func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
+	ch.reg.RegisterFamily(ch.typeOps, "F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
@@ -300,7 +300,7 @@ func TestReduceTyFamilyUnit_MatchFirstEquation(t *testing.T) {
 
 func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
+	ch.reg.RegisterFamily(ch.typeOps, "F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
@@ -321,7 +321,7 @@ func TestReduceTyFamilyUnit_FallsThrough(t *testing.T) {
 
 func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.RegisterFamily("Loop", &TypeFamilyInfo{
+	ch.reg.RegisterFamily(ch.typeOps, "Loop", &TypeFamilyInfo{
 		Name:       "Loop",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
@@ -344,7 +344,7 @@ func TestReduceTyFamilyUnit_StepLimit(t *testing.T) {
 
 func TestReduceTyFamilyUnit_SubstApplied(t *testing.T) {
 	ch := newTestChecker()
-	ch.reg.RegisterFamily("Id", &TypeFamilyInfo{
+	ch.reg.RegisterFamily(ch.typeOps, "Id", &TypeFamilyInfo{
 		Name:       "Id",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
@@ -367,7 +367,7 @@ func TestReduceTyFamilyUnit_IndeterminateStopsBeforeLater(t *testing.T) {
 	// Equation 1: F Bool = Int (concrete pattern)
 	// Equation 2: F a = Bool (variable pattern, catches all)
 	// Argument: unsolved meta -> equation 1 is indeterminate, should NOT try equation 2.
-	ch.reg.RegisterFamily("F", &TypeFamilyInfo{
+	ch.reg.RegisterFamily(ch.typeOps, "F", &TypeFamilyInfo{
 		Name:       "F",
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,

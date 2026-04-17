@@ -24,7 +24,7 @@ import (
 func (ch *Checker) validateLabelArgs(prog *ir.Program) {
 	for _, b := range prog.Bindings {
 		zonkedType := ch.unifier.Zonk(b.Type)
-		if hasLabelForall(zonkedType) {
+		if hasLabelForall(ch.typeOps, zonkedType) {
 			continue
 		}
 		ch.walkValidateLabel(b.Expr, zonkedType, 0)
@@ -33,11 +33,11 @@ func (ch *Checker) validateLabelArgs(prog *ir.Program) {
 
 // hasLabelForall reports whether a type has a top-level forall quantifier
 // with Label kind. Peels through nested foralls and evidence.
-func hasLabelForall(ty types.Type) bool {
+func hasLabelForall(ops *types.TypeOps, ty types.Type) bool {
 	for {
 		switch t := ty.(type) {
 		case *types.TyForall:
-			if types.Equal(t.Kind, types.TypeOfLabels) {
+			if ops.Equal(t.Kind, types.TypeOfLabels) {
 				return true
 			}
 			ty = t.Body

@@ -187,8 +187,8 @@ func collectUnsolvedMetasAfter(watermark int, tys ...types.Type) []metaInfo {
 // `f :: List a -> Int` is treated as `f :: \ a. List a -> Int`.
 // Kind inference: variables appearing in row positions (TyCBPV.Pre/Post,
 // TyEvidenceRow.Tail) are quantified as Row; all others as Type.
-func quantifyFreeVars(ty types.Type) types.Type {
-	fv := types.FreeVars(ty)
+func quantifyFreeVars(ops *types.TypeOps, ty types.Type) types.Type {
+	fv := ops.FreeVars(ty)
 	if len(fv) == 0 {
 		return ty
 	}
@@ -203,7 +203,7 @@ func quantifyFreeVars(ty types.Type) types.Type {
 		if k == nil {
 			k = types.TypeOfTypes
 		}
-		ty = types.MkForall(vars[i], k, ty)
+		ty = ops.Forall(vars[i], k, ty, span.Span{})
 	}
 	return ty
 }

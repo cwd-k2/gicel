@@ -175,19 +175,19 @@ func isBareComputationType(ty types.Type) bool {
 
 // typeArity counts the number of arrow arguments in a type,
 // stripping outer foralls. E.g. \ a. A -> B -> C has arity 2.
-func typeArity(ty types.Type) int {
+func typeArity(ops *types.TypeOps, ty types.Type) int {
 	for {
 		switch t := ty.(type) {
 		case *types.TyForall:
 			// Label-kinded foralls become value-level parameters after label
 			// erasure (TyLam → Lam at call sites). Count them in PrimOp arity
 			// so the VM collects the label string as an arg.
-			if types.Equal(t.Kind, types.TypeOfLabels) {
-				return 1 + typeArity(t.Body)
+			if ops.Equal(t.Kind, types.TypeOfLabels) {
+				return 1 + typeArity(ops, t.Body)
 			}
 			ty = t.Body
 		case *types.TyArrow:
-			return 1 + typeArity(t.To)
+			return 1 + typeArity(ops, t.To)
 		default:
 			return 0
 		}

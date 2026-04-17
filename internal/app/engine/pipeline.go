@@ -318,3 +318,35 @@ func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
 	}
 	return ty
 }
+
+// computeFormKindOps builds the kind of a data declaration using TypeOps.
+func computeFormKindOps(ops *types.TypeOps, dd *ir.DataDecl) types.Type {
+	var kind types.Type = types.TypeOfTypes
+	for i := len(dd.TyParams) - 1; i >= 0; i-- {
+		kind = ops.Arrow(dd.TyParams[i].Kind, kind, span.Span{})
+	}
+	return kind
+}
+
+// buildConTypeOps returns the full type of a constructor using TypeOps.
+func buildConTypeOps(ops *types.TypeOps, dd *ir.DataDecl, con *ir.ConDecl) types.Type {
+	if con.FullType != nil {
+		return con.FullType
+	}
+	var ret types.Type = ops.Con(dd.Name, span.Span{})
+	for _, p := range dd.TyParams {
+		arg := ops.Var(p.Name, span.Span{})
+		ret = ops.App(ret, arg, span.Span{})
+	}
+	if con.IsGADT() {
+		ret = con.ReturnType
+	}
+	ty := ret
+	for i := len(con.Fields) - 1; i >= 0; i-- {
+		ty = ops.Arrow(con.Fields[i], ty, span.Span{})
+	}
+	for i := len(dd.TyParams) - 1; i >= 0; i-- {
+		ty = ops.Forall(dd.TyParams[i].Name, dd.TyParams[i].Kind, ty, span.Span{})
+	}
+	return ty
+}

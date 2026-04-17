@@ -135,7 +135,7 @@ func (p *declPipeline) run() *ir.Program {
 	p.ch.refineMergeLabels()
 
 	emitGradeAxiomViolations(
-		collectGradeAxiomViolations(p.ch.reg, p.ch.scope.CurrentModule()),
+		collectGradeAxiomViolations(p.ch.typeOps, p.ch.reg, p.ch.scope.CurrentModule()),
 		p.ch.errors,
 	)
 
@@ -216,7 +216,7 @@ func (p *declPipeline) collectAnnotations() map[string]types.Type {
 	for _, d := range p.decls {
 		if ann, ok := d.(*syntax.DeclTypeAnn); ok {
 			ty := p.ch.resolveTypeExpr(ann.Type)
-			annotations[ann.Name] = quantifyFreeVars(ty)
+			annotations[ann.Name] = quantifyFreeVars(p.ch.typeOps, ty)
 		}
 	}
 	return annotations
@@ -390,7 +390,7 @@ func (ch *Checker) processValueDef(d *syntax.DeclValueDef, annotations map[strin
 		prog.Bindings = append(prog.Bindings, ir.Binding{
 			Name: d.Name,
 			Type: aTy,
-			Expr: &ir.PrimOp{Name: d.Name, Arity: typeArity(aTy), IsEffectful: isComputationType(aTy), S: d.S},
+			Expr: &ir.PrimOp{Name: d.Name, Arity: typeArity(ch.typeOps, aTy), IsEffectful: isComputationType(aTy), S: d.S},
 			S:    d.S,
 		})
 		return
