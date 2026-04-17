@@ -31,7 +31,7 @@ main := f True False`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.Con("Bool")) {
+			if !types.Equal(b.Type, types.MkCon("Bool")) {
 				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
 			}
 			return
@@ -52,7 +52,7 @@ main := f (Just True) (Just False)`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.Con("Bool")) {
+			if !types.Equal(b.Type, types.MkCon("Bool")) {
 				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
 			}
 			return
@@ -74,7 +74,7 @@ main := eq True False`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.Con("Bool")) {
+			if !types.Equal(b.Type, types.MkCon("Bool")) {
 				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
 			}
 			return
@@ -224,7 +224,7 @@ main := eq MkInt MkInt`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.Con("Int")) {
+			if !types.Equal(b.Type, types.MkCon("Int")) {
 				t.Errorf("expected main :: Int, got %s", types.Pretty(b.Type))
 			}
 			return

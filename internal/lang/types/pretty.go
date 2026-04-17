@@ -17,36 +17,36 @@ func (o *TypeOps) Pretty(t Type) string {
 		}
 		return ty.Name
 	case *TyApp:
-		if s, ok := prettyTuple(ty, Pretty); ok {
+		if s, ok := prettyTuple(ty, o.Pretty); ok {
 			return s
 		}
-		return Pretty(ty.Fun) + " " + prettyAtom(ty.Arg)
+		return o.Pretty(ty.Fun) + " " + prettyAtom(o, ty.Arg)
 	case *TyArrow:
-		from := Pretty(ty.From)
+		from := o.Pretty(ty.From)
 		if _, ok := ty.From.(*TyArrow); ok {
 			from = "(" + from + ")"
 		}
-		return from + " -> " + Pretty(ty.To)
+		return from + " -> " + o.Pretty(ty.To)
 	case *TyForall:
 		vars, body := collectForalls(ty)
-		return `\` + strings.Join(vars, " ") + ". " + Pretty(body)
+		return `\` + strings.Join(vars, " ") + ". " + o.Pretty(body)
 	case *TyCBPV:
 		name := TyConComputation
 		if ty.Tag == TagThunk {
 			name = TyConThunk
 		}
 		if ty.IsGraded() {
-			return name + " " + prettyAtom(ty.Grade) + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
+			return name + " " + prettyAtom(o, ty.Grade) + " " + prettyAtom(o, ty.Pre) + " " + prettyAtom(o, ty.Post) + " " + prettyAtom(o, ty.Result)
 		}
-		return name + " " + prettyAtom(ty.Pre) + " " + prettyAtom(ty.Post) + " " + prettyAtom(ty.Result)
+		return name + " " + prettyAtom(o, ty.Pre) + " " + prettyAtom(o, ty.Post) + " " + prettyAtom(o, ty.Result)
 	case *TyEvidenceRow:
-		return prettyEvidenceRow(ty)
+		return prettyEvidenceRow(o, ty)
 	case *TyEvidence:
-		return Pretty(ty.Constraints) + " => " + Pretty(ty.Body)
+		return o.Pretty(ty.Constraints) + " => " + o.Pretty(ty.Body)
 	case *TyFamilyApp:
 		parts := []string{ty.Name}
 		for _, a := range ty.Args {
-			parts = append(parts, prettyAtom(a))
+			parts = append(parts, prettyAtom(o, a))
 		}
 		return strings.Join(parts, " ")
 	case *TySkolem:
@@ -63,20 +63,20 @@ func (o *TypeOps) Pretty(t Type) string {
 // PrettyAtom renders a type as a single syntactic atom.
 // Compound types (arrows, applications, foralls, etc.) are wrapped in parentheses.
 func PrettyAtom(t Type) string {
-	return prettyAtom(t)
+	return prettyAtom(&defaultOps, t)
 }
 
-func prettyAtom(t Type) string {
+func prettyAtom(o *TypeOps, t Type) string {
 	switch ty := t.(type) {
 	case *TyVar, *TyCon, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
-		return Pretty(t)
+		return o.Pretty(t)
 	case *TyApp:
-		if s, ok := prettyTuple(ty, Pretty); ok {
+		if s, ok := prettyTuple(ty, o.Pretty); ok {
 			return s
 		}
-		return "(" + Pretty(t) + ")"
+		return "(" + o.Pretty(t) + ")"
 	default:
-		return "(" + Pretty(t) + ")"
+		return "(" + o.Pretty(t) + ")"
 	}
 }
 
@@ -167,7 +167,7 @@ func prettyTuple(app *TyApp, render func(Type) string) (string, bool) {
 	return "(" + inner + ")", true
 }
 
-func prettyCapFields(fields []RowField, tail Type) string {
+func prettyCapFields(o *TypeOps, fields []RowField, tail Type) string {
 	if len(fields) == 0 && tail == nil {
 		return "{}"
 	}
@@ -176,104 +176,104 @@ func prettyCapFields(fields []RowField, tail Type) string {
 		if f.IsGraded() {
 			gs := make([]string, len(f.Grades))
 			for j, g := range f.Grades {
-				gs[j] = Pretty(g)
+				gs[j] = o.Pretty(g)
 			}
-			parts[i] = f.Label + ": " + Pretty(f.Type) + " @ " + strings.Join(gs, " @ ")
+			parts[i] = f.Label + ": " + o.Pretty(f.Type) + " @ " + strings.Join(gs, " @ ")
 		} else {
-			parts[i] = f.Label + ": " + Pretty(f.Type)
+			parts[i] = f.Label + ": " + o.Pretty(f.Type)
 		}
 	}
 	inner := strings.Join(parts, ", ")
 	if tail != nil {
 		if len(parts) > 0 {
-			inner += " | " + Pretty(tail)
+			inner += " | " + o.Pretty(tail)
 		} else {
-			inner = "| " + Pretty(tail)
+			inner = "| " + o.Pretty(tail)
 		}
 	}
 	return "{ " + inner + " }"
 }
 
-func prettyConstraintEntries(entries []ConstraintEntry, tail Type) string {
+func prettyConstraintEntries(o *TypeOps, entries []ConstraintEntry, tail Type) string {
 	if len(entries) == 0 && tail == nil {
 		return "{}"
 	}
 	parts := make([]string, len(entries))
 	for i, e := range entries {
-		parts[i] = prettyConstraintEntry(e)
+		parts[i] = prettyConstraintEntry(o, e)
 	}
 	inner := strings.Join(parts, ", ")
 	if tail != nil {
 		if len(parts) > 0 {
-			inner += " | " + Pretty(tail)
+			inner += " | " + o.Pretty(tail)
 		} else {
-			inner = "| " + Pretty(tail)
+			inner = "| " + o.Pretty(tail)
 		}
 	}
 	return "{ " + inner + " }"
 }
 
-func prettyEvidenceRow(r *TyEvidenceRow) string {
+func prettyEvidenceRow(o *TypeOps, r *TyEvidenceRow) string {
 	switch r.Entries.(type) {
 	case *CapabilityEntries:
 		fields, tail, _ := flattenTupleRow(r)
-		return prettyCapFields(fields, tail)
+		return prettyCapFields(o, fields, tail)
 	case *ConstraintEntries:
-		return prettyConstraintEntries(r.Entries.(*ConstraintEntries).Entries, r.Tail)
+		return prettyConstraintEntries(o, r.Entries.(*ConstraintEntries).Entries, r.Tail)
 	default:
 		// Generic fallback for future fiber types.
 		children := r.Entries.AllChildren()
 		parts := make([]string, len(children))
 		for i, c := range children {
-			parts[i] = Pretty(c)
+			parts[i] = o.Pretty(c)
 		}
 		result := "{ " + strings.Join(parts, ", ") + " }"
 		if r.IsOpen() {
-			result = "{ " + strings.Join(parts, ", ") + " | " + Pretty(r.Tail) + " }"
+			result = "{ " + strings.Join(parts, ", ") + " | " + o.Pretty(r.Tail) + " }"
 		}
 		return result
 	}
 }
 
-func prettyConstraintEntry(e ConstraintEntry) string {
+func prettyConstraintEntry(o *TypeOps, e ConstraintEntry) string {
 	switch e := e.(type) {
 	case *ClassEntry:
-		return prettyClassEntry(e)
+		return prettyClassEntry(o, e)
 	case *EqualityEntry:
-		return Pretty(e.Lhs) + " ~ " + Pretty(e.Rhs)
+		return o.Pretty(e.Lhs) + " ~ " + o.Pretty(e.Rhs)
 	case *VarEntry:
-		return Pretty(e.Var)
+		return o.Pretty(e.Var)
 	case *QuantifiedConstraint:
-		return prettyQuantifiedConstraint(e)
+		return prettyQuantifiedConstraint(o, e)
 	}
 	return "<?>"
 }
 
-func prettyClassEntry(e *ClassEntry) string {
+func prettyClassEntry(o *TypeOps, e *ClassEntry) string {
 	items := make([]string, 0, 1+len(e.Args))
 	items = append(items, e.ClassName)
 	for _, a := range e.Args {
-		items = append(items, prettyAtom(a))
+		items = append(items, prettyAtom(o, a))
 	}
 	return strings.Join(items, " ")
 }
 
-func prettyQuantifiedConstraint(qc *QuantifiedConstraint) string {
+func prettyQuantifiedConstraint(o *TypeOps, qc *QuantifiedConstraint) string {
 	var vars []string
 	for _, v := range qc.Vars {
-		if Equal(v.Kind, TypeOfTypes) {
+		if o.Equal(v.Kind, TypeOfTypes) {
 			vars = append(vars, v.Name)
 		} else {
-			vars = append(vars, "("+v.Name+": "+PrettyTypeAsKind(v.Kind)+")")
+			vars = append(vars, "("+v.Name+": "+o.PrettyTypeAsKind(v.Kind)+")")
 		}
 	}
 	var result strings.Builder
 	result.WriteString(`\` + strings.Join(vars, " ") + ". ")
 	for _, c := range qc.Context {
-		result.WriteString(prettyConstraintEntry(c) + " => ")
+		result.WriteString(prettyConstraintEntry(o, c) + " => ")
 	}
 	if qc.Head != nil {
-		result.WriteString(prettyClassEntry(qc.Head))
+		result.WriteString(prettyClassEntry(o, qc.Head))
 	}
 	return result.String()
 }
@@ -285,37 +285,37 @@ func (o *TypeOps) PrettyDisplay(t Type) string {
 	case *TySkolem:
 		return ty.Name
 	case *TyArrow:
-		from := PrettyDisplay(ty.From)
+		from := o.PrettyDisplay(ty.From)
 		if _, ok := ty.From.(*TyArrow); ok {
 			from = "(" + from + ")"
 		}
-		return from + " -> " + PrettyDisplay(ty.To)
+		return from + " -> " + o.PrettyDisplay(ty.To)
 	case *TyApp:
-		if s, ok := prettyTuple(ty, PrettyDisplay); ok {
+		if s, ok := prettyTuple(ty, o.PrettyDisplay); ok {
 			return s
 		}
-		return PrettyDisplay(ty.Fun) + " " + prettyDisplayAtom(ty.Arg)
+		return o.PrettyDisplay(ty.Fun) + " " + prettyDisplayAtom(o, ty.Arg)
 	case *TyForall:
 		vars, body := collectForalls(ty)
-		return `\` + strings.Join(vars, " ") + ". " + PrettyDisplay(body)
+		return `\` + strings.Join(vars, " ") + ". " + o.PrettyDisplay(body)
 	case *TyEvidence:
-		return PrettyDisplay(ty.Constraints) + " => " + PrettyDisplay(ty.Body)
+		return o.PrettyDisplay(ty.Constraints) + " => " + o.PrettyDisplay(ty.Body)
 	default:
-		return Pretty(t)
+		return o.Pretty(t)
 	}
 }
 
-func prettyDisplayAtom(t Type) string {
+func prettyDisplayAtom(o *TypeOps, t Type) string {
 	switch ty := t.(type) {
 	case *TyVar, *TyCon, *TyEvidenceRow, *TySkolem, *TyMeta, *TyError:
-		return PrettyDisplay(t)
+		return o.PrettyDisplay(t)
 	case *TyApp:
-		if s, ok := prettyTuple(ty, PrettyDisplay); ok {
+		if s, ok := prettyTuple(ty, o.PrettyDisplay); ok {
 			return s
 		}
-		return "(" + PrettyDisplay(t) + ")"
+		return "(" + o.PrettyDisplay(t) + ")"
 	default:
-		return "(" + PrettyDisplay(t) + ")"
+		return "(" + o.PrettyDisplay(t) + ")"
 	}
 }
 
@@ -326,16 +326,16 @@ func (o *TypeOps) PrettyTypeAsKind(t Type) string {
 	case *TyCon:
 		return ty.Name
 	case *TyArrow:
-		from := PrettyTypeAsKind(ty.From)
+		from := o.PrettyTypeAsKind(ty.From)
 		if _, ok := ty.From.(*TyArrow); ok {
 			from = "(" + from + ")"
 		}
-		return from + " -> " + PrettyTypeAsKind(ty.To)
+		return from + " -> " + o.PrettyTypeAsKind(ty.To)
 	case *TyVar:
 		return ty.Name
 	case *TyMeta:
 		return "_"
 	default:
-		return Pretty(t)
+		return o.Pretty(t)
 	}
 }

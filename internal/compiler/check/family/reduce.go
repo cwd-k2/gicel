@@ -312,10 +312,7 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 		if ty.Tag == types.TagComp {
 			return e.TypeOps.CompAt(rPre, rPost, rResult, rGrade, ty.S)
 		}
-		if rGrade != nil {
-			return e.TypeOps.ThunkGradedAt(rPre, rPost, rResult, rGrade, ty.S)
-		}
-		return e.TypeOps.ThunkAt(rPre, rPost, rResult, ty.S)
+		return e.TypeOps.ThunkAt(rPre, rPost, rResult, rGrade, ty.S)
 	case *types.TyEvidence:
 		rConstraints := e.reduceFamilyAppsN(ty.Constraints)
 		rBody := e.reduceFamilyAppsN(ty.Body)

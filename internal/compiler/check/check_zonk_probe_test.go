@@ -37,7 +37,7 @@ func TestProbeD_Zonk_MetaChainPathCompression(t *testing.T) {
 	if err := u.Unify(m2, m3); err != nil {
 		t.Fatal(err)
 	}
-	if err := u.Unify(m3, types.Con("Int")); err != nil {
+	if err := u.Unify(m3, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -68,7 +68,7 @@ func TestProbeD_Zonk_UnsolvedMetaPreserved(t *testing.T) {
 // return the identical pointer.
 func TestProbeD_Zonk_StructuralIdentity(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	ty := types.MkArrow(types.Con("Int"), types.Con("Bool"))
+	ty := types.MkArrow(types.MkCon("Int"), types.MkCon("Bool"))
 	result := u.Zonk(ty)
 	if result != ty {
 		t.Error("Zonk should return the same pointer for meta-free types")
@@ -79,7 +79,7 @@ func TestProbeD_Zonk_StructuralIdentity(t *testing.T) {
 func TestProbeD_Zonk_TyForallBodyZonked(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	if err := u.Unify(m, types.Con("Int")); err != nil {
+	if err := u.Unify(m, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 	forallTy := types.MkForall("a", types.TypeOfTypes, types.MkArrow(&types.TyVar{Name: "a"}, m))
@@ -118,9 +118,9 @@ func TestProbeE_Zonk_DeepNesting(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	// Build: F (F (F ... (F Int) ...)) with depth 1000
 	const depth = 1000
-	var ty types.Type = types.Con("Int")
+	var ty types.Type = types.MkCon("Int")
 	for i := 0; i < depth; i++ {
-		ty = &types.TyApp{Fun: types.Con("F"), Arg: ty}
+		ty = &types.TyApp{Fun: types.MkCon("F"), Arg: ty}
 	}
 	// Should not stack overflow
 	result := u.Zonk(ty)
@@ -134,7 +134,7 @@ func TestProbeE_Zonk_DeepNesting(t *testing.T) {
 func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	u.Unify(meta, types.Con("Bool"))
+	u.Unify(meta, types.MkCon("Bool"))
 	evidence := &types.TyEvidence{
 		Constraints: &types.TyEvidenceRow{
 			Entries: &types.ConstraintEntries{
@@ -143,7 +143,7 @@ func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 				},
 			},
 		},
-		Body: types.MkArrow(meta, types.Con("Int")),
+		Body: types.MkArrow(meta, types.MkCon("Int")),
 	}
 	result := u.Zonk(evidence)
 	ev, ok := result.(*types.TyEvidence)
@@ -164,10 +164,10 @@ func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 func TestProbeE_Zonk_TyFamilyApp(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	u.Unify(meta, types.Con("Int"))
+	u.Unify(meta, types.MkCon("Int"))
 	fam := &types.TyFamilyApp{
 		Name: "F",
-		Args: []types.Type{meta, types.Con("Bool")},
+		Args: []types.Type{meta, types.MkCon("Bool")},
 		Kind: types.TypeOfTypes,
 	}
 	result := u.Zonk(fam)

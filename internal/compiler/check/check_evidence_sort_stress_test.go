@@ -20,8 +20,8 @@ func TestStressUnifyLargeCapRows(t *testing.T) {
 	fields2 := make([]types.RowField, N)
 	for i := range N {
 		label := fmt.Sprintf("f%03d", i)
-		fields1[i] = types.RowField{Label: label, Type: types.Con("Int")}
-		fields2[N-1-i] = types.RowField{Label: label, Type: types.Con("Int")}
+		fields1[i] = types.RowField{Label: label, Type: types.MkCon("Int")}
+		fields2[N-1-i] = types.RowField{Label: label, Type: types.MkCon("Int")}
 	}
 	r1 := types.ClosedRow(fields1...)
 	r2 := types.ClosedRow(fields2...)
@@ -39,8 +39,8 @@ func TestStressUnifyLargeConRows(t *testing.T) {
 	entries2 := make([]types.ConstraintEntry, N)
 	for i := range N {
 		cn := fmt.Sprintf("C%03d", i)
-		entries1[i] = &types.ClassEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
-		entries2[N-1-i] = &types.ClassEntry{ClassName: cn, Args: []types.Type{types.Con("Int")}}
+		entries1[i] = &types.ClassEntry{ClassName: cn, Args: []types.Type{types.MkCon("Int")}}
+		entries2[N-1-i] = &types.ClassEntry{ClassName: cn, Args: []types.Type{types.MkCon("Int")}}
 	}
 	r1 := &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries1}}
 	r2 := &types.TyEvidenceRow{Entries: &types.ConstraintEntries{Entries: entries2}}
@@ -62,8 +62,8 @@ func TestStressOpenOpenDisjoint(t *testing.T) {
 	leftFields := make([]types.RowField, 10)
 	rightFields := make([]types.RowField, 10)
 	for i := range 10 {
-		leftFields[i] = types.RowField{Label: fmt.Sprintf("left%d", i), Type: types.Con("Int")}
-		rightFields[i] = types.RowField{Label: fmt.Sprintf("right%d", i), Type: types.Con("Bool")}
+		leftFields[i] = types.RowField{Label: fmt.Sprintf("left%d", i), Type: types.MkCon("Int")}
+		rightFields[i] = types.RowField{Label: fmt.Sprintf("right%d", i), Type: types.MkCon("Bool")}
 	}
 
 	r1 := types.OpenRow(leftFields, m1)
@@ -97,13 +97,13 @@ func TestStressDeeplyNestedTails(t *testing.T) {
 
 	for i := range depth - 1 {
 		r1 := types.OpenRow(
-			[]types.RowField{{Label: fmt.Sprintf("f%d", i), Type: types.Con("Int")}},
+			[]types.RowField{{Label: fmt.Sprintf("f%d", i), Type: types.MkCon("Int")}},
 			metas[i],
 		)
 		r2 := types.OpenRow(
 			[]types.RowField{
-				{Label: fmt.Sprintf("f%d", i), Type: types.Con("Int")},
-				{Label: fmt.Sprintf("f%d", i+1), Type: types.Con("Int")},
+				{Label: fmt.Sprintf("f%d", i), Type: types.MkCon("Int")},
+				{Label: fmt.Sprintf("f%d", i+1), Type: types.MkCon("Int")},
 			},
 			metas[i+1],
 		)
@@ -126,8 +126,8 @@ func TestStressDeeplyNestedTails(t *testing.T) {
 
 func TestStressFiberIsolation(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	cap := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
-	con := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
+	cap := types.ClosedRow(types.RowField{Label: "x", Type: types.MkCon("Int")})
+	con := types.SingleConstraint("Eq", []types.Type{types.MkCon("Int")})
 
 	if err := u.Unify(cap, con); err == nil {
 		t.Error("capability and constraint rows must not unify")
@@ -144,7 +144,7 @@ func TestStressZonkLargeRow(t *testing.T) {
 	metas := make([]*types.TyMeta, N)
 	for i := range N {
 		metas[i] = &types.TyMeta{ID: 3000 + i, Kind: types.TypeOfTypes}
-		u.InstallTempSolution(3000+i, types.Con(fmt.Sprintf("T%d", i)))
+		u.InstallTempSolution(3000+i, types.MkCon(fmt.Sprintf("T%d", i)))
 	}
 
 	fields := make([]types.RowField, N)
@@ -184,10 +184,10 @@ func TestStressSubstLargeRow(t *testing.T) {
 	const N = 50
 	fields := make([]types.RowField, N)
 	for i := range N {
-		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.Var("a")}
+		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.MkVar("a")}
 	}
 	r := types.ClosedRow(fields...)
-	result := types.Subst(r, "a", types.Con("Int"))
+	result := types.Subst(r, "a", types.MkCon("Int"))
 
 	ev, ok := result.(*types.TyEvidenceRow)
 	if !ok {
@@ -206,8 +206,8 @@ func TestStressEqualLargeRows(t *testing.T) {
 	fields2 := make([]types.RowField, N)
 	for i := range N {
 		label := fmt.Sprintf("f%03d", i)
-		fields1[i] = types.RowField{Label: label, Type: types.Con("Int")}
-		fields2[N-1-i] = types.RowField{Label: label, Type: types.Con("Int")}
+		fields1[i] = types.RowField{Label: label, Type: types.MkCon("Int")}
+		fields2[N-1-i] = types.RowField{Label: label, Type: types.MkCon("Int")}
 	}
 	r1 := types.ClosedRow(fields1...)
 	r2 := types.ClosedRow(fields2...)
@@ -221,9 +221,9 @@ func TestStressFreeVarsLargeRow(t *testing.T) {
 	const N = 50
 	fields := make([]types.RowField, N)
 	for i := range N {
-		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.Var(fmt.Sprintf("a%d", i))}
+		fields[i] = types.RowField{Label: fmt.Sprintf("f%d", i), Type: types.MkVar(fmt.Sprintf("a%d", i))}
 	}
-	r := types.OpenRow(fields, types.Var("tail"))
+	r := types.OpenRow(fields, types.MkVar("tail"))
 	fv := types.FreeVars(r)
 
 	if len(fv) != N+1 {

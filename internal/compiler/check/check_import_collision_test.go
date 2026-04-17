@@ -23,7 +23,7 @@ func mkTypeModule(typeName string, cons []string) *ModuleExports {
 	conTypes := make(map[string]types.Type, len(cons))
 	conInfo := make(map[string]*DataTypeInfo, len(cons))
 	for _, c := range cons {
-		conTypes[c] = types.Con(typeName)
+		conTypes[c] = types.MkCon(typeName)
 		conInfo[c] = info
 	}
 	ownedNames := map[string]bool{typeName: true}
@@ -62,7 +62,7 @@ func mkClassModule(className string, methodName string) *ModuleExports {
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{className: cls},
-		Values:          map[string]types.Type{methodName: types.Con("Int")},
+		Values:          map[string]types.Type{methodName: types.MkCon("Int")},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -250,11 +250,11 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 	// ModA re-exports from C (Color is NOT in ModA's OwnedTypeNames).
 	modA := &ModuleExports{
 		Types:           map[string]types.Type{"Color": types.TypeOfTypes},
-		ConTypes:        map[string]types.Type{"Red": types.Con("Color")},
+		ConTypes:        map[string]types.Type{"Red": types.MkCon("Color")},
 		ConstructorInfo: modC.ConstructorInfo,
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"helperA": types.Con("Int")},
+		Values:          map[string]types.Type{"helperA": types.MkCon("Int")},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -266,11 +266,11 @@ func TestCollision_DiamondReexportType(t *testing.T) {
 	}
 	modB := &ModuleExports{
 		Types:           map[string]types.Type{"Color": types.TypeOfTypes},
-		ConTypes:        map[string]types.Type{"Blue": types.Con("Color")},
+		ConTypes:        map[string]types.Type{"Blue": types.MkCon("Color")},
 		ConstructorInfo: modC.ConstructorInfo,
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"helperB": types.Con("Int")},
+		Values:          map[string]types.Type{"helperB": types.MkCon("Int")},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},

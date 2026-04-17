@@ -57,15 +57,15 @@ func (o *TypeOps) WriteTypeKey(b KeyWriter, t Type) {
 		b.Write(strconv.AppendInt(buf[:0], int64(ty.ID), 10))
 	case *TyApp:
 		b.WriteByte('(')
-		WriteTypeKey(b, ty.Fun)
+		o.WriteTypeKey(b, ty.Fun)
 		b.WriteByte(' ')
-		WriteTypeKey(b, ty.Arg)
+		o.WriteTypeKey(b, ty.Arg)
 		b.WriteByte(')')
 	case *TyArrow:
 		b.WriteByte('(')
-		WriteTypeKey(b, ty.From)
+		o.WriteTypeKey(b, ty.From)
 		b.WriteString("->")
-		WriteTypeKey(b, ty.To)
+		o.WriteTypeKey(b, ty.To)
 		b.WriteByte(')')
 	case *TyCBPV:
 		if ty.Tag == TagComp {
@@ -73,34 +73,34 @@ func (o *TypeOps) WriteTypeKey(b KeyWriter, t Type) {
 		} else {
 			b.WriteString("{T ")
 		}
-		WriteTypeKey(b, ty.Pre)
+		o.WriteTypeKey(b, ty.Pre)
 		b.WriteByte(' ')
-		WriteTypeKey(b, ty.Post)
+		o.WriteTypeKey(b, ty.Post)
 		b.WriteByte(' ')
-		WriteTypeKey(b, ty.Result)
+		o.WriteTypeKey(b, ty.Result)
 		if ty.IsGraded() {
 			b.WriteString(" @")
-			WriteTypeKey(b, ty.Grade)
+			o.WriteTypeKey(b, ty.Grade)
 		}
 		b.WriteByte('}')
 	case *TyForall:
 		b.WriteString("{V ")
 		b.WriteString(ty.Var)
 		b.WriteByte(':')
-		WriteTypeKey(b, ty.Kind)
+		o.WriteTypeKey(b, ty.Kind)
 		b.WriteByte(' ')
-		WriteTypeKey(b, ty.Body)
+		o.WriteTypeKey(b, ty.Body)
 		b.WriteByte('}')
 	case *TyFamilyApp:
 		b.WriteByte('[')
 		b.WriteString(ty.Name)
 		for _, a := range ty.Args {
 			b.WriteByte(' ')
-			WriteTypeKey(b, a)
+			o.WriteTypeKey(b, a)
 		}
 		if ty.Kind != nil {
 			b.WriteByte(':')
-			WriteTypeKey(b, ty.Kind)
+			o.WriteTypeKey(b, ty.Kind)
 		}
 		b.WriteByte(']')
 	case *TySkolem:
@@ -109,12 +109,12 @@ func (o *TypeOps) WriteTypeKey(b KeyWriter, t Type) {
 		b.Write(strconv.AppendInt(buf[:0], int64(ty.ID), 10))
 	case *TyEvidence:
 		b.WriteString("{E ")
-		WriteTypeKey(b, ty.Constraints)
+		o.WriteTypeKey(b, ty.Constraints)
 		b.WriteByte(' ')
-		WriteTypeKey(b, ty.Body)
+		o.WriteTypeKey(b, ty.Body)
 		b.WriteByte('}')
 	case *TyEvidenceRow:
-		writeEvidenceRowKey(b, ty)
+		writeEvidenceRowKey(o, b, ty)
 	case *TyError:
 		b.WriteByte('!')
 	case nil:
@@ -134,7 +134,7 @@ var builderPool = sync.Pool{
 func (o *TypeOps) TypeKey(t Type) string {
 	b := builderPool.Get().(*strings.Builder)
 	b.Reset()
-	WriteTypeKey(b, t)
+	o.WriteTypeKey(b, t)
 	s := b.String()
 	builderPool.Put(b)
 	return s
@@ -149,14 +149,14 @@ func (o *TypeOps) TypeListKey(prefix string, sep byte, args []Type) string {
 	b.WriteString(prefix)
 	for _, a := range args {
 		b.WriteByte(sep)
-		WriteTypeKey(b, a)
+		o.WriteTypeKey(b, a)
 	}
 	s := b.String()
 	builderPool.Put(b)
 	return s
 }
 
-func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
+func writeEvidenceRowKey(o *TypeOps, b KeyWriter, row *TyEvidenceRow) {
 	switch entries := row.Entries.(type) {
 	case *CapabilityEntries:
 		b.WriteString("{R")
@@ -166,15 +166,15 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 			b.WriteByte(' ')
 			b.WriteString(f.Label)
 			b.WriteByte(':')
-			WriteTypeKey(b, f.Type)
+			o.WriteTypeKey(b, f.Type)
 			for _, g := range f.Grades {
 				b.WriteByte('@')
-				WriteTypeKey(b, g)
+				o.WriteTypeKey(b, g)
 			}
 		}
 		if row.IsOpen() {
 			b.WriteString("|")
-			WriteTypeKey(b, row.Tail)
+			o.WriteTypeKey(b, row.Tail)
 		}
 		b.WriteByte('}')
 	case *ConstraintEntries:
@@ -183,11 +183,11 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 		// so normalization is not needed here.
 		for _, e := range entries.Entries {
 			b.WriteByte(' ')
-			writeConstraintEntryKey(b, e)
+			writeConstraintEntryKey(o, b, e)
 		}
 		if row.IsOpen() {
 			b.WriteString("|")
-			WriteTypeKey(b, row.Tail)
+			o.WriteTypeKey(b, row.Tail)
 		}
 		b.WriteByte('}')
 	default:
@@ -195,11 +195,11 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 		b.WriteString("{X")
 		for _, child := range row.Entries.AllChildren() {
 			b.WriteByte(' ')
-			WriteTypeKey(b, child)
+			o.WriteTypeKey(b, child)
 		}
 		if row.IsOpen() {
 			b.WriteString("|")
-			WriteTypeKey(b, row.Tail)
+			o.WriteTypeKey(b, row.Tail)
 		}
 		b.WriteByte('}')
 	}
@@ -213,30 +213,30 @@ func writeEvidenceRowKey(b KeyWriter, row *TyEvidenceRow) {
 //	E  EqualityEntry       "E<lhs>:<rhs>"
 //	V  VarEntry            "V<var>"
 //	Q  QuantifiedConstraint "Q<head>"  (full quantifier encoding deferred)
-func writeConstraintEntryKey(b KeyWriter, e ConstraintEntry) {
+func writeConstraintEntryKey(o *TypeOps, b KeyWriter, e ConstraintEntry) {
 	switch e := e.(type) {
 	case *ClassEntry:
 		b.WriteByte('C')
 		b.WriteString(e.ClassName)
 		for _, a := range e.Args {
 			b.WriteByte(':')
-			WriteTypeKey(b, a)
+			o.WriteTypeKey(b, a)
 		}
 	case *EqualityEntry:
 		b.WriteByte('E')
-		WriteTypeKey(b, e.Lhs)
+		o.WriteTypeKey(b, e.Lhs)
 		b.WriteByte(':')
-		WriteTypeKey(b, e.Rhs)
+		o.WriteTypeKey(b, e.Rhs)
 	case *VarEntry:
 		b.WriteByte('V')
-		WriteTypeKey(b, e.Var)
+		o.WriteTypeKey(b, e.Var)
 	case *QuantifiedConstraint:
 		b.WriteByte('Q')
 		if e.Head != nil {
 			b.WriteString(e.Head.ClassName)
 			for _, a := range e.Head.Args {
 				b.WriteByte(':')
-				WriteTypeKey(b, a)
+				o.WriteTypeKey(b, a)
 			}
 		}
 	}

@@ -94,7 +94,7 @@ func withTypes(mod *env.ModuleExports, names ...string) *env.ModuleExports {
 // withValues adds value bindings to a module.
 func withValues(mod *env.ModuleExports, names ...string) *env.ModuleExports {
 	for _, n := range names {
-		mod.Values[n] = types.Con(n + "Ty")
+		mod.Values[n] = types.MkCon(n + "Ty")
 	}
 	return mod
 }
@@ -103,7 +103,7 @@ func withValues(mod *env.ModuleExports, names ...string) *env.ModuleExports {
 func withConstructors(mod *env.ModuleExports, typeName string, cons ...string) *env.ModuleExports {
 	dti := &env.DataTypeInfo{Name: typeName}
 	for _, c := range cons {
-		mod.ConTypes[c] = types.Con(typeName)
+		mod.ConTypes[c] = types.MkCon(typeName)
 		mod.ConstructorInfo[c] = dti
 		dti.Constructors = append(dti.Constructors, env.ConstructorInfo{Name: c})
 	}
@@ -118,8 +118,8 @@ func withConstructors(mod *env.ModuleExports, typeName string, cons ...string) *
 func withClass(mod *env.ModuleExports, className string, methods ...string) *env.ModuleExports {
 	cls := &env.ClassInfo{Name: className}
 	for _, m := range methods {
-		cls.Methods = append(cls.Methods, env.MethodInfo{Name: m, Type: types.Con(m + "Ty")})
-		mod.Values[m] = types.Con(m + "Ty")
+		cls.Methods = append(cls.Methods, env.MethodInfo{Name: m, Type: types.MkCon(m + "Ty")})
+		mod.Values[m] = types.MkCon(m + "Ty")
 	}
 	mod.Classes[className] = cls
 	return mod
@@ -137,7 +137,7 @@ func withFamily(mod *env.ModuleExports, name string) *env.ModuleExports {
 
 // withAlias adds a type alias to a module.
 func withAlias(mod *env.ModuleExports, name string) *env.ModuleExports {
-	mod.Aliases[name] = &env.AliasInfo{Body: types.Con("Int")}
+	mod.Aliases[name] = &env.AliasInfo{Body: types.MkCon("Int")}
 	return mod
 }
 

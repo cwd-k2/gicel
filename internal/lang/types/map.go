@@ -50,7 +50,7 @@ func (o *TypeOps) MapType(t Type, f func(Type) Type) Type {
 			return t
 		}
 		if ty.Tag == TagThunk {
-			return o.ThunkGradedAt(pre, post, result, grade, ty.S)
+			return o.ThunkAt(pre, post, result, grade, ty.S)
 		}
 		return o.CompAt(pre, post, result, grade, ty.S)
 	case *TyEvidence:

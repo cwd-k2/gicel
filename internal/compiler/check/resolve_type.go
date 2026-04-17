@@ -248,7 +248,7 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 					case types.TyConComputation:
 						return r.typeOps.CompAt(app2.Arg, app3.Arg, arg, app1.Arg, s)
 					case types.TyConThunk:
-						return r.typeOps.ThunkGradedAt(app2.Arg, app3.Arg, arg, app1.Arg, s)
+						return r.typeOps.ThunkAt(app2.Arg, app3.Arg, arg, app1.Arg, s)
 					}
 				}
 			}
@@ -270,7 +270,7 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 					case types.TyConComputation:
 						return r.typeOps.CompAt(app1.Arg, app2.Arg, arg, nil, s)
 					case types.TyConThunk:
-						return r.typeOps.ThunkAt(app1.Arg, app2.Arg, arg, s)
+						return r.typeOps.ThunkAt(app1.Arg, app2.Arg, arg, nil, s)
 					}
 				}
 			}

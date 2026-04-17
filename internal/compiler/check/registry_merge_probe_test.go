@@ -24,7 +24,7 @@ func TestMergeFamily_IdenticalEquations(t *testing.T) {
 		Name:       "Elem",
 		ResultKind: types.TypeOfTypes,
 		Equations: []env.TFEquation{
-			{Patterns: []types.Type{types.Con("List")}, RHS: types.Con("Int")},
+			{Patterns: []types.Type{types.MkCon("List")}, RHS: types.MkCon("Int")},
 		},
 	}
 	if err := r.RegisterFamily("Elem", fam1); err != nil {
@@ -34,7 +34,7 @@ func TestMergeFamily_IdenticalEquations(t *testing.T) {
 		Name:       "Elem",
 		ResultKind: types.TypeOfTypes,
 		Equations: []env.TFEquation{
-			{Patterns: []types.Type{types.Con("List")}, RHS: types.Con("Int")},
+			{Patterns: []types.Type{types.MkCon("List")}, RHS: types.MkCon("Int")},
 		},
 	}
 	if err := r.RegisterFamily("Elem", fam2); err != nil {
@@ -50,7 +50,7 @@ func TestMergeFamily_ConflictingRHS(t *testing.T) {
 		Name:       "Elem",
 		ResultKind: types.TypeOfTypes,
 		Equations: []env.TFEquation{
-			{Patterns: []types.Type{types.Con("List")}, RHS: types.Con("Int")},
+			{Patterns: []types.Type{types.MkCon("List")}, RHS: types.MkCon("Int")},
 		},
 	}
 	if err := r.RegisterFamily("Elem", fam1); err != nil {
@@ -60,7 +60,7 @@ func TestMergeFamily_ConflictingRHS(t *testing.T) {
 		Name:       "Elem",
 		ResultKind: types.TypeOfTypes,
 		Equations: []env.TFEquation{
-			{Patterns: []types.Type{types.Con("List")}, RHS: types.Con("String")},
+			{Patterns: []types.Type{types.MkCon("List")}, RHS: types.MkCon("String")},
 		},
 	}
 	err := r.RegisterFamily("Elem", fam2)
@@ -80,7 +80,7 @@ func TestMergeFamily_DisjointEquations(t *testing.T) {
 		Name:       "Elem",
 		ResultKind: types.TypeOfTypes,
 		Equations: []env.TFEquation{
-			{Patterns: []types.Type{types.Con("List")}, RHS: types.Con("Int")},
+			{Patterns: []types.Type{types.MkCon("List")}, RHS: types.MkCon("Int")},
 		},
 	}
 	if err := r.RegisterFamily("Elem", fam1); err != nil {
@@ -90,7 +90,7 @@ func TestMergeFamily_DisjointEquations(t *testing.T) {
 		Name:       "Elem",
 		ResultKind: types.TypeOfTypes,
 		Equations: []env.TFEquation{
-			{Patterns: []types.Type{types.Con("Set")}, RHS: types.Con("String")},
+			{Patterns: []types.Type{types.MkCon("Set")}, RHS: types.MkCon("String")},
 		},
 	}
 	if err := r.RegisterFamily("Elem", fam2); err != nil {

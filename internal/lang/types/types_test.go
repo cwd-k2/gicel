@@ -51,9 +51,9 @@ func TestKindString(t *testing.T) {
 
 func TestRowNormalize(t *testing.T) {
 	r := &TyEvidenceRow{Entries: &CapabilityEntries{Fields: []RowField{
-		{Label: "c", Type: Con("C")},
-		{Label: "a", Type: Con("A")},
-		{Label: "b", Type: Con("B")},
+		{Label: "c", Type: MkCon("C")},
+		{Label: "a", Type: MkCon("A")},
+		{Label: "b", Type: MkCon("B")},
 	}}}
 	n, err := NormalizeRow(r)
 	if err != nil {
@@ -67,8 +67,8 @@ func TestRowNormalize(t *testing.T) {
 
 func TestRowNormalizeErrorsOnDuplicate(t *testing.T) {
 	r := &TyEvidenceRow{Entries: &CapabilityEntries{Fields: []RowField{
-		{Label: "a", Type: Con("A")},
-		{Label: "a", Type: Con("B")},
+		{Label: "a", Type: MkCon("A")},
+		{Label: "a", Type: MkCon("B")},
 	}}}
 	_, err := NormalizeRow(r)
 	if err == nil {
@@ -79,14 +79,14 @@ func TestRowNormalizeErrorsOnDuplicate(t *testing.T) {
 // --- Equality ---
 
 func TestEqualSimple(t *testing.T) {
-	if !Equal(Con("Int"), Con("Int")) {
+	if !Equal(MkCon("Int"), MkCon("Int")) {
 		t.Error("Int != Int")
 	}
-	if Equal(Con("Int"), Con("String")) {
+	if Equal(MkCon("Int"), MkCon("String")) {
 		t.Error("Int == String")
 	}
-	arrow1 := MkArrow(Con("Int"), Con("Bool"))
-	arrow2 := MkArrow(Con("Int"), Con("Bool"))
+	arrow1 := MkArrow(MkCon("Int"), MkCon("Bool"))
+	arrow2 := MkArrow(MkCon("Int"), MkCon("Bool"))
 	if !Equal(arrow1, arrow2) {
 		t.Error("Int -> Bool should be equal")
 	}
@@ -94,20 +94,20 @@ func TestEqualSimple(t *testing.T) {
 
 func TestEqualAlpha(t *testing.T) {
 	// forall a. a -> a  ==  forall b. b -> b
-	t1 := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("a")))
-	t2 := MkForall("b", TypeOfTypes, MkArrow(Var("b"), Var("b")))
+	t1 := MkForall("a", TypeOfTypes, MkArrow(MkVar("a"), MkVar("a")))
+	t2 := MkForall("b", TypeOfTypes, MkArrow(MkVar("b"), MkVar("b")))
 	if !Equal(t1, t2) {
 		t.Error("alpha-equivalent types should be equal")
 	}
 	// forall a. a -> a  !=  forall a. a -> Int
-	t3 := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Con("Int")))
+	t3 := MkForall("a", TypeOfTypes, MkArrow(MkVar("a"), MkCon("Int")))
 	if Equal(t1, t3) {
 		t.Error("different types should not be equal")
 	}
 	// forall a. a -> b  !=  forall b. b -> b
 	// Left b is free; right b is bound. Must not be considered equal.
-	t4 := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("b")))
-	t5 := MkForall("b", TypeOfTypes, MkArrow(Var("b"), Var("b")))
+	t4 := MkForall("a", TypeOfTypes, MkArrow(MkVar("a"), MkVar("b")))
+	t5 := MkForall("b", TypeOfTypes, MkArrow(MkVar("b"), MkVar("b")))
 	if Equal(t4, t5) {
 		t.Error("free vs bound variable collision should not be equal")
 	}
@@ -115,12 +115,12 @@ func TestEqualAlpha(t *testing.T) {
 
 func TestEqualRow(t *testing.T) {
 	r1 := ClosedRow(
-		RowField{Label: "b", Type: Con("B")},
-		RowField{Label: "a", Type: Con("A")},
+		RowField{Label: "b", Type: MkCon("B")},
+		RowField{Label: "a", Type: MkCon("A")},
 	)
 	r2 := ClosedRow(
-		RowField{Label: "a", Type: Con("A")},
-		RowField{Label: "b", Type: Con("B")},
+		RowField{Label: "a", Type: MkCon("A")},
+		RowField{Label: "b", Type: MkCon("B")},
 	)
 	if !Equal(r1, r2) {
 		t.Error("rows with same labels in different order should be equal")
@@ -131,17 +131,17 @@ func TestEqualRow(t *testing.T) {
 
 func TestSubstSimple(t *testing.T) {
 	// a[a := Int] = Int
-	ty := Var("a")
-	result := Subst(ty, "a", Con("Int"))
-	if !Equal(result, Con("Int")) {
+	ty := MkVar("a")
+	result := Subst(ty, "a", MkCon("Int"))
+	if !Equal(result, MkCon("Int")) {
 		t.Error("substitution failed")
 	}
 }
 
 func TestSubstShadow(t *testing.T) {
 	// forall a. a[a := Int] = forall a. a (shadowed, no substitution)
-	ty := MkForall("a", TypeOfTypes, Var("a"))
-	result := Subst(ty, "a", Con("Int"))
+	ty := MkForall("a", TypeOfTypes, MkVar("a"))
+	result := Subst(ty, "a", MkCon("Int"))
 	if !Equal(result, ty) {
 		t.Error("should not substitute under shadowing forall")
 	}
@@ -150,8 +150,8 @@ func TestSubstShadow(t *testing.T) {
 func TestSubstCaptureAvoidance(t *testing.T) {
 	// forall b. a -> b   [a := b]
 	// should rename bound b to avoid capture
-	ty := MkForall("b", TypeOfTypes, MkArrow(Var("a"), Var("b")))
-	result := Subst(ty, "a", Var("b"))
+	ty := MkForall("b", TypeOfTypes, MkArrow(MkVar("a"), MkVar("b")))
+	result := Subst(ty, "a", MkVar("b"))
 	// The result should be forall b'. b -> b' (not forall b. b -> b)
 	f, ok := result.(*TyForall)
 	if !ok {
@@ -165,7 +165,7 @@ func TestSubstCaptureAvoidance(t *testing.T) {
 // --- Free Variables ---
 
 func TestFreeVars(t *testing.T) {
-	ty := MkArrow(Var("a"), Var("b"))
+	ty := MkArrow(MkVar("a"), MkVar("b"))
 	fv := FreeVars(ty)
 	if _, ok := fv["a"]; !ok {
 		t.Error("'a' should be free")
@@ -177,7 +177,7 @@ func TestFreeVars(t *testing.T) {
 
 func TestFreeVarsForall(t *testing.T) {
 	// forall a. a -> b  →  FV = {b}
-	ty := MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("b")))
+	ty := MkForall("a", TypeOfTypes, MkArrow(MkVar("a"), MkVar("b")))
 	fv := FreeVars(ty)
 	if _, ok := fv["a"]; ok {
 		t.Error("'a' should be bound")
@@ -231,20 +231,20 @@ func TestPretty(t *testing.T) {
 		ty   Type
 		want string
 	}{
-		{Con("Int"), "Int"},
-		{Var("a"), "a"},
-		{MkArrow(Con("Int"), Con("Bool")), "Int -> Bool"},
-		{MkArrow(MkArrow(Con("A"), Con("B")), Con("C")), "(A -> B) -> C"},
-		{MkForall("a", TypeOfTypes, MkArrow(Var("a"), Var("a"))), `\a. a -> a`},
-		{MkForall("a", TypeOfTypes, MkForall("b", TypeOfTypes, MkArrow(Var("a"), Var("b")))),
+		{MkCon("Int"), "Int"},
+		{MkVar("a"), "a"},
+		{MkArrow(MkCon("Int"), MkCon("Bool")), "Int -> Bool"},
+		{MkArrow(MkArrow(MkCon("A"), MkCon("B")), MkCon("C")), "(A -> B) -> C"},
+		{MkForall("a", TypeOfTypes, MkArrow(MkVar("a"), MkVar("a"))), `\a. a -> a`},
+		{MkForall("a", TypeOfTypes, MkForall("b", TypeOfTypes, MkArrow(MkVar("a"), MkVar("b")))),
 			`\a b. a -> b`},
 		{EmptyRow(), "{}"},
-		{ClosedRow(RowField{Label: "x", Type: Con("Int")}), "{ x: Int }"},
+		{ClosedRow(RowField{Label: "x", Type: MkCon("Int")}), "{ x: Int }"},
 		// Tuple sugar
-		{&TyApp{Fun: Con(TyConRecord), Arg: EmptyRow()}, "()"},
-		{&TyApp{Fun: Con(TyConRecord), Arg: ClosedRow(
-			RowField{Label: "_1", Type: Con("Int")},
-			RowField{Label: "_2", Type: Con("Bool")},
+		{&TyApp{Fun: MkCon(TyConRecord), Arg: EmptyRow()}, "()"},
+		{&TyApp{Fun: MkCon(TyConRecord), Arg: ClosedRow(
+			RowField{Label: "_1", Type: MkCon("Int")},
+			RowField{Label: "_2", Type: MkCon("Bool")},
 		)}, "(Int, Bool)"},
 	}
 	for _, tt := range tests {
@@ -259,14 +259,14 @@ func TestEqualAlphaNestedForallShadowing(t *testing.T) {
 	// forall a. forall a. a  ==  forall b. forall c. c
 	// Inner 'a' shadows outer 'a'; inner 'c' shadows nothing.
 	// Both reduce to "innermost bound variable" — should be equal.
-	t1 := MkForall("a", TypeOfTypes, MkForall("a", TypeOfTypes, Var("a")))
-	t2 := MkForall("b", TypeOfTypes, MkForall("c", TypeOfTypes, Var("c")))
+	t1 := MkForall("a", TypeOfTypes, MkForall("a", TypeOfTypes, MkVar("a")))
+	t2 := MkForall("b", TypeOfTypes, MkForall("c", TypeOfTypes, MkVar("c")))
 	if !Equal(t1, t2) {
 		t.Error("nested forall with shadowing should be alpha-equivalent")
 	}
 	// forall a. forall a. a  !=  forall b. forall c. b
 	// Left: inner bound. Right: outer bound. Not equivalent.
-	t3 := MkForall("b", TypeOfTypes, MkForall("c", TypeOfTypes, Var("b")))
+	t3 := MkForall("b", TypeOfTypes, MkForall("c", TypeOfTypes, MkVar("b")))
 	if Equal(t1, t3) {
 		t.Error("inner-bound vs outer-bound should not be alpha-equivalent")
 	}
@@ -275,13 +275,13 @@ func TestEqualAlphaNestedForallShadowing(t *testing.T) {
 func TestEqualAlphaBindingLookupDirection(t *testing.T) {
 	// Verifies that binding lookup traverses from most recent (innermost) first.
 	// forall a. forall b. a -> b  ==  forall x. forall y. x -> y
-	t1 := MkForall("a", TypeOfTypes, MkForall("b", TypeOfTypes, MkArrow(Var("a"), Var("b"))))
-	t2 := MkForall("x", TypeOfTypes, MkForall("y", TypeOfTypes, MkArrow(Var("x"), Var("y"))))
+	t1 := MkForall("a", TypeOfTypes, MkForall("b", TypeOfTypes, MkArrow(MkVar("a"), MkVar("b"))))
+	t2 := MkForall("x", TypeOfTypes, MkForall("y", TypeOfTypes, MkArrow(MkVar("x"), MkVar("y"))))
 	if !Equal(t1, t2) {
 		t.Error("nested forall with distinct names should be alpha-equivalent")
 	}
 	// forall a. forall b. a -> b  !=  forall x. forall y. y -> x  (swapped)
-	t3 := MkForall("x", TypeOfTypes, MkForall("y", TypeOfTypes, MkArrow(Var("y"), Var("x"))))
+	t3 := MkForall("x", TypeOfTypes, MkForall("y", TypeOfTypes, MkArrow(MkVar("y"), MkVar("x"))))
 	if Equal(t1, t3) {
 		t.Error("swapped variable usage should not be alpha-equivalent")
 	}
@@ -289,15 +289,15 @@ func TestEqualAlphaBindingLookupDirection(t *testing.T) {
 
 func TestEvidenceRowConstraintEntriesEqualOrderIndependent(t *testing.T) {
 	// TyEvidenceRow with ConstraintEntries — order should not matter for Equal.
-	var eqA ConstraintEntry = &ClassEntry{ClassName: "Eq", Args: []Type{Var("a")}}
-	var ordB ConstraintEntry = &ClassEntry{ClassName: "Ord", Args: []Type{Var("b")}}
+	var eqA ConstraintEntry = &ClassEntry{ClassName: "Eq", Args: []Type{MkVar("a")}}
+	var ordB ConstraintEntry = &ClassEntry{ClassName: "Ord", Args: []Type{MkVar("b")}}
 	r1 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, ordB}}}
 	r2 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{ordB, eqA}}}
 	if !Equal(r1, r2) {
 		t.Error("TyEvidenceRow with ConstraintEntries Equal should be order-independent")
 	}
 	// Different entries should not be equal.
-	var showC ConstraintEntry = &ClassEntry{ClassName: "Show", Args: []Type{Var("c")}}
+	var showC ConstraintEntry = &ClassEntry{ClassName: "Show", Args: []Type{MkVar("c")}}
 	r3 := &TyEvidenceRow{Entries: &ConstraintEntries{Entries: []ConstraintEntry{eqA, showC}}}
 	if Equal(r1, r3) {
 		t.Error("different TyEvidenceRow ConstraintEntries should not be equal")

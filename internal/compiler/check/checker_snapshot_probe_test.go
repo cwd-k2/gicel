@@ -29,14 +29,14 @@ func TestProbeD_SnapshotRestore_SolutionRollback(t *testing.T) {
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 
 	// Solve m1 = Int
-	if err := u.Unify(m1, types.Con("Int")); err != nil {
+	if err := u.Unify(m1, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 
 	snap := u.Snapshot()
 
 	// Solve m2 = Bool (after snapshot)
-	if err := u.Unify(m2, types.Con("Bool")); err != nil {
+	if err := u.Unify(m2, types.MkCon("Bool")); err != nil {
 		t.Fatal(err)
 	}
 	// Verify m2 is solved
@@ -114,17 +114,17 @@ func TestProbeD_SnapshotRestore_MultipleSnapshotsNested(t *testing.T) {
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	m3 := &types.TyMeta{ID: 3, Kind: types.TypeOfTypes}
 
-	if err := u.Unify(m1, types.Con("A")); err != nil {
+	if err := u.Unify(m1, types.MkCon("A")); err != nil {
 		t.Fatal(err)
 	}
 	snap1 := u.Snapshot()
 
-	if err := u.Unify(m2, types.Con("B")); err != nil {
+	if err := u.Unify(m2, types.MkCon("B")); err != nil {
 		t.Fatal(err)
 	}
 	snap2 := u.Snapshot()
 
-	if err := u.Unify(m3, types.Con("C")); err != nil {
+	if err := u.Unify(m3, types.MkCon("C")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -158,7 +158,7 @@ func TestProbeE_Snapshot_RestoreUndoesSolution(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	snap := u.Snapshot()
 	// Solve m = Int
-	u.Unify(m, types.Con("Int"))
+	u.Unify(m, types.MkCon("Int"))
 	if soln := u.Solve(1); soln == nil {
 		t.Fatal("expected m solved after unify")
 	}
@@ -175,9 +175,9 @@ func TestProbeE_Snapshot_PreservesPriorSolutions(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
-	u.Unify(m1, types.Con("Int"))
+	u.Unify(m1, types.MkCon("Int"))
 	snap := u.Snapshot()
-	u.Unify(m2, types.Con("Bool"))
+	u.Unify(m2, types.MkCon("Bool"))
 	u.Restore(snap)
 	// m1 should still be solved
 	if soln := u.Solve(1); soln == nil {

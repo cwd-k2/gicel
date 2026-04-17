@@ -169,8 +169,8 @@ func TestProbeD_Evidence_EmptyConstraintRowUnify(t *testing.T) {
 // rows with the same class and args should unify.
 func TestProbeD_Evidence_SingleConstraintRowUnify(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	r1 := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
-	r2 := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
+	r1 := types.SingleConstraint("Eq", []types.Type{types.MkCon("Bool")})
+	r2 := types.SingleConstraint("Eq", []types.Type{types.MkCon("Bool")})
 	if err := u.Unify(r1, r2); err != nil {
 		t.Fatalf("matching single constraint rows should unify: %v", err)
 	}
@@ -180,8 +180,8 @@ func TestProbeD_Evidence_SingleConstraintRowUnify(t *testing.T) {
 // different class names should fail.
 func TestProbeD_Evidence_ConstraintRowMismatch(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	r1 := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
-	r2 := types.SingleConstraint("Ord", []types.Type{types.Con("Bool")})
+	r1 := types.SingleConstraint("Eq", []types.Type{types.MkCon("Bool")})
+	r2 := types.SingleConstraint("Ord", []types.Type{types.MkCon("Bool")})
 	err := u.Unify(r1, r2)
 	if err == nil {
 		t.Fatal("different constraint classes should not unify")
@@ -309,8 +309,8 @@ func TestProbeE_Evidence_EmptyConstraintRowUnification(t *testing.T) {
 // with different class names should fail.
 func TestProbeE_Evidence_ConstraintRowWithMismatchedClass(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	a := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
-	b := types.SingleConstraint("Ord", []types.Type{types.Con("Int")})
+	a := types.SingleConstraint("Eq", []types.Type{types.MkCon("Int")})
+	b := types.SingleConstraint("Ord", []types.Type{types.MkCon("Int")})
 	err := u.Unify(a, b)
 	if err == nil {
 		t.Fatal("expected error unifying Eq Int with Ord Int constraint rows")
@@ -323,7 +323,7 @@ func TestProbeE_Evidence_ConstraintRowWithMetaArgs(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := types.SingleConstraint("Eq", []types.Type{meta})
-	b := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
+	b := types.SingleConstraint("Eq", []types.Type{types.MkCon("Bool")})
 	if err := u.Unify(a, b); err != nil {
 		t.Fatalf("constraint rows with meta args should unify: %v", err)
 	}

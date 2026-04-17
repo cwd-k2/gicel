@@ -8,16 +8,16 @@ import (
 
 // buildDeepArrowType builds Int -> (Int -> (... -> Int)) with n arrows.
 func buildDeepArrowType(n int) Type {
-	t := Type(Con("Int"))
+	t := Type(MkCon("Int"))
 	for range n {
-		t = &TyArrow{From: Con("Int"), To: t}
+		t = &TyArrow{From: MkCon("Int"), To: t}
 	}
 	return t
 }
 
 // buildDeepAppType builds ((..((F a0) a1) ..) aN) with n applications.
 func buildDeepAppType(n int) Type {
-	t := Type(Con("F"))
+	t := Type(MkCon("F"))
 	for range n {
 		t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 	}
@@ -64,7 +64,7 @@ func BenchmarkTypeKey(b *testing.B) {
 func BenchmarkFreeVars(b *testing.B) {
 	// Build a type with many free variables: F a0 a1 ... aN
 	buildFreeVarType := func(n int) Type {
-		t := Type(Con("F"))
+		t := Type(MkCon("F"))
 		for range n {
 			t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 		}
@@ -84,13 +84,13 @@ func BenchmarkFreeVars(b *testing.B) {
 func BenchmarkSubstMany(b *testing.B) {
 	// Build forall a. F a a a ... (body has n occurrences of a)
 	buildBody := func(n int) Type {
-		t := Type(Con("F"))
+		t := Type(MkCon("F"))
 		for range n {
 			t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 		}
 		return t
 	}
-	subst := map[string]Type{"a": Con("Int")}
+	subst := map[string]Type{"a": MkCon("Int")}
 	for _, n := range []int{10, 50, 200} {
 		ty := buildBody(n)
 		b.Run(benchSize(n), func(b *testing.B) {
@@ -107,7 +107,7 @@ func BenchmarkSubstCapture(b *testing.B) {
 	body := &TyForall{
 		Var:  "a",
 		Kind: TypeOfTypes,
-		Body: &TyApp{Fun: &TyApp{Fun: Con("F"), Arg: &TyVar{Name: "x"}}, Arg: &TyVar{Name: "a"}},
+		Body: &TyApp{Fun: &TyApp{Fun: MkCon("F"), Arg: &TyVar{Name: "x"}}, Arg: &TyVar{Name: "a"}},
 	}
 	for b.Loop() {
 		Subst(body, "x", &TyVar{Name: "a"})

@@ -22,7 +22,7 @@ func TestTrailLenAdvancesOnSolve(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	pos0 := u.TrailLen()
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	if err := u.Unify(m, types.Con("Int")); err != nil {
+	if err := u.Unify(m, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 	pos1 := u.TrailLen()
@@ -48,7 +48,7 @@ func TestVisitSolnWritesSince_SingleWrite(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	pos := u.TrailLen()
 	m := &types.TyMeta{ID: 42, Kind: types.TypeOfTypes}
-	if err := u.Unify(m, types.Con("Int")); err != nil {
+	if err := u.Unify(m, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 	var seen []int
@@ -67,9 +67,9 @@ func TestVisitSolnWritesSince_ReportsDuplicates(t *testing.T) {
 	pos := u.TrailLen()
 	// Manually drive the trail by writing the same meta id twice.
 	u.trailSolnWrite(7)
-	u.soln[7] = types.Con("Int")
+	u.soln[7] = types.MkCon("Int")
 	u.trailSolnWrite(7) // overwrite — second trail entry for same id
-	u.soln[7] = types.Con("Bool")
+	u.soln[7] = types.MkCon("Bool")
 	count := 0
 	u.VisitSolnWritesSince(pos, func(metaID int) { count++ })
 	if count != 2 {
@@ -86,7 +86,7 @@ func TestVisitSolnWritesSince_TrailOrder(t *testing.T) {
 	writes := []int{1, 2, 3, 1, 2, 3}
 	for _, id := range writes {
 		u.trailSolnWrite(id)
-		u.soln[id] = types.Con("Int")
+		u.soln[id] = types.MkCon("Int")
 	}
 	var visits []int
 	u.VisitSolnWritesSince(pos, func(metaID int) { visits = append(visits, metaID) })
@@ -121,13 +121,13 @@ func TestVisitSolnWritesSince_PartialRange(t *testing.T) {
 	// First batch: should be excluded by the saved pos.
 	for _, id := range []int{10, 11} {
 		u.trailSolnWrite(id)
-		u.soln[id] = types.Con("Int")
+		u.soln[id] = types.MkCon("Int")
 	}
 	pos := u.TrailLen()
 	// Second batch: should be visible.
 	for _, id := range []int{20, 21} {
 		u.trailSolnWrite(id)
-		u.soln[id] = types.Con("Bool")
+		u.soln[id] = types.MkCon("Bool")
 	}
 	var visits []int
 	u.VisitSolnWritesSince(pos, func(metaID int) { visits = append(visits, metaID) })

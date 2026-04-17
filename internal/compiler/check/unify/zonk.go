@@ -105,10 +105,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if ty.Tag == types.TagComp {
 			return u.TypeOps.CompAt(zPre, zPost, zResult, zGrade, ty.S)
 		}
-		if zGrade != nil {
-			return u.TypeOps.ThunkGradedAt(zPre, zPost, zResult, zGrade, ty.S)
-		}
-		return u.TypeOps.ThunkAt(zPre, zPost, zResult, ty.S)
+		return u.TypeOps.ThunkAt(zPre, zPost, zResult, zGrade, ty.S)
 	case *types.TyEvidenceRow:
 		// Use the lazily-bound zonkEntriesFn callback (allocated on the
 		// first TyEvidenceRow zonk and cached on the Unifier) instead

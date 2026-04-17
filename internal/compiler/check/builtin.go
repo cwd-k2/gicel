@@ -14,18 +14,18 @@ var builtinTypes = map[string]types.Type{
 			types.MkForall("g", types.TypeOfTypes,
 				types.MkArrow(
 					types.MkArrow(
-						types.MkCompGraded(types.Var("r"), types.Var("r"), types.Var("a"), types.Var("g")),
-						types.MkCompGraded(types.Var("r"), types.Var("r"), types.Var("a"), types.Var("g")),
+						types.MkCompGraded(types.MkVar("r"), types.MkVar("r"), types.MkVar("a"), types.MkVar("g")),
+						types.MkCompGraded(types.MkVar("r"), types.MkVar("r"), types.MkVar("a"), types.MkVar("g")),
 					),
-					types.MkCompGraded(types.Var("r"), types.Var("r"), types.Var("a"), types.Var("g")),
+					types.MkCompGraded(types.MkVar("r"), types.MkVar("r"), types.MkVar("a"), types.MkVar("g")),
 				)))),
 
 	// fix : \ a. (a -> a) -> a
 	// Value-level fixpoint combinator.
 	"fix": types.MkForall("a", types.TypeOfTypes,
 		types.MkArrow(
-			types.MkArrow(types.Var("a"), types.Var("a")),
-			types.Var("a"),
+			types.MkArrow(types.MkVar("a"), types.MkVar("a")),
+			types.MkVar("a"),
 		)),
 
 	// pure : \ a (r: Row) g. a -> Computation r r a @g
@@ -33,8 +33,8 @@ var builtinTypes = map[string]types.Type{
 		types.MkForall("r", types.TypeOfRows,
 			types.MkForall("g", types.TypeOfTypes,
 				types.MkArrow(
-					types.Var("a"),
-					types.MkCompGraded(types.Var("r"), types.Var("r"), types.Var("a"), types.Var("g")),
+					types.MkVar("a"),
+					types.MkCompGraded(types.MkVar("r"), types.MkVar("r"), types.MkVar("a"), types.MkVar("g")),
 				)))),
 
 	// bind : \ a b g1 g2 g3 (r1: Row) (r2: Row) (r3: Row).
@@ -50,10 +50,10 @@ var builtinTypes = map[string]types.Type{
 							types.MkForall("r2", types.TypeOfRows,
 								types.MkForall("r3", types.TypeOfRows,
 									types.MkArrow(
-										types.MkCompGraded(types.Var("r1"), types.Var("r2"), types.Var("a"), types.Var("g1")),
+										types.MkCompGraded(types.MkVar("r1"), types.MkVar("r2"), types.MkVar("a"), types.MkVar("g1")),
 										types.MkArrow(
-											types.MkArrow(types.Var("a"), types.MkCompGraded(types.Var("r2"), types.Var("r3"), types.Var("b"), types.Var("g2"))),
-											types.MkCompGraded(types.Var("r1"), types.Var("r3"), types.Var("b"), types.Var("g3")),
+											types.MkArrow(types.MkVar("a"), types.MkCompGraded(types.MkVar("r2"), types.MkVar("r3"), types.MkVar("b"), types.MkVar("g2"))),
+											types.MkCompGraded(types.MkVar("r1"), types.MkVar("r3"), types.MkVar("b"), types.MkVar("g3")),
 										),
 									))))))))),
 }

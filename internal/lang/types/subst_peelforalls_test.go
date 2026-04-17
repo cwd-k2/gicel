@@ -20,7 +20,7 @@ func TestPeelForalls_KindSubst_K2(t *testing.T) {
 		},
 	}
 
-	replK := Con("ReplacementForK")
+	replK := MkCon("ReplacementForK")
 	var secondKind Type
 	PeelForalls(ty, func(f *TyForall) (Type, LevelExpr) {
 		if f.Var == "k" {
@@ -28,7 +28,7 @@ func TestPeelForalls_KindSubst_K2(t *testing.T) {
 		}
 		// Record the Kind the visitor sees for "a".
 		secondKind = f.Kind
-		return Con("ReplacementForA"), nil
+		return MkCon("ReplacementForA"), nil
 	})
 
 	if secondKind == nil {
@@ -57,8 +57,8 @@ func TestPeelForalls_KindSubst_K3(t *testing.T) {
 		},
 	}
 
-	replK := Con("K_Repl")
-	replJ := Con("J_Repl")
+	replK := MkCon("K_Repl")
+	replJ := MkCon("J_Repl")
 	var thirdKind Type
 	PeelForalls(ty, func(f *TyForall) (Type, LevelExpr) {
 		switch f.Var {
@@ -72,7 +72,7 @@ func TestPeelForalls_KindSubst_K3(t *testing.T) {
 			return replJ, nil
 		default:
 			thirdKind = f.Kind
-			return Con("A_Repl"), nil
+			return MkCon("A_Repl"), nil
 		}
 	})
 
@@ -95,7 +95,7 @@ func TestPeelForalls_KindSubst_K1_Unchanged(t *testing.T) {
 	var receivedKind Type
 	PeelForalls(ty, func(f *TyForall) (Type, LevelExpr) {
 		receivedKind = f.Kind
-		return Con("Repl"), nil
+		return MkCon("Repl"), nil
 	})
 
 	if !Equal(receivedKind, TypeOfTypes) {
@@ -113,8 +113,8 @@ func TestPeelForalls_KindSubst_NoStaleReference(t *testing.T) {
 			Var:  "a",
 			Kind: &TyArrow{From: &TyVar{Name: "k"}, To: TypeOfTypes},
 			Body: &TyArrow{
-				From: &TyApp{Fun: &TyVar{Name: "a"}, Arg: Con("Int")},
-				To:   &TyApp{Fun: &TyVar{Name: "a"}, Arg: Con("Int")},
+				From: &TyApp{Fun: &TyVar{Name: "a"}, Arg: MkCon("Int")},
+				To:   &TyApp{Fun: &TyVar{Name: "a"}, Arg: MkCon("Int")},
 			},
 		},
 	}
@@ -126,7 +126,7 @@ func TestPeelForalls_KindSubst_NoStaleReference(t *testing.T) {
 			return replK, nil
 		}
 		secondKind = f.Kind
-		return Con("Repl"), nil
+		return MkCon("Repl"), nil
 	})
 
 	expected := &TyArrow{From: TypeOfRows, To: TypeOfTypes}

@@ -25,7 +25,7 @@ import (
 func TestProbeD_Skolem_RigidUnifyWithConcrete(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
-	err := u.Unify(sk, types.Con("Int"))
+	err := u.Unify(sk, types.MkCon("Int"))
 	if err == nil {
 		t.Fatal("expected skolem rigidity error, got nil")
 	}
@@ -65,7 +65,7 @@ func TestProbeD_Skolem_MetaSolvedToSkolemInRow(t *testing.T) {
 	meta := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 
 	// Solve meta = F skolem
-	wrapped := &types.TyApp{Fun: types.Con("F"), Arg: sk}
+	wrapped := &types.TyApp{Fun: types.MkCon("F"), Arg: sk}
 	if err := u.Unify(meta, wrapped); err != nil {
 		t.Fatal(err)
 	}

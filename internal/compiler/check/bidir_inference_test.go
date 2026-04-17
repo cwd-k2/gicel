@@ -52,7 +52,7 @@ main := id True`
 func TestCheckAssumption(t *testing.T) {
 	config := &CheckConfig{
 		Assumptions: map[string]types.Type{
-			"dbOpen": types.MkArrow(types.Con("Unit"), types.Con("Unit")),
+			"dbOpen": types.MkArrow(types.MkCon("Unit"), types.MkCon("Unit")),
 		},
 	}
 	source := `form Unit := { Unit: Unit; }
@@ -144,7 +144,7 @@ main := pure Unit`
 
 func TestCheckHostBinding(t *testing.T) {
 	config := &CheckConfig{
-		Bindings:        map[string]types.Type{"x": types.Con("Int")},
+		Bindings:        map[string]types.Type{"x": types.MkCon("Int")},
 		RegisteredTypes: map[string]types.Type{"Int": types.TypeOfTypes},
 	}
 	source := `y := x`

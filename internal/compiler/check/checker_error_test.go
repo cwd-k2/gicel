@@ -56,7 +56,7 @@ func TestErrorDuplicateLabel(t *testing.T) {
 	// Register label context: the meta is the tail of a row with field "x".
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
 	// Solve the meta to a row that also contains "x" → duplicate.
-	row := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	row := types.ClosedRow(types.RowField{Label: "x", Type: types.MkCon("Int")})
 	err := u.Unify(m, row)
 	if err == nil {
 		t.Fatal("expected duplicate label error, got nil")
@@ -75,7 +75,7 @@ func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfRows}
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
-	evRow := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
+	evRow := types.ClosedRow(types.RowField{Label: "x", Type: types.MkCon("Int")})
 	err := u.Unify(m, evRow)
 	if err == nil {
 		t.Fatal("expected duplicate label error for evidence row, got nil")

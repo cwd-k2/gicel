@@ -48,11 +48,15 @@ func (ch *Checker) saturateAssocFamilies(ty types.Type, familyArgs map[string][]
 }
 
 func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types.Type {
+	recurse := func(child types.Type) types.Type {
+		return ch.satAssocWalk(child, fa)
+	}
+
 	switch t := ty.(type) {
 	case *types.TyCon:
+		// Intercept bare associated type family TyCons → TyFamilyApp.
 		if args, ok := fa[t.Name]; ok {
-			fam, ok := ch.reg.LookupFamily(t.Name)
-			if ok {
+			if fam, ok := ch.reg.LookupFamily(t.Name); ok {
 				return ch.typeOps.FamilyAppAt(t.Name, args, fam.ResultKind, t.S)
 			}
 		}
@@ -69,103 +73,41 @@ func (ch *Checker) satAssocWalk(ty types.Type, fa map[string][]types.Type) types
 		//     → replace with class params, push original args to TyApp positions
 		if famClassArgs, ok := fa[t.Name]; ok {
 			if !assocArgsMatch(ch.typeOps, t.Args, famClassArgs) {
-				fam, famOK := ch.reg.LookupFamily(t.Name)
-				if famOK {
+				if fam, famOK := ch.reg.LookupFamily(t.Name); famOK {
 					var result types.Type = ch.typeOps.FamilyAppAt(t.Name, famClassArgs, fam.ResultKind, t.S)
 					for _, a := range t.Args {
-						rA := ch.satAssocWalk(a, fa)
-						result = ch.typeOps.AppAt(result, rA, t.S)
+						result = ch.typeOps.AppAt(result, recurse(a), t.S)
 					}
 					return result
 				}
 			}
 		}
-		// Already correct or not a target family — recurse into args.
-		changed := false
-		newArgs := make([]types.Type, len(t.Args))
-		for i, a := range t.Args {
-			newArgs[i] = ch.satAssocWalk(a, fa)
-			if newArgs[i] != a {
-				changed = true
-			}
-		}
-		if !changed {
-			return ty
-		}
-		return ch.typeOps.FamilyAppAt(t.Name, newArgs, t.Kind, t.S)
+		// Correct or not a target — structural recursion via MapType.
+		return ch.typeOps.MapType(ty, recurse)
 
 	case *types.TyApp:
 		// Unwind the app chain to check if head is an associated type family.
 		head, appArgs := types.UnwindApp(ty)
 		if con, ok := head.(*types.TyCon); ok {
 			if famClassArgs, ok := fa[con.Name]; ok {
-				fam, famOK := ch.reg.LookupFamily(con.Name)
-				if famOK {
-					// Convert head to TyFamilyApp with class args,
-					// then re-apply the remaining (user-supplied) args.
+				if fam, famOK := ch.reg.LookupFamily(con.Name); famOK {
 					var result types.Type = ch.typeOps.FamilyAppAt(con.Name, famClassArgs, fam.ResultKind, con.S)
 					for _, a := range appArgs {
-						rA := ch.satAssocWalk(a, fa)
-						result = ch.typeOps.AppAt(result, rA, t.S)
+						result = ch.typeOps.AppAt(result, recurse(a), t.S)
 					}
 					return result
 				}
 			}
 		}
-		// Not an associated type family head — recurse normally.
-		rFun := ch.satAssocWalk(t.Fun, fa)
-		rArg := ch.satAssocWalk(t.Arg, fa)
-		if rFun == t.Fun && rArg == t.Arg {
-			return ty
-		}
-		return ch.typeOps.AppAt(rFun, rArg, t.S)
-
-	case *types.TyArrow:
-		rFrom := ch.satAssocWalk(t.From, fa)
-		rTo := ch.satAssocWalk(t.To, fa)
-		if rFrom == t.From && rTo == t.To {
-			return ty
-		}
-		return ch.typeOps.ArrowAt(rFrom, rTo, t.S)
-
-	case *types.TyForall:
-		rKind := ch.satAssocWalk(t.Kind, fa)
-		rBody := ch.satAssocWalk(t.Body, fa)
-		if rKind == t.Kind && rBody == t.Body {
-			return ty
-		}
-		return ch.typeOps.ForallAt(t.Var, rKind, rBody, t.S)
-
-	case *types.TyCBPV:
-		rPre := ch.satAssocWalk(t.Pre, fa)
-		rPost := ch.satAssocWalk(t.Post, fa)
-		rResult := ch.satAssocWalk(t.Result, fa)
-		var rGrade types.Type
-		if t.IsGraded() {
-			rGrade = ch.satAssocWalk(t.Grade, fa)
-		}
-		if rPre == t.Pre && rPost == t.Post && rResult == t.Result && rGrade == t.Grade {
-			return ty
-		}
-		if t.Tag == types.TagComp {
-			return ch.typeOps.CompAt(rPre, rPost, rResult, rGrade, t.S)
-		}
-		if rGrade != nil {
-			return ch.typeOps.ThunkGradedAt(rPre, rPost, rResult, rGrade, t.S)
-		}
-		return ch.typeOps.ThunkAt(rPre, rPost, rResult, t.S)
-
-	case *types.TyEvidence:
-		rBody := ch.satAssocWalk(t.Body, fa)
-		if rBody == t.Body {
-			return ty
-		}
-		return ch.typeOps.EvidenceWrapAt(t.Constraints, rBody, t.S)
+		// Not a family head — structural recursion via MapType.
+		return ch.typeOps.MapType(ty, recurse)
 
 	default:
-		// True leaves: TyMeta, TySkolem, TyVar, TyError, TyEvidenceRow.
-		// These contain no substructure where associated type families can appear.
-		return ty
+		// All structural nodes (TyArrow, TyForall, TyCBPV, TyEvidence,
+		// TyEvidenceRow) and true leaves (TyVar, TyMeta, TySkolem, TyError).
+		// MapType handles identity-preserving reconstruction and panics on
+		// unknown variants — no silent drop.
+		return ch.typeOps.MapType(ty, recurse)
 	}
 }
 

@@ -247,7 +247,7 @@ func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "thunk",
 		types.TagComp, // thunk expects a Computation argument
 		func(p, q, r, g types.Type) types.Type { return ch.typeOps.Comp(p, q, r, g) },
-		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r) },
+		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r, nil) },
 		func(c ir.Core) ir.Core { return &ir.Thunk{Comp: c, S: e.S} },
 	)
 }
@@ -255,7 +255,7 @@ func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "force",
 		types.TagThunk, // force expects a Thunk argument
-		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r) },
+		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r, nil) },
 		func(p, q, r, g types.Type) types.Type { return ch.typeOps.Comp(p, q, r, g) },
 		func(c ir.Core) ir.Core { return &ir.Force{Expr: c, S: e.S} },
 	)
@@ -317,7 +317,7 @@ func thunkIfBareComputation(ops *types.TypeOps, ty types.Type, core ir.Core, s s
 		}
 	case *types.TyCBPV:
 		if t.Tag == types.TagComp {
-			asThunk := ops.ThunkGradedAt(t.Pre, t.Post, t.Result, t.Grade, t.S)
+			asThunk := ops.ThunkAt(t.Pre, t.Post, t.Result, t.Grade, t.S)
 			return asThunk, &ir.Thunk{Comp: core, S: s}
 		}
 	}

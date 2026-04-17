@@ -91,26 +91,18 @@ func (o *TypeOps) CompAt(pre, post, result, grade Type, s span.Span) *TyCBPV {
 	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: s}
 }
 
-// Thunk creates a CBPV Thunk type (ungraded).
-func (o *TypeOps) Thunk(pre, post, result Type) *TyCBPV {
-	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
-}
-
-// ThunkAt creates a CBPV Thunk type with source location (ungraded).
-func (o *TypeOps) ThunkAt(pre, post, result Type, s span.Span) *TyCBPV {
-	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: s}
-}
-
-// ThunkGraded creates a graded CBPV Thunk type.
-func (o *TypeOps) ThunkGraded(pre, post, result, grade Type) *TyCBPV {
+// Thunk creates a CBPV Thunk type. grade == nil produces the ungraded
+// (3-arg) form; non-nil produces the graded (4-arg) form.
+// Symmetric with Comp by the CBPV adjunction (Thunk ⊣ Force).
+func (o *TypeOps) Thunk(pre, post, result, grade Type) *TyCBPV {
 	if grade != nil {
 		return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade)}
 	}
 	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
 }
 
-// ThunkGradedAt creates a graded CBPV Thunk type with source location.
-func (o *TypeOps) ThunkGradedAt(pre, post, result, grade Type, s span.Span) *TyCBPV {
+// ThunkAt creates a CBPV Thunk type with source location.
+func (o *TypeOps) ThunkAt(pre, post, result, grade Type, s span.Span) *TyCBPV {
 	if grade != nil {
 		return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade), S: s}
 	}
@@ -192,19 +184,24 @@ func (o *TypeOps) FamilyAppAt(name string, args []Type, kind Type, s span.Span) 
 
 // --- Construction wrappers ---
 
+func MkApp(fun, arg Type) *TyApp                     { return defaultOps.App(fun, arg) }
+func MkAppGrade(fun, arg Type) *TyApp                { return defaultOps.AppGrade(fun, arg) }
 func MkArrow(from, to Type) *TyArrow                 { return defaultOps.Arrow(from, to) }
 func MkForall(v string, k Type, body Type) *TyForall { return defaultOps.Forall(v, k, body) }
 func MkComp(pre, post, result Type) *TyCBPV          { return defaultOps.Comp(pre, post, result, nil) }
 func MkCompGraded(pre, post, result, grade Type) *TyCBPV {
 	return defaultOps.Comp(pre, post, result, grade)
 }
-func MkThunk(pre, post, result Type) *TyCBPV { return defaultOps.Thunk(pre, post, result) }
+func MkThunk(pre, post, result Type) *TyCBPV { return defaultOps.Thunk(pre, post, result, nil) }
+func MkThunkGraded(pre, post, result, grade Type) *TyCBPV {
+	return defaultOps.Thunk(pre, post, result, grade)
+}
 func MkEvidence(entries []ConstraintEntry, body Type) *TyEvidence {
 	return defaultOps.Evidence(entries, body)
 }
-func Con(name string) *TyCon                { return defaultOps.Con(name) }
-func ConAt(name string, s span.Span) *TyCon { return defaultOps.ConAt(name, s) }
-func Var(name string) *TyVar                { return defaultOps.Var(name) }
+func MkCon(name string) *TyCon                { return defaultOps.Con(name) }
+func MkConAt(name string, s span.Span) *TyCon { return defaultOps.ConAt(name, s) }
+func MkVar(name string) *TyVar                { return defaultOps.Var(name) }
 
 // --- Transformation wrappers ---
 

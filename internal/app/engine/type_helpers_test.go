@@ -110,7 +110,7 @@ func TestEmptyAndClosedRowType(t *testing.T) {
 		t.Errorf("EmptyRowType entries count = %d, want 0", row.Entries.EntryCount())
 	}
 
-	closed := ClosedRowType(types.RowField{Label: "k", Type: types.Con("Int")})
+	closed := ClosedRowType(types.RowField{Label: "k", Type: types.MkCon("Int")})
 	crow := closed.(*types.TyEvidenceRow)
 	if crow.IsOpen() {
 		t.Error("ClosedRowType should produce a closed row")

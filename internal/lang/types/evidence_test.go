@@ -22,8 +22,8 @@ func TestEmptyRow(t *testing.T) {
 
 func TestClosedRow(t *testing.T) {
 	r := ClosedRow(
-		RowField{Label: "x", Type: Con("Int")},
-		RowField{Label: "y", Type: Con("Bool")},
+		RowField{Label: "x", Type: MkCon("Int")},
+		RowField{Label: "y", Type: MkCon("Bool")},
 	)
 	if r.Entries.EntryCount() != 2 {
 		t.Fatalf("expected 2 entries, got %d", r.Entries.EntryCount())
@@ -39,9 +39,9 @@ func TestClosedRow(t *testing.T) {
 }
 
 func TestOpenRow(t *testing.T) {
-	tail := Var("r")
+	tail := MkVar("r")
 	r := OpenRow(
-		[]RowField{{Label: "db", Type: Con("DB")}},
+		[]RowField{{Label: "db", Type: MkCon("DB")}},
 		tail,
 	)
 	if r.IsClosed() {
@@ -67,7 +67,7 @@ func TestEmptyConstraintRow(t *testing.T) {
 }
 
 func TestSingleConstraint(t *testing.T) {
-	r := SingleConstraint("Eq", []Type{Con("Int")})
+	r := SingleConstraint("Eq", []Type{MkCon("Int")})
 	if r.Entries.EntryCount() != 1 {
 		t.Fatalf("expected 1 entry, got %d", r.Entries.EntryCount())
 	}
@@ -94,12 +94,12 @@ func TestFiberKind(t *testing.T) {
 
 func TestCapabilityMapChildren(t *testing.T) {
 	r := ClosedRow(
-		RowField{Label: "x", Type: Con("Int")},
-		RowField{Label: "y", Type: Con("Bool")},
+		RowField{Label: "x", Type: MkCon("Int")},
+		RowField{Label: "y", Type: MkCon("Bool")},
 	)
 	mapped, _ := r.Entries.MapChildren(func(ty Type) Type {
 		if c, ok := ty.(*TyCon); ok {
-			return Con("Mapped" + c.Name)
+			return MkCon("Mapped" + c.Name)
 		}
 		return ty
 	})
@@ -113,10 +113,10 @@ func TestCapabilityMapChildren(t *testing.T) {
 }
 
 func TestConstraintMapChildren(t *testing.T) {
-	r := SingleConstraint("Eq", []Type{Con("Int")})
+	r := SingleConstraint("Eq", []Type{MkCon("Int")})
 	mapped, _ := r.Entries.MapChildren(func(ty Type) Type {
 		if c, ok := ty.(*TyCon); ok {
-			return Con("Mapped" + c.Name)
+			return MkCon("Mapped" + c.Name)
 		}
 		return ty
 	})
@@ -130,9 +130,9 @@ func TestConstraintMapChildren(t *testing.T) {
 func TestRowFieldSorting(t *testing.T) {
 	// Fields should be sorted after normalization.
 	r := ClosedRow(
-		RowField{Label: "z", Type: Con("String")},
-		RowField{Label: "a", Type: Con("Int")},
-		RowField{Label: "m", Type: Con("Bool")},
+		RowField{Label: "z", Type: MkCon("String")},
+		RowField{Label: "a", Type: MkCon("Int")},
+		RowField{Label: "m", Type: MkCon("Bool")},
 	)
 	fields := r.CapFields()
 	if fields[0].Label != "a" || fields[1].Label != "m" || fields[2].Label != "z" {
@@ -162,8 +162,8 @@ func TestTypeInterface(t *testing.T) {
 
 func TestLabels(t *testing.T) {
 	r := ClosedRow(
-		RowField{Label: "x", Type: Con("Int")},
-		RowField{Label: "y", Type: Con("Bool")},
+		RowField{Label: "x", Type: MkCon("Int")},
+		RowField{Label: "y", Type: MkCon("Bool")},
 	)
 	labels := Labels(r)
 	if len(labels) != 2 {
@@ -178,8 +178,8 @@ func TestLabels(t *testing.T) {
 }
 
 func TestExtendRow(t *testing.T) {
-	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
-	r2, err := ExtendRow(r, RowField{Label: "y", Type: Con("Bool")})
+	r := ClosedRow(RowField{Label: "x", Type: MkCon("Int")})
+	r2, err := ExtendRow(r, RowField{Label: "y", Type: MkCon("Bool")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,8 +194,8 @@ func TestExtendRow(t *testing.T) {
 }
 
 func TestExtendRowDuplicate(t *testing.T) {
-	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
-	_, err := ExtendRow(r, RowField{Label: "x", Type: Con("Bool")})
+	r := ClosedRow(RowField{Label: "x", Type: MkCon("Int")})
+	_, err := ExtendRow(r, RowField{Label: "x", Type: MkCon("Bool")})
 	if err == nil {
 		t.Fatal("expected error on duplicate label")
 	}
@@ -203,8 +203,8 @@ func TestExtendRowDuplicate(t *testing.T) {
 
 func TestRemoveLabel(t *testing.T) {
 	r := ClosedRow(
-		RowField{Label: "x", Type: Con("Int")},
-		RowField{Label: "y", Type: Con("Bool")},
+		RowField{Label: "x", Type: MkCon("Int")},
+		RowField{Label: "y", Type: MkCon("Bool")},
 	)
 	field, remaining, ok := RemoveLabel(r, "x")
 	if !ok {
@@ -219,7 +219,7 @@ func TestRemoveLabel(t *testing.T) {
 }
 
 func TestRemoveLabelNotFound(t *testing.T) {
-	r := ClosedRow(RowField{Label: "x", Type: Con("Int")})
+	r := ClosedRow(RowField{Label: "x", Type: MkCon("Int")})
 	_, _, ok := RemoveLabel(r, "z")
 	if ok {
 		t.Fatal("expected not found")
@@ -227,9 +227,9 @@ func TestRemoveLabelNotFound(t *testing.T) {
 }
 
 func TestPreservesTail(t *testing.T) {
-	tail := Var("r")
-	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, tail)
-	r2, err := ExtendRow(r, RowField{Label: "y", Type: Con("Bool")})
+	tail := MkVar("r")
+	r := OpenRow([]RowField{{Label: "x", Type: MkCon("Int")}}, tail)
+	r2, err := ExtendRow(r, RowField{Label: "y", Type: MkCon("Bool")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,8 +242,8 @@ func TestPreservesTail(t *testing.T) {
 
 func TestSubstCapability(t *testing.T) {
 	// { x: a | r } with a := Int → { x: Int | r }
-	r := OpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
-	result := Subst(r, "a", Con("Int"))
+	r := OpenRow([]RowField{{Label: "x", Type: MkVar("a")}}, MkVar("r"))
+	result := Subst(r, "a", MkCon("Int"))
 	ev, ok := result.(*TyEvidenceRow)
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
@@ -256,8 +256,8 @@ func TestSubstCapability(t *testing.T) {
 
 func TestSubstConstraint(t *testing.T) {
 	// { Eq a } with a := Int → { Eq Int }
-	r := SingleConstraint("Eq", []Type{Var("a")})
-	result := Subst(r, "a", Con("Int"))
+	r := SingleConstraint("Eq", []Type{MkVar("a")})
+	result := Subst(r, "a", MkCon("Int"))
 	ev, ok := result.(*TyEvidenceRow)
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
@@ -270,8 +270,8 @@ func TestSubstConstraint(t *testing.T) {
 
 func TestSubstTail(t *testing.T) {
 	// { x: Int | r } with r := { y: Bool } → { x: Int, y: Bool }
-	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
-	replacement := ClosedRow(RowField{Label: "y", Type: Con("Bool")})
+	r := OpenRow([]RowField{{Label: "x", Type: MkCon("Int")}}, MkVar("r"))
+	replacement := ClosedRow(RowField{Label: "y", Type: MkCon("Bool")})
 	result := Subst(r, "r", replacement)
 	ev, ok := result.(*TyEvidenceRow)
 	if !ok {
@@ -285,16 +285,16 @@ func TestSubstTail(t *testing.T) {
 }
 
 func TestEqualCapability(t *testing.T) {
-	r1 := ClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
-	r2 := ClosedRow(RowField{Label: "y", Type: Con("Bool")}, RowField{Label: "x", Type: Con("Int")})
+	r1 := ClosedRow(RowField{Label: "x", Type: MkCon("Int")}, RowField{Label: "y", Type: MkCon("Bool")})
+	r2 := ClosedRow(RowField{Label: "y", Type: MkCon("Bool")}, RowField{Label: "x", Type: MkCon("Int")})
 	if !Equal(r1, r2) {
 		t.Error("expected equal rows (order irrelevant)")
 	}
 }
 
 func TestEqualConstraint(t *testing.T) {
-	r1 := SingleConstraint("Eq", []Type{Con("Int")})
-	r2 := SingleConstraint("Eq", []Type{Con("Int")})
+	r1 := SingleConstraint("Eq", []Type{MkCon("Int")})
+	r2 := SingleConstraint("Eq", []Type{MkCon("Int")})
 	if !Equal(r1, r2) {
 		t.Error("expected equal constraint rows")
 	}
@@ -309,7 +309,7 @@ func TestNotEqualFibers(t *testing.T) {
 }
 
 func TestFreeVarsCapability(t *testing.T) {
-	r := OpenRow([]RowField{{Label: "x", Type: Var("a")}}, Var("r"))
+	r := OpenRow([]RowField{{Label: "x", Type: MkVar("a")}}, MkVar("r"))
 	fv := FreeVars(r)
 	if _, ok := fv["a"]; !ok {
 		t.Error("expected free var a")
@@ -320,7 +320,7 @@ func TestFreeVarsCapability(t *testing.T) {
 }
 
 func TestFreeVarsConstraint(t *testing.T) {
-	r := SingleConstraint("Eq", []Type{Var("a")})
+	r := SingleConstraint("Eq", []Type{MkVar("a")})
 	fv := FreeVars(r)
 	if _, ok := fv["a"]; !ok {
 		t.Error("expected free var a")
@@ -328,7 +328,7 @@ func TestFreeVarsConstraint(t *testing.T) {
 }
 
 func TestPrettyCapability(t *testing.T) {
-	r := ClosedRow(RowField{Label: "x", Type: Con("Int")}, RowField{Label: "y", Type: Con("Bool")})
+	r := ClosedRow(RowField{Label: "x", Type: MkCon("Int")}, RowField{Label: "y", Type: MkCon("Bool")})
 	s := Pretty(r)
 	if s != "{ x: Int, y: Bool }" {
 		t.Errorf("expected '{ x: Int, y: Bool }', got '%s'", s)
@@ -336,7 +336,7 @@ func TestPrettyCapability(t *testing.T) {
 }
 
 func TestPrettyConstraint(t *testing.T) {
-	r := SingleConstraint("Eq", []Type{Con("Int")})
+	r := SingleConstraint("Eq", []Type{MkCon("Int")})
 	s := Pretty(r)
 	if s != "{ Eq Int }" {
 		t.Errorf("expected '{ Eq Int }', got '%s'", s)
@@ -351,7 +351,7 @@ func TestPrettyEmpty(t *testing.T) {
 }
 
 func TestPrettyOpenRow(t *testing.T) {
-	r := OpenRow([]RowField{{Label: "x", Type: Con("Int")}}, Var("r"))
+	r := OpenRow([]RowField{{Label: "x", Type: MkCon("Int")}}, MkVar("r"))
 	s := Pretty(r)
 	if s != "{ x: Int | r }" {
 		t.Errorf("expected '{ x: Int | r }', got '%s'", s)

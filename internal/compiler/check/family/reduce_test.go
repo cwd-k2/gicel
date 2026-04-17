@@ -75,7 +75,7 @@ func newTestHarness(cfg *testEnvConfig) *testHarness {
 
 // Type constructors for concise test setup.
 
-func con(name string) *types.TyCon     { return types.Con(name) }
+func con(name string) *types.TyCon     { return types.MkCon(name) }
 func tyvar(name string) *types.TyVar   { return &types.TyVar{Name: name} }
 func app(f, a types.Type) *types.TyApp { return &types.TyApp{Fun: f, Arg: a} }
 

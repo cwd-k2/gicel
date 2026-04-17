@@ -93,7 +93,7 @@ func TestStressKindMetaChain(t *testing.T) {
 // TestStressSubstKindLarge — Subst with many nested kind-polymorphic foralls
 func TestStressSubstKindLarge(t *testing.T) {
 	// Build \ (f0: k -> Type). \ (f1: k -> Type). ... \ (f19: k -> Type). Int
-	var ty types.Type = types.Con("Int")
+	var ty types.Type = types.MkCon("Int")
 	for i := 19; i >= 0; i-- {
 		name := fmt.Sprintf("f%d", i)
 		ty = &types.TyForall{

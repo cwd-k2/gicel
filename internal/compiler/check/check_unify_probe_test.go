@@ -235,11 +235,11 @@ func TestProbeD_Unify_OccursCheckDeepNesting(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	nested := &types.TyApp{
-		Fun: types.Con("F"),
+		Fun: types.MkCon("F"),
 		Arg: &types.TyApp{
-			Fun: types.Con("G"),
+			Fun: types.MkCon("G"),
 			Arg: &types.TyApp{
-				Fun: types.Con("H"),
+				Fun: types.MkCon("H"),
 				Arg: meta,
 			},
 		},
@@ -261,9 +261,9 @@ func TestProbeD_Unify_DeeplyNestedTyAppChain(t *testing.T) {
 	// Build: F (F (F (... (F Int) ...)))  depth=20
 	const depth = 20
 	buildChain := func() types.Type {
-		var ty types.Type = types.Con("Int")
+		var ty types.Type = types.MkCon("Int")
 		for i := 0; i < depth; i++ {
-			ty = &types.TyApp{Fun: types.Con("F"), Arg: ty}
+			ty = &types.TyApp{Fun: types.MkCon("F"), Arg: ty}
 		}
 		return ty
 	}
@@ -279,8 +279,8 @@ func TestProbeD_Unify_DeeplyNestedTyAppChain(t *testing.T) {
 func TestProbeD_Unify_TyAppChainMetaSolving(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	a := &types.TyApp{Fun: types.Con("F"), Arg: meta}
-	b := &types.TyApp{Fun: types.Con("F"), Arg: types.Con("Int")}
+	a := &types.TyApp{Fun: types.MkCon("F"), Arg: meta}
+	b := &types.TyApp{Fun: types.MkCon("F"), Arg: types.MkCon("Int")}
 	if err := u.Unify(a, b); err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
@@ -295,14 +295,14 @@ func TestProbeD_Unify_TyAppChainMetaSolving(t *testing.T) {
 func TestProbeD_Unify_RowOverlappingLabels(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	row1 := types.ClosedRow(
-		types.RowField{Label: "x", Type: types.Con("Int")},
-		types.RowField{Label: "y", Type: types.Con("Bool")},
-		types.RowField{Label: "z", Type: types.Con("String")},
+		types.RowField{Label: "x", Type: types.MkCon("Int")},
+		types.RowField{Label: "y", Type: types.MkCon("Bool")},
+		types.RowField{Label: "z", Type: types.MkCon("String")},
 	)
 	row2 := types.ClosedRow(
-		types.RowField{Label: "x", Type: types.Con("Int")},
-		types.RowField{Label: "y", Type: types.Con("Bool")},
-		types.RowField{Label: "z", Type: types.Con("String")},
+		types.RowField{Label: "x", Type: types.MkCon("Int")},
+		types.RowField{Label: "y", Type: types.MkCon("Bool")},
+		types.RowField{Label: "z", Type: types.MkCon("String")},
 	)
 	if err := u.Unify(row1, row2); err != nil {
 		t.Fatalf("identical closed rows should unify: %v", err)
@@ -314,10 +314,10 @@ func TestProbeD_Unify_RowOverlappingLabels(t *testing.T) {
 func TestProbeD_Unify_RowMismatchedFieldType(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	row1 := types.ClosedRow(
-		types.RowField{Label: "x", Type: types.Con("Int")},
+		types.RowField{Label: "x", Type: types.MkCon("Int")},
 	)
 	row2 := types.ClosedRow(
-		types.RowField{Label: "x", Type: types.Con("Bool")},
+		types.RowField{Label: "x", Type: types.MkCon("Bool")},
 	)
 	err := u.Unify(row1, row2)
 	if err == nil {
@@ -332,7 +332,7 @@ func TestProbeD_Unify_TwoTyFamilyAppNodes(t *testing.T) {
 	u.IsInjective = func(string) bool { return true } // decomposition requires injectivity
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	fam1 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{meta}, Kind: types.TypeOfTypes}
-	fam2 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{types.Con("List")}, Kind: types.TypeOfTypes}
+	fam2 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{types.MkCon("List")}, Kind: types.TypeOfTypes}
 	if err := u.Unify(fam1, fam2); err != nil {
 		t.Fatalf("unifying same-family TyFamilyApp should succeed: %v", err)
 	}
@@ -346,8 +346,8 @@ func TestProbeD_Unify_TwoTyFamilyAppNodes(t *testing.T) {
 // with different names should fail.
 func TestProbeD_Unify_DifferentTyFamilyAppNames(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	fam1 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
-	fam2 := &types.TyFamilyApp{Name: "Wrap", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
+	fam1 := &types.TyFamilyApp{Name: "Elem", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
+	fam2 := &types.TyFamilyApp{Name: "Wrap", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
 	err := u.Unify(fam1, fam2)
 	if err == nil {
 		t.Fatal("expected mismatch for different family names, got nil")
@@ -376,18 +376,18 @@ func TestProbeD_Unify_TyCompCrossCase(t *testing.T) {
 	comp := types.MkComp(
 		types.EmptyRow(),
 		types.EmptyRow(),
-		types.Con("Int"),
+		types.MkCon("Int"),
 	)
 	// Build: TyApp(TyApp(TyApp(TyCon("Computation"), emptyRow), emptyRow), Int)
 	appChain := &types.TyApp{
 		Fun: &types.TyApp{
 			Fun: &types.TyApp{
-				Fun: types.Con("Computation"),
+				Fun: types.MkCon("Computation"),
 				Arg: types.EmptyRow(),
 			},
 			Arg: types.EmptyRow(),
 		},
-		Arg: types.Con("Int"),
+		Arg: types.MkCon("Int"),
 	}
 	if err := u.Unify(comp, appChain); err != nil {
 		t.Fatalf("TyCBPV (Computation) should unify with equivalent TyApp chain: %v", err)
@@ -398,10 +398,10 @@ func TestProbeD_Unify_TyCompCrossCase(t *testing.T) {
 // (error recovery behavior).
 func TestProbeD_Unify_TyErrorAbsorbs(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	if err := u.Unify(&types.TyError{}, types.Con("Int")); err != nil {
+	if err := u.Unify(&types.TyError{}, types.MkCon("Int")); err != nil {
 		t.Fatalf("TyError should absorb: %v", err)
 	}
-	if err := u.Unify(types.Con("Bool"), &types.TyError{}); err != nil {
+	if err := u.Unify(types.MkCon("Bool"), &types.TyError{}); err != nil {
 		t.Fatalf("TyError should absorb (reversed): %v", err)
 	}
 }
@@ -430,7 +430,7 @@ func TestProbeD_RowUnify_DuplicateLabelDetection(t *testing.T) {
 	// Try to solve meta with a row containing "x" — should trigger dup label
 	solution := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{
-			Fields: []types.RowField{{Label: "x", Type: types.Con("Int")}},
+			Fields: []types.RowField{{Label: "x", Type: types.MkCon("Int")}},
 		},
 	}
 	err := u.Unify(meta, solution)
@@ -454,7 +454,7 @@ func TestProbeE_Unify_TyErrorPropagation(t *testing.T) {
 	tyErr := &types.TyError{}
 
 	// TyError ~ concrete
-	if err := u.Unify(tyErr, types.Con("Int")); err != nil {
+	if err := u.Unify(tyErr, types.MkCon("Int")); err != nil {
 		t.Errorf("TyError should unify with concrete type: %v", err)
 	}
 	// TyError ~ meta
@@ -472,7 +472,7 @@ func TestProbeE_Unify_TyErrorPropagation(t *testing.T) {
 		t.Errorf("TyError should unify with skolem: %v", err)
 	}
 	// TyError ~ arrow
-	arrow := &types.TyArrow{From: types.Con("Int"), To: types.Con("Bool")}
+	arrow := &types.TyArrow{From: types.MkCon("Int"), To: types.MkCon("Bool")}
 	if err := u.Unify(tyErr, arrow); err != nil {
 		t.Errorf("TyError should unify with arrow: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestProbeE_Unify_MetaChainPathCompression(t *testing.T) {
 	// Chain: m1 -> m2 -> m3 -> Int
 	u.Unify(m1, m2)
 	u.Unify(m2, m3)
-	u.Unify(m3, types.Con("Int"))
+	u.Unify(m3, types.MkCon("Int"))
 
 	result := u.Zonk(m1)
 	if con, ok := result.(*types.TyCon); !ok || con.Name != "Int" {
@@ -533,7 +533,7 @@ func TestProbeE_Unify_OccursCheckThroughSolvedMeta(t *testing.T) {
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 
 	// Solve m2 = F m1
-	u.Unify(m2, &types.TyApp{Fun: types.Con("F"), Arg: m1})
+	u.Unify(m2, &types.TyApp{Fun: types.MkCon("F"), Arg: m1})
 	// Now try m1 = m2, which is m1 = F m1 — should fail with occurs check
 	err := u.Unify(m1, m2)
 	if err == nil {
@@ -584,7 +584,7 @@ func TestProbeE_Unify_SkolemVsMeta(t *testing.T) {
 func TestProbeE_Unify_SkolemVsCon(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	s := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
-	err := u.Unify(s, types.Con("Int"))
+	err := u.Unify(s, types.MkCon("Int"))
 	if err == nil {
 		t.Fatal("expected error unifying skolem with concrete type")
 	}
@@ -606,8 +606,8 @@ func TestProbeE_Unify_ForallBodySubstitution(t *testing.T) {
 func TestProbeE_Unify_ForallBodyMismatch(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	// forall a. a -> Int  vs  forall a. a -> Bool
-	fa := types.MkForall("a", types.TypeOfTypes, types.MkArrow(&types.TyVar{Name: "a"}, types.Con("Int")))
-	fb := types.MkForall("a", types.TypeOfTypes, types.MkArrow(&types.TyVar{Name: "a"}, types.Con("Bool")))
+	fa := types.MkForall("a", types.TypeOfTypes, types.MkArrow(&types.TyVar{Name: "a"}, types.MkCon("Int")))
+	fb := types.MkForall("a", types.TypeOfTypes, types.MkArrow(&types.TyVar{Name: "a"}, types.MkCon("Bool")))
 	err := u.Unify(fa, fb)
 	if err == nil {
 		t.Fatal("forall body mismatch should fail")
@@ -621,18 +621,18 @@ func TestProbeE_Unify_CompVsTyApp(t *testing.T) {
 	comp := types.MkComp(
 		types.EmptyRow(),
 		types.EmptyRow(),
-		types.Con("Int"),
+		types.MkCon("Int"),
 	)
 	// Build TyApp chain: Computation {} {} Int
 	app := &types.TyApp{
 		Fun: &types.TyApp{
 			Fun: &types.TyApp{
-				Fun: types.Con("Computation"),
+				Fun: types.MkCon("Computation"),
 				Arg: types.EmptyRow(),
 			},
 			Arg: types.EmptyRow(),
 		},
-		Arg: types.Con("Int"),
+		Arg: types.MkCon("Int"),
 	}
 	if err := u.Unify(comp, app); err != nil {
 		t.Errorf("TyCBPV (Computation) should unify with equivalent TyApp chain: %v", err)
@@ -645,17 +645,17 @@ func TestProbeE_Unify_ThunkVsTyApp(t *testing.T) {
 	thunk := types.MkThunk(
 		types.EmptyRow(),
 		types.EmptyRow(),
-		types.Con("Int"),
+		types.MkCon("Int"),
 	)
 	app := &types.TyApp{
 		Fun: &types.TyApp{
 			Fun: &types.TyApp{
-				Fun: types.Con("Thunk"),
+				Fun: types.MkCon("Thunk"),
 				Arg: types.EmptyRow(),
 			},
 			Arg: types.EmptyRow(),
 		},
-		Arg: types.Con("Int"),
+		Arg: types.MkCon("Int"),
 	}
 	if err := u.Unify(thunk, app); err != nil {
 		t.Errorf("TyCBPV (Thunk) should unify with equivalent TyApp chain: %v", err)
@@ -666,8 +666,8 @@ func TestProbeE_Unify_ThunkVsTyApp(t *testing.T) {
 // name and args should unify.
 func TestProbeE_Unify_TyFamilyAppSameName(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
-	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
+	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
+	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
 	if err := u.Unify(a, b); err != nil {
 		t.Errorf("identical TyFamilyApps should unify: %v", err)
 	}
@@ -677,8 +677,8 @@ func TestProbeE_Unify_TyFamilyAppSameName(t *testing.T) {
 // args should fail.
 func TestProbeE_Unify_TyFamilyAppDifferentArgs(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
-	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Bool")}, Kind: types.TypeOfTypes}
+	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
+	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.MkCon("Bool")}, Kind: types.TypeOfTypes}
 	err := u.Unify(a, b)
 	if err == nil {
 		t.Fatal("TyFamilyApps with different args should fail to unify")
@@ -689,8 +689,8 @@ func TestProbeE_Unify_TyFamilyAppDifferentArgs(t *testing.T) {
 // names should fail.
 func TestProbeE_Unify_TyFamilyAppDifferentNames(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
-	b := &types.TyFamilyApp{Name: "G", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
+	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
+	b := &types.TyFamilyApp{Name: "G", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
 	err := u.Unify(a, b)
 	if err == nil {
 		t.Fatal("TyFamilyApps with different names should fail to unify")
@@ -704,7 +704,7 @@ func TestProbeE_Unify_TyFamilyAppWithMeta(t *testing.T) {
 	u.IsInjective = func(string) bool { return true } // decomposition requires injectivity
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{meta}, Kind: types.TypeOfTypes}
-	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.Con("Int")}, Kind: types.TypeOfTypes}
+	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{types.MkCon("Int")}, Kind: types.TypeOfTypes}
 	if err := u.Unify(a, b); err != nil {
 		t.Fatalf("TyFamilyApp with meta arg should unify: %v", err)
 	}
@@ -725,8 +725,8 @@ func TestProbeE_Row_DuplicateLabelInSingleRow(t *testing.T) {
 	row := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{
 			Fields: []types.RowField{
-				{Label: "x", Type: types.Con("Int")},
-				{Label: "x", Type: types.Con("Bool")},
+				{Label: "x", Type: types.MkCon("Int")},
+				{Label: "x", Type: types.MkCon("Bool")},
 			},
 		},
 	}
@@ -746,7 +746,7 @@ func TestProbeE_Row_OpenTailSolvedToEmpty(t *testing.T) {
 	openRow := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{
 			Fields: []types.RowField{
-				{Label: "x", Type: types.Con("Int")},
+				{Label: "x", Type: types.MkCon("Int")},
 			},
 		},
 		Tail: tail,
@@ -754,7 +754,7 @@ func TestProbeE_Row_OpenTailSolvedToEmpty(t *testing.T) {
 	closedRow := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{
 			Fields: []types.RowField{
-				{Label: "x", Type: types.Con("Int")},
+				{Label: "x", Type: types.MkCon("Int")},
 			},
 		},
 	}
@@ -787,7 +787,7 @@ func TestProbeE_Row_LabelContextPreventsDuplicates(t *testing.T) {
 	solution := &types.TyEvidenceRow{
 		Entries: &types.CapabilityEntries{
 			Fields: []types.RowField{
-				{Label: "x", Type: types.Con("Bool")},
+				{Label: "x", Type: types.MkCon("Bool")},
 			},
 		},
 	}
@@ -812,12 +812,12 @@ func TestProbeE_Row_ConstraintRowMismatch(t *testing.T) {
 		// Both are empty — they might unify trivially. Check with non-empty.
 		capRow2 := &types.TyEvidenceRow{
 			Entries: &types.CapabilityEntries{
-				Fields: []types.RowField{{Label: "x", Type: types.Con("Int")}},
+				Fields: []types.RowField{{Label: "x", Type: types.MkCon("Int")}},
 			},
 		}
 		conRow2 := &types.TyEvidenceRow{
 			Entries: &types.ConstraintEntries{
-				Entries: []types.ConstraintEntry{&types.ClassEntry{ClassName: "Eq", Args: []types.Type{types.Con("Int")}}},
+				Entries: []types.ConstraintEntry{&types.ClassEntry{ClassName: "Eq", Args: []types.Type{types.MkCon("Int")}}},
 			},
 		}
 		err = u.Unify(capRow2, conRow2)

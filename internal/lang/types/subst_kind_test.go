@@ -15,7 +15,7 @@ func TestSubstKindForallArrow(t *testing.T) {
 	body := &TyForall{
 		Var:  "f",
 		Kind: &TyArrow{From: &TyVar{Name: "k"}, To: TypeOfTypes},
-		Body: &TyApp{Fun: &TyVar{Name: "f"}, Arg: Con("Int")},
+		Body: &TyApp{Fun: &TyVar{Name: "f"}, Arg: MkCon("Int")},
 	}
 	result := Subst(body, "k", TypeOfRows)
 	f, ok := result.(*TyForall)
@@ -82,7 +82,7 @@ func TestSubstKindSkolemOpaque(t *testing.T) {
 
 func TestSubstKindNoChange(t *testing.T) {
 	// No TyVar "k" in this type — should return same pointer
-	ty := &TyArrow{From: Con("Int"), To: Con("Bool")}
+	ty := &TyArrow{From: MkCon("Int"), To: MkCon("Bool")}
 	result := Subst(ty, "k", TypeOfRows)
 	if result != ty {
 		t.Error("expected same pointer when no substitution occurs")
@@ -90,7 +90,7 @@ func TestSubstKindNoChange(t *testing.T) {
 }
 
 func TestSubstKindComp(t *testing.T) {
-	ty := MkComp(Con("Unit"), Con("Unit"), Con("Int"))
+	ty := MkComp(MkCon("Unit"), MkCon("Unit"), MkCon("Int"))
 	result := Subst(ty, "k", TypeOfRows)
 	if result != ty {
 		t.Error("expected same pointer when no substitution in Comp")
@@ -98,7 +98,7 @@ func TestSubstKindComp(t *testing.T) {
 }
 
 func TestSubstKindThunk(t *testing.T) {
-	ty := MkThunk(Con("Unit"), Con("Unit"), Con("Int"))
+	ty := MkThunk(MkCon("Unit"), MkCon("Unit"), MkCon("Int"))
 	result := Subst(ty, "k", TypeOfTypes)
 	if result != ty {
 		t.Error("expected same pointer when no substitution in Thunk")

@@ -10,18 +10,18 @@ import (
 
 // buildDeepArrow builds a -> (a -> (a -> ... -> a)) with n arrows.
 func buildDeepArrow(n int) types.Type {
-	var t types.Type = types.Con("Int")
+	var t types.Type = types.MkCon("Int")
 	for range n {
-		t = &types.TyArrow{From: types.Con("Int"), To: t}
+		t = &types.TyArrow{From: types.MkCon("Int"), To: t}
 	}
 	return t
 }
 
 // buildDeepApp builds (((...(F a) a) a) ... a) with n applications.
 func buildDeepApp(n int) types.Type {
-	t := types.Type(types.Con("F"))
+	t := types.Type(types.MkCon("F"))
 	for range n {
-		t = &types.TyApp{Fun: t, Arg: types.Con("Int")}
+		t = &types.TyApp{Fun: t, Arg: types.MkCon("Int")}
 	}
 	return t
 }
@@ -49,7 +49,7 @@ func BenchmarkUnifyMetaSolve(b *testing.B) {
 				u := NewUnifier(&types.TypeOps{})
 				for j := range n {
 					m := &types.TyMeta{ID: j, Kind: types.TypeOfTypes}
-					_ = u.Unify(m, types.Con("Int"))
+					_ = u.Unify(m, types.MkCon("Int"))
 				}
 			}
 		})
@@ -80,7 +80,7 @@ func BenchmarkSnapshotRestore(b *testing.B) {
 				snap := u.Snapshot()
 				for j := range n {
 					m := &types.TyMeta{ID: j + i*n, Kind: types.TypeOfTypes}
-					_ = u.Unify(m, types.Con("Int"))
+					_ = u.Unify(m, types.MkCon("Int"))
 				}
 				u.Restore(snap)
 			}

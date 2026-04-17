@@ -20,7 +20,7 @@ func TestProbeIsolated_RollbackSoln(t *testing.T) {
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 
 	tok := u.BeginProbeIsolated()
-	if err := u.Unify(m, types.Con("Int")); err != nil {
+	if err := u.Unify(m, types.MkCon("Int")); err != nil {
 		t.Fatalf("trial unify failed: %v", err)
 	}
 	if u.Solve(1) == nil {
@@ -76,7 +76,7 @@ func TestProbeIsolated_NilsCallbacks(t *testing.T) {
 	// Solve a meta inside the probe — this would normally fire OnSolve,
 	// which is nilled, so `called` must remain 0.
 	m := &types.TyMeta{ID: 7, Kind: types.TypeOfTypes}
-	if err := u.Unify(m, types.Con("Int")); err != nil {
+	if err := u.Unify(m, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 	if called != 0 {
@@ -123,12 +123,12 @@ func TestProbeIsolated_NoLeakAfterFailedUnify(t *testing.T) {
 
 	tok := u.BeginProbeIsolated()
 	// Solve m to Int.
-	if err := u.Unify(m, types.Con("Int")); err != nil {
+	if err := u.Unify(m, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 	// Now try to unify Int with Bool — this fails. The earlier solve
 	// of m to Int is still in soln; the failure does not auto-rollback.
-	_ = u.Unify(types.Con("Int"), types.Con("Bool"))
+	_ = u.Unify(types.MkCon("Int"), types.MkCon("Bool"))
 	u.EndProbeIsolated(tok)
 
 	if u.Solve(1) != nil {
@@ -145,13 +145,13 @@ func TestProbeIsolated_NestedScopes(t *testing.T) {
 
 	outerTok := u.BeginProbeIsolated()
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	if err := u.Unify(m1, types.Con("Int")); err != nil {
+	if err := u.Unify(m1, types.MkCon("Int")); err != nil {
 		t.Fatal(err)
 	}
 
 	innerTok := u.BeginProbeIsolated()
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
-	if err := u.Unify(m2, types.Con("Bool")); err != nil {
+	if err := u.Unify(m2, types.MkCon("Bool")); err != nil {
 		t.Fatal(err)
 	}
 	u.EndProbeIsolated(innerTok)

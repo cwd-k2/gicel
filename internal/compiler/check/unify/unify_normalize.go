@@ -56,7 +56,7 @@ func normalizeCompApp(ops *types.TypeOps, t types.Type) types.Type {
 			case types.TyConComputation:
 				return ops.CompAt(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 			case types.TyConThunk:
-				return ops.ThunkGradedAt(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
+				return ops.ThunkAt(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 			}
 		}
 	}
@@ -73,7 +73,7 @@ func normalizeCompApp(ops *types.TypeOps, t types.Type) types.Type {
 	case types.TyConComputation:
 		return ops.CompAt(app3.Arg, app2.Arg, app1.Arg, nil, t.Span())
 	case types.TyConThunk:
-		return ops.ThunkAt(app3.Arg, app2.Arg, app1.Arg, t.Span())
+		return ops.ThunkAt(app3.Arg, app2.Arg, app1.Arg, nil, t.Span())
 	}
 	return t
 }
@@ -105,7 +105,7 @@ func normalizeCompApp4Only(ops *types.TypeOps, t types.Type) types.Type {
 	case types.TyConComputation:
 		return ops.CompAt(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 	case types.TyConThunk:
-		return ops.ThunkGradedAt(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
+		return ops.ThunkAt(app3.Arg, app2.Arg, app1.Arg, app4.Arg, t.Span())
 	}
 	return t
 }
