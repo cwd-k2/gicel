@@ -102,7 +102,7 @@ func (ch *Checker) processInstanceBody(inst *InstanceInfo, methods map[string]sy
 				Param: ctxParams[i].name, ParamType: ctxParams[i].ty,
 				Body: dictExpr, Generated: ir.GenDict, S: inst.S,
 			}
-			dictTy = ch.typeOps.Arrow(ctxParams[i].ty, dictTy, span.Span{})
+			dictTy = ch.typeOps.Arrow(ctxParams[i].ty, dictTy)
 		}
 	}
 
@@ -175,21 +175,21 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	ch.reg.RegisterTypeKind(mangledName, types.TypeOfTypes)
 
 	// Build result type for the mangled data type.
-	var mangledResultType types.Type = ch.typeOps.Con(mangledName, field.S)
+	var mangledResultType types.Type = ch.typeOps.ConAt(mangledName, field.S)
 
 	// Collect free vars from patterns (they become type params of the mangled data type).
 	patVars := collectPatternVars(resolvedPats)
 
 	// For each pattern var, wrap the mangled result type with a type application.
 	for _, pv := range patVars {
-		mangledResultType = ch.typeOps.App(
+		mangledResultType = ch.typeOps.AppAt(
 			mangledResultType,
-			ch.typeOps.Var(pv, field.S),
+			ch.typeOps.VarAt(pv, field.S),
 			field.S,
 		)
 		// Update the registered kind to accept this parameter.
 		existingKind, _ := ch.reg.LookupTypeKind(mangledName)
-		ch.reg.RegisterTypeKind(mangledName, ch.typeOps.Arrow(types.TypeOfTypes, existingKind, span.Span{}))
+		ch.reg.RegisterTypeKind(mangledName, ch.typeOps.Arrow(types.TypeOfTypes, existingKind))
 	}
 
 	dataInfo := &DataTypeInfo{Name: mangledName}
@@ -208,11 +208,11 @@ func (ch *Checker) processAssocDataDef(field syntax.ImplField, patterns []syntax
 	for i := len(conFields) - 1; i >= 0; i-- {
 		fieldTy := ch.resolveTypeExpr(conFields[i])
 		fieldTypes = append([]types.Type{fieldTy}, fieldTypes...)
-		conType = ch.typeOps.Arrow(fieldTy, conType, span.Span{})
+		conType = ch.typeOps.Arrow(fieldTy, conType)
 	}
 	// Wrap in forall for pattern vars.
 	for i := len(patVars) - 1; i >= 0; i-- {
-		conType = ch.typeOps.Forall(patVars[i], types.TypeOfTypes, conType, span.Span{})
+		conType = ch.typeOps.Forall(patVars[i], types.TypeOfTypes, conType)
 	}
 	// Guard against constructor name collision with existing constructors.
 	if existing, dup := ch.reg.LookupConType(conName); dup {
@@ -267,10 +267,10 @@ func (ch *Checker) autoLiftTypeArgs(typeArgs []types.Type, paramKinds []types.Ty
 		}) {
 			continue
 		}
-		liftKind := ch.kindOfType(ch.typeOps.Con("Lift", span.Span{}))
+		liftKind := ch.kindOfType(ch.typeOps.Con("Lift"))
 		if liftKind != nil {
 			if ka, ok := liftKind.(*types.TyArrow); ok && ch.typeOps.Equal(ka.From, argKind) {
-				lifted := ch.typeOps.App(ch.typeOps.Con("Lift", span.Span{}), typeArgs[i], span.Span{})
+				lifted := ch.typeOps.App(ch.typeOps.Con("Lift"), typeArgs[i])
 				liftedKind := ka.To
 				if ch.withTrial(func() bool {
 					return ch.unifier.Unify(liftedKind, paramKind) == nil

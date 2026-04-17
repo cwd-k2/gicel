@@ -45,7 +45,7 @@ func (ch *Checker) inferPure(e *syntax.ExprApp) (types.Type, ir.Core) {
 	if grade == nil {
 		grade = ch.freshMeta(types.TypeOfTypes)
 	}
-	resultTy := ch.typeOps.Comp(r, r, argTy, grade, span.Span{})
+	resultTy := ch.typeOps.Comp(r, r, argTy, grade)
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, e.S, "pure: %s ⇒ %s", ch.typeOps.Pretty(argTy), ch.typeOps.Pretty(resultTy))
 	}
@@ -67,7 +67,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	r1 := ch.freshMeta(types.TypeOfRows)
 	r2 := ch.freshMeta(types.TypeOfRows)
 	a := ch.freshMeta(types.TypeOfTypes)
-	if err := ch.unifier.Unify(compTy, ch.typeOps.Comp(r1, r2, a, g1, span.Span{})); err != nil {
+	if err := ch.unifier.Unify(compTy, ch.typeOps.Comp(r1, r2, a, g1)); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, compExpr.Span(), "bind: first argument must be a computation, got "+ch.typeOps.Pretty(compTy))
 		return ch.errorPair(s)
 	}
@@ -82,7 +82,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	if lam, ok := contExpr.(*syntax.ExprLam); ok && len(lam.Params) >= 1 {
 		bindVar = ch.patternName(lam.Params[0])
 		ch.ctx.Push(&CtxVar{Name: bindVar, Type: ch.unifier.Zonk(a)})
-		bodyTy := ch.typeOps.Comp(ch.unifier.Zonk(r2), r3, b, g2, span.Span{})
+		bodyTy := ch.typeOps.Comp(ch.unifier.Zonk(r2), r3, b, g2)
 		if len(lam.Params) == 1 {
 			bodyCore = ch.check(lam.Body, bodyTy)
 		} else {
@@ -92,7 +92,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 		ch.ctx.Pop()
 	} else {
 		bindVar = ch.freshName(prefixBind)
-		contExpected := ch.typeOps.Arrow(ch.unifier.Zonk(a), ch.typeOps.Comp(ch.unifier.Zonk(r2), r3, b, g2, span.Span{}), span.Span{})
+		contExpected := ch.typeOps.Arrow(ch.unifier.Zonk(a), ch.typeOps.Comp(ch.unifier.Zonk(r2), r3, b, g2))
 		contCore := ch.check(contExpr, contExpected)
 		bodyCore = &ir.App{
 			Fun: contCore,
@@ -108,7 +108,7 @@ func (ch *Checker) inferBind(compExpr, contExpr syntax.Expr, s span.Span) (types
 	if grade == nil {
 		grade = ch.freshMeta(types.TypeOfTypes)
 	}
-	resultTy := ch.typeOps.Comp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), grade, span.Span{})
+	resultTy := ch.typeOps.Comp(ch.unifier.Zonk(r1), ch.unifier.Zonk(r3), ch.unifier.Zonk(b), grade)
 	if ch.config.Trace != nil {
 		ch.trace(TraceInfer, s, "bind: ⇒ %s", ch.typeOps.Pretty(resultTy))
 	}
@@ -177,8 +177,8 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 	post2 := ch.freshMeta(types.TypeOfRows)
 	b := ch.freshMeta(types.TypeOfTypes)
 
-	leftCore := ch.check(leftExpr, ch.typeOps.Comp(pre1, post1, a, g1, span.Span{}))
-	rightCore := ch.check(rightExpr, ch.typeOps.Comp(pre2, post2, b, g2, span.Span{}))
+	leftCore := ch.check(leftExpr, ch.typeOps.Comp(pre1, post1, a, g1))
+	rightCore := ch.check(rightExpr, ch.typeOps.Comp(pre2, post2, b, g2))
 
 	// Extract row labels from the resolved pre-states.
 	leftLabels := ch.extractRowLabels(ch.unifier.Zonk(pre1))
@@ -189,18 +189,17 @@ func (ch *Checker) inferMerge(leftExpr, rightExpr syntax.Expr, s span.Span) (typ
 	mergedPre := ch.applyMergeFamily(pre1, pre2)
 	mergedPost := ch.applyMergeFamily(post1, post2)
 	result := ch.typeOps.App(
-		ch.typeOps.Con(types.TyConRecord, span.Span{}),
+		ch.typeOps.Con(types.TyConRecord),
 		types.ClosedRow(
 			types.RowField{Label: types.TupleLabel(1), Type: a},
 			types.RowField{Label: types.TupleLabel(2), Type: b},
 		),
-		span.Span{},
 	)
 	mergedGrade := ch.composeGrades(g1, g2)
 	if mergedGrade == nil {
 		mergedGrade = ch.freshMeta(types.TypeOfTypes)
 	}
-	resultTy := ch.typeOps.Comp(mergedPre, mergedPost, result, mergedGrade, span.Span{})
+	resultTy := ch.typeOps.Comp(mergedPre, mergedPost, result, mergedGrade)
 
 	mergeNode := &ir.Merge{
 		Left:        leftCore,
@@ -240,15 +239,15 @@ func (ch *Checker) applyMergeFamily(r1, r2 types.Type) types.Type {
 	r1 = ch.unifier.Zonk(r1)
 	r2 = ch.unifier.Zonk(r2)
 	// Merge type family is applied via TyApp(TyApp(TyCon("Merge"), r1), r2).
-	merged := ch.typeOps.App(ch.typeOps.App(ch.typeOps.Con(family.RowFamilyMerge, span.Span{}), r1, span.Span{}), r2, span.Span{})
+	merged := ch.typeOps.App(ch.typeOps.App(ch.typeOps.Con(family.RowFamilyMerge), r1), r2)
 	return ch.reduceFamilyInType(merged)
 }
 
 func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "thunk",
 		types.TagComp, // thunk expects a Computation argument
-		func(p, q, r, g types.Type) types.Type { return ch.typeOps.Comp(p, q, r, g, span.Span{}) },
-		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r, span.Span{}) },
+		func(p, q, r, g types.Type) types.Type { return ch.typeOps.Comp(p, q, r, g) },
+		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r) },
 		func(c ir.Core) ir.Core { return &ir.Thunk{Comp: c, S: e.S} },
 	)
 }
@@ -256,8 +255,8 @@ func (ch *Checker) inferThunk(e *syntax.ExprApp) (types.Type, ir.Core) {
 func (ch *Checker) inferForce(e *syntax.ExprApp) (types.Type, ir.Core) {
 	return ch.inferDualForm(e, "force",
 		types.TagThunk, // force expects a Thunk argument
-		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r, span.Span{}) },
-		func(p, q, r, g types.Type) types.Type { return ch.typeOps.Comp(p, q, r, g, span.Span{}) },
+		func(p, q, r, _ types.Type) types.Type { return ch.typeOps.Thunk(p, q, r) },
+		func(p, q, r, g types.Type) types.Type { return ch.typeOps.Comp(p, q, r, g) },
 		func(c ir.Core) ir.Core { return &ir.Force{Expr: c, S: e.S} },
 	)
 }
@@ -274,7 +273,7 @@ func (ch *Checker) autoForceIfThunk(inferred types.Type, core ir.Core, s span.Sp
 	if !ok || thunk.Tag != types.TagThunk {
 		return inferred, core
 	}
-	asComp := ch.typeOps.Comp(thunk.Pre, thunk.Post, thunk.Result, thunk.Grade, span.Span{})
+	asComp := ch.typeOps.Comp(thunk.Pre, thunk.Post, thunk.Result, thunk.Grade)
 	return asComp, &ir.Force{Expr: core, S: s}
 }
 
@@ -302,14 +301,14 @@ func thunkIfBareComputation(ops *types.TypeOps, ty types.Type, core ir.Core, s s
 	case *types.TyForall:
 		if tl, ok := core.(*ir.TyLam); ok {
 			innerTy, innerCore := thunkIfBareComputation(ops, t.Body, tl.Body, s)
-			newTy := ops.Forall(t.Var, t.Kind, innerTy, t.S)
+			newTy := ops.ForallAt(t.Var, t.Kind, innerTy, t.S)
 			newCore := &ir.TyLam{TyParam: tl.TyParam, Kind: tl.Kind, Body: innerCore, S: tl.S}
 			return newTy, newCore
 		}
 	case *types.TyEvidence:
 		if lam, ok := core.(*ir.Lam); ok && lam.Generated.IsGenerated() {
 			innerTy, innerCore := thunkIfBareComputation(ops, t.Body, lam.Body, s)
-			newTy := ops.EvidenceWrap(t.Constraints, innerTy, t.S)
+			newTy := ops.EvidenceWrapAt(t.Constraints, innerTy, t.S)
 			newCore := &ir.Lam{
 				Param: lam.Param, ParamType: lam.ParamType,
 				Body: innerCore, Generated: lam.Generated, S: lam.S,
@@ -318,7 +317,7 @@ func thunkIfBareComputation(ops *types.TypeOps, ty types.Type, core ir.Core, s s
 		}
 	case *types.TyCBPV:
 		if t.Tag == types.TagComp {
-			asThunk := ops.ThunkGraded(t.Pre, t.Post, t.Result, t.Grade, t.S)
+			asThunk := ops.ThunkGradedAt(t.Pre, t.Post, t.Result, t.Grade, t.S)
 			return asThunk, &ir.Thunk{Comp: core, S: s}
 		}
 	}

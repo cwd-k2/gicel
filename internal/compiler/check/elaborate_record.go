@@ -28,7 +28,7 @@ func (ch *Checker) inferRecord(e *syntax.ExprRecord) (types.Type, ir.Core) {
 		coreFields = append(coreFields, ir.Field{Label: f.Label, Value: coreVal})
 	}
 	row := types.ClosedRow(fields...)
-	recTy := ch.typeOps.App(ch.typeOps.Con(types.TyConRecord, span.Span{}), row, e.S)
+	recTy := ch.typeOps.AppAt(ch.typeOps.Con(types.TyConRecord), row, e.S)
 	return ch.unifier.Zonk(recTy), &ir.RecordLit{Fields: coreFields, S: e.S}
 }
 
@@ -85,7 +85,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 		Tail: tailMeta,
 		S:    s,
 	}
-	expectedRecTy := ch.typeOps.App(ch.typeOps.Con(types.TyConRecord, span.Span{}), expectedRow, s)
+	expectedRecTy := ch.typeOps.AppAt(ch.typeOps.Con(types.TyConRecord), expectedRow, s)
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
 		ch.addDiag(diagnostic.ErrRowMismatch, s, diagWithType{Context: "expected record with field " + label + ", got ", Type: ty})
 		return ch.freshMeta(types.TypeOfTypes)
@@ -145,7 +145,7 @@ func (ch *Checker) checkRecord(e *syntax.ExprRecord, expected types.Type) ir.Cor
 		}
 	}
 	row := types.ClosedRow(rowFields...)
-	recTy := ch.typeOps.App(ch.typeOps.Con(types.TyConRecord, span.Span{}), row, e.S)
+	recTy := ch.typeOps.AppAt(ch.typeOps.Con(types.TyConRecord), row, e.S)
 	coreExpr := &ir.RecordLit{Fields: coreFields, S: e.S}
 	return ch.subsCheck(ch.unifier.Zonk(recTy), expected, coreExpr, e.S)
 }

@@ -21,23 +21,23 @@ func (o *TypeOps) MapType(t Type, f func(Type) Type) Type {
 			return t
 		}
 		if ty.IsGrade {
-			return o.AppGrade(fun, arg, ty.S)
+			return o.AppGradeAt(fun, arg, ty.S)
 		}
-		return o.App(fun, arg, ty.S)
+		return o.AppAt(fun, arg, ty.S)
 	case *TyArrow:
 		from := f(ty.From)
 		to := f(ty.To)
 		if from == ty.From && to == ty.To {
 			return t
 		}
-		return o.Arrow(from, to, ty.S)
+		return o.ArrowAt(from, to, ty.S)
 	case *TyForall:
 		kind := f(ty.Kind)
 		body := f(ty.Body)
 		if kind == ty.Kind && body == ty.Body {
 			return t
 		}
-		return o.Forall(ty.Var, kind, body, ty.S)
+		return o.ForallAt(ty.Var, kind, body, ty.S)
 	case *TyCBPV:
 		pre := f(ty.Pre)
 		post := f(ty.Post)
@@ -50,9 +50,9 @@ func (o *TypeOps) MapType(t Type, f func(Type) Type) Type {
 			return t
 		}
 		if ty.Tag == TagThunk {
-			return o.ThunkGraded(pre, post, result, grade, ty.S)
+			return o.ThunkGradedAt(pre, post, result, grade, ty.S)
 		}
-		return o.Comp(pre, post, result, grade, ty.S)
+		return o.CompAt(pre, post, result, grade, ty.S)
 	case *TyEvidence:
 		constraints := f(ty.Constraints)
 		body := f(ty.Body)
@@ -98,7 +98,7 @@ func (o *TypeOps) MapType(t Type, f func(Type) Type) Type {
 		if args == nil {
 			args = ty.Args
 		}
-		return o.FamilyApp(ty.Name, args, kind, ty.S)
+		return o.FamilyAppAt(ty.Name, args, kind, ty.S)
 	case *TyVar, *TyCon, *TyMeta, *TySkolem, *TyError:
 		return t
 	default:

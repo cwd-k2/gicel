@@ -64,9 +64,9 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if zFun == ty.Fun && zArg == ty.Arg {
 			result = ty
 		} else if ty.IsGrade {
-			result = u.TypeOps.AppGrade(zFun, zArg, ty.S)
+			result = u.TypeOps.AppGradeAt(zFun, zArg, ty.S)
 		} else {
-			result = u.TypeOps.App(zFun, zArg, ty.S)
+			result = u.TypeOps.AppAt(zFun, zArg, ty.S)
 		}
 		// Try 4-arg (graded) normalization only — depth-4 Computation/Thunk
 		// chains. The 3-arg ungraded form is deferred to normalizeCompApp
@@ -83,14 +83,14 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if zFrom == ty.From && zTo == ty.To {
 			return ty
 		}
-		return u.TypeOps.Arrow(zFrom, zTo, ty.S)
+		return u.TypeOps.ArrowAt(zFrom, zTo, ty.S)
 	case *types.TyForall:
 		zKind := u.zonkInner(ty.Kind)
 		zBody := u.zonkInner(ty.Body)
 		if zKind == ty.Kind && zBody == ty.Body {
 			return ty
 		}
-		return u.TypeOps.Forall(ty.Var, zKind, zBody, ty.S)
+		return u.TypeOps.ForallAt(ty.Var, zKind, zBody, ty.S)
 	case *types.TyCBPV:
 		zPre := u.zonkInner(ty.Pre)
 		zPost := u.zonkInner(ty.Post)
@@ -103,12 +103,12 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 			return ty
 		}
 		if ty.Tag == types.TagComp {
-			return u.TypeOps.Comp(zPre, zPost, zResult, zGrade, ty.S)
+			return u.TypeOps.CompAt(zPre, zPost, zResult, zGrade, ty.S)
 		}
 		if zGrade != nil {
-			return u.TypeOps.ThunkGraded(zPre, zPost, zResult, zGrade, ty.S)
+			return u.TypeOps.ThunkGradedAt(zPre, zPost, zResult, zGrade, ty.S)
 		}
-		return u.TypeOps.Thunk(zPre, zPost, zResult, ty.S)
+		return u.TypeOps.ThunkAt(zPre, zPost, zResult, ty.S)
 	case *types.TyEvidenceRow:
 		// Use the lazily-bound zonkEntriesFn callback (allocated on the
 		// first TyEvidenceRow zonk and cached on the Unifier) instead
@@ -141,9 +141,9 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if !ok {
 			// Zonk produced a non-evidence-row (e.g., solved meta);
 			// preserve original constraints to avoid nil dereference.
-			return u.TypeOps.EvidenceWrap(ty.Constraints, zBody, ty.S)
+			return u.TypeOps.EvidenceWrapAt(ty.Constraints, zBody, ty.S)
 		}
-		return u.TypeOps.EvidenceWrap(cr, zBody, ty.S)
+		return u.TypeOps.EvidenceWrapAt(cr, zBody, ty.S)
 	case *types.TyFamilyApp:
 		var args []types.Type // nil until first change (lazy-init)
 		for i, a := range ty.Args {
@@ -171,7 +171,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 				return u.zonkInner(result)
 			}
 		}
-		return u.TypeOps.FamilyApp(ty.Name, args, zKind, ty.S)
+		return u.TypeOps.FamilyAppAt(ty.Name, args, zKind, ty.S)
 	case *types.TyCon:
 		// TyCon is usually a leaf, but Level may contain LevelMeta.
 		if ty.Level == nil {
@@ -181,7 +181,7 @@ func (u *Unifier) zonkInner(t types.Type) types.Type {
 		if zLevel == ty.Level {
 			return ty
 		}
-		return u.TypeOps.ConLevel(ty.Name, zLevel, ty.IsLabel, ty.S)
+		return u.TypeOps.ConLevelAt(ty.Name, zLevel, ty.IsLabel, ty.S)
 	case *types.TySkolem:
 		if u.skolemSoln != nil {
 			if soln, ok := u.skolemSoln[ty.ID]; ok {

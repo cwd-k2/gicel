@@ -217,7 +217,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 			if e.tfCache == nil {
 				e.tfCache = make(map[string]types.Type)
 			}
-			stuck := e.TypeOps.FamilyApp(tf.Name, rArgs, tf.Kind, tf.S)
+			stuck := e.TypeOps.FamilyAppAt(tf.Name, rArgs, tf.Kind, tf.S)
 			e.tfCache[key] = stuck
 			r := e.reduceFamilyAppsN(result)
 			e.tfCache[key] = r
@@ -226,7 +226,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 		if placeholder := e.registerStuckFamily(tf.Name, rArgs, tf.Kind, tf.S); placeholder != nil {
 			return placeholder
 		}
-		return e.TypeOps.FamilyApp(tf.Name, rArgs, tf.Kind, tf.S)
+		return e.TypeOps.FamilyAppAt(tf.Name, rArgs, tf.Kind, tf.S)
 	}
 	// Case 2: TyApp chain with TyCon head that is a known type family.
 	// Two-phase: first check head+arity (no alloc), then unwind only on hit.
@@ -249,7 +249,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 					if e.tfCache == nil {
 						e.tfCache = make(map[string]types.Type)
 					}
-					stuck := e.TypeOps.FamilyApp(con.Name, args, fam.ResultKind, t.Span())
+					stuck := e.TypeOps.FamilyAppAt(con.Name, args, fam.ResultKind, t.Span())
 					e.tfCache[key] = stuck
 					r := e.reduceFamilyAppsN(result)
 					e.tfCache[key] = r
@@ -258,7 +258,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 				if placeholder := e.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
 					return placeholder
 				}
-				return e.TypeOps.FamilyApp(con.Name, args, fam.ResultKind, t.Span())
+				return e.TypeOps.FamilyAppAt(con.Name, args, fam.ResultKind, t.Span())
 			}
 		}
 		rFun := e.reduceFamilyAppsN(app.Fun)
@@ -266,7 +266,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 		if rFun == app.Fun && rArg == app.Arg {
 			return t
 		}
-		return e.TypeOps.App(rFun, rArg, app.S)
+		return e.TypeOps.AppAt(rFun, rArg, app.S)
 	}
 	// Case 3: structural recursion into other type formers.
 	// Inlined (not via MapType) to avoid closure heap-escape.
@@ -290,14 +290,14 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 		if rFrom == ty.From && rTo == ty.To {
 			return t
 		}
-		return e.TypeOps.Arrow(rFrom, rTo, ty.S)
+		return e.TypeOps.ArrowAt(rFrom, rTo, ty.S)
 	case *types.TyForall:
 		rKind := e.reduceFamilyAppsN(ty.Kind)
 		rBody := e.reduceFamilyAppsN(ty.Body)
 		if rKind == ty.Kind && rBody == ty.Body {
 			return t
 		}
-		return e.TypeOps.Forall(ty.Var, rKind, rBody, ty.S)
+		return e.TypeOps.ForallAt(ty.Var, rKind, rBody, ty.S)
 	case *types.TyCBPV:
 		rPre := e.reduceFamilyAppsN(ty.Pre)
 		rPost := e.reduceFamilyAppsN(ty.Post)
@@ -310,12 +310,12 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 			return t
 		}
 		if ty.Tag == types.TagComp {
-			return e.TypeOps.Comp(rPre, rPost, rResult, rGrade, ty.S)
+			return e.TypeOps.CompAt(rPre, rPost, rResult, rGrade, ty.S)
 		}
 		if rGrade != nil {
-			return e.TypeOps.ThunkGraded(rPre, rPost, rResult, rGrade, ty.S)
+			return e.TypeOps.ThunkGradedAt(rPre, rPost, rResult, rGrade, ty.S)
 		}
-		return e.TypeOps.Thunk(rPre, rPost, rResult, ty.S)
+		return e.TypeOps.ThunkAt(rPre, rPost, rResult, ty.S)
 	case *types.TyEvidence:
 		rConstraints := e.reduceFamilyAppsN(ty.Constraints)
 		rBody := e.reduceFamilyAppsN(ty.Body)
@@ -326,7 +326,7 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 		if !ok {
 			cr = ty.Constraints
 		}
-		return e.TypeOps.EvidenceWrap(cr, rBody, ty.S)
+		return e.TypeOps.EvidenceWrapAt(cr, rBody, ty.S)
 	case *types.TyEvidenceRow:
 		newEntries, changed := ty.Entries.MapChildren(func(child types.Type) types.Type {
 			return e.reduceFamilyAppsN(child)

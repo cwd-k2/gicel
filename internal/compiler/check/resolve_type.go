@@ -29,12 +29,12 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// next tryExpandApp iteration can detect the 4-arg pattern.
 		if t.IsGrade {
 			r.checkTypeAppKind(fun, arg, t.S)
-			return r.typeOps.AppGrade(fun, arg, t.S)
+			return r.typeOps.AppGradeAt(fun, arg, t.S)
 		}
 		r.checkTypeAppKind(fun, arg, t.S)
-		return r.typeOps.App(fun, arg, t.S)
+		return r.typeOps.AppAt(fun, arg, t.S)
 	case *syntax.TyExprArrow:
-		return r.typeOps.Arrow(r.resolveTypeExpr(t.From), r.resolveTypeExpr(t.To), t.S)
+		return r.typeOps.ArrowAt(r.resolveTypeExpr(t.From), r.resolveTypeExpr(t.To), t.S)
 	case *syntax.TyExprForall:
 		// Register kind variables (binders with Kind sort) before resolving the body,
 		// so that kind variable references in inner kind annotations resolve correctly.
@@ -74,7 +74,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		ty := r.resolveTypeExpr(t.Body)
 		for i := len(t.Binders) - 1; i >= 0; i-- {
 			kind := r.resolveKindExpr(t.Binders[i].Kind)
-			ty = r.typeOps.Forall(t.Binders[i].Name, kind, ty, t.S)
+			ty = r.typeOps.ForallAt(t.Binders[i].Name, kind, ty, t.S)
 		}
 		for _, name := range kindVarNames {
 			r.reg.UnsetKindVar(name)
@@ -162,12 +162,12 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 		// Emit immediately — this handles edge cases where ~ appears
 		// outside constraint position (e.g. in standalone type expressions).
 		r.emitEq(lhs, rhs, t.S, nil)
-		return r.typeOps.Con("()", span.Span{})
+		return r.typeOps.Con("()")
 	case *syntax.TyExprParen:
 		return r.resolveTypeExpr(t.Inner)
 	case *syntax.TyExprLabelLit:
 		// Label literals are type-level constants of kind Label.
-		return r.typeOps.ConLevel(t.Label, types.L1, true, t.S)
+		return r.typeOps.ConLevelAt(t.Label, types.L1, true, t.S)
 	case *syntax.TyExprError:
 		return &types.TyError{S: t.S}
 	default:
@@ -186,11 +186,11 @@ func qualifyBody(ops *types.TypeOps, entry types.ConstraintEntry, body types.Typ
 		entries = append(entries, old...)
 		ce := &types.ConstraintEntries{Entries: entries}
 		cr := &types.TyEvidenceRow{Entries: ce, Flags: types.EvidenceRowFlags(ce, nil)}
-		return ops.EvidenceWrap(cr, ev.Body, s)
+		return ops.EvidenceWrapAt(cr, ev.Body, s)
 	}
 	ce := &types.ConstraintEntries{Entries: []types.ConstraintEntry{entry}}
 	cr := &types.TyEvidenceRow{Entries: ce, Flags: types.EvidenceRowFlags(ce, nil)}
-	return ops.EvidenceWrap(cr, body, s)
+	return ops.EvidenceWrapAt(cr, body, s)
 }
 
 // decomposeQuantifiedConstraint checks if a resolved type is a quantified constraint
@@ -246,9 +246,9 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 				if con, ok := app1.Fun.(*types.TyCon); ok {
 					switch con.Name {
 					case types.TyConComputation:
-						return r.typeOps.Comp(app2.Arg, app3.Arg, arg, app1.Arg, s)
+						return r.typeOps.CompAt(app2.Arg, app3.Arg, arg, app1.Arg, s)
 					case types.TyConThunk:
-						return r.typeOps.ThunkGraded(app2.Arg, app3.Arg, arg, app1.Arg, s)
+						return r.typeOps.ThunkGradedAt(app2.Arg, app3.Arg, arg, app1.Arg, s)
 					}
 				}
 			}
@@ -268,9 +268,9 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 				if _, isRow := app1.Arg.(*types.TyEvidenceRow); isRow {
 					switch con.Name {
 					case types.TyConComputation:
-						return r.typeOps.Comp(app1.Arg, app2.Arg, arg, nil, s)
+						return r.typeOps.CompAt(app1.Arg, app2.Arg, arg, nil, s)
 					case types.TyConThunk:
-						return r.typeOps.Thunk(app1.Arg, app2.Arg, arg, s)
+						return r.typeOps.ThunkAt(app1.Arg, app2.Arg, arg, s)
 					}
 				}
 			}
@@ -278,7 +278,7 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 	}
 	// General alias/family expansion: collect the TyApp spine and check if the
 	// head is an alias or type family with matching parameter count.
-	result := r.typeOps.App(fun, arg, s)
+	result := r.typeOps.AppAt(fun, arg, s)
 	head, args := types.UnwindApp(result)
 	if con, ok := head.(*types.TyCon); ok {
 		if info, ok := r.lookupAlias(con.Name); ok && len(info.Params) == len(args) {
@@ -308,7 +308,7 @@ func (r *typeResolver) tryExpandApp(fun types.Type, arg types.Type, s span.Span)
 		}
 		// Type family: saturated application → TyFamilyApp.
 		if fam, ok := r.lookupFamily(con.Name); ok && len(fam.Params) == len(args) {
-			return r.typeOps.FamilyApp(con.Name, args, fam.ResultKind, s)
+			return r.typeOps.FamilyAppAt(con.Name, args, fam.ResultKind, s)
 		}
 	}
 	return nil

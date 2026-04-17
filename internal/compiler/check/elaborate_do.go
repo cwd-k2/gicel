@@ -189,7 +189,7 @@ func (d *doInfer) withFirstPre(compTy, restTy types.Type) types.Type {
 	if !ok1 || !ok2 || comp.Tag != types.TagComp || rest.Tag != types.TagComp {
 		return restTy
 	}
-	return d.ch.typeOps.Comp(comp.Pre, rest.Post, rest.Result, rest.Grade, rest.S)
+	return d.ch.typeOps.CompAt(comp.Pre, rest.Post, rest.Result, rest.Grade, rest.S)
 }
 
 func (d *doInfer) unifyCompPostPre(compTy, restTy types.Type, s span.Span) {
@@ -235,7 +235,7 @@ func (d *doChecked) elaborateBind(varName string, comp syntax.Expr, rest []synta
 					Args: []any{ch.typeOps.Pretty(ch.unifier.Zonk(d.comp.Pre)), ch.typeOps.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
 		ch.ctx.Push(&CtxVar{Name: varName, Type: inferredComp.Result})
-		restComp := ch.typeOps.Comp(inferredComp.Post, d.comp.Post, d.comp.Result, nil, d.comp.S)
+		restComp := ch.typeOps.CompAt(inferredComp.Post, d.comp.Post, d.comp.Result, nil, d.comp.S)
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)
@@ -266,7 +266,7 @@ func (d *doChecked) elaborateExprStmt(expr syntax.Expr, rest []syntax.Stmt, stmt
 				diagFmt{Format: "do statement: pre-state mismatch: expected %s, got %s",
 					Args: []any{ch.typeOps.Pretty(ch.unifier.Zonk(d.comp.Pre)), ch.typeOps.Pretty(ch.unifier.Zonk(inferredComp.Pre))}})
 		}
-		restComp := ch.typeOps.Comp(inferredComp.Post, d.comp.Post, d.comp.Result, nil, d.comp.S)
+		restComp := ch.typeOps.CompAt(inferredComp.Post, d.comp.Post, d.comp.Result, nil, d.comp.S)
 		savedComp := d.comp
 		d.comp = restComp
 		_, restCore := doElaborate(ch, d, rest, doS)
@@ -321,7 +321,7 @@ func (ch *Checker) extractCompResult(ty types.Type, s span.Span) types.Type {
 	pre := ch.freshMeta(types.TypeOfRows)
 	post := ch.freshMeta(types.TypeOfRows)
 	result := ch.freshMeta(types.TypeOfTypes)
-	expected := ch.typeOps.Comp(pre, post, result, grade, span.Span{})
+	expected := ch.typeOps.Comp(pre, post, result, grade)
 	if err := ch.unifier.Unify(ty, expected); err != nil {
 		ch.addSemanticUnifyError(diagnostic.ErrBadComputation, err, s, "expected computation type, got "+ch.typeOps.Pretty(ty))
 		return &types.TyError{S: s}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -287,7 +286,7 @@ func (ch *Checker) processTypeAlias(d *syntax.DeclTypeAlias) {
 	if ch.config.HoverRecorder != nil {
 		var kind types.Type = types.TypeOfTypes
 		for i := len(paramKinds) - 1; i >= 0; i-- {
-			kind = ch.typeOps.Arrow(paramKinds[i], kind, span.Span{})
+			kind = ch.typeOps.Arrow(paramKinds[i], kind)
 		}
 		ch.config.HoverRecorder.RecordDecl(d.S, DeclAlias, d.Name, kind)
 	}

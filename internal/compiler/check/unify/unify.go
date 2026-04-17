@@ -430,14 +430,14 @@ func (u *Unifier) Unify(a, b types.Type) error {
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)
 	if len(args) < 3 {
-		return &MismatchError{A: app, B: u.TypeOps.Con(conName, span.Span{})}
+		return &MismatchError{A: app, B: u.TypeOps.Con(conName)}
 	}
 	// Reconstruct head with excess leading args (handles len(args) > 3).
 	conHead := head
 	for _, arg := range args[:len(args)-3] {
-		conHead = u.TypeOps.App(conHead, arg, span.Span{})
+		conHead = u.TypeOps.App(conHead, arg)
 	}
-	if err := u.Unify(conHead, u.TypeOps.Con(conName, span.Span{})); err != nil {
+	if err := u.Unify(conHead, u.TypeOps.Con(conName)); err != nil {
 		return err
 	}
 	for i := range 3 {

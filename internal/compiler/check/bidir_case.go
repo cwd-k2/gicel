@@ -192,7 +192,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 	// on failure, then override scrutTy so the per-branch pattern checks do not
 	// produce duplicate "constructor type mismatch" errors.
 	if e.IfDesugar {
-		boolTy := ch.typeOps.Con("Bool", span.Span{})
+		boolTy := ch.typeOps.Con("Bool")
 		if !ch.tryTrivialUnify(scrutTy, boolTy) {
 			// Capture the actual type eagerly: once emitEq unifies the meta,
 			// a lazy Zonk would return Bool (the expected type), not the actual type.
@@ -242,7 +242,7 @@ func (ch *Checker) checkCaseAlts(scrutTy, resultTy types.Type, scrutCore ir.Core
 				zonkedPre = variantSubstPreState(ch.typeOps, zonkedPre, variantSMeta, pr.VariantFieldTy)
 			}
 
-			branchExpected = ch.typeOps.Comp(zonkedPre, freshPost, comp.Result, nil, comp.S)
+			branchExpected = ch.typeOps.CompAt(zonkedPre, freshPost, comp.Result, nil, comp.S)
 			branchPosts = append(branchPosts, freshPost)
 		}
 

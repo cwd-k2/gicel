@@ -5,7 +5,6 @@ package check
 import (
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -136,7 +135,7 @@ func verifyGradeAxiomsForKind(
 	var cons []*types.TyCon
 	for _, ci := range dt.Constructors {
 		if ci.Arity == 0 {
-			cons = append(cons, ops.ConLevel(ci.Name, types.L0, false, span.Span{}))
+			cons = append(cons, ops.ConLevel(ci.Name, types.L0, false))
 		}
 	}
 	if len(cons) < 2 {

@@ -165,7 +165,7 @@ func (ch *Checker) expandTypeAliasesN(ty types.Type, depth int) types.Type {
 		if newFun == app.Fun && newArg == app.Arg {
 			return ty
 		}
-		result := ch.typeOps.App(newFun, newArg, app.S)
+		result := ch.typeOps.AppAt(newFun, newArg, app.S)
 		// Re-check after recursive expansion.
 		return ch.expandTypeAliasesN(result, depth+1)
 	}

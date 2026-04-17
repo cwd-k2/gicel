@@ -104,7 +104,7 @@ func (ch *Checker) processTypeFamilyDecl(
 	if ch.config.HoverRecorder != nil {
 		var kind types.Type = resultKind
 		for i := len(params) - 1; i >= 0; i-- {
-			kind = ch.typeOps.Arrow(params[i].Kind, kind, span.Span{})
+			kind = ch.typeOps.Arrow(params[i].Kind, kind)
 		}
 		ch.config.HoverRecorder.RecordDecl(s, DeclAlias, name, kind)
 	}
@@ -195,7 +195,7 @@ func (ch *Checker) registerBuiltinRowFamilies() {
 		_ = ch.reg.RegisterFamily(family.RowFamilyMapRow, &TypeFamilyInfo{
 			Name: family.RowFamilyMapRow,
 			Params: []TFParam{
-				{Name: "f", Kind: ch.typeOps.Arrow(types.TypeOfTypes, types.TypeOfTypes, span.Span{})},
+				{Name: "f", Kind: ch.typeOps.Arrow(types.TypeOfTypes, types.TypeOfTypes)},
 				{Name: "r", Kind: types.TypeOfRows},
 			},
 			ResultKind: types.TypeOfRows,

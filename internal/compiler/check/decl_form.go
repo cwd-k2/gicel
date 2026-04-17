@@ -2,7 +2,6 @@ package check
 
 import (
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/syntax"
 	"github.com/cwd-k2/gicel/internal/lang/types"
@@ -23,7 +22,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	// If any param is not Type-kinded, result defaults to TypeOfTypes (L1).
 	var kind types.Type = formResultKind(ch.typeOps, paramKinds)
 	for i := len(parts.Params) - 1; i >= 0; i-- {
-		kind = ch.typeOps.Arrow(paramKinds[i], kind, span.Span{})
+		kind = ch.typeOps.Arrow(paramKinds[i], kind)
 	}
 	if d.KindAnn != nil {
 		annKind := ch.resolveKindExpr(d.KindAnn)
@@ -40,10 +39,10 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 	ch.reg.RegisterDataType(d.Name, dataInfo)
 
 	// Build result type: T a b c ...
-	var resultType types.Type = ch.typeOps.Con(d.Name, d.S)
+	var resultType types.Type = ch.typeOps.ConAt(d.Name, d.S)
 	for _, p := range parts.Params {
-		arg := ch.typeOps.Var(p.Name, p.S)
-		resultType = ch.typeOps.App(resultType, arg, d.S)
+		arg := ch.typeOps.VarAt(p.Name, p.S)
+		resultType = ch.typeOps.AppAt(resultType, arg, d.S)
 	}
 
 	// Register each constructor from row fields.
@@ -77,7 +76,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 
 		// Wrap in forall for type params.
 		for i := len(parts.Params) - 1; i >= 0; i-- {
-			conType = ch.typeOps.Forall(parts.Params[i].Name, paramKinds[i], conType, span.Span{})
+			conType = ch.typeOps.Forall(parts.Params[i].Name, paramKinds[i], conType)
 		}
 
 		ch.ctx.Push(&CtxVar{Name: conName, Type: conType, Module: ch.scope.CurrentModule()})
@@ -100,7 +99,7 @@ func (ch *Checker) processFormDeclParts(d *syntax.DeclForm, parts formBodyParts,
 		// Build kind arrow from field types (right to left).
 		for i := len(con.Fields) - 1; i >= 0; i-- {
 			fieldKind := ch.promotedFieldKind(con.Fields[i])
-			conKind = ch.typeOps.Arrow(fieldKind, conKind, span.Span{})
+			conKind = ch.typeOps.Arrow(fieldKind, conKind)
 		}
 		ch.reg.RegisterPromotedCon(con.Name, conKind)
 	}
@@ -212,5 +211,5 @@ func formResultKind(ops *types.TypeOps, paramKinds []types.Type) types.Type {
 		}
 		level = joinLevel(level, l)
 	}
-	return ops.ConLevel("Type", level, false, span.Span{})
+	return ops.ConLevel("Type", level, false)
 }

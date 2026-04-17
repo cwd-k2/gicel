@@ -2,7 +2,6 @@ package engine
 
 import (
 	"github.com/cwd-k2/gicel/internal/host/registry"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 	"github.com/cwd-k2/gicel/internal/runtime/eval"
 )
@@ -35,14 +34,13 @@ func newHostEnv(ops *types.TypeOps) HostEnv {
 	h.registeredTys["String"] = types.TypeOfTypes
 	h.registeredTys["Rune"] = types.TypeOfTypes
 	h.registeredTys["Byte"] = types.TypeOfTypes
-	zs := span.Span{}
-	h.registeredTys["Slice"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs)
-	h.registeredTys["Array"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs)
-	h.registeredTys["Map"] = ops.Arrow(types.TypeOfTypes, ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs), zs)
-	h.registeredTys["Set"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs)
-	h.registeredTys["MMap"] = ops.Arrow(types.TypeOfTypes, ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs), zs)
-	h.registeredTys["MSet"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs)
-	h.registeredTys["Ref"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs)
-	h.registeredTys["Seq"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes, zs)
+	h.registeredTys["Slice"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Array"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Map"] = ops.Arrow(types.TypeOfTypes, ops.Arrow(types.TypeOfTypes, types.TypeOfTypes))
+	h.registeredTys["Set"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["MMap"] = ops.Arrow(types.TypeOfTypes, ops.Arrow(types.TypeOfTypes, types.TypeOfTypes))
+	h.registeredTys["MSet"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Ref"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes)
+	h.registeredTys["Seq"] = ops.Arrow(types.TypeOfTypes, types.TypeOfTypes)
 	return h
 }

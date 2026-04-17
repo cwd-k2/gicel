@@ -5,7 +5,6 @@ import (
 
 	"github.com/cwd-k2/gicel/internal/compiler/check/env"
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
@@ -124,7 +123,7 @@ func collectVarKindsRec(ops *types.TypeOps, t types.Type, contextKind types.Type
 		if arr, ok := contextKind.(*types.TyArrow); ok {
 			argKind = arr.From
 		}
-		funKind := ops.Arrow(argKind, contextKind, span.Span{})
+		funKind := ops.Arrow(argKind, contextKind)
 		collectVarKindsRec(ops, ty.Fun, funKind, result)
 		collectVarKindsRec(ops, ty.Arg, argKind, result)
 	}

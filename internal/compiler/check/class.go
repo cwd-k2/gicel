@@ -84,27 +84,27 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	// Register the dict type constructor kind.
 	var dictKind types.Type = types.TypeOfTypes
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
-		dictKind = ch.typeOps.Arrow(tyParamKinds[i], dictKind, span.Span{})
+		dictKind = ch.typeOps.Arrow(tyParamKinds[i], dictKind)
 	}
 	ch.reg.RegisterTypeKind(dn, dictKind)
 
 	// Build result type: DictTy a b c ...
-	var resultType types.Type = ch.typeOps.Con(dn, d.S)
+	var resultType types.Type = ch.typeOps.ConAt(dn, d.S)
 	for _, p := range tyParams {
-		resultType = ch.typeOps.App(resultType, &types.TyVar{Name: p}, d.S)
+		resultType = ch.typeOps.AppAt(resultType, &types.TyVar{Name: p}, d.S)
 	}
 
 	// Build constructor type: field1 -> field2 -> ... -> DictTy a b...
 	conType := resultType
 	for i := len(allFieldTypes) - 1; i >= 0; i-- {
-		conType = ch.typeOps.Arrow(allFieldTypes[i], conType, span.Span{})
+		conType = ch.typeOps.Arrow(allFieldTypes[i], conType)
 	}
 	for i := len(tyParams) - 1; i >= 0; i-- {
-		conType = ch.typeOps.Forall(tyParams[i], tyParamKinds[i], conType, span.Span{})
+		conType = ch.typeOps.Forall(tyParams[i], tyParamKinds[i], conType)
 	}
 	// Wrap kind parameters as outermost foralls (kind-level quantification).
 	for i := len(kindParams) - 1; i >= 0; i-- {
-		conType = ch.typeOps.Forall(kindParams[i], types.SortZero, conType, span.Span{})
+		conType = ch.typeOps.Forall(kindParams[i], types.SortZero, conType)
 	}
 
 	// Register constructor.
@@ -222,12 +222,12 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 		tyParamVars[j] = &types.TyVar{Name: p}
 	}
 	entry := &types.ClassEntry{ClassName: cls.Name, Args: tyParamVars, S: s}
-	var selectorTy types.Type = ch.typeOps.Evidence([]types.ConstraintEntry{entry}, m.Type, span.Span{})
+	var selectorTy types.Type = ch.typeOps.Evidence([]types.ConstraintEntry{entry}, m.Type)
 	for j := len(cls.TyParams) - 1; j >= 0; j-- {
-		selectorTy = ch.typeOps.Forall(cls.TyParams[j], cls.TyParamKinds[j], selectorTy, span.Span{})
+		selectorTy = ch.typeOps.Forall(cls.TyParams[j], cls.TyParamKinds[j], selectorTy)
 	}
 	for j := len(cls.KindParams) - 1; j >= 0; j-- {
-		selectorTy = ch.typeOps.Forall(cls.KindParams[j], types.SortZero, selectorTy, span.Span{})
+		selectorTy = ch.typeOps.Forall(cls.KindParams[j], types.SortZero, selectorTy)
 	}
 
 	ch.ctx.Push(&CtxVar{Name: m.Name, Type: selectorTy, Module: ch.scope.CurrentModule()})
@@ -275,9 +275,9 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 
 // buildDictType constructs the dictionary type for a class applied to arguments.
 func (ch *Checker) buildDictType(className string, args []types.Type) types.Type {
-	var ty types.Type = ch.typeOps.Con(env.DictName(className), span.Span{})
+	var ty types.Type = ch.typeOps.Con(env.DictName(className))
 	for _, a := range args {
-		ty = ch.typeOps.App(ty, a, span.Span{})
+		ty = ch.typeOps.App(ty, a)
 	}
 	return ty
 }
@@ -385,11 +385,11 @@ func (ch *Checker) buildQuantifiedDictType(qc *types.QuantifiedConstraint) types
 			continue
 		}
 		ctxDictTy := ch.buildDictType(ctxCls.ClassName, ctxCls.Args)
-		ty = ch.typeOps.Arrow(ctxDictTy, ty, span.Span{})
+		ty = ch.typeOps.Arrow(ctxDictTy, ty)
 	}
 	// Wrap in foralls.
 	for i := len(qc.Vars) - 1; i >= 0; i-- {
-		ty = ch.typeOps.Forall(qc.Vars[i].Name, qc.Vars[i].Kind, ty, span.Span{})
+		ty = ch.typeOps.Forall(qc.Vars[i].Name, qc.Vars[i].Kind, ty)
 	}
 	return ty
 }

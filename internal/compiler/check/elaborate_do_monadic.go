@@ -69,7 +69,7 @@ func (ch *Checker) extractMonadHead(ty types.Type) types.Type {
 		// Reconstruct head with all but last arg (the result type).
 		var result types.Type = head
 		for _, a := range args[:len(args)-1] {
-			result = ch.typeOps.App(result, a, span.Span{})
+			result = ch.typeOps.App(result, a)
 		}
 		return result
 	}
@@ -85,7 +85,7 @@ func (ch *Checker) extractMonadResult(ty types.Type, monadHead types.Type, s spa
 	}
 	// Generate fresh meta as fallback.
 	result := ch.freshMeta(types.TypeOfTypes)
-	headApp := ch.typeOps.App(monadHead, result, span.Span{})
+	headApp := ch.typeOps.App(monadHead, result)
 	ch.emitEq(ty, headApp, s, solve.WithLazyContext(diagnostic.ErrBadComputation, func() string {
 		return "expected " + ch.typeOps.Pretty(monadHead) + " type, got " + ch.typeOps.Pretty(ty)
 	}))
@@ -134,7 +134,7 @@ func (ch *Checker) resolveGIMonadDict(monadHead types.Type, s span.Span) (ir.Cor
 	// Lift fallback: GIMonad g (Lift head).
 	// Safe for Type→Type monads; do-block elaboration for Lift-wrapped types
 	// produces correct results because these monads have no row parameters.
-	liftedHead := ch.typeOps.App(ch.typeOps.Con("Lift", span.Span{}), head, span.Span{})
+	liftedHead := ch.typeOps.App(ch.typeOps.Con("Lift"), head)
 	gradeMeta2 := ch.freshMeta(types.TypeOfTypes)
 	if dict, ok := ch.tryResolveInstance("GIMonad", []types.Type{gradeMeta2, liftedHead}, s); ok {
 		return dict, classInfo, true

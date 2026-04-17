@@ -45,22 +45,22 @@ func (r *typeResolver) resolveKindExpr(k syntax.TypeExpr) types.Type {
 		}
 		if r.reg.IsLevelVar(ke.Name) {
 			// Level variable in kind position: treat as Type at that level.
-			return r.typeOps.ConLevel("Type", &types.LevelVar{Name: ke.Name}, false, span.Span{})
+			return r.typeOps.ConLevel("Type", &types.LevelVar{Name: ke.Name}, false)
 		}
 		// Lowercase names in kind position get a fresh LevelMeta, making
 		// the universe level inferrable. This replaces the former
 		// TypeOfTypes default with evidence-based level inference.
-		return r.typeOps.ConLevel("Type", r.unifier.FreshLevelMeta(), false, span.Span{})
+		return r.typeOps.ConLevel("Type", r.unifier.FreshLevelMeta(), false)
 	case *syntax.TyExprApp:
 		// Handle Type l (Type applied to a level argument).
 		if con, ok := ke.Fun.(*syntax.TyExprCon); ok && con.Name == "Type" {
 			level := r.resolveLevelExpr(ke.Arg)
-			return r.typeOps.ConLevel("Type", level, false, span.Span{})
+			return r.typeOps.ConLevel("Type", level, false)
 		}
 		// Kind-level application (e.g., F A in kind position).
-		return r.typeOps.App(r.resolveKindExpr(ke.Fun), r.resolveKindExpr(ke.Arg), span.Span{})
+		return r.typeOps.App(r.resolveKindExpr(ke.Fun), r.resolveKindExpr(ke.Arg))
 	case *syntax.TyExprArrow:
-		return r.typeOps.Arrow(r.resolveKindExpr(ke.From), r.resolveKindExpr(ke.To), span.Span{})
+		return r.typeOps.Arrow(r.resolveKindExpr(ke.From), r.resolveKindExpr(ke.To))
 	case *syntax.TyExprParen:
 		return r.resolveKindExpr(ke.Inner)
 	case *syntax.TyExprError:
@@ -257,7 +257,7 @@ func typeAtMaxLevelOps(ops *types.TypeOps, kindA, kindB types.Type) types.Type {
 	la, okA := extractTypeLevel(kindA)
 	lb, okB := extractTypeLevel(kindB)
 	if okA && okB {
-		return ops.ConLevel("Type", joinLevel(la, lb), false, span.Span{})
+		return ops.ConLevel("Type", joinLevel(la, lb), false)
 	}
 	return types.TypeOfTypes
 }
@@ -287,7 +287,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 			var kind types.Type = types.TypeOfTypes
 			for i := len(info.Params) - 1; i >= 0; i-- {
 				paramKind := r.aliasParamKind(t.Name, i)
-				kind = r.typeOps.Arrow(paramKind, kind, span.Span{})
+				kind = r.typeOps.Arrow(paramKind, kind)
 			}
 			return kind
 		}
@@ -298,7 +298,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 		if cls, ok := r.reg.LookupClass(t.Name); ok {
 			var kind types.Type = types.TypeOfConstraints
 			for i := len(cls.TyParamKinds) - 1; i >= 0; i-- {
-				kind = r.typeOps.Arrow(cls.TyParamKinds[i], kind, span.Span{})
+				kind = r.typeOps.Arrow(cls.TyParamKinds[i], kind)
 			}
 			return kind
 		}
@@ -306,7 +306,7 @@ func (r *typeResolver) kindOfType(ty types.Type) types.Type {
 		if fam, ok := r.lookupFamily(t.Name); ok {
 			var kind types.Type = fam.ResultKind
 			for i := len(fam.Params) - 1; i >= 0; i-- {
-				kind = r.typeOps.Arrow(fam.Params[i].Kind, kind, span.Span{})
+				kind = r.typeOps.Arrow(fam.Params[i].Kind, kind)
 			}
 			return kind
 		}

@@ -19,14 +19,14 @@ func (r *typeResolver) resolveUnqualifiedTypeCon(name string, s span.Span) types
 	}
 	// Zero-arity type family: immediate TyFamilyApp.
 	if fam, ok := r.lookupFamily(name); ok && len(fam.Params) == 0 {
-		return r.typeOps.FamilyApp(name, nil, fam.ResultKind, s)
+		return r.typeOps.FamilyAppAt(name, nil, fam.ResultKind, s)
 	}
 	// Strict mode: validate that the type constructor is known.
 	if *r.strictTypeNames && !r.isKnownTypeName(name) {
 		r.addDiag(diagnostic.ErrUnboundCon, s, diagUnknown{Kind: "type", Name: name})
 		return &types.TyError{S: s}
 	}
-	return r.typeOps.Con(name, s)
+	return r.typeOps.ConAt(name, s)
 }
 
 // resolveQualifiedTypeCon resolves a qualified type constructor name (Mod.Name).
@@ -44,33 +44,33 @@ func (r *typeResolver) resolveQualifiedTypeCon(qualifier, name string, s span.Sp
 			return info.Body
 		}
 		r.scope.InjectAlias(name, info)
-		return r.typeOps.Con(name, s)
+		return r.typeOps.ConAt(name, s)
 	}
 	// Type families: zero-arity → immediate; parameterized → inject into scope.
 	if fam, ok := qs.Exports.TypeFamilies[name]; ok {
 		if len(fam.Params) == 0 {
-			return r.typeOps.FamilyApp(name, nil, fam.ResultKind, s)
+			return r.typeOps.FamilyAppAt(name, nil, fam.ResultKind, s)
 		}
 		r.scope.InjectFamily(name, fam.Clone())
-		return r.typeOps.Con(name, s)
+		return r.typeOps.ConAt(name, s)
 	}
 	// Module-defined types (data declarations, class types).
 	if isModuleDefinedType(qs.Exports, name) {
-		return r.typeOps.Con(name, s)
+		return r.typeOps.ConAt(name, s)
 	}
 	// Promoted kinds and constructors.
 	if _, ok := qs.Exports.PromotedKinds[name]; ok {
-		return r.typeOps.Con(name, s)
+		return r.typeOps.ConAt(name, s)
 	}
 	if _, ok := qs.Exports.PromotedCons[name]; ok {
-		return r.typeOps.Con(name, s)
+		return r.typeOps.ConAt(name, s)
 	}
 	// Host-registered types (e.g., Map, Set, Slice) are globally visible.
 	// A qualified reference M.T is valid when M is a known module and T
 	// is a host-registered type, since host types are ambient — not owned
 	// by any single module.
 	if _, ok := r.reg.LookupTypeKind(name); ok {
-		return r.typeOps.Con(name, s)
+		return r.typeOps.ConAt(name, s)
 	}
 	r.addDiag(diagnostic.ErrImport, s,
 		diagMsg("module "+qs.ModuleName+" does not export type: "+name))

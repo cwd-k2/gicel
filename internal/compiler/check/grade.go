@@ -200,9 +200,9 @@ func substType(ops *types.TypeOps, t types.Type, subst map[string]types.Type) ty
 			return t
 		}
 		if x.IsGrade {
-			return ops.AppGrade(newFun, newArg, x.S)
+			return ops.AppGradeAt(newFun, newArg, x.S)
 		}
-		return ops.App(newFun, newArg, x.S)
+		return ops.AppAt(newFun, newArg, x.S)
 	default:
 		return t
 	}

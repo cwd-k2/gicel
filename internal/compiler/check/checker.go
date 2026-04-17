@@ -403,12 +403,11 @@ func (ch *Checker) initContext() {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
 	// Built-in type constructors.
-	ch.reg.RegisterTypeKind(types.TyConRecord, ch.typeOps.Arrow(types.TypeOfRows, types.TypeOfTypes, span.Span{}))
+	ch.reg.RegisterTypeKind(types.TyConRecord, ch.typeOps.Arrow(types.TypeOfRows, types.TypeOfTypes))
 	// Variant :: Row -> Type -> Type (labeled coproduct, dual of Record)
 	ch.reg.RegisterTypeKind(types.TyConVariant, ch.typeOps.Arrow(
 		types.TypeOfRows,
-		ch.typeOps.Arrow(types.TypeOfTypes, types.TypeOfTypes, span.Span{}),
-		span.Span{},
+		ch.typeOps.Arrow(types.TypeOfTypes, types.TypeOfTypes),
 	))
 }
 

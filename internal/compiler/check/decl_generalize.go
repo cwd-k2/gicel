@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/infra/span"
 	"github.com/cwd-k2/gicel/internal/lang/ir"
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
@@ -97,7 +96,7 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 		expr = &ir.Lam{Param: uc.Placeholder, Body: expr, Generated: ir.GenDict, S: uc.S}
 		// Wrap type: ClassName args => ty
 		constraints := types.SingleConstraint(uc.ClassName, zonkedArgs)
-		ty = ch.typeOps.EvidenceWrap(constraints, ty, uc.S)
+		ty = ch.typeOps.EvidenceWrapAt(constraints, ty, uc.S)
 	}
 
 	// Re-zonk recorded expression types while temp solutions
@@ -121,7 +120,7 @@ func (ch *Checker) generalizeWith(ty types.Type, expr ir.Core, unresolved []*CtP
 	// Wrap in forall.
 	for i := len(unique) - 1; i >= 0; i-- {
 		kind := ch.unifier.Zonk(unique[i].kind)
-		ty = ch.typeOps.Forall(unique[i].name, kind, ty, span.Span{})
+		ty = ch.typeOps.Forall(unique[i].name, kind, ty)
 	}
 
 	return ty, expr
@@ -198,7 +197,7 @@ func quantifyFreeVars(ops *types.TypeOps, ty types.Type) types.Type {
 		if k == nil {
 			k = types.TypeOfTypes
 		}
-		ty = ops.Forall(vars[i], k, ty, span.Span{})
+		ty = ops.Forall(vars[i], k, ty)
 	}
 	return ty
 }

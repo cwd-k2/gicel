@@ -189,7 +189,7 @@ func (e *ReduceEnv) reduceMapRow(args []types.Type, s span.Span) (types.Type, bo
 
 	newFields := make([]types.RowField, len(fields))
 	for i, field := range fields {
-		applied := e.TypeOps.App(fArg, field.Type, s)
+		applied := e.TypeOps.AppAt(fArg, field.Type, s)
 		reduced := e.reduceFamilyAppsN(applied)
 		newFields[i] = types.RowField{
 			Label:  field.Label,
