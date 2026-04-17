@@ -25,7 +25,7 @@ import (
 // (via permanent solutions) should be compressed so m1 points directly to
 // Int after Zonk.
 func TestProbeD_Zonk_MetaChainPathCompression(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	m3 := &types.TyMeta{ID: 3, Kind: types.TypeOfTypes}
@@ -56,7 +56,7 @@ func TestProbeD_Zonk_MetaChainPathCompression(t *testing.T) {
 // TestProbeD_Zonk_UnsolvedMetaPreserved — zonking an unsolved meta returns
 // the meta itself.
 func TestProbeD_Zonk_UnsolvedMetaPreserved(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 42, Kind: types.TypeOfTypes}
 	result := u.Zonk(m)
 	if tm, ok := result.(*types.TyMeta); !ok || tm.ID != 42 {
@@ -67,7 +67,7 @@ func TestProbeD_Zonk_UnsolvedMetaPreserved(t *testing.T) {
 // TestProbeD_Zonk_StructuralIdentity — zonking a type with no metas should
 // return the identical pointer.
 func TestProbeD_Zonk_StructuralIdentity(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	ty := types.MkArrow(types.Con("Int"), types.Con("Bool"))
 	result := u.Zonk(ty)
 	if result != ty {
@@ -77,7 +77,7 @@ func TestProbeD_Zonk_StructuralIdentity(t *testing.T) {
 
 // TestProbeD_Zonk_TyForallBodyZonked — zonking a forall should zonk the body.
 func TestProbeD_Zonk_TyForallBodyZonked(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestProbeD_Zonk_TyForallBodyZonked(t *testing.T) {
 // TestProbeE_Zonk_UnsolvedMetaPassthrough — zonking an unsolved meta should
 // return the meta itself.
 func TestProbeE_Zonk_UnsolvedMetaPassthrough(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	result := u.Zonk(m)
 	if result != m {
@@ -115,7 +115,7 @@ func TestProbeE_Zonk_UnsolvedMetaPassthrough(t *testing.T) {
 // TestProbeE_Zonk_DeepNesting — zonking a deeply nested type should not
 // stack overflow.
 func TestProbeE_Zonk_DeepNesting(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	// Build: F (F (F ... (F Int) ...)) with depth 1000
 	const depth = 1000
 	var ty types.Type = types.Con("Int")
@@ -132,7 +132,7 @@ func TestProbeE_Zonk_DeepNesting(t *testing.T) {
 // TestProbeE_Zonk_TyEvidenceWithSolvedMeta — zonking a TyEvidence where
 // the constraint row contains solved metas should work correctly.
 func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.Unify(meta, types.Con("Bool"))
 	evidence := &types.TyEvidence{
@@ -162,7 +162,7 @@ func TestProbeE_Zonk_TyEvidenceWithSolvedMeta(t *testing.T) {
 
 // TestProbeE_Zonk_TyFamilyApp — zonking a TyFamilyApp should zonk its args.
 func TestProbeE_Zonk_TyFamilyApp(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.Unify(meta, types.Con("Int"))
 	fam := &types.TyFamilyApp{

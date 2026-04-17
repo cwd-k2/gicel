@@ -306,8 +306,7 @@ func newChecker(prog *syntax.Program, source *span.Source, config *CheckConfig) 
 			currentModule: config.CurrentModule,
 		},
 	}
-	ch.solver = solve.New(ch)
-	ch.solver.TypeOps = ch.typeOps
+	ch.solver = solve.New(ch, ch.typeOps)
 	ch.solverLevel = ch.solver.Level
 	ch.wireUnifier()
 	ch.initContext()
@@ -350,8 +349,7 @@ func newBudget(ctx context.Context, config *CheckConfig) *budget.CheckBudget {
 // SolverLevel is set AFTER body check, not before. Body check's eager unification
 // must be free to solve outer metas (e.g. case result type).
 func (ch *Checker) wireUnifier() {
-	ch.unifier = unify.NewUnifierShared(&ch.freshID)
-	ch.unifier.TypeOps = ch.typeOps
+	ch.unifier = unify.NewUnifierShared(&ch.freshID, ch.typeOps)
 	ch.unifier.SolverLevel = 0
 	ch.unifier.Budget = ch.budget
 	ch.unifier.OnSolve = func(metaID int) {
@@ -361,9 +359,9 @@ func (ch *Checker) wireUnifier() {
 
 func (ch *Checker) importModules(prog *syntax.Program) {
 	imp := modscope.NewImporter(modscope.ImportEnv{
-		RegisterTypeKind: ch.reg.RegisterTypeKind,
-		RegisterAlias:    ch.reg.RegisterAlias,
-		RegisterClass:    ch.reg.RegisterClass,
+		RegisterTypeKind:     ch.reg.RegisterTypeKind,
+		RegisterAlias:        ch.reg.RegisterAlias,
+		RegisterClass:        ch.reg.RegisterClass,
 		RegisterFamily:       ch.reg.RegisterFamily,
 		RegisterDataType:     ch.reg.RegisterDataType,
 		RegisterPromotedKind: ch.reg.RegisterPromotedKind,
@@ -405,12 +403,13 @@ func (ch *Checker) initContext() {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
 	// Built-in type constructors.
-	ch.reg.RegisterTypeKind(types.TyConRecord, &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes})
+	ch.reg.RegisterTypeKind(types.TyConRecord, ch.typeOps.Arrow(types.TypeOfRows, types.TypeOfTypes, span.Span{}))
 	// Variant :: Row -> Type -> Type (labeled coproduct, dual of Record)
-	ch.reg.RegisterTypeKind(types.TyConVariant, &types.TyArrow{
-		From: types.TypeOfRows,
-		To:   &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes},
-	})
+	ch.reg.RegisterTypeKind(types.TyConVariant, ch.typeOps.Arrow(
+		types.TypeOfRows,
+		ch.typeOps.Arrow(types.TypeOfTypes, types.TypeOfTypes, span.Span{}),
+		span.Span{},
+	))
 }
 
 func (s *CheckState) fresh() int {

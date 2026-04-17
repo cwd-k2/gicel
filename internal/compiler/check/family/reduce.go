@@ -258,7 +258,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 				if placeholder := e.registerStuckFamily(con.Name, args, fam.ResultKind, t.Span()); placeholder != nil {
 					return placeholder
 				}
-				return &types.TyFamilyApp{Name: con.Name, Args: args, Kind: fam.ResultKind, Flags: types.MetaFreeFlags(append(args, fam.ResultKind)...) &^ types.FlagNoFamilyApp, S: t.Span()}
+				return e.TypeOps.FamilyApp(con.Name, args, fam.ResultKind, t.Span())
 			}
 		}
 		rFun := e.reduceFamilyAppsN(app.Fun)
@@ -266,7 +266,7 @@ func (e *ReduceEnv) reduceFamilyAppsN(t types.Type) types.Type {
 		if rFun == app.Fun && rArg == app.Arg {
 			return t
 		}
-		return &types.TyApp{Fun: rFun, Arg: rArg, S: app.S}
+		return e.TypeOps.App(rFun, rArg, app.S)
 	}
 	// Case 3: structural recursion into other type formers.
 	// Inlined (not via MapType) to avoid closure heap-escape.
@@ -290,14 +290,14 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 		if rFrom == ty.From && rTo == ty.To {
 			return t
 		}
-		return &types.TyArrow{From: rFrom, To: rTo, Flags: types.MetaFreeFlags(rFrom, rTo), S: ty.S}
+		return e.TypeOps.Arrow(rFrom, rTo, ty.S)
 	case *types.TyForall:
 		rKind := e.reduceFamilyAppsN(ty.Kind)
 		rBody := e.reduceFamilyAppsN(ty.Body)
 		if rKind == ty.Kind && rBody == ty.Body {
 			return t
 		}
-		return &types.TyForall{Var: ty.Var, Kind: rKind, Body: rBody, Flags: types.MetaFreeFlags(rKind, rBody), S: ty.S}
+		return e.TypeOps.Forall(ty.Var, rKind, rBody, ty.S)
 	case *types.TyCBPV:
 		rPre := e.reduceFamilyAppsN(ty.Pre)
 		rPost := e.reduceFamilyAppsN(ty.Post)
@@ -309,7 +309,13 @@ func (e *ReduceEnv) reduceChildren(t types.Type) types.Type {
 		if rPre == ty.Pre && rPost == ty.Post && rResult == ty.Result && rGrade == ty.Grade {
 			return t
 		}
-		return &types.TyCBPV{Tag: ty.Tag, Pre: rPre, Post: rPost, Result: rResult, Grade: rGrade, Flags: types.MetaFreeFlags(rPre, rPost, rResult, rGrade), S: ty.S}
+		if ty.Tag == types.TagComp {
+			return e.TypeOps.Comp(rPre, rPost, rResult, rGrade, ty.S)
+		}
+		if rGrade != nil {
+			return e.TypeOps.ThunkGraded(rPre, rPost, rResult, rGrade, ty.S)
+		}
+		return e.TypeOps.Thunk(rPre, rPost, rResult, ty.S)
 	case *types.TyEvidence:
 		rConstraints := e.reduceFamilyAppsN(ty.Constraints)
 		rBody := e.reduceFamilyAppsN(ty.Body)

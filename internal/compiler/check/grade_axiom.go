@@ -102,7 +102,7 @@ func extractGradeAlgebraFromRegistry(ops *types.TypeOps, reg *Registry, classInf
 			if !matched {
 				continue
 			}
-			reduced := substType(eq.RHS, subst)
+			reduced := substType(ops, eq.RHS, subst)
 			switch assocName {
 			case gradeAssocJoin:
 				if c, ok := reduced.(*types.TyCon); ok {

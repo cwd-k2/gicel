@@ -13,7 +13,7 @@ import (
 // =============================================================================
 
 func TestUnifyLevelsLiteral(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	if err := u.UnifyLevels(types.L0, types.L0); err != nil {
 		t.Errorf("L0 = L0 should succeed: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestUnifyLevelsLiteral(t *testing.T) {
 }
 
 func TestUnifyLevelsNilIsL0(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	if err := u.UnifyLevels(nil, types.L0); err != nil {
 		t.Errorf("nil = L0 should succeed: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestUnifyLevelsNilIsL0(t *testing.T) {
 // =============================================================================
 
 func TestUnifyLevelsMeta(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	if err := u.UnifyLevels(m, types.L1); err != nil {
 		t.Errorf("?l1 = L1 should succeed: %v", err)
@@ -52,7 +52,7 @@ func TestUnifyLevelsMeta(t *testing.T) {
 }
 
 func TestUnifyLevelsMetaReflexive(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	if err := u.UnifyLevels(m, m); err != nil {
 		t.Errorf("?l1 = ?l1 should succeed: %v", err)
@@ -60,7 +60,7 @@ func TestUnifyLevelsMetaReflexive(t *testing.T) {
 }
 
 func TestUnifyLevelsMetaChain(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m1 := &types.LevelMeta{ID: 1}
 	m2 := &types.LevelMeta{ID: 2}
 	if err := u.UnifyLevels(m1, m2); err != nil {
@@ -76,7 +76,7 @@ func TestUnifyLevelsMetaChain(t *testing.T) {
 }
 
 func TestUnifyLevelsMetaRHS(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	if err := u.UnifyLevels(types.L0, m); err != nil {
 		t.Errorf("L0 = ?l1 should succeed: %v", err)
@@ -92,7 +92,7 @@ func TestUnifyLevelsMetaRHS(t *testing.T) {
 // =============================================================================
 
 func TestUnifyLevelsOccursCheck(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	cycle := &types.LevelSucc{E: m}
 	err := u.UnifyLevels(m, cycle)
@@ -106,7 +106,7 @@ func TestUnifyLevelsOccursCheck(t *testing.T) {
 }
 
 func TestUnifyLevelsOccursCheckMax(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	cycle := &types.LevelMax{A: types.L0, B: m}
 	err := u.UnifyLevels(m, cycle)
@@ -120,7 +120,7 @@ func TestUnifyLevelsOccursCheckMax(t *testing.T) {
 // =============================================================================
 
 func TestUnifyLevelsVar(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	v1 := &types.LevelVar{Name: "l"}
 	v2 := &types.LevelVar{Name: "l"}
 	if err := u.UnifyLevels(v1, v2); err != nil {
@@ -133,7 +133,7 @@ func TestUnifyLevelsVar(t *testing.T) {
 }
 
 func TestUnifyLevelsMax(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	a := &types.LevelMax{A: types.L0, B: types.L1}
 	b := &types.LevelMax{A: types.L0, B: types.L1}
 	if err := u.UnifyLevels(a, b); err != nil {
@@ -142,7 +142,7 @@ func TestUnifyLevelsMax(t *testing.T) {
 }
 
 func TestUnifyLevelsMaxNormalized(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	// max(0,1) and max(1,0) both normalize to L1, so they should unify.
 	a := &types.LevelMax{A: types.L0, B: types.L1}
 	b := &types.LevelMax{A: types.L1, B: types.L0}
@@ -152,7 +152,7 @@ func TestUnifyLevelsMaxNormalized(t *testing.T) {
 }
 
 func TestUnifyLevelsMaxMismatch(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	// max(0,2) normalizes to L2, max(0,1) normalizes to L1 — mismatch.
 	a := &types.LevelMax{A: types.L0, B: types.L2}
 	b := &types.LevelMax{A: types.L0, B: types.L1}
@@ -162,7 +162,7 @@ func TestUnifyLevelsMaxMismatch(t *testing.T) {
 }
 
 func TestUnifyLevelsSucc(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	a := &types.LevelSucc{E: types.L0}
 	b := &types.LevelSucc{E: types.L0}
 	if err := u.UnifyLevels(a, b); err != nil {
@@ -171,7 +171,7 @@ func TestUnifyLevelsSucc(t *testing.T) {
 }
 
 func TestUnifyLevelsMaxWithMeta(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	// max(?l1, L1) = max(L0, L1) — structural match on max, then ?l1 = L0.
 	a := &types.LevelMax{A: m, B: types.L1}
@@ -186,7 +186,7 @@ func TestUnifyLevelsMaxWithMeta(t *testing.T) {
 }
 
 func TestUnifyLevelsSuccNormalization(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	// succ(L0) normalizes to L1.
 	a := &types.LevelSucc{E: types.L0}
 	b := types.L1
@@ -196,7 +196,7 @@ func TestUnifyLevelsSuccNormalization(t *testing.T) {
 }
 
 func TestUnifyLevelsMaxNormalizesToLit(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	// max(0, 1) normalizes to L1.
 	a := &types.LevelMax{A: types.L0, B: types.L1}
 	b := types.L1
@@ -210,7 +210,7 @@ func TestUnifyLevelsMaxNormalizesToLit(t *testing.T) {
 // =============================================================================
 
 func TestUnifyTyConWithLevelMeta(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	lm := &types.LevelMeta{ID: 1}
 	a := &types.TyCon{Name: "Type", Level: lm}
 	b := types.TypeOfTypes // TyCon{Name: "Type", Level: L1}
@@ -224,7 +224,7 @@ func TestUnifyTyConWithLevelMeta(t *testing.T) {
 }
 
 func TestUnifyTyConLevelMetaBothSides(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	lm1 := &types.LevelMeta{ID: 1}
 	lm2 := &types.LevelMeta{ID: 2}
 	a := &types.TyCon{Name: "Type", Level: lm1}
@@ -243,7 +243,7 @@ func TestUnifyTyConLevelMetaBothSides(t *testing.T) {
 }
 
 func TestUnifyTyConNameMismatchIgnoresLevel(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	lm := &types.LevelMeta{ID: 1}
 	a := &types.TyCon{Name: "Type", Level: lm}
 	b := &types.TyCon{Name: "Row", Level: types.L1}
@@ -257,7 +257,7 @@ func TestUnifyTyConNameMismatchIgnoresLevel(t *testing.T) {
 // =============================================================================
 
 func TestZonkTyConLevel(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	lm := &types.LevelMeta{ID: 1}
 	if err := u.UnifyLevels(lm, types.L1); err != nil {
 		t.Fatalf("solve ?l1 = L1: %v", err)
@@ -274,7 +274,7 @@ func TestZonkTyConLevel(t *testing.T) {
 }
 
 func TestZonkTyConLevelUnsolved(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	lm := &types.LevelMeta{ID: 1}
 	tc := &types.TyCon{Name: "Type", Level: lm}
 	zonked := u.Zonk(tc)
@@ -285,7 +285,7 @@ func TestZonkTyConLevelUnsolved(t *testing.T) {
 }
 
 func TestZonkTyConNilLevel(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	tc := &types.TyCon{Name: "Int"}
 	zonked := u.Zonk(tc)
 	if zonked != tc {
@@ -298,7 +298,7 @@ func TestZonkTyConNilLevel(t *testing.T) {
 // =============================================================================
 
 func TestZonkLevelDefaultUnsolved(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	result := u.ZonkLevelDefault(m)
 	if !types.LevelEqual(result, types.L0) {
@@ -307,7 +307,7 @@ func TestZonkLevelDefaultUnsolved(t *testing.T) {
 }
 
 func TestZonkLevelDefaultSolved(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	u.levelSoln[1] = types.L2
 	result := u.ZonkLevelDefault(m)
@@ -317,7 +317,7 @@ func TestZonkLevelDefaultSolved(t *testing.T) {
 }
 
 func TestZonkLevelDefaultNil(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	result := u.ZonkLevelDefault(nil)
 	if !types.LevelEqual(result, types.L0) {
 		t.Errorf("nil should default to L0, got %s", result.LevelString())
@@ -329,7 +329,7 @@ func TestZonkLevelDefaultNil(t *testing.T) {
 // =============================================================================
 
 func TestLevelSolnRestore(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	snap := u.Snapshot()
 	if err := u.UnifyLevels(m, types.L1); err != nil {
@@ -349,7 +349,7 @@ func TestLevelSolnRestore(t *testing.T) {
 }
 
 func TestLevelSolnRestoreOverwrite(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	m := &types.LevelMeta{ID: 1}
 	// Solve to L0 first.
 	if err := u.UnifyLevels(m, types.L0); err != nil {

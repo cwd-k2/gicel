@@ -430,7 +430,7 @@ func TestRowFieldGradesSubst(t *testing.T) {
 }
 
 func TestRowFieldGradesZonk(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.InstallTempSolution(1, &types.TyCon{Name: "Affine"})
 	row := types.ClosedRow(types.RowField{
@@ -526,7 +526,7 @@ func TestTyFamilyAppEqual(t *testing.T) {
 }
 
 func TestTyFamilyAppZonk(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	u.InstallTempSolution(1, &types.TyCon{Name: "Int"})
 	tf := &types.TyFamilyApp{

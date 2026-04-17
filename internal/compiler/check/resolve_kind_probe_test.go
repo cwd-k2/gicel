@@ -29,7 +29,7 @@ func kindMeta(id int) *types.TyMeta {
 
 // TestProbeD_KindUnify_MismatchedKinds — unifying Type with Row should fail.
 func TestProbeD_KindUnify_MismatchedKinds(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	err := u.Unify(types.TypeOfTypes, types.TypeOfRows)
 	if err == nil {
 		t.Fatal("expected kind mismatch, got nil")
@@ -38,7 +38,7 @@ func TestProbeD_KindUnify_MismatchedKinds(t *testing.T) {
 
 // TestProbeD_KindUnify_KindMetaSolving — a kind meta should unify with Type.
 func TestProbeD_KindUnify_KindMetaSolving(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := kindMeta(1)
 	if err := u.Unify(km, types.TypeOfTypes); err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestProbeD_KindUnify_KindMetaSolving(t *testing.T) {
 // TestProbeD_KindUnify_KindArrow — unifying (meta -> Type) with (Row -> Type)
 // should solve meta = Row.
 func TestProbeD_KindUnify_KindArrow(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := kindMeta(1)
 	a := &types.TyArrow{From: km, To: types.TypeOfTypes}
 	b := &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes}
@@ -67,7 +67,7 @@ func TestProbeD_KindUnify_KindArrow(t *testing.T) {
 
 // TestProbeD_KindUnify_OccursCheck — kind occurs check: ?k ~ (?k -> Type).
 func TestProbeD_KindUnify_OccursCheck(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := kindMeta(1)
 	cycle := &types.TyArrow{From: km, To: types.TypeOfTypes}
 	err := u.Unify(km, cycle)
@@ -82,7 +82,7 @@ func TestProbeD_KindUnify_OccursCheck(t *testing.T) {
 
 // TestProbeD_KindUnify_KDataMismatch — PromotedDataKind "Nat" vs "Bool" should fail.
 func TestProbeD_KindUnify_KDataMismatch(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	err := u.Unify(types.PromotedDataKind("Nat"), types.PromotedDataKind("Bool"))
 	if err == nil {
 		t.Fatal("expected kind mismatch for different PromotedDataKind, got nil")
@@ -91,7 +91,7 @@ func TestProbeD_KindUnify_KDataMismatch(t *testing.T) {
 
 // TestProbeD_KindUnify_KDataMatch — same PromotedDataKind should unify.
 func TestProbeD_KindUnify_KDataMatch(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	if err := u.Unify(types.PromotedDataKind("Nat"), types.PromotedDataKind("Nat")); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestProbeD_KindUnify_KDataMatch(t *testing.T) {
 
 // TestProbeE_KindUnify_MetaSelf — kind meta self-unification.
 func TestProbeE_KindUnify_MetaSelf(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := kindMeta(1)
 	if err := u.Unify(km, km); err != nil {
 		t.Errorf("kind meta self-unify should succeed: %v", err)
@@ -112,7 +112,7 @@ func TestProbeE_KindUnify_MetaSelf(t *testing.T) {
 
 // TestProbeE_KindUnify_OccursCheck — kind occurs check.
 func TestProbeE_KindUnify_OccursCheck(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := kindMeta(1)
 	karrow := &types.TyArrow{From: km, To: types.TypeOfTypes}
 	err := u.Unify(km, karrow)
@@ -123,7 +123,7 @@ func TestProbeE_KindUnify_OccursCheck(t *testing.T) {
 
 // TestProbeE_KindUnify_KTypeMismatch — Type vs Row must fail.
 func TestProbeE_KindUnify_KTypeMismatch(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	err := u.Unify(types.TypeOfTypes, types.TypeOfRows)
 	if err == nil {
 		t.Fatal("expected kind mismatch: Type vs Row")
@@ -132,7 +132,7 @@ func TestProbeE_KindUnify_KTypeMismatch(t *testing.T) {
 
 // TestProbeE_KindUnify_ArrowChain — deep TyArrow chains should unify.
 func TestProbeE_KindUnify_ArrowChain(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	// Type -> Type -> Type vs ?k1 -> ?k2 -> Type
 	k1 := kindMeta(1)
 	k2 := kindMeta(2)
@@ -153,7 +153,7 @@ func TestProbeE_KindUnify_ArrowChain(t *testing.T) {
 
 // TestProbeE_KindUnify_KDataDistinct — PromotedDataKind with different names must not unify.
 func TestProbeE_KindUnify_KDataDistinct(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	err := u.Unify(types.PromotedDataKind("Color"), types.PromotedDataKind("Shape"))
 	if err == nil {
 		t.Fatal("expected kind mismatch for distinct PromotedDataKind")
@@ -162,7 +162,7 @@ func TestProbeE_KindUnify_KDataDistinct(t *testing.T) {
 
 // TestProbeE_KindUnify_KConstraintVsKType — Constraint vs Type (at level 1) must fail.
 func TestProbeE_KindUnify_KConstraintVsKType(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	err := u.Unify(types.TypeOfConstraints, types.TypeOfTypes)
 	if err == nil {
 		t.Fatal("expected kind mismatch: Constraint vs Type")

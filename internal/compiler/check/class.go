@@ -84,14 +84,14 @@ func (ch *Checker) processClassLikeForm(d *syntax.DeclForm, parts formBodyParts,
 	// Register the dict type constructor kind.
 	var dictKind types.Type = types.TypeOfTypes
 	for i := len(tyParamKinds) - 1; i >= 0; i-- {
-		dictKind = &types.TyArrow{From: tyParamKinds[i], To: dictKind}
+		dictKind = ch.typeOps.Arrow(tyParamKinds[i], dictKind, span.Span{})
 	}
 	ch.reg.RegisterTypeKind(dn, dictKind)
 
 	// Build result type: DictTy a b c ...
 	var resultType types.Type = ch.typeOps.Con(dn, d.S)
 	for _, p := range tyParams {
-		resultType = &types.TyApp{Fun: resultType, Arg: &types.TyVar{Name: p}, S: d.S}
+		resultType = ch.typeOps.App(resultType, &types.TyVar{Name: p}, d.S)
 	}
 
 	// Build constructor type: field1 -> field2 -> ... -> DictTy a b...
@@ -277,7 +277,7 @@ func (ch *Checker) buildMethodSelector(cls *ClassInfo, m MethodInfo, methodIdx i
 func (ch *Checker) buildDictType(className string, args []types.Type) types.Type {
 	var ty types.Type = ch.typeOps.Con(env.DictName(className), span.Span{})
 	for _, a := range args {
-		ty = &types.TyApp{Fun: ty, Arg: a}
+		ty = ch.typeOps.App(ty, a, span.Span{})
 	}
 	return ty
 }

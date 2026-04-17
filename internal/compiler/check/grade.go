@@ -136,7 +136,7 @@ func reduceConcreteEqs(ops *types.TypeOps, eqs []env.TFEquation, args []types.Ty
 			}
 		}
 		if matched {
-			return substType(eq.RHS, subst), true
+			return substType(ops, eq.RHS, subst), true
 		}
 	}
 	return nil, false
@@ -186,7 +186,7 @@ func matchConcretePattern(ops *types.TypeOps, pat, arg types.Type, subst map[str
 }
 
 // substType substitutes pattern variables in a type family RHS.
-func substType(t types.Type, subst map[string]types.Type) types.Type {
+func substType(ops *types.TypeOps, t types.Type, subst map[string]types.Type) types.Type {
 	switch x := t.(type) {
 	case *types.TyVar:
 		if s, ok := subst[x.Name]; ok {
@@ -194,12 +194,15 @@ func substType(t types.Type, subst map[string]types.Type) types.Type {
 		}
 		return t
 	case *types.TyApp:
-		newFun := substType(x.Fun, subst)
-		newArg := substType(x.Arg, subst)
+		newFun := substType(ops, x.Fun, subst)
+		newArg := substType(ops, x.Arg, subst)
 		if newFun == x.Fun && newArg == x.Arg {
 			return t
 		}
-		return &types.TyApp{Fun: newFun, Arg: newArg, IsGrade: x.IsGrade}
+		if x.IsGrade {
+			return ops.AppGrade(newFun, newArg, x.S)
+		}
+		return ops.App(newFun, newArg, x.S)
 	default:
 		return t
 	}

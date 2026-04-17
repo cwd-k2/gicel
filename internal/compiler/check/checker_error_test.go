@@ -51,7 +51,7 @@ func TestErrorSpecialForm(t *testing.T) {
 func TestErrorDuplicateLabel(t *testing.T) {
 	// Trigger unify.UnifyDupLabel via the unifier's label context mechanism:
 	// a row meta with label context {x} solved to a row containing x.
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfRows}
 	// Register label context: the meta is the tail of a row with field "x".
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
@@ -72,7 +72,7 @@ func TestErrorDuplicateLabel(t *testing.T) {
 
 func TestErrorDuplicateLabelEvidenceRow(t *testing.T) {
 	// Same as TestErrorDuplicateLabel but for TyEvidenceRow (capability entries).
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfRows}
 	u.RegisterLabelContext(m.ID, map[string]struct{}{"x": {}})
 	evRow := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})

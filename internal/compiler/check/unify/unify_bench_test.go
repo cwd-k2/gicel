@@ -33,7 +33,7 @@ func BenchmarkUnifyIdentical(b *testing.B) {
 		ty := buildDeepArrow(depth)
 		b.Run(depthName(depth), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				u := NewUnifier()
+				u := NewUnifier(&types.TypeOps{})
 				_ = u.Unify(ty, ty)
 			}
 		})
@@ -46,7 +46,7 @@ func BenchmarkUnifyMetaSolve(b *testing.B) {
 	for _, n := range []int{10, 50, 200} {
 		b.Run(depthName(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				u := NewUnifier()
+				u := NewUnifier(&types.TypeOps{})
 				for j := range n {
 					m := &types.TyMeta{ID: j, Kind: types.TypeOfTypes}
 					_ = u.Unify(m, types.Con("Int"))
@@ -63,7 +63,7 @@ func BenchmarkUnifyDeepApp(b *testing.B) {
 		ty := buildDeepApp(depth)
 		b.Run(depthName(depth), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				u := NewUnifier()
+				u := NewUnifier(&types.TypeOps{})
 				_ = u.Unify(ty, ty)
 			}
 		})
@@ -75,7 +75,7 @@ func BenchmarkUnifyDeepApp(b *testing.B) {
 func BenchmarkSnapshotRestore(b *testing.B) {
 	for _, n := range []int{10, 50, 200} {
 		b.Run(depthName(n), func(b *testing.B) {
-			u := NewUnifier()
+			u := NewUnifier(&types.TypeOps{})
 			for i := 0; i < b.N; i++ {
 				snap := u.Snapshot()
 				for j := range n {
@@ -93,7 +93,7 @@ func BenchmarkUnifyLevelLit(b *testing.B) {
 	a := &types.TyCon{Name: "Type", Level: types.L1}
 	bTy := &types.TyCon{Name: "Type", Level: types.L1}
 	for b.Loop() {
-		u := NewUnifier()
+		u := NewUnifier(&types.TypeOps{})
 		_ = u.Unify(a, bTy)
 	}
 }

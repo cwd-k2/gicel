@@ -24,7 +24,7 @@ import (
 // TestProbeD_SnapshotRestore_SolutionRollback — unify a meta, snapshot,
 // unify another meta, restore, verify second meta is unsolved.
 func TestProbeD_SnapshotRestore_SolutionRollback(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 
@@ -62,7 +62,7 @@ func TestProbeD_SnapshotRestore_SolutionRollback(t *testing.T) {
 // TestProbeD_SnapshotRestore_LabelContextRollback — label context registered
 // after snapshot should be rolled back.
 func TestProbeD_SnapshotRestore_LabelContextRollback(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 
 	snap := u.Snapshot()
 
@@ -83,7 +83,7 @@ func TestProbeD_SnapshotRestore_LabelContextRollback(t *testing.T) {
 // TestProbeD_SnapshotRestore_KindSolutionRollback — kind meta solutions
 // after snapshot should be rolled back.
 func TestProbeD_SnapshotRestore_KindSolutionRollback(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := &types.TyMeta{ID: 10, Kind: types.SortZero}
 
 	snap := u.Snapshot()
@@ -109,7 +109,7 @@ func TestProbeD_SnapshotRestore_KindSolutionRollback(t *testing.T) {
 // TestProbeD_SnapshotRestore_MultipleSnapshotsNested — nested snapshot/restore
 // should work correctly (restore inner, then outer).
 func TestProbeD_SnapshotRestore_MultipleSnapshotsNested(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	m3 := &types.TyMeta{ID: 3, Kind: types.TypeOfTypes}
@@ -154,7 +154,7 @@ func TestProbeD_SnapshotRestore_MultipleSnapshotsNested(t *testing.T) {
 // TestProbeE_Snapshot_RestoreUndoesSolution — solutions added after snapshot
 // should be undone on restore.
 func TestProbeE_Snapshot_RestoreUndoesSolution(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	snap := u.Snapshot()
 	// Solve m = Int
@@ -172,7 +172,7 @@ func TestProbeE_Snapshot_RestoreUndoesSolution(t *testing.T) {
 // TestProbeE_Snapshot_PreservesPriorSolutions — solutions before snapshot
 // should survive restore.
 func TestProbeE_Snapshot_PreservesPriorSolutions(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 	u.Unify(m1, types.Con("Int"))
@@ -192,7 +192,7 @@ func TestProbeE_Snapshot_PreservesPriorSolutions(t *testing.T) {
 // TestProbeE_Snapshot_KindSolutionRestore — kind solutions should also be
 // rolled back on restore.
 func TestProbeE_Snapshot_KindSolutionRestore(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	km := &types.TyMeta{ID: 1, Kind: types.SortZero}
 	snap := u.Snapshot()
 	u.Unify(km, types.TypeOfTypes)

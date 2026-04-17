@@ -157,7 +157,7 @@ main := eq True False
 // TestProbeD_Evidence_EmptyConstraintRowUnify — two empty constraint rows
 // should unify.
 func TestProbeD_Evidence_EmptyConstraintRowUnify(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	r1 := types.EmptyConstraintRow()
 	r2 := types.EmptyConstraintRow()
 	if err := u.Unify(r1, r2); err != nil {
@@ -168,7 +168,7 @@ func TestProbeD_Evidence_EmptyConstraintRowUnify(t *testing.T) {
 // TestProbeD_Evidence_SingleConstraintRowUnify — two single-entry constraint
 // rows with the same class and args should unify.
 func TestProbeD_Evidence_SingleConstraintRowUnify(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	r1 := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
 	r2 := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
 	if err := u.Unify(r1, r2); err != nil {
@@ -179,7 +179,7 @@ func TestProbeD_Evidence_SingleConstraintRowUnify(t *testing.T) {
 // TestProbeD_Evidence_ConstraintRowMismatch — two constraint rows with
 // different class names should fail.
 func TestProbeD_Evidence_ConstraintRowMismatch(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	r1 := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})
 	r2 := types.SingleConstraint("Ord", []types.Type{types.Con("Bool")})
 	err := u.Unify(r1, r2)
@@ -212,7 +212,7 @@ main := f True False
 // TestProbeD_Evidence_EmptyCapabilityRowUnify — two empty capability rows
 // should unify.
 func TestProbeD_Evidence_EmptyCapabilityRowUnify(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	r1 := types.EmptyRow()
 	r2 := types.EmptyRow()
 	if err := u.Unify(r1, r2); err != nil {
@@ -297,7 +297,7 @@ main := convert True
 // TestProbeE_Evidence_EmptyConstraintRowUnification — two empty constraint
 // rows should unify.
 func TestProbeE_Evidence_EmptyConstraintRowUnification(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	a := types.EmptyConstraintRow()
 	b := types.EmptyConstraintRow()
 	if err := u.Unify(a, b); err != nil {
@@ -308,7 +308,7 @@ func TestProbeE_Evidence_EmptyConstraintRowUnification(t *testing.T) {
 // TestProbeE_Evidence_ConstraintRowWithMismatchedClass — constraint rows
 // with different class names should fail.
 func TestProbeE_Evidence_ConstraintRowWithMismatchedClass(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	a := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 	b := types.SingleConstraint("Ord", []types.Type{types.Con("Int")})
 	err := u.Unify(a, b)
@@ -320,7 +320,7 @@ func TestProbeE_Evidence_ConstraintRowWithMismatchedClass(t *testing.T) {
 // TestProbeE_Evidence_ConstraintRowWithMetaArgs — constraint rows where
 // args contain metas should unify and solve the metas.
 func TestProbeE_Evidence_ConstraintRowWithMetaArgs(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	meta := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := types.SingleConstraint("Eq", []types.Type{meta})
 	b := types.SingleConstraint("Eq", []types.Type{types.Con("Bool")})

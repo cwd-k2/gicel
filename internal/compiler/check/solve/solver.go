@@ -50,10 +50,11 @@ type Solver struct {
 }
 
 // New creates a Solver backed by the given environment.
-func New(e Env) *Solver {
+func New(e Env, ops *types.TypeOps) *Solver {
 	return &Solver{
 		inertSet: NewInertSet(),
 		env:      e,
+		TypeOps:  ops,
 	}
 }
 

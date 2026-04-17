@@ -113,25 +113,27 @@ type Unifier struct {
 // zonk; trial unifiers that never touch evidence rows therefore pay no
 // closure-allocation cost at all (the Tier 4 micro benchmarks observed
 // a 1-alloc/iter regression when the binding was eager in NewUnifier).
-func NewUnifier() *Unifier {
+func NewUnifier(ops *types.TypeOps) *Unifier {
 	id := 0
 	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
 		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     &id,
+		TypeOps:     ops,
 		SolverLevel: -1,
 	}
 }
 
 // NewUnifierShared creates a Unifier that shares a fresh ID counter
 // with the calling Checker, ensuring no ID collisions.
-func NewUnifierShared(freshID *int) *Unifier {
+func NewUnifierShared(freshID *int, ops *types.TypeOps) *Unifier {
 	return &Unifier{
 		soln:        make(map[int]types.Type),
 		labels:      make(map[int]map[string]struct{}),
 		levelSoln:   make(map[int]types.LevelExpr),
 		freshID:     freshID,
+		TypeOps:     ops,
 		SolverLevel: -1,
 	}
 }
@@ -427,7 +429,7 @@ func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]t
 	// Reconstruct head with excess leading args (handles len(args) > 3).
 	conHead := head
 	for _, arg := range args[:len(args)-3] {
-		conHead = &types.TyApp{Fun: conHead, Arg: arg}
+		conHead = u.TypeOps.App(conHead, arg, span.Span{})
 	}
 	if err := u.Unify(conHead, u.TypeOps.Con(conName, span.Span{})); err != nil {
 		return err

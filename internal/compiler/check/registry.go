@@ -65,7 +65,7 @@ func newRegistry(config *CheckConfig) *Registry {
 			kindVars:  make(map[string]bool),
 			levelVars: make(map[string]bool),
 		},
-		typeOps: ops,
+		typeOps:           ops,
 		typeKinds:         make(map[string]types.Type),
 		conModules:        make(map[string]string),
 		conTypes:          make(map[string]types.Type),

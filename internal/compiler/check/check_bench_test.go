@@ -123,7 +123,7 @@ func TestInferFreeVarKindsNoFreeVars(t *testing.T) {
 }
 
 func BenchmarkZonkDeepChain(b *testing.B) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	// Build a deep TyApp chain with no metavariables.
 	var ty types.Type = types.Con("Base")
 	for range 50 {

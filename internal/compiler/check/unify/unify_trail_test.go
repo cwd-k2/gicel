@@ -10,7 +10,7 @@ import (
 
 // TestTrailLenInitial verifies a fresh unifier reports zero trail length.
 func TestTrailLenInitial(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	if got := u.TrailLen(); got != 0 {
 		t.Errorf("expected TrailLen() == 0 for fresh Unifier, got %d", got)
 	}
@@ -19,7 +19,7 @@ func TestTrailLenInitial(t *testing.T) {
 // TestTrailLenAdvancesOnSolve verifies that solving a meta advances the
 // trail position.
 func TestTrailLenAdvancesOnSolve(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	pos0 := u.TrailLen()
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
@@ -34,7 +34,7 @@ func TestTrailLenAdvancesOnSolve(t *testing.T) {
 // TestVisitSolnWritesSince_Empty verifies the visitor is a no-op when
 // no writes happened since the saved position.
 func TestVisitSolnWritesSince_Empty(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	pos := u.TrailLen()
 	called := false
 	u.VisitSolnWritesSince(pos, func(metaID int) { called = true })
@@ -45,7 +45,7 @@ func TestVisitSolnWritesSince_Empty(t *testing.T) {
 
 // TestVisitSolnWritesSince_SingleWrite verifies a single write is reported.
 func TestVisitSolnWritesSince_SingleWrite(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	pos := u.TrailLen()
 	m := &types.TyMeta{ID: 42, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, types.Con("Int")); err != nil {
@@ -63,7 +63,7 @@ func TestVisitSolnWritesSince_SingleWrite(t *testing.T) {
 // multiple times. Callers whose check is idempotent over the current
 // value can ignore duplicates without paying for a dedup-map allocation.
 func TestVisitSolnWritesSince_ReportsDuplicates(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	pos := u.TrailLen()
 	// Manually drive the trail by writing the same meta id twice.
 	u.trailSolnWrite(7)
@@ -81,7 +81,7 @@ func TestVisitSolnWritesSince_ReportsDuplicates(t *testing.T) {
 // trail (insertion) order. This is the documented contract callers can
 // rely on when they need to inspect writes in causal order.
 func TestVisitSolnWritesSince_TrailOrder(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	pos := u.TrailLen()
 	writes := []int{1, 2, 3, 1, 2, 3}
 	for _, id := range writes {
@@ -103,7 +103,7 @@ func TestVisitSolnWritesSince_TrailOrder(t *testing.T) {
 // TestVisitSolnWritesSince_IgnoresOtherTrailTags verifies that non-soln
 // trail entries (label / skolem / level writes) are skipped.
 func TestVisitSolnWritesSince_IgnoresOtherTrailTags(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	pos := u.TrailLen()
 	// Write a label entry — should be invisible to soln visitor.
 	u.RegisterLabelContext(99, map[string]struct{}{"a": {}})
@@ -117,7 +117,7 @@ func TestVisitSolnWritesSince_IgnoresOtherTrailTags(t *testing.T) {
 // TestVisitSolnWritesSince_PartialRange verifies that the saved position
 // correctly excludes earlier writes.
 func TestVisitSolnWritesSince_PartialRange(t *testing.T) {
-	u := NewUnifier()
+	u := NewUnifier(&types.TypeOps{})
 	// First batch: should be excluded by the saved pos.
 	for _, id := range []int{10, 11} {
 		u.trailSolnWrite(id)

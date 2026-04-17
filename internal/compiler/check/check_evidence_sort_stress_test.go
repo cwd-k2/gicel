@@ -14,7 +14,7 @@ import (
 
 func TestStressUnifyLargeCapRows(t *testing.T) {
 	const N = 100
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 
 	fields1 := make([]types.RowField, N)
 	fields2 := make([]types.RowField, N)
@@ -33,7 +33,7 @@ func TestStressUnifyLargeCapRows(t *testing.T) {
 
 func TestStressUnifyLargeConRows(t *testing.T) {
 	const N = 50
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 
 	entries1 := make([]types.ConstraintEntry, N)
 	entries2 := make([]types.ConstraintEntry, N)
@@ -55,7 +55,7 @@ func TestStressUnifyLargeConRows(t *testing.T) {
 // =============================================================================
 
 func TestStressOpenOpenDisjoint(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	m1 := &types.TyMeta{ID: 1000, Kind: types.TypeOfRows}
 	m2 := &types.TyMeta{ID: 1001, Kind: types.TypeOfRows}
 
@@ -88,7 +88,7 @@ func TestStressOpenOpenDisjoint(t *testing.T) {
 // =============================================================================
 
 func TestStressDeeplyNestedTails(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	const depth = 20
 	metas := make([]*types.TyMeta, depth)
 	for i := range depth {
@@ -125,7 +125,7 @@ func TestStressDeeplyNestedTails(t *testing.T) {
 // =============================================================================
 
 func TestStressFiberIsolation(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	cap := types.ClosedRow(types.RowField{Label: "x", Type: types.Con("Int")})
 	con := types.SingleConstraint("Eq", []types.Type{types.Con("Int")})
 
@@ -139,7 +139,7 @@ func TestStressFiberIsolation(t *testing.T) {
 // =============================================================================
 
 func TestStressZonkLargeRow(t *testing.T) {
-	u := unify.NewUnifier()
+	u := unify.NewUnifier(&types.TypeOps{})
 	const N = 100
 	metas := make([]*types.TyMeta, N)
 	for i := range N {

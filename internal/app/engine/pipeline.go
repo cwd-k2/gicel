@@ -285,11 +285,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 // ComputeFormKind builds the kind of a data declaration from its type
 // parameters. E.g., Maybe with [a :: Type] → Type -> Type.
 func ComputeFormKind(dd *ir.DataDecl) types.Type {
-	var kind types.Type = types.TypeOfTypes
-	for i := len(dd.TyParams) - 1; i >= 0; i-- {
-		kind = types.MkArrow(dd.TyParams[i].Kind, kind)
-	}
-	return kind
+	return computeFormKindOps(&types.TypeOps{}, dd)
 }
 
 // BuildConType returns the full type of a constructor. If the checker
@@ -297,26 +293,7 @@ func ComputeFormKind(dd *ir.DataDecl) types.Type {
 // it is used directly. Otherwise falls back to reconstruction from
 // data-type-level parameters.
 func BuildConType(dd *ir.DataDecl, con *ir.ConDecl) types.Type {
-	if con.FullType != nil {
-		return con.FullType
-	}
-	// Fallback: reconstruct from data type params + fields.
-	var ret types.Type = &types.TyCon{Name: dd.Name}
-	for _, p := range dd.TyParams {
-		arg := &types.TyVar{Name: p.Name}
-		ret = &types.TyApp{Fun: ret, Arg: arg, Flags: types.MetaFreeFlags(ret, arg)}
-	}
-	if con.IsGADT() {
-		ret = con.ReturnType
-	}
-	ty := ret
-	for i := len(con.Fields) - 1; i >= 0; i-- {
-		ty = types.MkArrow(con.Fields[i], ty)
-	}
-	for i := len(dd.TyParams) - 1; i >= 0; i-- {
-		ty = types.MkForall(dd.TyParams[i].Name, dd.TyParams[i].Kind, ty)
-	}
-	return ty
+	return buildConTypeOps(&types.TypeOps{}, dd, con)
 }
 
 // computeFormKindOps builds the kind of a data declaration using TypeOps.
