@@ -14,12 +14,12 @@ func TestSolverLevelDisabledAllowsSolve(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	// SolverLevel is -1 by default.
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
-	if err := u.Unify(m, types.MkCon("Int")); err != nil {
+	if err := u.Unify(m, testOps.Con("Int")); err != nil {
 		t.Fatalf("SolverLevel=-1 should allow solving level-0 meta: %v", err)
 	}
 	soln := u.Zonk(m)
-	if !types.Equal(soln, types.MkCon("Int")) {
-		t.Errorf("expected Int, got %s", types.Pretty(soln))
+	if !testOps.Equal(soln, testOps.Con("Int")) {
+		t.Errorf("expected Int, got %s", testOps.Pretty(soln))
 	}
 }
 
@@ -29,7 +29,7 @@ func TestSolverLevelBlocksOuterMeta(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	u.SolverLevel = 1
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
-	err := u.Unify(m, types.MkCon("Int"))
+	err := u.Unify(m, testOps.Con("Int"))
 	if err == nil {
 		t.Fatal("expected UnifyUntouchable error, got nil")
 	}
@@ -48,12 +48,12 @@ func TestSolverLevelAllowsSameLevelMeta(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	u.SolverLevel = 1
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 1}
-	if err := u.Unify(m, types.MkCon("Bool")); err != nil {
+	if err := u.Unify(m, testOps.Con("Bool")); err != nil {
 		t.Fatalf("same-level meta should be solvable: %v", err)
 	}
 	soln := u.Zonk(m)
-	if !types.Equal(soln, types.MkCon("Bool")) {
-		t.Errorf("expected Bool, got %s", types.Pretty(soln))
+	if !testOps.Equal(soln, testOps.Con("Bool")) {
+		t.Errorf("expected Bool, got %s", testOps.Pretty(soln))
 	}
 }
 
@@ -63,12 +63,12 @@ func TestSolverLevelZeroAllowsLevelZeroMeta(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	u.SolverLevel = 0
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
-	if err := u.Unify(m, types.MkCon("String")); err != nil {
+	if err := u.Unify(m, testOps.Con("String")); err != nil {
 		t.Fatalf("level-0 meta at SolverLevel=0 should be solvable: %v", err)
 	}
 	soln := u.Zonk(m)
-	if !types.Equal(soln, types.MkCon("String")) {
-		t.Errorf("expected String, got %s", types.Pretty(soln))
+	if !testOps.Equal(soln, testOps.Con("String")) {
+		t.Errorf("expected String, got %s", testOps.Pretty(soln))
 	}
 }
 
@@ -78,7 +78,7 @@ func TestSolverLevelBlocksRHS(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	u.SolverLevel = 2
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
-	err := u.Unify(types.MkCon("Int"), m)
+	err := u.Unify(testOps.Con("Int"), m)
 	if err == nil {
 		t.Fatal("expected UnifyUntouchable error for RHS meta")
 	}
@@ -97,7 +97,7 @@ func TestSolverLevelAllowsHigherLevelMeta(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	u.SolverLevel = 1
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 2}
-	if err := u.Unify(m, types.MkCon("Rune")); err != nil {
+	if err := u.Unify(m, testOps.Con("Rune")); err != nil {
 		t.Fatalf("higher-level meta should be solvable: %v", err)
 	}
 }

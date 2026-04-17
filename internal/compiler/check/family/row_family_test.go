@@ -215,7 +215,7 @@ func TestReduceLookup_Found(t *testing.T) {
 	if !ok {
 		t.Fatal("expected Lookup to succeed")
 	}
-	if !types.Equal(result, con("String")) {
+	if !testOps.Equal(result, con("String")) {
 		t.Fatalf("expected String, got %v", result)
 	}
 }
@@ -346,7 +346,7 @@ func TestReduceBuiltinRowFamily_LookupDispatch(t *testing.T) {
 	if !ok {
 		t.Fatal("expected Lookup to dispatch successfully")
 	}
-	if !types.Equal(result, con("String")) {
+	if !testOps.Equal(result, con("String")) {
 		t.Fatalf("expected String, got %v", result)
 	}
 }
@@ -388,15 +388,15 @@ func TestReduceMapRow_MultiField(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected TyApp for field %s, got %T", field.Label, field.Type)
 		}
-		if !types.Equal(a.Fun, f) {
+		if !testOps.Equal(a.Fun, f) {
 			t.Fatalf("expected Dual as function, got %v", a.Fun)
 		}
 	}
 	// Verify specific args.
-	if !types.Equal(fields[0].Type.(*types.TyApp).Arg, con("Send")) {
+	if !testOps.Equal(fields[0].Type.(*types.TyApp).Arg, con("Send")) {
 		t.Fatalf("field 'a' should have arg Send")
 	}
-	if !types.Equal(fields[1].Type.(*types.TyApp).Arg, con("Recv")) {
+	if !testOps.Equal(fields[1].Type.(*types.TyApp).Arg, con("Recv")) {
 		t.Fatalf("field 'b' should have arg Recv")
 	}
 }
@@ -419,7 +419,7 @@ func TestReduceMapRow_PreservesGrades(t *testing.T) {
 	if len(fields) != 1 {
 		t.Fatalf("expected 1 field, got %d", len(fields))
 	}
-	if len(fields[0].Grades) != 1 || !types.Equal(fields[0].Grades[0], con("Linear")) {
+	if len(fields[0].Grades) != 1 || !testOps.Equal(fields[0].Grades[0], con("Linear")) {
 		t.Fatal("grade annotation not preserved")
 	}
 }
@@ -480,7 +480,7 @@ func TestReduceBuiltinRowFamily_MapRowDispatch(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyApp, got %T", fields[0].Type)
 	}
-	if !types.Equal(a.Fun, con("Dual")) || !types.Equal(a.Arg, con("Send")) {
+	if !testOps.Equal(a.Fun, con("Dual")) || !testOps.Equal(a.Arg, con("Send")) {
 		t.Fatalf("expected Dual Send, got %v %v", a.Fun, a.Arg)
 	}
 }

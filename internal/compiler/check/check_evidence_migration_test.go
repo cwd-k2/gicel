@@ -209,11 +209,11 @@ f := \x. True`
 			// Expect TyForall wrapping a TyEvidence with Eq constraint.
 			fa, ok := ty.(*types.TyForall)
 			if !ok {
-				t.Fatalf("expected TyForall, got %T: %s", ty, types.Pretty(ty))
+				t.Fatalf("expected TyForall, got %T: %s", ty, testOps.Pretty(ty))
 			}
 			ev, ok := fa.Body.(*types.TyEvidence)
 			if !ok {
-				t.Fatalf("expected TyEvidence under TyForall, got %T: %s", fa.Body, types.Pretty(fa.Body))
+				t.Fatalf("expected TyEvidence under TyForall, got %T: %s", fa.Body, testOps.Pretty(fa.Body))
 			}
 			if ev.Constraints == nil {
 				t.Fatal("expected non-nil Constraints")

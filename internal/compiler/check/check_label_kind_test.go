@@ -39,8 +39,8 @@ func TestLabelLiteralResolvesToL1TyCon(t *testing.T) {
 	ch.installFamilyReducer()
 	ty := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
 	kind := ch.kindOfType(ty)
-	if !types.Equal(kind, types.TypeOfLabels) {
-		t.Errorf("expected kind Label for label literal, got %s", types.Pretty(kind))
+	if !testOps.Equal(kind, types.TypeOfLabels) {
+		t.Errorf("expected kind Label for label literal, got %s", testOps.Pretty(kind))
 	}
 }
 
@@ -107,7 +107,7 @@ func TestDistinctLabelLiterals(t *testing.T) {
 	// Two different label literals should not unify.
 	a := &types.TyCon{Name: "a", Level: types.L1, IsLabel: true}
 	b := &types.TyCon{Name: "b", Level: types.L1, IsLabel: true}
-	if types.Equal(a, b) {
+	if testOps.Equal(a, b) {
 		t.Error("label literals #a and #b should not be equal")
 	}
 }
@@ -118,7 +118,7 @@ func TestSameLabelLiteralsEqual(t *testing.T) {
 	_ = ch // use the checker to follow the pattern
 	a1 := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
 	a2 := &types.TyCon{Name: "foo", Level: types.L1, IsLabel: true}
-	if !types.Equal(a1, a2) {
+	if !testOps.Equal(a1, a2) {
 		t.Error("label literals with same name should be equal")
 	}
 }
@@ -147,7 +147,7 @@ main := 42`
 func TestLabelKindPrettyPrint(t *testing.T) {
 	// Label literals should pretty-print with # prefix.
 	ty := &types.TyCon{Name: "myLabel", Level: types.L1, IsLabel: true}
-	pretty := types.Pretty(ty)
+	pretty := testOps.Pretty(ty)
 	if pretty != "#myLabel" {
 		t.Errorf("#myLabel, got %s", pretty)
 	}
@@ -165,16 +165,16 @@ func TestLabelKindRegistration(t *testing.T) {
 	if len(withoutInfo.Params) != 2 {
 		t.Fatalf("Without should have 2 params, got %d", len(withoutInfo.Params))
 	}
-	if !types.Equal(withoutInfo.Params[0].Kind, types.TypeOfLabels) {
-		t.Errorf("Without first param should have kind Label, got %s", types.Pretty(withoutInfo.Params[0].Kind))
+	if !testOps.Equal(withoutInfo.Params[0].Kind, types.TypeOfLabels) {
+		t.Errorf("Without first param should have kind Label, got %s", testOps.Pretty(withoutInfo.Params[0].Kind))
 	}
 
 	lookupInfo, ok := ch.lookupFamily("Lookup")
 	if !ok {
 		t.Fatal("Lookup should be registered as a type family")
 	}
-	if !types.Equal(lookupInfo.Params[0].Kind, types.TypeOfLabels) {
-		t.Errorf("Lookup first param should have kind Label, got %s", types.Pretty(lookupInfo.Params[0].Kind))
+	if !testOps.Equal(lookupInfo.Params[0].Kind, types.TypeOfLabels) {
+		t.Errorf("Lookup first param should have kind Label, got %s", testOps.Pretty(lookupInfo.Params[0].Kind))
 	}
 }
 
@@ -197,8 +197,8 @@ func TestLabelLiteralKindCheckedCorrectly(t *testing.T) {
 	if kind == nil {
 		t.Fatal("expected non-nil kind for label literal")
 	}
-	if !types.Equal(kind, types.TypeOfLabels) {
-		t.Errorf("expected kind Label, got %s", types.Pretty(kind))
+	if !testOps.Equal(kind, types.TypeOfLabels) {
+		t.Errorf("expected kind Label, got %s", testOps.Pretty(kind))
 	}
 }
 
@@ -260,7 +260,7 @@ func TestBuiltinKindConNotLabel(t *testing.T) {
 	for _, name := range []string{"Type", "Row", "Constraint", "Label"} {
 		ty := &types.TyCon{Name: name, Level: types.L1}
 		kind := ch.kindOfType(ty)
-		if types.Equal(kind, types.TypeOfLabels) {
+		if testOps.Equal(kind, types.TypeOfLabels) {
 			t.Errorf("builtin kind %s should not have kind Label", name)
 		}
 	}

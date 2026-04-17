@@ -13,9 +13,9 @@ import (
 // TestForallUnify_SameBinder — ∀a.a ~ ∀a.a should succeed trivially.
 func TestForallUnify_SameBinder(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
-	a := types.MkForall("a", types.TypeOfTypes,
+	a := testOps.Forall("a", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "a"}})
-	b := types.MkForall("a", types.TypeOfTypes,
+	b := testOps.Forall("a", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "a"}})
 	if err := u.Unify(a, b); err != nil {
 		t.Fatalf("expected success, got: %v", err)
@@ -26,9 +26,9 @@ func TestForallUnify_SameBinder(t *testing.T) {
 // (alpha-equivalence).
 func TestForallUnify_DifferentBinder(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
-	a := types.MkForall("a", types.TypeOfTypes,
+	a := testOps.Forall("a", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "a"}})
-	b := types.MkForall("b", types.TypeOfTypes,
+	b := testOps.Forall("b", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "b"}, To: &types.TyVar{Name: "b"}})
 	if err := u.Unify(a, b); err != nil {
 		t.Fatalf("expected success, got: %v", err)
@@ -45,10 +45,10 @@ func TestForallUnify_DifferentBinder(t *testing.T) {
 func TestForallUnify_CaptureSameNameFreeVar(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	// ∀a. a -> b (b is free)
-	lhs := types.MkForall("a", types.TypeOfTypes,
+	lhs := testOps.Forall("a", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "b"}})
 	// ∀b. b -> b (b is bound — same name as the free var in LHS)
-	rhs := types.MkForall("b", types.TypeOfTypes,
+	rhs := testOps.Forall("b", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "b"}, To: &types.TyVar{Name: "b"}})
 	err := u.Unify(lhs, rhs)
 	if err == nil {
@@ -60,9 +60,9 @@ func TestForallUnify_CaptureSameNameFreeVar(t *testing.T) {
 // should succeed: `c` is free in both, and the binders are alpha-equivalent.
 func TestForallUnify_NoCaptureDistinctFreeVars(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
-	lhs := types.MkForall("a", types.TypeOfTypes,
+	lhs := testOps.Forall("a", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "c"}})
-	rhs := types.MkForall("b", types.TypeOfTypes,
+	rhs := testOps.Forall("b", types.TypeOfTypes,
 		&types.TyArrow{From: &types.TyVar{Name: "b"}, To: &types.TyVar{Name: "c"}})
 	if err := u.Unify(lhs, rhs); err != nil {
 		t.Fatalf("expected success, got: %v", err)
@@ -73,11 +73,11 @@ func TestForallUnify_NoCaptureDistinctFreeVars(t *testing.T) {
 // should succeed (double alpha-rename).
 func TestForallUnify_NestedCapture(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
-	lhs := types.MkForall("a", types.TypeOfTypes,
-		types.MkForall("b", types.TypeOfTypes,
+	lhs := testOps.Forall("a", types.TypeOfTypes,
+		testOps.Forall("b", types.TypeOfTypes,
 			&types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "b"}}))
-	rhs := types.MkForall("b", types.TypeOfTypes,
-		types.MkForall("a", types.TypeOfTypes,
+	rhs := testOps.Forall("b", types.TypeOfTypes,
+		testOps.Forall("a", types.TypeOfTypes,
 			&types.TyArrow{From: &types.TyVar{Name: "b"}, To: &types.TyVar{Name: "a"}}))
 	if err := u.Unify(lhs, rhs); err != nil {
 		t.Fatalf("expected success (alpha-equivalent), got: %v", err)

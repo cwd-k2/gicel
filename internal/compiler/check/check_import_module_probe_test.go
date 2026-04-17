@@ -34,7 +34,7 @@ func probeModuleExports(typeName string, cons []string) *ModuleExports {
 	conTypes := make(map[string]types.Type, len(cons))
 	conInfo := make(map[string]*DataTypeInfo, len(cons))
 	for _, c := range cons {
-		conTypes[c] = types.MkCon(typeName)
+		conTypes[c] = testOps.Con(typeName)
 		conInfo[c] = info
 	}
 	ownedNames := map[string]bool{typeName: true}
@@ -166,15 +166,15 @@ func TestProbeA_QualPattern_NestedQualPattern(t *testing.T) {
 		ConTypes: map[string]types.Type{
 			"Just": &types.TyForall{
 				Var: "a", Kind: types.TypeOfTypes,
-				Body: types.MkArrow(&types.TyVar{Name: "a"}, &types.TyApp{
-					Fun: types.MkCon("Maybe"),
+				Body: testOps.Arrow(&types.TyVar{Name: "a"}, &types.TyApp{
+					Fun: testOps.Con("Maybe"),
 					Arg: &types.TyVar{Name: "a"},
 				}),
 			},
 			"Nothing": &types.TyForall{
 				Var: "a", Kind: types.TypeOfTypes,
 				Body: &types.TyApp{
-					Fun: types.MkCon("Maybe"),
+					Fun: testOps.Con("Maybe"),
 					Arg: &types.TyVar{Name: "a"},
 				},
 			},
@@ -222,7 +222,7 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"foo": types.MkCon("Int")},
+		Values:          map[string]types.Type{"foo": testOps.Con("Int")},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -237,7 +237,7 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameName(t *testing.T) {
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"foo": types.MkCon("String")},
+		Values:          map[string]types.Type{"foo": testOps.Con("String")},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -280,7 +280,7 @@ func TestProbeA_Ambiguity_TwoOpenImportsSameConstructor(t *testing.T) {
 		}
 		return &ModuleExports{
 			Types:           map[string]types.Type{typeName: types.TypeOfTypes},
-			ConTypes:        map[string]types.Type{"MkVal": types.MkCon(typeName)},
+			ConTypes:        map[string]types.Type{"MkVal": testOps.Con(typeName)},
 			ConstructorInfo: map[string]*DataTypeInfo{"MkVal": info},
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
@@ -322,7 +322,7 @@ func TestProbeA_Ambiguity_QualifiedDisambiguates(t *testing.T) {
 			ConstructorInfo: map[string]*DataTypeInfo{},
 			Aliases:         map[string]*AliasInfo{},
 			Classes:         map[string]*ClassInfo{},
-			Values:          map[string]types.Type{"foo": types.MkCon("Int")},
+			Values:          map[string]types.Type{"foo": testOps.Con("Int")},
 			PromotedKinds:   map[string]types.Type{},
 			PromotedCons:    map[string]types.Type{},
 			TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -358,7 +358,7 @@ func TestProbeD_Module_QualifiedVarLookup(t *testing.T) {
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"add": types.MkArrow(types.MkCon("Int"), types.MkArrow(types.MkCon("Int"), types.MkCon("Int")))},
+		Values:          map[string]types.Type{"add": testOps.Arrow(testOps.Con("Int"), testOps.Arrow(testOps.Con("Int"), testOps.Con("Int")))},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},
@@ -417,7 +417,7 @@ func TestProbeD_Module_QualifiedShadowLocal(t *testing.T) {
 		ConstructorInfo: map[string]*DataTypeInfo{},
 		Aliases:         map[string]*AliasInfo{},
 		Classes:         map[string]*ClassInfo{},
-		Values:          map[string]types.Type{"val": types.MkCon("Int")},
+		Values:          map[string]types.Type{"val": testOps.Con("Int")},
 		PromotedKinds:   map[string]types.Type{},
 		PromotedCons:    map[string]types.Type{},
 		TypeFamilies:    map[string]*TypeFamilyInfo{},

@@ -24,7 +24,7 @@ main := IntLit True`
 		if b.Name == "main" {
 			found = true
 			// Verify the inferred type is Expr Bool.
-			pretty := types.Pretty(b.Type)
+			pretty := testOps.Pretty(b.Type)
 			if !strings.Contains(pretty, "Expr") || !strings.Contains(pretty, "Bool") {
 				t.Errorf("expected main :: Expr Bool, got %s", pretty)
 			}
@@ -125,9 +125,9 @@ main := eval (Add (LitI 10) (LitI 32))`
 		},
 		GatedBuiltins: map[string]bool{"fix": true, "rec": true},
 		Assumptions: map[string]types.Type{
-			"+": types.MkArrow(
+			"+": testOps.Arrow(
 				&types.TyCon{Name: "Int"},
-				types.MkArrow(
+				testOps.Arrow(
 					&types.TyCon{Name: "Int"},
 					&types.TyCon{Name: "Int"},
 				),
@@ -140,7 +140,7 @@ main := eval (Add (LitI 10) (LitI 32))`
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
 			found = true
-			pretty := types.Pretty(b.Type)
+			pretty := testOps.Pretty(b.Type)
 			if !strings.Contains(pretty, "Int") {
 				t.Errorf("expected main :: Int, got %s", pretty)
 			}

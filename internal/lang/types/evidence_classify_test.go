@@ -26,10 +26,10 @@ func classKeyOf(e ConstraintEntry) string {
 
 func TestClassifyConstraints_ClassIdentical(t *testing.T) {
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 1 {
@@ -44,10 +44,10 @@ func TestClassifyConstraints_ClassDifferentArgs(t *testing.T) {
 	// Greedy match by class name: same class, different args still pairs.
 	// The unifier loop is responsible for unifying the args afterwards.
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Bool")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Bool")}},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 1 {
@@ -60,10 +60,10 @@ func TestClassifyConstraints_ClassDifferentArgs(t *testing.T) {
 
 func TestClassifyConstraints_ClassDifferentClasses(t *testing.T) {
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Ord", Args: []Type{MkCon("Int")}},
+		&ClassEntry{ClassName: "Ord", Args: []Type{testOps.Con("Int")}},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 0 {
@@ -82,10 +82,10 @@ func TestClassifyConstraints_ClassDifferentClasses(t *testing.T) {
 func TestClassifyConstraints_EqualityIdentical(t *testing.T) {
 	// (a ~ Int) on both sides: structural key match → shared.
 	a := []ConstraintEntry{
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	b := []ConstraintEntry{
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 1 {
@@ -99,10 +99,10 @@ func TestClassifyConstraints_EqualityIdentical(t *testing.T) {
 func TestClassifyConstraints_EqualityDifferentRhs(t *testing.T) {
 	// (a ~ Int) vs (a ~ Bool): different RHS → different canonical keys → no match.
 	a := []ConstraintEntry{
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	b := []ConstraintEntry{
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Bool")},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Bool")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 0 {
@@ -116,10 +116,10 @@ func TestClassifyConstraints_EqualityDifferentRhs(t *testing.T) {
 func TestClassifyConstraints_EqualityDifferentLhs(t *testing.T) {
 	// (a ~ Int) vs (b ~ Int): different LHS → no match.
 	a := []ConstraintEntry{
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	b := []ConstraintEntry{
-		&EqualityEntry{Lhs: MkVar("b"), Rhs: MkCon("Int")},
+		&EqualityEntry{Lhs: testOps.Var("b"), Rhs: testOps.Con("Int")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 0 {
@@ -134,10 +134,10 @@ func TestClassifyConstraints_EqualityDifferentLhs(t *testing.T) {
 
 func TestClassifyConstraints_VarIdentical(t *testing.T) {
 	a := []ConstraintEntry{
-		&VarEntry{Var: MkVar("c")},
+		&VarEntry{Var: testOps.Var("c")},
 	}
 	b := []ConstraintEntry{
-		&VarEntry{Var: MkVar("c")},
+		&VarEntry{Var: testOps.Var("c")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 1 {
@@ -150,10 +150,10 @@ func TestClassifyConstraints_VarIdentical(t *testing.T) {
 
 func TestClassifyConstraints_VarDifferent(t *testing.T) {
 	a := []ConstraintEntry{
-		&VarEntry{Var: MkVar("c1")},
+		&VarEntry{Var: testOps.Var("c1")},
 	}
 	b := []ConstraintEntry{
-		&VarEntry{Var: MkVar("c2")},
+		&VarEntry{Var: testOps.Var("c2")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 0 {
@@ -169,12 +169,12 @@ func TestClassifyConstraints_VarDifferent(t *testing.T) {
 func TestClassifyConstraints_MixedAllMatched(t *testing.T) {
 	// (Eq Int, a ~ Int) vs (Eq Int, a ~ Int): all matched.
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 2 {
@@ -188,12 +188,12 @@ func TestClassifyConstraints_MixedAllMatched(t *testing.T) {
 func TestClassifyConstraints_MixedPartialMatch(t *testing.T) {
 	// (Eq Int, a ~ Int) vs (Eq Int, a ~ Bool): only the class matches.
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Bool")},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Bool")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 1 {
@@ -211,12 +211,12 @@ func TestClassifyConstraints_OrderIndependence(t *testing.T) {
 	// (Eq Int, Ord Bool) vs (Ord Bool, Eq Int): both orderings should give
 	// the same set of shared matches.
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&ClassEntry{ClassName: "Ord", Args: []Type{MkCon("Bool")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&ClassEntry{ClassName: "Ord", Args: []Type{testOps.Con("Bool")}},
 	}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Ord", Args: []Type{MkCon("Bool")}},
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
+		&ClassEntry{ClassName: "Ord", Args: []Type{testOps.Con("Bool")}},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 2 {
@@ -232,8 +232,8 @@ func TestClassifyConstraints_OrderIndependence(t *testing.T) {
 func TestClassifyConstraints_EmptyA(t *testing.T) {
 	a := []ConstraintEntry{}
 	b := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&EqualityEntry{Lhs: MkVar("a"), Rhs: MkCon("Int")},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&EqualityEntry{Lhs: testOps.Var("a"), Rhs: testOps.Con("Int")},
 	}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)
 	if len(shared) != 0 {
@@ -249,8 +249,8 @@ func TestClassifyConstraints_EmptyA(t *testing.T) {
 
 func TestClassifyConstraints_EmptyB(t *testing.T) {
 	a := []ConstraintEntry{
-		&ClassEntry{ClassName: "Eq", Args: []Type{MkCon("Int")}},
-		&VarEntry{Var: MkVar("c")},
+		&ClassEntry{ClassName: "Eq", Args: []Type{testOps.Con("Int")}},
+		&VarEntry{Var: testOps.Var("c")},
 	}
 	b := []ConstraintEntry{}
 	shared, onlyA, onlyB := ClassifyConstraints(a, b)

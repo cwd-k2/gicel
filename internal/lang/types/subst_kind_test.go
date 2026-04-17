@@ -15,9 +15,9 @@ func TestSubstKindForallArrow(t *testing.T) {
 	body := &TyForall{
 		Var:  "f",
 		Kind: &TyArrow{From: &TyVar{Name: "k"}, To: TypeOfTypes},
-		Body: &TyApp{Fun: &TyVar{Name: "f"}, Arg: MkCon("Int")},
+		Body: &TyApp{Fun: &TyVar{Name: "f"}, Arg: testOps.Con("Int")},
 	}
-	result := Subst(body, "k", TypeOfRows)
+	result := testOps.Subst(body, "k", TypeOfRows)
 	f, ok := result.(*TyForall)
 	if !ok {
 		t.Fatalf("expected TyForall, got %T", result)
@@ -26,11 +26,11 @@ func TestSubstKindForallArrow(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyArrow kind, got %T", f.Kind)
 	}
-	if !Equal(arrow.From, TypeOfRows) {
-		t.Errorf("expected From=Row, got %s", Pretty(arrow.From))
+	if !testOps.Equal(arrow.From, TypeOfRows) {
+		t.Errorf("expected From=Row, got %s", testOps.Pretty(arrow.From))
 	}
-	if !Equal(arrow.To, TypeOfTypes) {
-		t.Errorf("expected To=Type, got %s", Pretty(arrow.To))
+	if !testOps.Equal(arrow.To, TypeOfTypes) {
+		t.Errorf("expected To=Type, got %s", testOps.Pretty(arrow.To))
 	}
 }
 
@@ -46,18 +46,18 @@ func TestSubstKindNested(t *testing.T) {
 			To:   &TyApp{Fun: &TyVar{Name: "f"}, Arg: &TyVar{Name: "a"}},
 		},
 	}
-	result := Subst(inner, "k", TypeOfRows)
+	result := testOps.Subst(inner, "k", TypeOfRows)
 	f := result.(*TyForall)
 	arrow := f.Kind.(*TyArrow)
-	if !Equal(arrow.From, TypeOfRows) {
-		t.Errorf("expected Row, got %s", Pretty(arrow.From))
+	if !testOps.Equal(arrow.From, TypeOfRows) {
+		t.Errorf("expected Row, got %s", testOps.Pretty(arrow.From))
 	}
 }
 
 func TestSubstKindMetaOpaque(t *testing.T) {
 	// TyMeta is a leaf in Subst — kind field is not traversed.
 	meta := &TyMeta{ID: 1, Kind: &TyArrow{From: &TyVar{Name: "k"}, To: TypeOfTypes}}
-	result := Subst(meta, "k", TypeOfRows)
+	result := testOps.Subst(meta, "k", TypeOfRows)
 	m, ok := result.(*TyMeta)
 	if !ok {
 		t.Fatalf("expected TyMeta, got %T", result)
@@ -70,7 +70,7 @@ func TestSubstKindMetaOpaque(t *testing.T) {
 func TestSubstKindSkolemOpaque(t *testing.T) {
 	// Subst treats TySkolem as a leaf.
 	skolem := &TySkolem{ID: 1, Name: "f", Kind: &TyVar{Name: "k"}}
-	result := Subst(skolem, "k", TypeOfTypes)
+	result := testOps.Subst(skolem, "k", TypeOfTypes)
 	s, ok := result.(*TySkolem)
 	if !ok {
 		t.Fatalf("expected TySkolem, got %T", result)
@@ -82,24 +82,24 @@ func TestSubstKindSkolemOpaque(t *testing.T) {
 
 func TestSubstKindNoChange(t *testing.T) {
 	// No TyVar "k" in this type — should return same pointer
-	ty := &TyArrow{From: MkCon("Int"), To: MkCon("Bool")}
-	result := Subst(ty, "k", TypeOfRows)
+	ty := &TyArrow{From: testOps.Con("Int"), To: testOps.Con("Bool")}
+	result := testOps.Subst(ty, "k", TypeOfRows)
 	if result != ty {
 		t.Error("expected same pointer when no substitution occurs")
 	}
 }
 
 func TestSubstKindComp(t *testing.T) {
-	ty := MkComp(MkCon("Unit"), MkCon("Unit"), MkCon("Int"))
-	result := Subst(ty, "k", TypeOfRows)
+	ty := testOps.Comp(testOps.Con("Unit"), testOps.Con("Unit"), testOps.Con("Int"), nil)
+	result := testOps.Subst(ty, "k", TypeOfRows)
 	if result != ty {
 		t.Error("expected same pointer when no substitution in Comp")
 	}
 }
 
 func TestSubstKindThunk(t *testing.T) {
-	ty := MkThunk(MkCon("Unit"), MkCon("Unit"), MkCon("Int"))
-	result := Subst(ty, "k", TypeOfTypes)
+	ty := testOps.Thunk(testOps.Con("Unit"), testOps.Con("Unit"), testOps.Con("Int"), nil)
+	result := testOps.Subst(ty, "k", TypeOfTypes)
 	if result != ty {
 		t.Error("expected same pointer when no substitution in Thunk")
 	}

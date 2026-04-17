@@ -252,15 +252,15 @@ func TestTypeHelpers(t *testing.T) {
 
 	// Kind helpers.
 	k := KindType()
-	if !types.Equal(k, KindType()) {
+	if !testOps.Equal(k, KindType()) {
 		t.Errorf("Type should equal Type")
 	}
 	kr := KindRow()
-	if types.Equal(kr, KindType()) {
+	if testOps.Equal(kr, KindType()) {
 		t.Errorf("Row should not equal Type")
 	}
 	ka := testOps.Arrow(KindType(), KindType())
-	if !types.Equal(ka, testOps.Arrow(KindType(), KindType())) {
+	if !testOps.Equal(ka, testOps.Arrow(KindType(), KindType())) {
 		t.Errorf("Arrow(Type,Type) should equal itself")
 	}
 

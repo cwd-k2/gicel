@@ -4,7 +4,7 @@ import "testing"
 
 func TestSubstVar(t *testing.T) {
 	ty := &TyVar{Name: "a"}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	if con, ok := result.(*TyCon); !ok || con.Name != "Int" {
 		t.Errorf("expected Int, got %v", result)
 	}
@@ -12,7 +12,7 @@ func TestSubstVar(t *testing.T) {
 
 func TestSubstVarNoMatch(t *testing.T) {
 	ty := &TyVar{Name: "b"}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("expected unchanged type when variable doesn't match")
 	}
@@ -20,7 +20,7 @@ func TestSubstVarNoMatch(t *testing.T) {
 
 func TestSubstCon(t *testing.T) {
 	ty := &TyCon{Name: "Bool"}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("TyCon should be unchanged by substitution")
 	}
@@ -29,7 +29,7 @@ func TestSubstCon(t *testing.T) {
 func TestSubstArrow(t *testing.T) {
 	// a -> b  [a := Int]  →  Int -> b
 	ty := &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	arr, ok := result.(*TyArrow)
 	if !ok {
 		t.Fatalf("expected TyArrow, got %T", result)
@@ -44,7 +44,7 @@ func TestSubstArrow(t *testing.T) {
 
 func TestSubstArrowUnchanged(t *testing.T) {
 	ty := &TyArrow{From: &TyCon{Name: "Int"}, To: &TyCon{Name: "Bool"}}
-	result := Subst(ty, "a", &TyCon{Name: "String"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "String"})
 	if result != ty {
 		t.Error("arrow with no matching vars should be pointer-equal")
 	}
@@ -53,7 +53,7 @@ func TestSubstArrowUnchanged(t *testing.T) {
 func TestSubstApp(t *testing.T) {
 	// f a  [a := Int]  →  f Int
 	ty := &TyApp{Fun: &TyVar{Name: "f"}, Arg: &TyVar{Name: "a"}}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	app, ok := result.(*TyApp)
 	if !ok {
 		t.Fatalf("expected TyApp, got %T", result)
@@ -66,7 +66,7 @@ func TestSubstApp(t *testing.T) {
 func TestSubstForallShadow(t *testing.T) {
 	// forall a. a  [a := Int]  →  forall a. a  (shadowed)
 	ty := &TyForall{Var: "a", Kind: TypeOfTypes, Body: &TyVar{Name: "a"}}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("substitution should be blocked by shadowing forall")
 	}
@@ -81,7 +81,7 @@ func TestSubstForallNoCapture(t *testing.T) {
 		Kind: TypeOfTypes,
 		Body: &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}},
 	}
-	result := Subst(ty, "b", &TyVar{Name: "a"})
+	result := testOps.Subst(ty, "b", &TyVar{Name: "a"})
 	forall, ok := result.(*TyForall)
 	if !ok {
 		t.Fatalf("expected TyForall, got %T", result)
@@ -100,8 +100,8 @@ func TestSubstForallNoCapture(t *testing.T) {
 }
 
 func TestSubstComp(t *testing.T) {
-	ty := MkComp(&TyVar{Name: "r1"}, &TyVar{Name: "r2"}, &TyVar{Name: "a"})
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	ty := testOps.Comp(&TyVar{Name: "r1"}, &TyVar{Name: "r2"}, &TyVar{Name: "a"}, nil)
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	comp, ok := result.(*TyCBPV)
 	if !ok {
 		t.Fatalf("expected TyCBPV, got %T", result)
@@ -117,7 +117,7 @@ func TestSubstFamilyApp(t *testing.T) {
 		Args: []Type{&TyVar{Name: "a"}, &TyCon{Name: "Int"}},
 		Kind: TypeOfTypes,
 	}
-	result := Subst(ty, "a", &TyCon{Name: "Bool"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Bool"})
 	fam, ok := result.(*TyFamilyApp)
 	if !ok {
 		t.Fatalf("expected TyFamilyApp, got %T", result)
@@ -132,7 +132,7 @@ func TestSubstFamilyApp(t *testing.T) {
 
 func TestSubstMeta(t *testing.T) {
 	ty := &TyMeta{ID: 42, Kind: TypeOfTypes}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("TyMeta should be unchanged by substitution")
 	}
@@ -140,7 +140,7 @@ func TestSubstMeta(t *testing.T) {
 
 func TestSubstSkolem(t *testing.T) {
 	ty := &TySkolem{ID: 1, Name: "sk", Kind: TypeOfTypes}
-	result := Subst(ty, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(ty, "a", &TyCon{Name: "Int"})
 	if result != ty {
 		t.Error("TySkolem should be unchanged by substitution")
 	}
@@ -154,7 +154,7 @@ func TestSubstEvidenceRow(t *testing.T) {
 			},
 		},
 	}
-	result := Subst(row, "a", &TyCon{Name: "Int"})
+	result := testOps.Subst(row, "a", &TyCon{Name: "Int"})
 	r, ok := result.(*TyEvidenceRow)
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
@@ -170,7 +170,7 @@ func TestSubstEvidenceRowTail(t *testing.T) {
 		Entries: &CapabilityEntries{},
 		Tail:    &TyVar{Name: "r"},
 	}
-	result := Subst(row, "r", &TyVar{Name: "s"})
+	result := testOps.Subst(row, "r", &TyVar{Name: "s"})
 	r := result.(*TyEvidenceRow)
 	if v, ok := r.Tail.(*TyVar); !ok || v.Name != "s" {
 		t.Errorf("tail should be 's', got %v", r.Tail)
@@ -187,7 +187,7 @@ func TestSubstLabelVar(t *testing.T) {
 			},
 		},
 	}
-	result := Subst(row, "l", &TyCon{Name: "foo", Level: L1, IsLabel: true})
+	result := testOps.Subst(row, "l", &TyCon{Name: "foo", Level: L1, IsLabel: true})
 	r := result.(*TyEvidenceRow)
 	fields := r.Entries.(*CapabilityEntries).Fields
 	if fields[0].Label != "foo" {
@@ -211,7 +211,7 @@ func TestSubstManyLabelVar(t *testing.T) {
 			},
 		},
 	}
-	result := SubstMany(row, map[string]Type{
+	result := testOps.SubstMany(row, map[string]Type{
 		"l": &TyCon{Name: "foo", Level: L1, IsLabel: true},
 		"a": &TyCon{Name: "Int"},
 	}, nil)
@@ -244,17 +244,17 @@ func TestSubstManyLabelVarEquivalence(t *testing.T) {
 	labelLit := &TyCon{Name: "foo", Level: L1, IsLabel: true}
 	intTy := &TyCon{Name: "Int"}
 
-	seq := Subst(mkRow(), "l", labelLit)
-	seq = Subst(seq, "a", intTy)
+	seq := testOps.Subst(mkRow(), "l", labelLit)
+	seq = testOps.Subst(seq, "a", intTy)
 
-	many := SubstMany(mkRow(), map[string]Type{
+	many := testOps.SubstMany(mkRow(), map[string]Type{
 		"l": labelLit,
 		"a": intTy,
 	}, nil)
 
-	if !Equal(seq, many) {
+	if !testOps.Equal(seq, many) {
 		t.Errorf("SubstMany != sequential Subst on label var:\n  seq:  %s\n  many: %s",
-			Pretty(seq), Pretty(many))
+			testOps.Pretty(seq), testOps.Pretty(many))
 	}
 }
 
@@ -262,7 +262,7 @@ func TestSubstManyLabelVarEquivalence(t *testing.T) {
 
 func TestSubstManySimple(t *testing.T) {
 	ty := &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}}
-	result := SubstMany(ty, map[string]Type{
+	result := testOps.SubstMany(ty, map[string]Type{
 		"a": &TyCon{Name: "Int"},
 		"b": &TyCon{Name: "Bool"},
 	}, nil)
@@ -277,7 +277,7 @@ func TestSubstManySimple(t *testing.T) {
 
 func TestSubstManyEmpty(t *testing.T) {
 	ty := &TyVar{Name: "a"}
-	result := SubstMany(ty, map[string]Type{}, nil)
+	result := testOps.SubstMany(ty, map[string]Type{}, nil)
 	if result != ty {
 		t.Error("empty substitution should return same type")
 	}
@@ -286,7 +286,7 @@ func TestSubstManyEmpty(t *testing.T) {
 func TestSubstManyNoInterference(t *testing.T) {
 	// Simultaneous: [a := b, b := a] should swap, not collapse.
 	ty := &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}}
-	result := SubstMany(ty, map[string]Type{
+	result := testOps.SubstMany(ty, map[string]Type{
 		"a": &TyVar{Name: "b"},
 		"b": &TyVar{Name: "a"},
 	}, nil)
@@ -307,7 +307,7 @@ func TestSubstManyShadowing(t *testing.T) {
 		Kind: TypeOfTypes,
 		Body: &TyArrow{From: &TyVar{Name: "a"}, To: &TyVar{Name: "b"}},
 	}
-	result := SubstMany(ty, map[string]Type{
+	result := testOps.SubstMany(ty, map[string]Type{
 		"a": &TyCon{Name: "Int"},
 		"b": &TyCon{Name: "Bool"},
 	}, nil)
@@ -329,17 +329,17 @@ func TestSubstKindForall(t *testing.T) {
 		Kind: &TyVar{Name: "k"},
 		Body: &TyVar{Name: "a"},
 	}
-	result := Subst(ty, "k", TypeOfTypes)
+	result := testOps.Subst(ty, "k", TypeOfTypes)
 	forall := result.(*TyForall)
-	if !Equal(forall.Kind, TypeOfTypes) {
-		t.Errorf("kind should be TypeOfTypes, got %v", Pretty(forall.Kind))
+	if !testOps.Equal(forall.Kind, TypeOfTypes) {
+		t.Errorf("kind should be TypeOfTypes, got %v", testOps.Pretty(forall.Kind))
 	}
 }
 
 func TestSubstKindMetaLeaf(t *testing.T) {
 	// Subst treats TyMeta as a leaf — kind field is not traversed.
 	ty := &TyMeta{ID: 1, Kind: &TyVar{Name: "k"}}
-	result := Subst(ty, "k", TypeOfTypes)
+	result := testOps.Subst(ty, "k", TypeOfTypes)
 	meta := result.(*TyMeta)
 	if _, ok := meta.Kind.(*TyVar); !ok {
 		t.Errorf("TyMeta.Kind should remain TyVar after Subst, got %T", meta.Kind)

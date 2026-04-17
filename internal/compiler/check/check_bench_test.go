@@ -36,10 +36,11 @@ main := eq True False`
 
 func TestQuantifyFreeVarsKindInference(t *testing.T) {
 	// Row variable in Computation pre/post should be quantified as Row.
-	compTy := types.MkComp(
+	compTy := testOps.Comp(
 		&types.TyVar{Name: "r"},
 		&types.TyVar{Name: "r"},
-		types.MkCon("Int"),
+		testOps.Con("Int"),
+		nil,
 	)
 	arrowTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: compTy}
 	result := quantifyFreeVars(&types.TypeOps{}, arrowTy)
@@ -52,8 +53,8 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 	if forall1.Var != "a" {
 		t.Errorf("first quantifier: got %q, want 'a'", forall1.Var)
 	}
-	if !types.Equal(forall1.Kind, types.TypeOfTypes) {
-		t.Errorf("'a' kind: got %v, want Type", types.PrettyTypeAsKind(forall1.Kind))
+	if !testOps.Equal(forall1.Kind, types.TypeOfTypes) {
+		t.Errorf("'a' kind: got %v, want Type", testOps.PrettyTypeAsKind(forall1.Kind))
 	}
 
 	forall2, ok := forall1.Body.(*types.TyForall)
@@ -63,8 +64,8 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 	if forall2.Var != "r" {
 		t.Errorf("second quantifier: got %q, want 'r'", forall2.Var)
 	}
-	if !types.Equal(forall2.Kind, types.TypeOfRows) {
-		t.Errorf("'r' kind: got %v, want Row", types.PrettyTypeAsKind(forall2.Kind))
+	if !testOps.Equal(forall2.Kind, types.TypeOfRows) {
+		t.Errorf("'r' kind: got %v, want Row", testOps.PrettyTypeAsKind(forall2.Kind))
 	}
 
 	// Pure type variable should get Type.
@@ -74,8 +75,8 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyForall, got %T", pureResult)
 	}
-	if !types.Equal(pureForall.Kind, types.TypeOfTypes) {
-		t.Errorf("pure 'a' kind: got %v, want Type", types.PrettyTypeAsKind(pureForall.Kind))
+	if !testOps.Equal(pureForall.Kind, types.TypeOfTypes) {
+		t.Errorf("pure 'a' kind: got %v, want Type", testOps.PrettyTypeAsKind(pureForall.Kind))
 	}
 }
 
@@ -84,31 +85,33 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 func TestInferFreeVarKindsThunk(t *testing.T) {
 	// Variable in TyCBPV (Thunk) pre/post should get Row.
 	fv := map[string]struct{}{"r": {}, "a": {}}
-	thunkTy := types.MkThunk(
+	thunkTy := testOps.Thunk(
 		&types.TyVar{Name: "r"},
 		&types.TyVar{Name: "r"},
 		&types.TyVar{Name: "a"},
+		nil,
 	)
 	kinds := inferFreeVarKinds(thunkTy, fv)
-	if !types.Equal(kinds["r"], types.TypeOfRows) {
-		t.Errorf("'r' in TyCBPV (Thunk) pre/post should be Row, got %v", types.PrettyTypeAsKind(kinds["r"]))
+	if !testOps.Equal(kinds["r"], types.TypeOfRows) {
+		t.Errorf("'r' in TyCBPV (Thunk) pre/post should be Row, got %v", testOps.PrettyTypeAsKind(kinds["r"]))
 	}
-	if !types.Equal(kinds["a"], types.TypeOfTypes) {
-		t.Errorf("'a' in TyCBPV (Thunk) result should be Type, got %v", types.PrettyTypeAsKind(kinds["a"]))
+	if !testOps.Equal(kinds["a"], types.TypeOfTypes) {
+		t.Errorf("'a' in TyCBPV (Thunk) result should be Type, got %v", testOps.PrettyTypeAsKind(kinds["a"]))
 	}
 }
 
 func TestInferFreeVarKindsBothPositions(t *testing.T) {
 	// Variable appearing in both row and type positions should get Row.
 	fv := map[string]struct{}{"x": {}}
-	ty := types.MkComp(
+	ty := testOps.Comp(
 		&types.TyVar{Name: "x"}, // row position → Row
 		&types.TyVar{Name: "x"},
 		&types.TyVar{Name: "x"}, // type position → Type, but Row wins
+		nil,
 	)
 	kinds := inferFreeVarKinds(ty, fv)
-	if !types.Equal(kinds["x"], types.TypeOfRows) {
-		t.Errorf("'x' in both row and type positions should be Row, got %v", types.PrettyTypeAsKind(kinds["x"]))
+	if !testOps.Equal(kinds["x"], types.TypeOfRows) {
+		t.Errorf("'x' in both row and type positions should be Row, got %v", testOps.PrettyTypeAsKind(kinds["x"]))
 	}
 }
 
@@ -125,9 +128,9 @@ func TestInferFreeVarKindsNoFreeVars(t *testing.T) {
 func BenchmarkZonkDeepChain(b *testing.B) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	// Build a deep TyApp chain with no metavariables.
-	var ty types.Type = types.MkCon("Base")
+	var ty types.Type = testOps.Con("Base")
 	for range 50 {
-		ty = &types.TyApp{Fun: types.MkCon("F"), Arg: ty}
+		ty = &types.TyApp{Fun: testOps.Con("F"), Arg: ty}
 	}
 
 	for b.Loop() {

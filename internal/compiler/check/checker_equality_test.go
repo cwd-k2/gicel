@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // --- Positive tests ---
@@ -21,9 +20,9 @@ main := f 42`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			pretty := types.Pretty(b.Type)
+			pretty := testOps.Pretty(b.Type)
 			if pretty != "Int" {
-				t.Errorf("expected main :: Int, got %s", types.Pretty(b.Type))
+				t.Errorf("expected main :: Int, got %s", testOps.Pretty(b.Type))
 			}
 		}
 	}

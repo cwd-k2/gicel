@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/infra/diagnostic"
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // --- Instance resolution tests ---
@@ -31,8 +30,8 @@ main := f True False`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.MkCon("Bool")) {
-				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
+			if !testOps.Equal(b.Type, testOps.Con("Bool")) {
+				t.Errorf("expected main :: Bool, got %s", testOps.Pretty(b.Type))
 			}
 			return
 		}
@@ -52,8 +51,8 @@ main := f (Just True) (Just False)`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.MkCon("Bool")) {
-				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
+			if !testOps.Equal(b.Type, testOps.Con("Bool")) {
+				t.Errorf("expected main :: Bool, got %s", testOps.Pretty(b.Type))
 			}
 			return
 		}
@@ -74,8 +73,8 @@ main := eq True False`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.MkCon("Bool")) {
-				t.Errorf("expected main :: Bool, got %s", types.Pretty(b.Type))
+			if !testOps.Equal(b.Type, testOps.Con("Bool")) {
+				t.Errorf("expected main :: Bool, got %s", testOps.Pretty(b.Type))
 			}
 			return
 		}
@@ -224,8 +223,8 @@ main := eq MkInt MkInt`
 	prog := checkSource(t, source, nil)
 	for _, b := range prog.Bindings {
 		if b.Name == "main" {
-			if !types.Equal(b.Type, types.MkCon("Int")) {
-				t.Errorf("expected main :: Int, got %s", types.Pretty(b.Type))
+			if !testOps.Equal(b.Type, testOps.Con("Int")) {
+				t.Errorf("expected main :: Int, got %s", testOps.Pretty(b.Type))
 			}
 			return
 		}

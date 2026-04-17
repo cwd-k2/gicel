@@ -55,19 +55,19 @@ func TestBuildAccumulatedGrade(t *testing.T) {
 	}
 	// 0 usages → Drop
 	result := ch.buildAccumulatedGrade(algebra, 0)
-	if !types.Equal(result, drop) {
-		t.Errorf("0 usages: expected Drop, got %s", types.Pretty(result))
+	if !testOps.Equal(result, drop) {
+		t.Errorf("0 usages: expected Drop, got %s", testOps.Pretty(result))
 	}
 	// 1 usage → Unit
 	result = ch.buildAccumulatedGrade(algebra, 1)
-	if !types.Equal(result, unit) {
-		t.Errorf("1 usage: expected Unit (Linear), got %s", types.Pretty(result))
+	if !testOps.Equal(result, unit) {
+		t.Errorf("1 usage: expected Unit (Linear), got %s", testOps.Pretty(result))
 	}
 	// No GradeUnit → nil
 	noUnit := resolvedGradeAlgebra{dropValue: drop, valid: true}
 	result = ch.buildAccumulatedGrade(noUnit, 1)
 	if result != nil {
-		t.Errorf("no GradeUnit: expected nil, got %s", types.Pretty(result))
+		t.Errorf("no GradeUnit: expected nil, got %s", testOps.Pretty(result))
 	}
 }
 

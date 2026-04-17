@@ -56,10 +56,11 @@ func TestInteractionContainsMetaTyFamilyAppNestedMeta(t *testing.T) {
 
 func TestInteractionContainsMetaTyThunk(t *testing.T) {
 	meta := &types.TyMeta{ID: 999, Kind: types.TypeOfTypes}
-	thunk := types.MkThunk(
+	thunk := testOps.Thunk(
 		types.ClosedRow(),
 		types.ClosedRow(),
 		meta,
+		nil,
 	)
 	if !typeHasMeta(thunk) {
 		t.Error("typeHasMeta should detect TyMeta inside TyCBPV (Thunk) Result")
@@ -68,10 +69,11 @@ func TestInteractionContainsMetaTyThunk(t *testing.T) {
 
 func TestInteractionContainsMetaTyThunkPre(t *testing.T) {
 	meta := &types.TyMeta{ID: 999, Kind: types.TypeOfRows}
-	thunk := types.MkThunk(
+	thunk := testOps.Thunk(
 		meta,
 		types.ClosedRow(),
 		&types.TyCon{Name: "Unit"},
+		nil,
 	)
 	if !typeHasMeta(thunk) {
 		t.Error("typeHasMeta should detect TyMeta inside TyCBPV (Thunk) Pre")

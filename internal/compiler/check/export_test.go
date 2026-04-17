@@ -30,9 +30,9 @@ func setupExportChecker() *Checker {
 		Constructors: []ConstructorInfo{{Name: "MkP", Arity: 0}, {Name: "_Hidden", Arity: 0}},
 	}
 	ch.reg.conTypes = map[string]types.Type{
-		"MkPublic": types.MkCon("Public"),
-		"MkP":      types.MkCon("_Private"),
-		"_Hidden":  types.MkCon("_Private"),
+		"MkPublic": testOps.Con("Public"),
+		"MkP":      testOps.Con("_Private"),
+		"_Hidden":  testOps.Con("_Private"),
 	}
 	ch.reg.conInfo = map[string]*DataTypeInfo{
 		"MkPublic": publicInfo,
@@ -40,15 +40,15 @@ func setupExportChecker() *Checker {
 		"_Hidden":  privateInfo,
 	}
 	ch.reg.aliases = map[string]*AliasInfo{
-		"PubAlias":  {Body: types.MkCon("Int")},
-		"_PriAlias": {Body: types.MkCon("Int")},
+		"PubAlias":  {Body: testOps.Con("Int")},
+		"_PriAlias": {Body: testOps.Con("Int")},
 	}
 	ch.reg.classes = map[string]*ClassInfo{
 		"PubClass":  {Name: "PubClass"},
 		"_PriClass": {Name: "_PriClass"},
 	}
 	ch.reg.instances = []*InstanceInfo{
-		{ClassName: "PubClass", TypeArgs: []types.Type{types.MkCon("Int")}, DictBindName: "PubClass$Int"},
+		{ClassName: "PubClass", TypeArgs: []types.Type{testOps.Con("Int")}, DictBindName: "PubClass$Int"},
 	}
 	ch.reg.promotedKinds = map[string]types.Type{
 		"Public":   types.TypeOfTypes, // promoted from form Public
@@ -68,8 +68,8 @@ func setupExportChecker() *Checker {
 func makeExportProgram() *ir.Program {
 	return &ir.Program{
 		Bindings: []ir.Binding{
-			{Name: "pubVal", Type: types.MkCon("Int")},
-			{Name: "_priVal", Type: types.MkCon("Int")},
+			{Name: "pubVal", Type: testOps.Con("Int")},
+			{Name: "_priVal", Type: testOps.Con("Int")},
 		},
 		DataDecls: []ir.DataDecl{
 			{Name: "Public", Cons: []ir.ConDecl{{Name: "MkPublic"}}},
@@ -158,7 +158,7 @@ func TestExport_PrivateInstancesExcluded(t *testing.T) {
 	ch := setupExportChecker()
 	ch.reg.RegisterInstance(&InstanceInfo{
 		ClassName:    "PubClass",
-		TypeArgs:     []types.Type{types.MkCon("Bool")},
+		TypeArgs:     []types.Type{testOps.Con("Bool")},
 		DictBindName: "PubClass$Bool",
 		IsPrivate:    true,
 	})
@@ -287,7 +287,7 @@ func TestExport_ConstructorsByTypeConsistent(t *testing.T) {
 // should be filtered as private.
 func TestExport_CompilerGeneratedFiltered(t *testing.T) {
 	ch := setupExportChecker()
-	ch.reg.RegisterAlias("$internal", &AliasInfo{Body: types.MkCon("Int")})
+	ch.reg.RegisterAlias("$internal", &AliasInfo{Body: testOps.Con("Int")})
 	ch.reg.RegisterClass("Eq$Dict", &ClassInfo{Name: "Eq$Dict"})
 
 	exports := ch.ExportModule(makeExportProgram())

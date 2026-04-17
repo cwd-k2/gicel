@@ -75,7 +75,7 @@ func newTestHarness(cfg *testEnvConfig) *testHarness {
 
 // Type constructors for concise test setup.
 
-func con(name string) *types.TyCon     { return types.MkCon(name) }
+func con(name string) *types.TyCon     { return testOps.Con(name) }
 func tyvar(name string) *types.TyVar   { return &types.TyVar{Name: name} }
 func app(f, a types.Type) *types.TyApp { return &types.TyApp{Fun: f, Arg: a} }
 
@@ -97,7 +97,7 @@ func TestMatchTyPattern_VarBinds(t *testing.T) {
 	if r != env.MatchSuccess {
 		t.Fatalf("expected MatchSuccess, got %v", r)
 	}
-	if got := subst["a"]; !types.Equal(got, con("Int")) {
+	if got := subst["a"]; !testOps.Equal(got, con("Int")) {
 		t.Fatalf("expected Int, got %v", got)
 	}
 }
@@ -176,7 +176,7 @@ func TestMatchTyPattern_AppMatch(t *testing.T) {
 	if r != env.MatchSuccess {
 		t.Fatalf("expected MatchSuccess, got %v", r)
 	}
-	if !types.Equal(subst["a"], con("Int")) {
+	if !testOps.Equal(subst["a"], con("Int")) {
 		t.Fatalf("expected a=Int, got %v", subst["a"])
 	}
 }
@@ -275,7 +275,7 @@ func TestMatchTyPatterns_AllMatch(t *testing.T) {
 	if r != env.MatchSuccess {
 		t.Fatalf("expected MatchSuccess, got %v", r)
 	}
-	if !types.Equal(subst["a"], con("Int")) {
+	if !testOps.Equal(subst["a"], con("Int")) {
 		t.Fatalf("expected a=Int, got %v", subst["a"])
 	}
 }
@@ -312,7 +312,7 @@ func TestReduceTyFamily_SimpleMatch(t *testing.T) {
 	if !ok {
 		t.Fatal("expected reduction to succeed")
 	}
-	if !types.Equal(result, con("Bool")) {
+	if !testOps.Equal(result, con("Bool")) {
 		t.Fatalf("expected Bool, got %v", result)
 	}
 }
@@ -336,7 +336,7 @@ func TestReduceTyFamily_WithSubstitution(t *testing.T) {
 	if !ok {
 		t.Fatal("expected reduction to succeed")
 	}
-	if !types.Equal(result, con("Int")) {
+	if !testOps.Equal(result, con("Int")) {
 		t.Fatalf("expected Int, got %v", result)
 	}
 }
@@ -414,7 +414,7 @@ func TestReduceTyFamily_FallThrough(t *testing.T) {
 	if !ok {
 		t.Fatal("expected second equation to match")
 	}
-	if !types.Equal(result, con("Int")) {
+	if !testOps.Equal(result, con("Int")) {
 		t.Fatalf("expected Int, got %v", result)
 	}
 }
@@ -510,7 +510,7 @@ func TestReduceFamilyApps_TyFamilyAppNode(t *testing.T) {
 
 	input := familyApp("F", con("Int"))
 	result := h.env.ReduceAll(input)
-	if !types.Equal(result, con("Bool")) {
+	if !testOps.Equal(result, con("Bool")) {
 		t.Fatalf("expected Bool, got %v", result)
 	}
 }
@@ -535,7 +535,7 @@ func TestReduceFamilyApps_NestedReduction(t *testing.T) {
 	inner := familyApp("F", con("Int"))
 	outer := familyApp("F", inner)
 	result := h.env.ReduceAll(outer)
-	if !types.Equal(result, con("String")) {
+	if !testOps.Equal(result, con("String")) {
 		t.Fatalf("expected String, got %v", result)
 	}
 }
@@ -558,7 +558,7 @@ func TestReduceFamilyApps_TyAppChainFamily(t *testing.T) {
 
 	input := app(con("F"), con("Int"))
 	result := h.env.ReduceAll(input)
-	if !types.Equal(result, con("Bool")) {
+	if !testOps.Equal(result, con("Bool")) {
 		t.Fatalf("expected Bool via TyApp chain, got %v", result)
 	}
 }
@@ -567,7 +567,7 @@ func TestReduceFamilyApps_NonFamilyPassThrough(t *testing.T) {
 	h := newTestHarness(nil)
 	input := app(con("List"), con("Int"))
 	result := h.env.ReduceAll(input)
-	if !types.Equal(result, input) {
+	if !testOps.Equal(result, input) {
 		t.Fatalf("non-family type should pass through unchanged")
 	}
 }
@@ -719,7 +719,7 @@ func TestReduceFamilyApps_StructuralRecursion(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyArrow, got %T", result)
 	}
-	if !types.Equal(arrow.From, con("Bool")) || !types.Equal(arrow.To, con("String")) {
+	if !testOps.Equal(arrow.From, con("Bool")) || !testOps.Equal(arrow.To, con("String")) {
 		t.Fatalf("expected Bool -> String, got %v -> %v", arrow.From, arrow.To)
 	}
 }

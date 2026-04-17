@@ -44,7 +44,7 @@ func TestTypeHelperConstructors(t *testing.T) {
 		t.Error("Forall() returned nil")
 	}
 	forallRow := testOps.Forall("r", types.TypeOfRows, testOps.Var("r"))
-	if !types.Equal(forallRow.Kind, types.TypeOfRows) {
+	if !testOps.Equal(forallRow.Kind, types.TypeOfRows) {
 		t.Errorf("Forall(Row) should quantify over Row kind")
 	}
 	forallKind := testOps.Forall("k", KindType(), testOps.Var("k"))
@@ -92,10 +92,10 @@ func TestRowBuilder(t *testing.T) {
 }
 
 func TestKindHelpers(t *testing.T) {
-	if !types.Equal(KindType(), types.TypeOfTypes) {
+	if !testOps.Equal(KindType(), types.TypeOfTypes) {
 		t.Error("KindType() != TypeOfTypes")
 	}
-	if !types.Equal(KindRow(), types.TypeOfRows) {
+	if !testOps.Equal(KindRow(), types.TypeOfRows) {
 		t.Error("KindRow() != TypeOfRows")
 	}
 	ka := testOps.Arrow(KindType(), KindType())

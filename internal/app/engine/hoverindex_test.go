@@ -182,17 +182,17 @@ func TestHoverIndex_FormatHover(t *testing.T) {
 	}{
 		{HoverExpr, "", tycon("Int", sp(0, 0)), "Int"},
 		{HoverBinding, "main", tycon("Int", sp(0, 0)), "main :: Int"},
-		{HoverForm, "Maybe", types.MkArrow(types.TypeOfTypes, types.TypeOfTypes), "form Maybe :: Type -> Type"},
-		{HoverConstructor, "Just", types.MkArrow(&types.TyVar{Name: "a"}, tycon("Maybe", sp(0, 0))), "Just :: a -> Maybe"},
+		{HoverForm, "Maybe", testOps.Arrow(types.TypeOfTypes, types.TypeOfTypes), "form Maybe :: Type -> Type"},
+		{HoverConstructor, "Just", testOps.Arrow(&types.TyVar{Name: "a"}, tycon("Maybe", sp(0, 0))), "Just :: a -> Maybe"},
 		{HoverImport, "Prelude", nil, "import Prelude"},
-		{HoverTypeAnn, "foo", types.MkArrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0))), "foo :: Int -> Int"},
+		{HoverTypeAnn, "foo", testOps.Arrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0))), "foo :: Int -> Int"},
 		{HoverTypeAlias, "MyType", types.TypeOfTypes, "type MyType :: Type"},
 		{HoverImpl, "", tycon("Eq Int", sp(0, 0)), "impl Eq Int"},
 	}
 	// HoverOperator tested separately (requires fixity field).
 	opEntry := &hoverEntry{
 		kind: HoverOperator, label: "+", module: "Prelude",
-		ty:     types.MkArrow(tycon("Int", sp(0, 0)), types.MkArrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0)))),
+		ty:     testOps.Arrow(tycon("Int", sp(0, 0)), testOps.Arrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0)))),
 		fixity: &OperatorFixity{Assoc: "infixl", Prec: 6},
 	}
 	opGot := formatHover(opEntry, &types.TypeOps{})

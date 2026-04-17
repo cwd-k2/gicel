@@ -65,8 +65,8 @@ func TestUnifyKindsMetaSolve(t *testing.T) {
 		t.Errorf("?k1 ~ Type should succeed: %v", err)
 	}
 	soln := u.Zonk(m)
-	if !types.Equal(soln, types.TypeOfTypes) {
-		t.Errorf("?k1 should be solved to Type, got %s", types.PrettyTypeAsKind(soln))
+	if !testOps.Equal(soln, types.TypeOfTypes) {
+		t.Errorf("?k1 should be solved to Type, got %s", testOps.PrettyTypeAsKind(soln))
 	}
 }
 
@@ -81,8 +81,8 @@ func TestUnifyKindsMetaSolveBoth(t *testing.T) {
 	if err := u.Unify(m2, types.TypeOfTypes); err != nil {
 		t.Fatalf("?k2 ~ Type should succeed: %v", err)
 	}
-	if !types.Equal(u.Zonk(m1), types.TypeOfTypes) {
-		t.Errorf("?k1 should resolve to Type via ?k2, got %s", types.PrettyTypeAsKind(u.Zonk(m1)))
+	if !testOps.Equal(u.Zonk(m1), types.TypeOfTypes) {
+		t.Errorf("?k1 should resolve to Type via ?k2, got %s", testOps.PrettyTypeAsKind(u.Zonk(m1)))
 	}
 }
 
@@ -94,8 +94,8 @@ func TestUnifyKindsMetaInArrow(t *testing.T) {
 	if err := u.Unify(k1, k2); err != nil {
 		t.Errorf("(?k1 -> Type) ~ (Row -> Type) should succeed: %v", err)
 	}
-	if !types.Equal(u.Zonk(m), types.TypeOfRows) {
-		t.Errorf("?k1 should be Row, got %s", types.PrettyTypeAsKind(u.Zonk(m)))
+	if !testOps.Equal(u.Zonk(m), types.TypeOfRows) {
+		t.Errorf("?k1 should be Row, got %s", testOps.PrettyTypeAsKind(u.Zonk(m)))
 	}
 }
 
@@ -143,7 +143,7 @@ func TestZonkKindUnsolved(t *testing.T) {
 	u := NewUnifier(&types.TypeOps{})
 	m := kindMeta(1)
 	result := u.Zonk(m)
-	if !types.Equal(result, m) {
+	if !testOps.Equal(result, m) {
 		t.Error("unsolved meta should return itself")
 	}
 }
@@ -159,8 +159,8 @@ func TestZonkKindArrow(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TyArrow, got %T", result)
 	}
-	if !types.Equal(arrow.From, types.TypeOfRows) {
-		t.Errorf("expected Row, got %s", types.PrettyTypeAsKind(arrow.From))
+	if !testOps.Equal(arrow.From, types.TypeOfRows) {
+		t.Errorf("expected Row, got %s", testOps.PrettyTypeAsKind(arrow.From))
 	}
 }
 
@@ -173,7 +173,7 @@ func TestZonkKindChain(t *testing.T) {
 	u.InstallTempSolution(1, m2)
 	u.InstallTempSolution(2, types.TypeOfTypes)
 	result := u.Zonk(m1)
-	if !types.Equal(result, types.TypeOfTypes) {
-		t.Errorf("chain resolution should give Type, got %s", types.PrettyTypeAsKind(result))
+	if !testOps.Equal(result, types.TypeOfTypes) {
+		t.Errorf("chain resolution should give Type, got %s", testOps.PrettyTypeAsKind(result))
 	}
 }

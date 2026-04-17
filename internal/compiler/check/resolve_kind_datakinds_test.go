@@ -15,10 +15,10 @@ func TestKDataEquality(t *testing.T) {
 	k1 := types.PromotedDataKind("Bool")
 	k2 := types.PromotedDataKind("Bool")
 	k3 := types.PromotedDataKind("DBState")
-	if !types.Equal(k1, k2) {
+	if !testOps.Equal(k1, k2) {
 		t.Error("PromotedDataKind(Bool) should equal PromotedDataKind(Bool)")
 	}
-	if types.Equal(k1, k3) {
+	if testOps.Equal(k1, k3) {
 		t.Error("PromotedDataKind(Bool) should not equal PromotedDataKind(DBState)")
 	}
 	if k1.Name != "Bool" {
@@ -31,7 +31,7 @@ func TestKDataArity(t *testing.T) {
 	if types.Arity(k) != 0 {
 		t.Errorf("PromotedDataKind arity should be 0, got %d", types.Arity(k))
 	}
-	if !types.Equal(types.ResultKind(k), k) {
+	if !testOps.Equal(types.ResultKind(k), k) {
 		t.Error("PromotedDataKind ResultKind should be itself")
 	}
 }

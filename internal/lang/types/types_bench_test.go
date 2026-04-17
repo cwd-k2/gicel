@@ -8,16 +8,16 @@ import (
 
 // buildDeepArrowType builds Int -> (Int -> (... -> Int)) with n arrows.
 func buildDeepArrowType(n int) Type {
-	t := Type(MkCon("Int"))
+	t := Type(testOps.Con("Int"))
 	for range n {
-		t = &TyArrow{From: MkCon("Int"), To: t}
+		t = &TyArrow{From: testOps.Con("Int"), To: t}
 	}
 	return t
 }
 
 // buildDeepAppType builds ((..((F a0) a1) ..) aN) with n applications.
 func buildDeepAppType(n int) Type {
-	t := Type(MkCon("F"))
+	t := Type(testOps.Con("F"))
 	for range n {
 		t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 	}
@@ -30,7 +30,7 @@ func BenchmarkEqualDeepArrow(b *testing.B) {
 		ty := buildDeepArrowType(depth)
 		b.Run(benchSize(depth), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				Equal(ty, ty)
+				testOps.Equal(ty, ty)
 			}
 		})
 	}
@@ -42,7 +42,7 @@ func BenchmarkEqualDeepApp(b *testing.B) {
 		ty := buildDeepAppType(depth)
 		b.Run(benchSize(depth), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				Equal(ty, ty)
+				testOps.Equal(ty, ty)
 			}
 		})
 	}
@@ -54,7 +54,7 @@ func BenchmarkTypeKey(b *testing.B) {
 		ty := buildDeepArrowType(depth)
 		b.Run(benchSize(depth), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				TypeKey(ty)
+				testOps.TypeKey(ty)
 			}
 		})
 	}
@@ -64,7 +64,7 @@ func BenchmarkTypeKey(b *testing.B) {
 func BenchmarkFreeVars(b *testing.B) {
 	// Build a type with many free variables: F a0 a1 ... aN
 	buildFreeVarType := func(n int) Type {
-		t := Type(MkCon("F"))
+		t := Type(testOps.Con("F"))
 		for range n {
 			t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 		}
@@ -74,7 +74,7 @@ func BenchmarkFreeVars(b *testing.B) {
 		ty := buildFreeVarType(n)
 		b.Run(benchSize(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				FreeVars(ty)
+				testOps.FreeVars(ty)
 			}
 		})
 	}
@@ -84,18 +84,18 @@ func BenchmarkFreeVars(b *testing.B) {
 func BenchmarkSubstMany(b *testing.B) {
 	// Build forall a. F a a a ... (body has n occurrences of a)
 	buildBody := func(n int) Type {
-		t := Type(MkCon("F"))
+		t := Type(testOps.Con("F"))
 		for range n {
 			t = &TyApp{Fun: t, Arg: &TyVar{Name: "a"}}
 		}
 		return t
 	}
-	subst := map[string]Type{"a": MkCon("Int")}
+	subst := map[string]Type{"a": testOps.Con("Int")}
 	for _, n := range []int{10, 50, 200} {
 		ty := buildBody(n)
 		b.Run(benchSize(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				SubstMany(ty, subst, nil)
+				testOps.SubstMany(ty, subst, nil)
 			}
 		})
 	}
@@ -107,10 +107,10 @@ func BenchmarkSubstCapture(b *testing.B) {
 	body := &TyForall{
 		Var:  "a",
 		Kind: TypeOfTypes,
-		Body: &TyApp{Fun: &TyApp{Fun: MkCon("F"), Arg: &TyVar{Name: "x"}}, Arg: &TyVar{Name: "a"}},
+		Body: &TyApp{Fun: &TyApp{Fun: testOps.Con("F"), Arg: &TyVar{Name: "x"}}, Arg: &TyVar{Name: "a"}},
 	}
 	for b.Loop() {
-		Subst(body, "x", &TyVar{Name: "a"})
+		testOps.Subst(body, "x", &TyVar{Name: "a"})
 	}
 }
 

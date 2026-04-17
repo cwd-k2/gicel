@@ -59,7 +59,7 @@ func TestCumulativityMetaSolvesToGroundKindViaSort(t *testing.T) {
 		t.Fatalf("kind meta should solve to Type: %v", err)
 	}
 	solved := u.Zonk(meta)
-	if !types.Equal(solved, types.TypeOfTypes) {
-		t.Fatalf("expected Type, got %v", types.PrettyTypeAsKind(solved))
+	if !testOps.Equal(solved, types.TypeOfTypes) {
+		t.Fatalf("expected Type, got %v", testOps.PrettyTypeAsKind(solved))
 	}
 }

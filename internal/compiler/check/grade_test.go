@@ -255,7 +255,7 @@ func TestGradeAnnotationPretty(t *testing.T) {
 		Type:   &types.TyCon{Name: "FileHandle"},
 		Grades: []types.Type{&types.TyCon{Name: "Linear"}},
 	})
-	s := types.Pretty(row)
+	s := testOps.Pretty(row)
 	expected := "{ handle: FileHandle @ Linear }"
 	if s != expected {
 		t.Errorf("expected %q, got %q", expected, s)
@@ -325,8 +325,8 @@ func TestResolveGradeAlgebra_NoClass(t *testing.T) {
 func TestGradeAlgebraKind_FallbackToKType(t *testing.T) {
 	ch := newTestChecker()
 	k := gradeAlgebraKind(ch)
-	if !types.Equal(k, types.TypeOfTypes) {
-		t.Errorf("expected TypeOfTypes fallback, got %s", types.PrettyTypeAsKind(k))
+	if !testOps.Equal(k, types.TypeOfTypes) {
+		t.Errorf("expected TypeOfTypes fallback, got %s", testOps.PrettyTypeAsKind(k))
 	}
 }
 

@@ -57,8 +57,8 @@ func TestStressKindUnificationLargeArrow(t *testing.T) {
 	}
 	for i, m := range metas {
 		solved := u.Zonk(m)
-		if !types.Equal(solved, types.TypeOfTypes) {
-			t.Errorf("meta %d should be Type, got %s", i, types.PrettyTypeAsKind(solved))
+		if !testOps.Equal(solved, types.TypeOfTypes) {
+			t.Errorf("meta %d should be Type, got %s", i, testOps.PrettyTypeAsKind(solved))
 		}
 	}
 }
@@ -84,8 +84,8 @@ func TestStressKindMetaChain(t *testing.T) {
 	// All should resolve to Row
 	for i, m := range metas {
 		solved := u.Zonk(m)
-		if !types.Equal(solved, types.TypeOfRows) {
-			t.Errorf("meta %d should be Row, got %s", i, types.PrettyTypeAsKind(solved))
+		if !testOps.Equal(solved, types.TypeOfRows) {
+			t.Errorf("meta %d should be Row, got %s", i, testOps.PrettyTypeAsKind(solved))
 		}
 	}
 }
@@ -93,7 +93,7 @@ func TestStressKindMetaChain(t *testing.T) {
 // TestStressSubstKindLarge — Subst with many nested kind-polymorphic foralls
 func TestStressSubstKindLarge(t *testing.T) {
 	// Build \ (f0: k -> Type). \ (f1: k -> Type). ... \ (f19: k -> Type). Int
-	var ty types.Type = types.MkCon("Int")
+	var ty types.Type = testOps.Con("Int")
 	for i := 19; i >= 0; i-- {
 		name := fmt.Sprintf("f%d", i)
 		ty = &types.TyForall{
@@ -102,7 +102,7 @@ func TestStressSubstKindLarge(t *testing.T) {
 			Body: ty,
 		}
 	}
-	result := types.Subst(ty, "k", types.TypeOfRows)
+	result := testOps.Subst(ty, "k", types.TypeOfRows)
 	// Verify all foralls have kind Row -> Type
 	current := result
 	for i := range 20 {
@@ -114,8 +114,8 @@ func TestStressSubstKindLarge(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected TyArrow at depth %d, got %T", i, f.Kind)
 		}
-		if !types.Equal(arrow.From, types.TypeOfRows) {
-			t.Errorf("depth %d: expected From=Row, got %s", i, types.PrettyTypeAsKind(arrow.From))
+		if !testOps.Equal(arrow.From, types.TypeOfRows) {
+			t.Errorf("depth %d: expected From=Row, got %s", i, testOps.PrettyTypeAsKind(arrow.From))
 		}
 		current = f.Body
 	}

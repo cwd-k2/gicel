@@ -13,9 +13,9 @@ import (
 func TestCtxEvidenceIsCtxEntry(t *testing.T) {
 	e := &CtxEvidence{
 		ClassName: "Eq",
-		Args:      []types.Type{types.MkCon("Int")},
+		Args:      []types.Type{testOps.Con("Int")},
 		DictName:  "$d_Eq_1",
-		DictType:  types.MkCon("Eq$Dict"),
+		DictType:  testOps.Con("Eq$Dict"),
 	}
 	// Must satisfy CtxEntry interface.
 	var _ CtxEntry = e
@@ -25,15 +25,15 @@ func TestContextLookupEvidence(t *testing.T) {
 	ctx := NewContext()
 	ctx.Push(&CtxEvidence{
 		ClassName: "Eq",
-		Args:      []types.Type{types.MkCon("Int")},
+		Args:      []types.Type{testOps.Con("Int")},
 		DictName:  "$d_Eq_1",
-		DictType:  &types.TyApp{Fun: types.MkCon("Eq$Dict"), Arg: types.MkCon("Int")},
+		DictType:  &types.TyApp{Fun: testOps.Con("Eq$Dict"), Arg: testOps.Con("Int")},
 	})
 	ctx.Push(&CtxEvidence{
 		ClassName: "Ord",
-		Args:      []types.Type{types.MkCon("Int")},
+		Args:      []types.Type{testOps.Con("Int")},
 		DictName:  "$d_Ord_2",
-		DictType:  &types.TyApp{Fun: types.MkCon("Ord$Dict"), Arg: types.MkCon("Int")},
+		DictType:  &types.TyApp{Fun: testOps.Con("Ord$Dict"), Arg: testOps.Con("Int")},
 	})
 
 	// LookupEvidence should find Eq.
@@ -62,9 +62,9 @@ func TestContextEvidencePopRestoresScope(t *testing.T) {
 	ctx := NewContext()
 	ctx.Push(&CtxEvidence{
 		ClassName: "Eq",
-		Args:      []types.Type{types.MkCon("Int")},
+		Args:      []types.Type{testOps.Con("Int")},
 		DictName:  "$d_Eq_1",
-		DictType:  types.MkCon("Eq$Dict"),
+		DictType:  testOps.Con("Eq$Dict"),
 	})
 	ctx.Pop()
 	evs := ctx.LookupEvidence("Eq")

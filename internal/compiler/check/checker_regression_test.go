@@ -27,7 +27,7 @@ func TestRegressionFreeVarsGradeTraversal(t *testing.T) {
 		Type:   &types.TyCon{Name: "FileHandle"},
 		Grades: []types.Type{&types.TyVar{Name: "m"}},
 	})
-	fv := types.FreeVars(row)
+	fv := testOps.FreeVars(row)
 	if _, ok := fv["m"]; !ok {
 		t.Errorf("expected 'm' in FreeVars, got %v", fv)
 	}
@@ -48,7 +48,7 @@ func TestRegressionFreeVarsGradeTraversalMultiField(t *testing.T) {
 			Grades: []types.Type{&types.TyVar{Name: "m2"}},
 		},
 	)
-	fv := types.FreeVars(row)
+	fv := testOps.FreeVars(row)
 	for _, v := range []string{"a", "b", "m1", "m2"} {
 		if _, ok := fv[v]; !ok {
 			t.Errorf("expected %q in FreeVars, got %v", v, fv)
@@ -66,7 +66,7 @@ func TestRegressionFreeVarsNoGrades(t *testing.T) {
 		Label: "handle",
 		Type:  &types.TyCon{Name: "FileHandle"},
 	})
-	fv := types.FreeVars(row)
+	fv := testOps.FreeVars(row)
 	if len(fv) != 0 {
 		t.Errorf("expected 0 free vars for nil Grades, got %v", fv)
 	}
@@ -351,18 +351,18 @@ func TestRegressionSubstManyEquivalence(t *testing.T) {
 	boolTy := &types.TyCon{Name: "Bool"}
 
 	// Sequential Subst.
-	seqResult := types.Subst(ty, "a", intTy)
-	seqResult = types.Subst(seqResult, "b", boolTy)
+	seqResult := testOps.Subst(ty, "a", intTy)
+	seqResult = testOps.Subst(seqResult, "b", boolTy)
 
 	// SubstMany.
-	manyResult := types.SubstMany(ty, map[string]types.Type{
+	manyResult := testOps.SubstMany(ty, map[string]types.Type{
 		"a": intTy,
 		"b": boolTy,
 	}, nil)
 
-	if !types.Equal(seqResult, manyResult) {
+	if !testOps.Equal(seqResult, manyResult) {
 		t.Errorf("SubstMany != sequential Subst:\n  seq:  %s\n  many: %s",
-			types.Pretty(seqResult), types.Pretty(manyResult))
+			testOps.Pretty(seqResult), testOps.Pretty(manyResult))
 	}
 }
 
@@ -382,7 +382,7 @@ func TestRegressionSubstManyWithShadowing(t *testing.T) {
 	// Sequential: first a=b gives b -> b, then b=Int gives Int -> Int.
 	// A truly simultaneous subst would give b -> Int.
 	// SubstMany uses sequential, so it should give Int -> Int.
-	result := types.SubstMany(ty, map[string]types.Type{
+	result := testOps.SubstMany(ty, map[string]types.Type{
 		"a": &types.TyVar{Name: "b"},
 		"b": &types.TyCon{Name: "Int"},
 	}, nil)
@@ -393,7 +393,7 @@ func TestRegressionSubstManyWithShadowing(t *testing.T) {
 	// This test documents that SubstMany is order-dependent.
 	// For type family reduction, pattern variables bind to concrete types
 	// that do not contain other pattern variables, so this is not an issue.
-	pretty := types.Pretty(result)
+	pretty := testOps.Pretty(result)
 	t.Logf("SubstMany(a -> b, {a=b, b=Int}) = %s (order-dependent)", pretty)
 
 	// Verify that it at least does not panic and produces a valid type.
@@ -425,21 +425,21 @@ func TestRegressionSubstManyIndependentVars(t *testing.T) {
 	boolTy := &types.TyCon{Name: "Bool"}
 
 	// Sequential in both orders should be the same.
-	seq1 := types.Subst(types.Subst(ty, "a", unitTy), "b", boolTy)
-	seq2 := types.Subst(types.Subst(ty, "b", boolTy), "a", unitTy)
+	seq1 := testOps.Subst(testOps.Subst(ty, "a", unitTy), "b", boolTy)
+	seq2 := testOps.Subst(testOps.Subst(ty, "b", boolTy), "a", unitTy)
 
-	if !types.Equal(seq1, seq2) {
+	if !testOps.Equal(seq1, seq2) {
 		t.Errorf("sequential Subst order matters for independent vars:\n  a-first: %s\n  b-first: %s",
-			types.Pretty(seq1), types.Pretty(seq2))
+			testOps.Pretty(seq1), testOps.Pretty(seq2))
 	}
 
 	// SubstMany should equal both.
-	many := types.SubstMany(ty, map[string]types.Type{
+	many := testOps.SubstMany(ty, map[string]types.Type{
 		"a": unitTy,
 		"b": boolTy,
 	}, nil)
-	if !types.Equal(seq1, many) {
+	if !testOps.Equal(seq1, many) {
 		t.Errorf("SubstMany differs from sequential Subst:\n  seq: %s\n  many: %s",
-			types.Pretty(seq1), types.Pretty(many))
+			testOps.Pretty(seq1), testOps.Pretty(many))
 	}
 }

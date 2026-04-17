@@ -12,10 +12,10 @@ import (
 
 func TestUnifySimple(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	if err := u.Unify(types.MkCon("Int"), types.MkCon("Int")); err != nil {
+	if err := u.Unify(testOps.Con("Int"), testOps.Con("Int")); err != nil {
 		t.Errorf("Int ~ Int should succeed: %v", err)
 	}
-	if err := u.Unify(types.MkCon("Int"), types.MkCon("Bool")); err == nil {
+	if err := u.Unify(testOps.Con("Int"), testOps.Con("Bool")); err == nil {
 		t.Error("Int ~ Bool should fail")
 	}
 }
@@ -23,7 +23,7 @@ func TestUnifySimple(t *testing.T) {
 func TestUnifyMeta(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	if err := u.Unify(m, types.MkCon("Int")); err != nil {
+	if err := u.Unify(m, testOps.Con("Int")); err != nil {
 		t.Errorf("?1 ~ Int should succeed: %v", err)
 	}
 	soln := u.Solve(1)
@@ -38,12 +38,12 @@ func TestUnifyMeta(t *testing.T) {
 func TestUnifyArrow(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	a := types.MkArrow(types.MkCon("Int"), m)
-	b := types.MkArrow(types.MkCon("Int"), types.MkCon("Bool"))
+	a := testOps.Arrow(testOps.Con("Int"), m)
+	b := testOps.Arrow(testOps.Con("Int"), testOps.Con("Bool"))
 	if err := u.Unify(a, b); err != nil {
 		t.Errorf("should unify: %v", err)
 	}
-	if !types.Equal(u.Zonk(m), types.MkCon("Bool")) {
+	if !testOps.Equal(u.Zonk(m), testOps.Con("Bool")) {
 		t.Error("?1 should be Bool")
 	}
 }
@@ -51,15 +51,15 @@ func TestUnifyArrow(t *testing.T) {
 func TestUnifyOccursCheck(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
-	if err := u.Unify(m, types.MkArrow(m, types.MkCon("Int"))); err == nil {
+	if err := u.Unify(m, testOps.Arrow(m, testOps.Con("Int"))); err == nil {
 		t.Error("should fail: infinite type")
 	}
 }
 
 func TestUnifyRow(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	r1 := types.ClosedRow(types.RowField{Label: "a", Type: types.MkCon("Int")})
-	r2 := types.ClosedRow(types.RowField{Label: "a", Type: types.MkCon("Int")})
+	r1 := types.ClosedRow(types.RowField{Label: "a", Type: testOps.Con("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "a", Type: testOps.Con("Int")})
 	if err := u.Unify(r1, r2); err != nil {
 		t.Errorf("identical rows should unify: %v", err)
 	}
@@ -80,13 +80,13 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	m2 := &types.TyMeta{ID: 101, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
-		{Label: "a", Type: types.MkCon("Int")},
-		{Label: "b", Type: types.MkCon("Bool")},
+		{Label: "a", Type: testOps.Con("Int")},
+		{Label: "b", Type: testOps.Con("Bool")},
 	}, m1)
 
 	r2 := types.OpenRow([]types.RowField{
-		{Label: "a", Type: types.MkCon("Int")},
-		{Label: "c", Type: types.MkCon("Str")},
+		{Label: "a", Type: testOps.Con("Int")},
+		{Label: "c", Type: testOps.Con("Str")},
 	}, m2)
 
 	if err := u.Unify(r1, r2); err != nil {
@@ -97,14 +97,14 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	soln1 := u.Zonk(m1)
 	row1, ok := soln1.(*types.TyEvidenceRow)
 	if !ok {
-		t.Fatalf("?1 should be solved to a row, got %T: %s", soln1, types.Pretty(soln1))
+		t.Fatalf("?1 should be solved to a row, got %T: %s", soln1, testOps.Pretty(soln1))
 	}
 	cap1 := row1.Entries.(*types.CapabilityEntries)
 	if len(cap1.Fields) != 1 || cap1.Fields[0].Label != "c" {
-		t.Errorf("?1 should have field 'c', got %s", types.Pretty(row1))
+		t.Errorf("?1 should have field 'c', got %s", testOps.Pretty(row1))
 	}
-	if !types.Equal(cap1.Fields[0].Type, types.MkCon("Str")) {
-		t.Errorf("?1.c should be Str, got %s", types.Pretty(cap1.Fields[0].Type))
+	if !testOps.Equal(cap1.Fields[0].Type, testOps.Con("Str")) {
+		t.Errorf("?1.c should be Str, got %s", testOps.Pretty(cap1.Fields[0].Type))
 	}
 	if row1.IsClosed() {
 		t.Error("?1 should have an open tail (the fresh meta)")
@@ -114,14 +114,14 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 	soln2 := u.Zonk(m2)
 	row2, ok := soln2.(*types.TyEvidenceRow)
 	if !ok {
-		t.Fatalf("?2 should be solved to a row, got %T: %s", soln2, types.Pretty(soln2))
+		t.Fatalf("?2 should be solved to a row, got %T: %s", soln2, testOps.Pretty(soln2))
 	}
 	cap2 := row2.Entries.(*types.CapabilityEntries)
 	if len(cap2.Fields) != 1 || cap2.Fields[0].Label != "b" {
-		t.Errorf("?2 should have field 'b', got %s", types.Pretty(row2))
+		t.Errorf("?2 should have field 'b', got %s", testOps.Pretty(row2))
 	}
-	if !types.Equal(cap2.Fields[0].Type, types.MkCon("Bool")) {
-		t.Errorf("?2.b should be Bool, got %s", types.Pretty(cap2.Fields[0].Type))
+	if !testOps.Equal(cap2.Fields[0].Type, testOps.Con("Bool")) {
+		t.Errorf("?2.b should be Bool, got %s", testOps.Pretty(cap2.Fields[0].Type))
 	}
 	if row2.IsClosed() {
 		t.Error("?2 should have an open tail (the fresh meta)")
@@ -147,11 +147,11 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 	m2 := &types.TyMeta{ID: 201, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
-		{Label: "x", Type: types.MkCon("Int")},
+		{Label: "x", Type: testOps.Con("Int")},
 	}, m1)
 
 	r2 := types.OpenRow([]types.RowField{
-		{Label: "x", Type: types.MkCon("Int")},
+		{Label: "x", Type: testOps.Con("Int")},
 	}, m2)
 
 	if err := u.Unify(r1, r2); err != nil {
@@ -169,11 +169,11 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 	if ok1 && ok2 {
 		ce1 := row1.Entries.(*types.CapabilityEntries)
 		if len(ce1.Fields) != 0 {
-			t.Errorf("?200 should have no extra fields, got %s", types.Pretty(row1))
+			t.Errorf("?200 should have no extra fields, got %s", testOps.Pretty(row1))
 		}
 		ce2 := row2.Entries.(*types.CapabilityEntries)
 		if len(ce2.Fields) != 0 {
-			t.Errorf("?201 should have no extra fields, got %s", types.Pretty(row2))
+			t.Errorf("?201 should have no extra fields, got %s", testOps.Pretty(row2))
 		}
 	}
 }
@@ -186,11 +186,11 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	m2 := &types.TyMeta{ID: 301, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
-		{Label: "a", Type: types.MkCon("Int")},
+		{Label: "a", Type: testOps.Con("Int")},
 	}, m1)
 
 	r2 := types.OpenRow([]types.RowField{
-		{Label: "b", Type: types.MkCon("Bool")},
+		{Label: "b", Type: testOps.Con("Bool")},
 	}, m2)
 
 	if err := u.Unify(r1, r2); err != nil {
@@ -201,22 +201,22 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	soln1 := u.Zonk(m1)
 	row1, ok := soln1.(*types.TyEvidenceRow)
 	if !ok {
-		t.Fatalf("?300 should be solved to a row, got %s", types.Pretty(soln1))
+		t.Fatalf("?300 should be solved to a row, got %s", testOps.Pretty(soln1))
 	}
 	cap1 := row1.Entries.(*types.CapabilityEntries)
 	if len(cap1.Fields) != 1 || cap1.Fields[0].Label != "b" {
-		t.Errorf("?300 should have field 'b', got %s", types.Pretty(row1))
+		t.Errorf("?300 should have field 'b', got %s", testOps.Pretty(row1))
 	}
 
 	// ?2 = { a: Int | ?fresh }
 	soln2 := u.Zonk(m2)
 	row2, ok := soln2.(*types.TyEvidenceRow)
 	if !ok {
-		t.Fatalf("?301 should be solved to a row, got %s", types.Pretty(soln2))
+		t.Fatalf("?301 should be solved to a row, got %s", testOps.Pretty(soln2))
 	}
 	cap2 := row2.Entries.(*types.CapabilityEntries)
 	if len(cap2.Fields) != 1 || cap2.Fields[0].Label != "a" {
-		t.Errorf("?301 should have field 'a', got %s", types.Pretty(row2))
+		t.Errorf("?301 should have field 'a', got %s", testOps.Pretty(row2))
 	}
 }
 
@@ -224,9 +224,9 @@ func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 	// Computation pre post result as TyApp chain: ((Computation pre) post) result
 	// normalizeCompApp must preserve: Pre=pre, Post=post, Result=result.
 	u := unify.NewUnifier(&types.TypeOps{})
-	pre := types.MkCon("Pre")
-	post := types.MkCon("Post")
-	result := types.MkCon("Result")
+	pre := testOps.Con("Pre")
+	post := testOps.Con("Post")
+	result := testOps.Con("Result")
 
 	// Build TyApp(TyApp(TyApp(TyCon("Computation"), pre), post), result)
 	appChain := &types.TyApp{
@@ -241,13 +241,13 @@ func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 	}
 
 	// Unify with a TyCBPV — the normalize path converts the TyApp chain.
-	comp := types.MkComp(pre, post, result)
+	comp := testOps.Comp(pre, post, result, nil)
 	if err := u.Unify(appChain, comp); err != nil {
 		t.Fatalf("should unify: %v", err)
 	}
 
 	// Now test with distinct pre/post — swapping should fail.
-	comp2 := types.MkComp(post, pre, result)
+	comp2 := testOps.Comp(post, pre, result, nil)
 	if err := u.Unify(appChain, comp2); err == nil {
 		t.Fatal("should fail when pre and post are swapped")
 	}
@@ -255,9 +255,9 @@ func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 
 func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
-	pre := types.MkCon("Pre")
-	post := types.MkCon("Post")
-	result := types.MkCon("Result")
+	pre := testOps.Con("Pre")
+	post := testOps.Con("Post")
+	result := testOps.Con("Result")
 
 	appChain := &types.TyApp{
 		Fun: &types.TyApp{
@@ -270,12 +270,12 @@ func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
 		Arg: result,
 	}
 
-	thunk := types.MkThunk(pre, post, result)
+	thunk := testOps.Thunk(pre, post, result, nil)
 	if err := u.Unify(appChain, thunk); err != nil {
 		t.Fatalf("should unify: %v", err)
 	}
 
-	thunk2 := types.MkThunk(post, pre, result)
+	thunk2 := testOps.Thunk(post, pre, result, nil)
 	if err := u.Unify(appChain, thunk2); err == nil {
 		t.Fatal("should fail when pre and post are swapped")
 	}
@@ -307,11 +307,11 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 	m := &types.TyMeta{ID: 400, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
-		{Label: "x", Type: types.MkCon("Int")},
-		{Label: "y", Type: types.MkCon("Bool")},
+		{Label: "x", Type: testOps.Con("Int")},
+		{Label: "y", Type: testOps.Con("Bool")},
 	}, m)
 
-	r2 := types.ClosedRow(types.RowField{Label: "x", Type: types.MkCon("Int")})
+	r2 := types.ClosedRow(types.RowField{Label: "x", Type: testOps.Con("Int")})
 
 	if err := u.Unify(r1, r2); err == nil {
 		t.Fatal("open row with extra labels should not unify with closed row missing those labels")
@@ -324,11 +324,11 @@ func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	m := &types.TyMeta{ID: 500, Kind: types.TypeOfRows}
 
-	r1 := types.ClosedRow(types.RowField{Label: "x", Type: types.MkCon("Int")})
+	r1 := types.ClosedRow(types.RowField{Label: "x", Type: testOps.Con("Int")})
 
 	r2 := types.OpenRow([]types.RowField{
-		{Label: "x", Type: types.MkCon("Int")},
-		{Label: "y", Type: types.MkCon("Bool")},
+		{Label: "x", Type: testOps.Con("Int")},
+		{Label: "y", Type: testOps.Con("Bool")},
 	}, m)
 
 	if err := u.Unify(r1, r2); err == nil {
@@ -343,12 +343,12 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	m := &types.TyMeta{ID: 600, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
-		{Label: "x", Type: types.MkCon("Int")},
+		{Label: "x", Type: testOps.Con("Int")},
 	}, m)
 
 	r2 := types.ClosedRow(
-		types.RowField{Label: "x", Type: types.MkCon("Int")},
-		types.RowField{Label: "y", Type: types.MkCon("Bool")},
+		types.RowField{Label: "x", Type: testOps.Con("Int")},
+		types.RowField{Label: "y", Type: testOps.Con("Bool")},
 	)
 
 	if err := u.Unify(r1, r2); err != nil {
@@ -357,11 +357,11 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	soln := u.Zonk(m)
 	row, ok := soln.(*types.TyEvidenceRow)
 	if !ok {
-		t.Fatalf("tail should be solved to a row, got %s", types.Pretty(soln))
+		t.Fatalf("tail should be solved to a row, got %s", testOps.Pretty(soln))
 	}
 	cap := row.Entries.(*types.CapabilityEntries)
 	if len(cap.Fields) != 1 || cap.Fields[0].Label != "y" {
-		t.Errorf("tail should have field 'y', got %s", types.Pretty(row))
+		t.Errorf("tail should have field 'y', got %s", testOps.Pretty(row))
 	}
 }
 
@@ -373,7 +373,7 @@ func TestZonkPathCompression(t *testing.T) {
 	if err := u.Unify(m1, m2); err != nil {
 		t.Fatal(err)
 	}
-	if err := u.Unify(m2, types.MkCon("Int")); err != nil {
+	if err := u.Unify(m2, testOps.Con("Int")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -424,7 +424,7 @@ func TestZonkTempSolutionNoCompression(t *testing.T) {
 func TestZonkNoAllocUnchanged(t *testing.T) {
 	u := unify.NewUnifier(&types.TypeOps{})
 	// A type with no metavariables should return the exact same pointer.
-	ty := types.MkArrow(types.MkCon("Int"), types.MkCon("Bool"))
+	ty := testOps.Arrow(testOps.Con("Int"), testOps.Con("Bool"))
 	result := u.Zonk(ty)
 	if result != ty {
 		t.Errorf("Zonk of meta-free type should return same pointer")

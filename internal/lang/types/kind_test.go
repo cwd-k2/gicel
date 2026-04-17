@@ -20,7 +20,7 @@ func TestResultKindOnType(t *testing.T) {
 	// Type -> Row -> Constraint → result = Constraint
 	k := &TyArrow{From: TypeOfTypes, To: &TyArrow{From: TypeOfRows, To: TypeOfConstraints}}
 	rk := ResultKind(k)
-	if !Equal(rk, TypeOfConstraints) {
-		t.Errorf("expected Constraint, got %s", PrettyTypeAsKind(rk))
+	if !testOps.Equal(rk, TypeOfConstraints) {
+		t.Errorf("expected Constraint, got %s", testOps.PrettyTypeAsKind(rk))
 	}
 }

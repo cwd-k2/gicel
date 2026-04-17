@@ -21,10 +21,10 @@ func TestKindOfTypeClass(t *testing.T) {
 		TyParams:     []string{"a"},
 		TyParamKinds: []types.Type{types.TypeOfTypes},
 	})
-	kind := ch.kindOfType(types.MkCon("Eq"))
+	kind := ch.kindOfType(testOps.Con("Eq"))
 	expected := &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfConstraints}
-	if !types.Equal(kind, expected) {
-		t.Errorf("expected %s, got %s", types.PrettyTypeAsKind(expected), types.PrettyTypeAsKind(kind))
+	if !testOps.Equal(kind, expected) {
+		t.Errorf("expected %s, got %s", testOps.PrettyTypeAsKind(expected), testOps.PrettyTypeAsKind(kind))
 	}
 }
 
@@ -37,10 +37,10 @@ func TestKindOfTypeClassHKT(t *testing.T) {
 		TyParams:     []string{"f"},
 		TyParamKinds: []types.Type{fKind},
 	})
-	kind := ch.kindOfType(types.MkCon("Functor"))
+	kind := ch.kindOfType(testOps.Con("Functor"))
 	expected := &types.TyArrow{From: fKind, To: types.TypeOfConstraints}
-	if !types.Equal(kind, expected) {
-		t.Errorf("expected %s, got %s", types.PrettyTypeAsKind(expected), types.PrettyTypeAsKind(kind))
+	if !testOps.Equal(kind, expected) {
+		t.Errorf("expected %s, got %s", testOps.PrettyTypeAsKind(expected), testOps.PrettyTypeAsKind(kind))
 	}
 }
 
@@ -53,10 +53,10 @@ func TestKindOfTypeFamily(t *testing.T) {
 		Params:     []TFParam{{Name: "a", Kind: types.TypeOfTypes}},
 		ResultKind: types.TypeOfTypes,
 	})
-	kind := ch.kindOfType(types.MkCon("Elem"))
+	kind := ch.kindOfType(testOps.Con("Elem"))
 	expected := &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
-	if !types.Equal(kind, expected) {
-		t.Errorf("expected %s, got %s", types.PrettyTypeAsKind(expected), types.PrettyTypeAsKind(kind))
+	if !testOps.Equal(kind, expected) {
+		t.Errorf("expected %s, got %s", testOps.PrettyTypeAsKind(expected), testOps.PrettyTypeAsKind(kind))
 	}
 }
 
@@ -64,13 +64,13 @@ func TestKindOfTypeFamilyRowResult(t *testing.T) {
 	// Merge (r1: Row) (r2: Row) :: Row → kind = Row → Row → Row
 	ch := newTestChecker()
 	ch.installFamilyReducer()
-	kind := ch.kindOfType(types.MkCon("Merge"))
+	kind := ch.kindOfType(testOps.Con("Merge"))
 	expected := &types.TyArrow{
 		From: types.TypeOfRows,
 		To:   &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfRows},
 	}
-	if !types.Equal(kind, expected) {
-		t.Errorf("expected %s, got %s", types.PrettyTypeAsKind(expected), types.PrettyTypeAsKind(kind))
+	if !testOps.Equal(kind, expected) {
+		t.Errorf("expected %s, got %s", testOps.PrettyTypeAsKind(expected), testOps.PrettyTypeAsKind(kind))
 	}
 }
 
@@ -85,7 +85,7 @@ func TestHasDeterministicKindClass(t *testing.T) {
 		TyParams:     []string{"a"},
 		TyParamKinds: []types.Type{types.TypeOfTypes},
 	})
-	if !ch.hasDeterministicKind(types.MkCon("Eq")) {
+	if !ch.hasDeterministicKind(testOps.Con("Eq")) {
 		t.Error("class should have deterministic kind")
 	}
 }
@@ -93,7 +93,7 @@ func TestHasDeterministicKindClass(t *testing.T) {
 func TestHasDeterministicKindFamily(t *testing.T) {
 	ch := newTestChecker()
 	ch.installFamilyReducer()
-	if !ch.hasDeterministicKind(types.MkCon("Merge")) {
+	if !ch.hasDeterministicKind(testOps.Con("Merge")) {
 		t.Error("builtin row family should have deterministic kind")
 	}
 }
@@ -141,12 +141,12 @@ func TestKindOfTypeFamilyWithLabelParam(t *testing.T) {
 	// Without :: Label → Row → Row — verify the kind is computed correctly.
 	ch := newTestChecker()
 	ch.installFamilyReducer()
-	kind := ch.kindOfType(types.MkCon("Without"))
+	kind := ch.kindOfType(testOps.Con("Without"))
 	expected := &types.TyArrow{
 		From: types.TypeOfLabels,
 		To:   &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfRows},
 	}
-	if !types.Equal(kind, expected) {
-		t.Errorf("expected %s, got %s", types.PrettyTypeAsKind(expected), types.PrettyTypeAsKind(kind))
+	if !testOps.Equal(kind, expected) {
+		t.Errorf("expected %s, got %s", testOps.PrettyTypeAsKind(expected), testOps.PrettyTypeAsKind(kind))
 	}
 }

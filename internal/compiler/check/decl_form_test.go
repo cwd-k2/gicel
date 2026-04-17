@@ -128,7 +128,7 @@ func TestFormPipeShorthandConstructorType(t *testing.T) {
 	fieldTy := succ.Fields[0]
 	con, ok := fieldTy.(*types.TyCon)
 	if !ok {
-		t.Fatalf("Succ field: expected *types.TyCon, got %T (%s)", fieldTy, types.Pretty(fieldTy))
+		t.Fatalf("Succ field: expected *types.TyCon, got %T (%s)", fieldTy, testOps.Pretty(fieldTy))
 	}
 	if con.Name != "Nat" {
 		t.Errorf("Succ field: expected TyCon Nat, got %s", con.Name)

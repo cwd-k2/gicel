@@ -382,7 +382,7 @@ func TestRowFieldGradesPretty(t *testing.T) {
 		Type:   &types.TyCon{Name: "FileHandle"},
 		Grades: []types.Type{&types.TyCon{Name: "Linear"}},
 	})
-	s := types.Pretty(row)
+	s := testOps.Pretty(row)
 	if !strings.Contains(s, "@ Linear") {
 		t.Errorf("expected '@ Linear' in pretty output, got %q", s)
 	}
@@ -394,13 +394,13 @@ func TestRowFieldGradesEquality(t *testing.T) {
 	c := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}, Grades: []types.Type{&types.TyCon{Name: "Affine"}}})
 	d := types.ClosedRow(types.RowField{Label: "x", Type: &types.TyCon{Name: "Int"}}) // no Grades
 
-	if !types.Equal(a, b) {
+	if !testOps.Equal(a, b) {
 		t.Error("same Grades should be equal")
 	}
-	if types.Equal(a, c) {
+	if testOps.Equal(a, c) {
 		t.Error("different Grades should not be equal")
 	}
-	if types.Equal(a, d) {
+	if testOps.Equal(a, d) {
 		t.Error("Grades vs no-Grades should not be equal")
 	}
 }
@@ -411,7 +411,7 @@ func TestRowFieldGradesSubst(t *testing.T) {
 		Type:   &types.TyVar{Name: "a"},
 		Grades: []types.Type{&types.TyVar{Name: "m"}},
 	})
-	result := types.Subst(row, "m", &types.TyCon{Name: "Linear"})
+	result := testOps.Subst(row, "m", &types.TyCon{Name: "Linear"})
 	evRow, ok := result.(*types.TyEvidenceRow)
 	if !ok {
 		t.Fatalf("expected TyEvidenceRow, got %T", result)
@@ -469,7 +469,7 @@ func TestTyFamilyAppPretty(t *testing.T) {
 		},
 		Kind: types.TypeOfTypes,
 	}
-	s := types.Pretty(ty)
+	s := testOps.Pretty(ty)
 	if !strings.Contains(s, "Elem") {
 		t.Errorf("expected 'Elem' in pretty output, got %q", s)
 	}
@@ -484,7 +484,7 @@ func TestTyFamilyAppSubst(t *testing.T) {
 		Args: []types.Type{&types.TyVar{Name: "a"}},
 		Kind: types.TypeOfTypes,
 	}
-	result := types.Subst(tf, "a", &types.TyCon{Name: "Int"})
+	result := testOps.Subst(tf, "a", &types.TyCon{Name: "Int"})
 	fa, ok := result.(*types.TyFamilyApp)
 	if !ok {
 		t.Fatalf("expected TyFamilyApp, got %T", result)
@@ -504,7 +504,7 @@ func TestTyFamilyAppFreeVars(t *testing.T) {
 		},
 		Kind: types.TypeOfTypes,
 	}
-	fv := types.FreeVars(tf)
+	fv := testOps.FreeVars(tf)
 	if _, ok := fv["a"]; !ok {
 		t.Error("expected 'a' in free vars")
 	}
@@ -517,10 +517,10 @@ func TestTyFamilyAppEqual(t *testing.T) {
 	a := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Int"}}, Kind: types.TypeOfTypes}
 	b := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Int"}}, Kind: types.TypeOfTypes}
 	c := &types.TyFamilyApp{Name: "F", Args: []types.Type{&types.TyCon{Name: "Bool"}}, Kind: types.TypeOfTypes}
-	if !types.Equal(a, b) {
+	if !testOps.Equal(a, b) {
 		t.Error("equal TyFamilyApps should be equal")
 	}
-	if types.Equal(a, c) {
+	if testOps.Equal(a, c) {
 		t.Error("different TyFamilyApps should not be equal")
 	}
 }

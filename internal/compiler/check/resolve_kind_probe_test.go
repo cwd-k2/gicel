@@ -44,8 +44,8 @@ func TestProbeD_KindUnify_KindMetaSolving(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := u.Zonk(km)
-	if !types.Equal(result, types.TypeOfTypes) {
-		t.Errorf("expected Type, got %s", types.PrettyTypeAsKind(result))
+	if !testOps.Equal(result, types.TypeOfTypes) {
+		t.Errorf("expected Type, got %s", testOps.PrettyTypeAsKind(result))
 	}
 }
 
@@ -60,8 +60,8 @@ func TestProbeD_KindUnify_KindArrow(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := u.Zonk(km)
-	if !types.Equal(result, types.TypeOfRows) {
-		t.Errorf("expected Row, got %s", types.PrettyTypeAsKind(result))
+	if !testOps.Equal(result, types.TypeOfRows) {
+		t.Errorf("expected Row, got %s", testOps.PrettyTypeAsKind(result))
 	}
 }
 
@@ -142,12 +142,12 @@ func TestProbeE_KindUnify_ArrowChain(t *testing.T) {
 		t.Fatalf("expected success: %v", err)
 	}
 	zk1 := u.Zonk(k1)
-	if !types.Equal(zk1, types.TypeOfTypes) {
-		t.Errorf("expected k1 = Type, got %s", types.PrettyTypeAsKind(zk1))
+	if !testOps.Equal(zk1, types.TypeOfTypes) {
+		t.Errorf("expected k1 = Type, got %s", testOps.PrettyTypeAsKind(zk1))
 	}
 	zk2 := u.Zonk(k2)
-	if !types.Equal(zk2, types.TypeOfTypes) {
-		t.Errorf("expected k2 = Type, got %s", types.PrettyTypeAsKind(zk2))
+	if !testOps.Equal(zk2, types.TypeOfTypes) {
+		t.Errorf("expected k2 = Type, got %s", testOps.PrettyTypeAsKind(zk2))
 	}
 }
 
