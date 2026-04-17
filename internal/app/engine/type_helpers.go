@@ -13,62 +13,22 @@ type Kind = types.Type
 // RowField is a single label:type pair in a row.
 type RowField = types.RowField
 
-// Type construction helpers for use with DeclareBinding and DeclareAssumption.
-// These wrap internal/types constructors for convenience.
-
-// ConType creates a simple type constructor (e.g. "Int", "String", "Bool").
-func ConType(name string) types.Type {
-	return types.MkCon(name)
-}
-
-// ArrowType creates a function type: from -> to.
-func ArrowType(from, to types.Type) types.Type {
-	return types.MkArrow(from, to)
-}
-
-// CompType creates a Computation type: Computation pre post result @grade.
-// If grade is nil, a Computation with no grade annotation is created.
-func CompType(pre, post, result, grade types.Type) types.Type {
-	if grade != nil {
-		return types.MkCompGraded(pre, post, result, grade)
-	}
-	return types.MkComp(pre, post, result)
-}
-
-// ThunkType creates a Thunk type: Thunk pre post result.
-func ThunkType(pre, post, result types.Type) types.Type {
-	return types.MkThunk(pre, post, result)
-}
-
-// ForallType creates a universally quantified type: \ var. body.
-func ForallType(varName string, body types.Type) types.Type {
-	return types.MkForall(varName, types.TypeOfTypes, body)
-}
-
-// ForallRow creates a universally quantified type with Row kind: \ (r: Row). body.
-func ForallRow(varName string, body types.Type) types.Type {
-	return types.MkForall(varName, types.TypeOfRows, body)
-}
-
-// VarType creates a type variable reference.
-func VarType(name string) types.Type {
-	return types.MkVar(name)
-}
-
-// AppType creates a type application: f a.
-func AppType(f, arg types.Type) types.Type {
-	return types.MkApp(f, arg)
-}
+// TypeOps is the single owner of all type-level operations.
+// The zero value is ready to use. When constructing types for
+// DeclareBinding / DeclareAssumption, create a TypeOps and call its
+// methods directly (e.g. ops.Con("Int"), ops.Arrow(a, b)).
+type TypeOps = types.TypeOps
 
 // RowBuilder helps construct row types incrementally.
 type RowBuilder struct {
+	ops    *types.TypeOps
 	fields []types.RowField
 	tail   types.Type
 }
 
 // NewRow starts building a row type.
-func NewRow() *RowBuilder {
-	return &RowBuilder{}
+func NewRow(ops *types.TypeOps) *RowBuilder {
+	return &RowBuilder{ops: ops}
 }
 
 // And adds a field to the row.
@@ -84,7 +44,7 @@ func (rb *RowBuilder) Closed() types.Type {
 
 // Open builds an open row with a tail variable.
 func (rb *RowBuilder) Open(tailVar string) types.Type {
-	return types.OpenRow(rb.fields, types.MkVar(tailVar))
+	return types.OpenRow(rb.fields, rb.ops.Var(tailVar))
 }
 
 // KindType returns the Type kind (for RegisterType).
@@ -102,41 +62,7 @@ func EmptyRowType() types.Type {
 	return types.EmptyRow()
 }
 
-// KindArrow creates a kind arrow: from -> to.
-func KindArrow(from, to types.Type) types.Type {
-	return types.MkArrow(from, to)
-}
-
-// ForallKind creates a universally quantified type with explicit kind.
-func ForallKind(name string, k types.Type, body types.Type) types.Type {
-	return types.MkForall(name, k, body)
-}
-
 // ClosedRowType creates a closed row type from fields.
 func ClosedRowType(fields ...types.RowField) types.Type {
 	return types.ClosedRow(fields...)
-}
-
-// RecordType creates a closed record type: Record { l1: T1, ..., ln: Tn }.
-func RecordType(fields ...types.RowField) types.Type {
-	return types.MkApp(types.MkCon(types.TyConRecord), types.ClosedRow(fields...))
-}
-
-// TupleType creates a tuple type: (a, b) = Record { _1: a, _2: b }.
-func TupleType(elems ...types.Type) types.Type {
-	fields := make([]types.RowField, len(elems))
-	for i, t := range elems {
-		fields[i] = types.RowField{Label: types.TupleLabel(i + 1), Type: t}
-	}
-	return RecordType(fields...)
-}
-
-// TypeEqual compares two types for structural equality.
-func TypeEqual(a, b types.Type) bool {
-	return types.Equal(a, b)
-}
-
-// TypePretty returns a human-readable representation of a type.
-func TypePretty(t types.Type) string {
-	return types.Pretty(t)
 }

@@ -136,7 +136,7 @@ func TestMissingBinding(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)

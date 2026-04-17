@@ -36,7 +36,7 @@ func TestGIMonadComputationPure(t *testing.T) {
 	// pure resolves to Core.Pure for Computation (fast path).
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("n", ConType("Int"))
+	eng.DeclareBinding("n", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Computation {} {} Int
@@ -61,7 +61,7 @@ func TestGIMonadComputationBind(t *testing.T) {
 	// bind resolves to Core.Bind for Computation (fast path).
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("n", ConType("Int"))
+	eng.DeclareBinding("n", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main :: Computation {} {} Int
@@ -114,7 +114,7 @@ func TestDoBlockComputationRegression(t *testing.T) {
 	// Existing do blocks with Computation should still use Core.Bind path.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 main := do { v <- pure x; pure v }
 `)
@@ -138,7 +138,7 @@ func TestDoBlockComputationCoreBind(t *testing.T) {
 	// Use Check() to inspect pre-optimization Core IR.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	cp, err := eng.Compile(context.Background(), `
 main := do { v <- pure x; pure v }
 `)
@@ -317,8 +317,8 @@ main := do {
 func TestSequencingDoNotation(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("x", ConType("Int"))
-	eng.DeclareBinding("y", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
+	eng.DeclareBinding("y", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := do { pure x; pure y }
@@ -343,7 +343,7 @@ func TestGenericMonadicFunction(t *testing.T) {
 	// A generic Computation function using pure (builtin) via type annotation.
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 myReturn :: \a (r: Row). a -> Computation r r a
@@ -650,8 +650,8 @@ func TestComputationDoRegression(t *testing.T) {
 	// Ensure Computation do blocks still use Core.Bind (not class dispatch).
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareBinding("x", ConType("Int"))
-	eng.DeclareBinding("y", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
+	eng.DeclareBinding("y", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 main := do { a <- pure x; b <- pure y; pure a }
 `)
@@ -679,7 +679,7 @@ func TestListPipelineEndToEnd(t *testing.T) {
 		return ToValue(MustHost[int64](args[0]) + MustHost[int64](args[1])), capEnv, nil
 	})
 	eng.EnableRecursion()
-	eng.DeclareBinding("xs", AppType(ConType("List"), ConType("Int")))
+	eng.DeclareBinding("xs", testOps.App(testOps.Con("List"), testOps.Con("Int")))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int

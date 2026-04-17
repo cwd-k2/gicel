@@ -626,7 +626,7 @@ func TestToListWithBinding(t *testing.T) {
 	if err := eng.Use(stdlib.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	eng.DeclareBinding("xs", AppType(ConType("List"), ConType("Int")))
+	eng.DeclareBinding("xs", testOps.App(testOps.Con("List"), testOps.Con("Int")))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 main := foldr add 0 xs

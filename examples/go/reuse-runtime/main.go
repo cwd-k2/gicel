@@ -27,7 +27,8 @@ func main() {
 	eng.Use(gicel.Prelude)
 
 	// Declare that `n` will be provided at runtime as an Int.
-	eng.DeclareBinding("n", gicel.ConType("Int"))
+	ops := &gicel.TypeOps{}
+	eng.DeclareBinding("n", ops.Con("Int"))
 
 	// Compile once.
 	rt, err := eng.NewRuntime(context.Background(), source)

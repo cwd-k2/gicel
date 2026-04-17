@@ -62,7 +62,8 @@ func main() {
 	}
 
 	// Declare a host binding: `bonus` is an Int available at compile time.
-	eng.DeclareBinding("bonus", gicel.ConType("Int"))
+	ops := &gicel.TypeOps{}
+	eng.DeclareBinding("bonus", ops.Con("Int"))
 
 	// Compile.
 	rt, err := eng.NewRuntime(ctx, mainSource)

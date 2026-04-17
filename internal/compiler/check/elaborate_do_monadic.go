@@ -147,7 +147,7 @@ func (ch *Checker) resolveGIMonadDict(monadHead types.Type, s span.Span) (ir.Cor
 func (ch *Checker) extractGIMethod(monadHead types.Type, methodIdx int, s span.Span) ir.Core {
 	dict, classInfo, ok := ch.resolveGIMonadDict(monadHead, s)
 	if !ok {
-		ch.addDiag(diagnostic.ErrNoInstance, s, diagWithType{Context: "no GIMonad instance for ", Type: monadHead})
+		ch.addDiag(diagnostic.ErrNoInstance, s, diagWithType{Context: "no GIMonad instance for ", Type: monadHead, TypeOps: ch.typeOps})
 		return &ir.Error{S: s}
 	}
 	fieldIdx := len(classInfo.Supers) + methodIdx

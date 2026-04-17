@@ -72,6 +72,7 @@ func (u *Unifier) solveLevelMeta(m *types.LevelMeta, l types.LevelExpr) error {
 		return &OccursError{
 			MetaID:  m.ID,
 			IsLevel: true,
+			TypeOps: u.TypeOps,
 		}
 	}
 	u.trailLevelWrite(m.ID)

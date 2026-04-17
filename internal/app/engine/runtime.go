@@ -57,6 +57,7 @@ type Runtime struct {
 	prog               *ir.Program
 	annots             *ir.FVAnnotations // FV metadata for main bindings
 	prims              *eval.PrimRegistry
+	typeOps            *types.TypeOps
 	stepLimit          int
 	depthLimit         int
 	nestingLimit       int
@@ -103,7 +104,7 @@ type moduleEntry struct {
 
 // Program returns the compiled Core IR for debugging/inspection.
 func (r *Runtime) Program() *CoreProgram {
-	return &CoreProgram{prog: r.prog}
+	return &CoreProgram{prog: r.prog, typeOps: r.typeOps}
 }
 
 // RunResult holds the result of an execution.

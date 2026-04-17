@@ -256,7 +256,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			u.skolemSoln[as.ID] = b
 			return nil
 		}
-		return &SkolemRigidError{SkolemName: as.Name, SkolemID: as.ID, Other: b, SkolemOnLeft: true}
+		return &SkolemRigidError{SkolemName: as.Name, SkolemID: as.ID, Other: b, SkolemOnLeft: true, TypeOps: u.TypeOps}
 	}
 	if bs, ok := b.(*types.TySkolem); ok {
 		if u.skolemSoln != nil {
@@ -272,7 +272,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 			u.skolemSoln[bs.ID] = a
 			return nil
 		}
-		return &SkolemRigidError{SkolemName: bs.Name, SkolemID: bs.ID, Other: a, SkolemOnLeft: false}
+		return &SkolemRigidError{SkolemName: bs.Name, SkolemID: bs.ID, Other: a, SkolemOnLeft: false, TypeOps: u.TypeOps}
 	}
 
 	switch at := a.(type) {
@@ -419,7 +419,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 		}
 	}
 
-	return &MismatchError{A: a, B: b}
+	return &MismatchError{A: a, B: b, TypeOps: u.TypeOps}
 }
 
 // unifyAppWithTriple decomposes a TyApp chain and unifies its spine against
@@ -430,7 +430,7 @@ func (u *Unifier) Unify(a, b types.Type) error {
 func (u *Unifier) unifyAppWithTriple(app types.Type, conName string, fields [3]types.Type) error {
 	head, args := types.UnwindApp(app)
 	if len(args) < 3 {
-		return &MismatchError{A: app, B: u.TypeOps.Con(conName)}
+		return &MismatchError{A: app, B: u.TypeOps.Con(conName), TypeOps: u.TypeOps}
 	}
 	// Reconstruct head with excess leading args (handles len(args) > 3).
 	conHead := head
@@ -463,7 +463,7 @@ func (u *Unifier) solveMeta(m *types.TyMeta, t types.Type) error {
 	}
 	// Occurs check.
 	if u.occursIn(m.ID, t) {
-		return &OccursError{MetaID: m.ID, Type: t}
+		return &OccursError{MetaID: m.ID, Type: t, TypeOps: u.TypeOps}
 	}
 	// Label uniqueness: if this meta has a label context, verify the
 	// solution doesn't introduce duplicate labels (spec §8, §6.3).

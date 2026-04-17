@@ -152,7 +152,7 @@ func (r *typeResolver) resolveTypeExpr(texpr syntax.TypeExpr) types.Type {
 			entry := &types.ClassEntry{ClassName: con.Name, Args: args, S: t.S}
 			return qualifyBody(r.typeOps, entry, body, t.S)
 		}
-		r.addDiag(diagnostic.ErrNoInstance, t.S, diagWithType{Context: "invalid constraint: ", Type: constraint})
+		r.addDiag(diagnostic.ErrNoInstance, t.S, diagWithType{Context: "invalid constraint: ", Type: constraint, TypeOps: r.typeOps})
 		return body
 	case *syntax.TyExprEq:
 		// Equality constraint outside of a qualified type position.

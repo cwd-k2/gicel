@@ -19,14 +19,14 @@ import "github.com/cwd-k2/gicel/internal/lang/types"
 // Must run before optimization and free-variable annotation, since the
 // transformation changes the Core IR structure (TyApp → App + Lit/Var,
 // TyLam → Lam).
-func EraseLabelArgs(c Core) Core {
-	return eraseLabelRec(c, nil)
+func EraseLabelArgs(c Core, ops *types.TypeOps) Core {
+	return eraseLabelRec(c, nil, ops)
 }
 
 // EraseLabelArgsProgram applies label erasure to all bindings.
-func EraseLabelArgsProgram(prog *Program) {
+func EraseLabelArgsProgram(prog *Program, ops *types.TypeOps) {
 	for i, b := range prog.Bindings {
-		prog.Bindings[i].Expr = EraseLabelArgs(b.Expr)
+		prog.Bindings[i].Expr = EraseLabelArgs(b.Expr, ops)
 	}
 }
 
@@ -59,30 +59,30 @@ func bodyHasLabelTyVar(c Core, name string) bool {
 // only when the node type itself changes (TyApp → App, TyLam → Lam).
 // This is safe because the IR is freshly produced by the type checker and
 // is not yet cached or shared.
-func eraseLabelRec(c Core, labelVars map[string]bool) Core {
+func eraseLabelRec(c Core, labelVars map[string]bool, ops *types.TypeOps) Core {
 	if c == nil {
 		return nil
 	}
 	switch n := c.(type) {
 	case *TyLam:
-		if types.Equal(n.Kind, types.TypeOfLabels) && bodyHasLabelTyVar(n.Body, n.TyParam) {
+		if ops.Equal(n.Kind, types.TypeOfLabels) && bodyHasLabelTyVar(n.Body, n.TyParam) {
 			if labelVars == nil {
 				labelVars = make(map[string]bool)
 			}
 			labelVars[n.TyParam] = true
-			body := eraseLabelRec(n.Body, labelVars)
+			body := eraseLabelRec(n.Body, labelVars, ops)
 			delete(labelVars, n.TyParam)
 			// Type change: TyLam → Lam. Must allocate.
 			return &Lam{Param: n.TyParam, Body: body, S: n.S}
 		}
-		body := eraseLabelRec(n.Body, labelVars)
+		body := eraseLabelRec(n.Body, labelVars, ops)
 		if body != n.Body {
 			n.Body = body
 		}
 		return n
 
 	case *TyApp:
-		expr := eraseLabelRec(n.Expr, labelVars)
+		expr := eraseLabelRec(n.Expr, labelVars, ops)
 		// Case 1: concrete label literal. Type change: TyApp → App.
 		// The "#" prefix separates named-label capability keys from anonymous
 		// ones (e.g. capState = "state"), preventing namespace collisions.
@@ -99,15 +99,15 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		return n
 
 	case *Lam:
-		body := eraseLabelRec(n.Body, labelVars)
+		body := eraseLabelRec(n.Body, labelVars, ops)
 		if body != n.Body {
 			n.Body = body
 		}
 		return n
 
 	case *App:
-		fun := eraseLabelRec(n.Fun, labelVars)
-		arg := eraseLabelRec(n.Arg, labelVars)
+		fun := eraseLabelRec(n.Fun, labelVars, ops)
+		arg := eraseLabelRec(n.Arg, labelVars, ops)
 		if fun != n.Fun {
 			n.Fun = fun
 		}
@@ -117,12 +117,12 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		return n
 
 	case *Case:
-		scr := eraseLabelRec(n.Scrutinee, labelVars)
+		scr := eraseLabelRec(n.Scrutinee, labelVars, ops)
 		if scr != n.Scrutinee {
 			n.Scrutinee = scr
 		}
 		for i, a := range n.Alts {
-			b := eraseLabelRec(a.Body, labelVars)
+			b := eraseLabelRec(a.Body, labelVars, ops)
 			if b != a.Body {
 				n.Alts[i].Body = b
 			}
@@ -130,8 +130,8 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		return n
 
 	case *Bind:
-		comp := eraseLabelRec(n.Comp, labelVars)
-		body := eraseLabelRec(n.Body, labelVars)
+		comp := eraseLabelRec(n.Comp, labelVars, ops)
+		body := eraseLabelRec(n.Body, labelVars, ops)
 		if comp != n.Comp {
 			n.Comp = comp
 		}
@@ -141,29 +141,29 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		return n
 
 	case *Pure:
-		expr := eraseLabelRec(n.Expr, labelVars)
+		expr := eraseLabelRec(n.Expr, labelVars, ops)
 		if expr != n.Expr {
 			n.Expr = expr
 		}
 		return n
 
 	case *Thunk:
-		comp := eraseLabelRec(n.Comp, labelVars)
+		comp := eraseLabelRec(n.Comp, labelVars, ops)
 		if comp != n.Comp {
 			n.Comp = comp
 		}
 		return n
 
 	case *Force:
-		expr := eraseLabelRec(n.Expr, labelVars)
+		expr := eraseLabelRec(n.Expr, labelVars, ops)
 		if expr != n.Expr {
 			n.Expr = expr
 		}
 		return n
 
 	case *Merge:
-		left := eraseLabelRec(n.Left, labelVars)
-		right := eraseLabelRec(n.Right, labelVars)
+		left := eraseLabelRec(n.Left, labelVars, ops)
+		right := eraseLabelRec(n.Right, labelVars, ops)
 		if left != n.Left {
 			n.Left = left
 		}
@@ -173,7 +173,7 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		return n
 
 	case *Fix:
-		body := eraseLabelRec(n.Body, labelVars)
+		body := eraseLabelRec(n.Body, labelVars, ops)
 		if body != n.Body {
 			n.Body = body
 		}
@@ -181,7 +181,7 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 
 	case *RecordLit:
 		for i, f := range n.Fields {
-			v := eraseLabelRec(f.Value, labelVars)
+			v := eraseLabelRec(f.Value, labelVars, ops)
 			if v != f.Value {
 				n.Fields[i].Value = v
 			}
@@ -189,19 +189,19 @@ func eraseLabelRec(c Core, labelVars map[string]bool) Core {
 		return n
 
 	case *RecordProj:
-		rec := eraseLabelRec(n.Record, labelVars)
+		rec := eraseLabelRec(n.Record, labelVars, ops)
 		if rec != n.Record {
 			n.Record = rec
 		}
 		return n
 
 	case *RecordUpdate:
-		rec := eraseLabelRec(n.Record, labelVars)
+		rec := eraseLabelRec(n.Record, labelVars, ops)
 		if rec != n.Record {
 			n.Record = rec
 		}
 		for i, f := range n.Updates {
-			v := eraseLabelRec(f.Value, labelVars)
+			v := eraseLabelRec(f.Value, labelVars, ops)
 			if v != f.Value {
 				n.Updates[i].Value = v
 			}

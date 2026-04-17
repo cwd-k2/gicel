@@ -237,7 +237,7 @@ func (sd *superDictSearch) chain(dictExpr ir.Core, dictTyName string, dictTyArgs
 func (s *Solver) prettyTypeArgs(args []types.Type) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
-		parts[i] = types.PrettyAtom(s.env.Zonk(a))
+		parts[i] = s.TypeOps.PrettyAtom(s.env.Zonk(a))
 	}
 	return strings.Join(parts, " ")
 }

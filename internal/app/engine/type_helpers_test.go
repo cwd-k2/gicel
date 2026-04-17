@@ -11,59 +11,62 @@ import (
 	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
+var testOps = &types.TypeOps{}
+
 func TestTypeHelperConstructors(t *testing.T) {
-	intTy := ConType("Int")
-	if con, ok := intTy.(*types.TyCon); !ok || con.Name != "Int" {
-		t.Errorf("ConType(Int) = %v, want *types.TyCon{Name: Int}", intTy)
+	intTy := testOps.Con("Int")
+	if intTy.Name != "Int" {
+		t.Errorf("Con(Int).Name = %q, want Int", intTy.Name)
 	}
 
-	arrow := ArrowType(ConType("Int"), ConType("Bool"))
-	if _, ok := arrow.(*types.TyArrow); !ok {
-		t.Errorf("ArrowType() = %T, want *types.TyArrow", arrow)
+	arrow := testOps.Arrow(testOps.Con("Int"), testOps.Con("Bool"))
+	if arrow == nil {
+		t.Error("Arrow() returned nil")
 	}
 
-	// CompType with and without grade.
-	compNoGrade := CompType(ConType("A"), ConType("B"), ConType("C"), nil)
-	if _, ok := compNoGrade.(*types.TyCBPV); !ok {
-		t.Errorf("CompType(..., nil) = %T, want *types.TyCBPV", compNoGrade)
+	// Comp with and without grade.
+	compNoGrade := testOps.Comp(testOps.Con("A"), testOps.Con("B"), testOps.Con("C"), nil)
+	if compNoGrade == nil {
+		t.Error("Comp(..., nil) returned nil")
 	}
-	compGraded := CompType(ConType("A"), ConType("B"), ConType("C"), ConType("Linear"))
-	if cbpv, ok := compGraded.(*types.TyCBPV); !ok || !cbpv.IsGraded() {
-		t.Errorf("CompType(..., grade) = %v, want graded CBPV", compGraded)
-	}
-
-	thunk := ThunkType(ConType("P"), ConType("Q"), ConType("R"))
-	if cbpv, ok := thunk.(*types.TyCBPV); !ok || cbpv.Tag != types.TagThunk {
-		t.Errorf("ThunkType() = %v, want TagThunk", thunk)
+	compGraded := testOps.Comp(testOps.Con("A"), testOps.Con("B"), testOps.Con("C"), testOps.Con("Linear"))
+	if !compGraded.IsGraded() {
+		t.Errorf("Comp(..., grade) should be graded")
 	}
 
-	forall := ForallType("a", ConType("a"))
-	if _, ok := forall.(*types.TyForall); !ok {
-		t.Errorf("ForallType() = %T, want *types.TyForall", forall)
-	}
-	forallRow := ForallRow("r", VarType("r"))
-	if f, ok := forallRow.(*types.TyForall); !ok || !types.Equal(f.Kind, types.TypeOfRows) {
-		t.Errorf("ForallRow() should quantify over Row kind, got %v", forallRow)
-	}
-	forallKind := ForallKind("k", KindType(), VarType("k"))
-	if _, ok := forallKind.(*types.TyForall); !ok {
-		t.Errorf("ForallKind() = %T, want *types.TyForall", forallKind)
+	thunk := testOps.Thunk(testOps.Con("P"), testOps.Con("Q"), testOps.Con("R"), nil)
+	if thunk.Tag != types.TagThunk {
+		t.Errorf("Thunk().Tag = %v, want TagThunk", thunk.Tag)
 	}
 
-	if _, ok := VarType("a").(*types.TyVar); !ok {
-		t.Errorf("VarType() should return *types.TyVar")
+	forall := testOps.Forall("a", types.TypeOfTypes, testOps.Con("a"))
+	if forall == nil {
+		t.Error("Forall() returned nil")
+	}
+	forallRow := testOps.Forall("r", types.TypeOfRows, testOps.Var("r"))
+	if !types.Equal(forallRow.Kind, types.TypeOfRows) {
+		t.Errorf("Forall(Row) should quantify over Row kind")
+	}
+	forallKind := testOps.Forall("k", KindType(), testOps.Var("k"))
+	if forallKind == nil {
+		t.Error("Forall(Kind) returned nil")
 	}
 
-	app := AppType(ConType("List"), ConType("Int"))
-	if _, ok := app.(*types.TyApp); !ok {
-		t.Errorf("AppType() = %T, want *types.TyApp", app)
+	v := testOps.Var("a")
+	if v.Name != "a" {
+		t.Errorf("Var(a).Name = %q, want a", v.Name)
+	}
+
+	app := testOps.App(testOps.Con("List"), testOps.Con("Int"))
+	if app == nil {
+		t.Error("App() returned nil")
 	}
 }
 
 func TestRowBuilder(t *testing.T) {
-	closed := NewRow().
-		And("x", ConType("Int")).
-		And("y", ConType("String")).
+	closed := NewRow(testOps).
+		And("x", testOps.Con("Int")).
+		And("y", testOps.Con("String")).
 		Closed()
 	row, ok := closed.(*types.TyEvidenceRow)
 	if !ok {
@@ -79,8 +82,8 @@ func TestRowBuilder(t *testing.T) {
 		t.Fatalf("expected 2 fields, got %d", len(row.CapFields()))
 	}
 
-	open := NewRow().
-		And("a", ConType("Int")).
+	open := NewRow(testOps).
+		And("a", testOps.Con("Int")).
 		Open("r")
 	orow := open.(*types.TyEvidenceRow)
 	if orow.IsClosed() {
@@ -95,8 +98,9 @@ func TestKindHelpers(t *testing.T) {
 	if !types.Equal(KindRow(), types.TypeOfRows) {
 		t.Error("KindRow() != TypeOfRows")
 	}
-	if _, ok := KindArrow(KindType(), KindType()).(*types.TyArrow); !ok {
-		t.Error("KindArrow() should return *types.TyArrow")
+	ka := testOps.Arrow(KindType(), KindType())
+	if ka == nil {
+		t.Error("Arrow(Kind,Kind) returned nil")
 	}
 }
 
@@ -110,7 +114,7 @@ func TestEmptyAndClosedRowType(t *testing.T) {
 		t.Errorf("EmptyRowType entries count = %d, want 0", row.Entries.EntryCount())
 	}
 
-	closed := ClosedRowType(types.RowField{Label: "k", Type: types.MkCon("Int")})
+	closed := ClosedRowType(types.RowField{Label: "k", Type: testOps.Con("Int")})
 	crow := closed.(*types.TyEvidenceRow)
 	if crow.IsOpen() {
 		t.Error("ClosedRowType should produce a closed row")

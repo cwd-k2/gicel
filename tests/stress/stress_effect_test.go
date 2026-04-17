@@ -292,7 +292,7 @@ func TestStressListFoldrLarge(t *testing.T) {
 	eng.EnableRecursion()
 	eng.SetStepLimit(10_000_000)
 	eng.SetDepthLimit(100_000)
-	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
+	eng.DeclareBinding("xs", stressOps.App(stressOps.Con("List"), stressOps.Con("Int")))
 
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
@@ -336,7 +336,7 @@ func TestStressListFmapLarge(t *testing.T) {
 	eng.EnableRecursion()
 	eng.SetStepLimit(10_000_000)
 	eng.SetDepthLimit(100_000)
-	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
+	eng.DeclareBinding("xs", stressOps.App(stressOps.Con("List"), stressOps.Con("Int")))
 
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
@@ -381,7 +381,7 @@ func TestStressListFromSliceRoundTrip(t *testing.T) {
 	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	eng.DeclareBinding("xs", gicel.AppType(gicel.ConType("List"), gicel.ConType("Int")))
+	eng.DeclareBinding("xs", stressOps.App(stressOps.Con("List"), stressOps.Con("Int")))
 
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
@@ -425,7 +425,7 @@ func TestStressDeepDoChainComputation(t *testing.T) {
 	// Deep Computation do chain (Core.Bind path) — 100 binds.
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	eng.DeclareBinding("x", stressOps.Con("Int"))
 
 	// Generate: main := do { v0 <- pure x; v1 <- pure v0; ... ; pure vN }
 	var source strings.Builder

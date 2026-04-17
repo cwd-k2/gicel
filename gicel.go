@@ -194,29 +194,25 @@ type CancelledError = budget.CancelledError
 // Use within PrimImpl to enforce per-event limits in long-lived executions.
 var ResetBudgetCounters = budget.ResetBudgetCounters
 
-// ---- Type construction helpers ----
+// ---- Type construction ----
+
+// TypeOps is the single owner of all type-level operations.
+// Create with &TypeOps{} (zero value is ready to use) and call methods:
+//
+//	ops := &gicel.TypeOps{}
+//	intTy := ops.Con("Int")
+//	fnTy  := ops.Arrow(intTy, intTy)
+type TypeOps = types.TypeOps
 
 // RowField is a single label:type pair in a row.
-// Used with RecordType to construct closed record types.
 type RowField = types.RowField
 
 var (
-	ConType      = engine.ConType
-	ArrowType    = engine.ArrowType
-	CompType     = engine.CompType
-	ForallType   = engine.ForallType
-	ForallRow    = engine.ForallRow
-	VarType      = engine.VarType
-	AppType      = engine.AppType
-	NewRow       = engine.NewRow
-	KindType     = engine.KindType
-	KindArrow    = engine.KindArrow
-	KindRow      = engine.KindRow
-	ForallKind   = engine.ForallKind
-	EmptyRowType = engine.EmptyRowType
-	RecordType   = engine.RecordType
-	TupleType    = engine.TupleType
-	TypePretty   = engine.TypePretty
+	NewRow        = engine.NewRow
+	KindType      = engine.KindType
+	KindRow       = engine.KindRow
+	EmptyRowType  = engine.EmptyRowType
+	ClosedRowType = engine.ClosedRowType
 )
 
 // ---- Value conversion helpers ----

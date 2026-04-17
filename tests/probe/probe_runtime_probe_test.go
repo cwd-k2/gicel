@@ -103,7 +103,8 @@ main := x + y
 func TestProbeC_Edge_HostBindingMissing(t *testing.T) {
 	// Declare a binding but don't provide it at runtime.
 	eng := gicel.NewEngine()
-	eng.DeclareBinding("hostVal", gicel.ConType("Int"))
+	ops := &gicel.TypeOps{}
+	eng.DeclareBinding("hostVal", ops.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := hostVal`)
 	if err != nil {
 		t.Fatal(err)

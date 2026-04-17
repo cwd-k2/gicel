@@ -16,7 +16,7 @@ import (
 // the per-call Warn sink with a message naming the typo'd binding.
 func TestRunWith_WarnFiresOnUndeclaredBinding(t *testing.T) {
 	eng := NewEngine()
-	eng.DeclareBinding("declared", ConType("Int"))
+	eng.DeclareBinding("declared", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := 1`)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestRunWith_WarnIsolatedAcrossRuntimeCacheHit(t *testing.T) {
 
 	var sink1 []string
 	eng1 := NewEngine()
-	eng1.DeclareBinding("host_x", ConType("Int"))
+	eng1.DeclareBinding("host_x", testOps.Con("Int"))
 	rt1, err := eng1.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestRunWith_WarnIsolatedAcrossRuntimeCacheHit(t *testing.T) {
 
 	var sink2 []string
 	eng2 := NewEngine()
-	eng2.DeclareBinding("host_x", ConType("Int"))
+	eng2.DeclareBinding("host_x", testOps.Con("Int"))
 	rt2, err := eng2.NewRuntime(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestRunWith_WarnIsolatedAcrossRuntimeCacheHit(t *testing.T) {
 // the call completes normally with a typo'd binding and Warn=nil.
 func TestRunWith_WarnNilFallsBackToStderr(t *testing.T) {
 	eng := NewEngine()
-	eng.DeclareBinding("declared", ConType("Int"))
+	eng.DeclareBinding("declared", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := 1`)
 	if err != nil {
 		t.Fatal(err)

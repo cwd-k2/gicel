@@ -121,7 +121,7 @@ func (ch *Checker) inferHead(expr syntax.Expr) (types.Type, ir.Core) {
 				if err := ch.unifier.Unify(f.Kind, argKind); err != nil {
 					ch.addDiag(diagnostic.ErrKindMismatch, e.S,
 						diagFmt{Format: "type argument has kind %s, expected %s",
-							Args: []any{types.PrettyTypeAsKind(argKind), types.PrettyTypeAsKind(f.Kind)}})
+							Args: []any{ch.typeOps.PrettyTypeAsKind(argKind), ch.typeOps.PrettyTypeAsKind(f.Kind)}})
 					return &types.TyError{S: e.S}, innerCore
 				}
 			}

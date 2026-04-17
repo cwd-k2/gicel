@@ -9,7 +9,10 @@ import (
 	"testing"
 
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
+
+var benchOps = &types.TypeOps{}
 
 // buildDeepTree creates a Core tree of depth n.
 // Structure: nested App(Lam ... (Var "x"), Var "y") — no reducible redexes.
@@ -50,7 +53,7 @@ func BenchmarkOptimizeNoopSmall(b *testing.B) {
 	tree := buildDeepTree(50)
 	b.ResetTimer()
 	for b.Loop() {
-		optimize(context.Background(), tree, nil)
+		optimize(context.Background(), tree, nil, benchOps)
 	}
 }
 
@@ -60,7 +63,7 @@ func BenchmarkOptimizeNoopLarge(b *testing.B) {
 	tree := buildDeepTree(500)
 	b.ResetTimer()
 	for b.Loop() {
-		optimize(context.Background(), tree, nil)
+		optimize(context.Background(), tree, nil, benchOps)
 	}
 }
 
@@ -69,7 +72,7 @@ func BenchmarkOptimizeNoopLarge(b *testing.B) {
 func BenchmarkOptimizeBetaHeavy(b *testing.B) {
 	for b.Loop() {
 		tree := buildBetaChain(20)
-		optimize(context.Background(), tree, nil)
+		optimize(context.Background(), tree, nil, benchOps)
 	}
 }
 
@@ -82,6 +85,6 @@ func BenchmarkOptimizeRewriteRules(b *testing.B) {
 	rules := []func(ir.Core) ir.Core{noop, noop, noop}
 	b.ResetTimer()
 	for b.Loop() {
-		optimize(context.Background(), tree, rules)
+		optimize(context.Background(), tree, rules, benchOps)
 	}
 }

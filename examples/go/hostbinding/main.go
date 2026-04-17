@@ -27,11 +27,12 @@ func main() {
 	eng.Use(gicel.Prelude)
 
 	// Register "Int" as an opaque host type (kind: Type).
+	ops := &gicel.TypeOps{}
 	eng.RegisterType("Int", gicel.KindType())
 
 	// Declare that `n` exists at type Int.
 	// The checker will verify all uses of `n` are consistent with this type.
-	eng.DeclareBinding("n", gicel.ConType("Int"))
+	eng.DeclareBinding("n", ops.Con("Int"))
 
 	// Compile.
 	rt, err := eng.NewRuntime(context.Background(), source)

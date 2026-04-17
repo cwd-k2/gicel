@@ -33,28 +33,38 @@ func TestPublicConstructorsNonNil(t *testing.T) {
 		{"FromRecord", gicel.FromRecord},
 		{"NewRecord", gicel.NewRecord},
 		{"NewRecordFromMap", gicel.NewRecordFromMap},
-		{"ConType", gicel.ConType},
-		{"ArrowType", gicel.ArrowType},
-		{"CompType", gicel.CompType},
-		{"ForallType", gicel.ForallType},
-		{"ForallRow", gicel.ForallRow},
-		{"VarType", gicel.VarType},
-		{"AppType", gicel.AppType},
 		{"NewRow", gicel.NewRow},
 		{"KindType", gicel.KindType},
-		{"KindArrow", gicel.KindArrow},
 		{"KindRow", gicel.KindRow},
-		{"ForallKind", gicel.ForallKind},
 		{"EmptyRowType", gicel.EmptyRowType},
-		{"RecordType", gicel.RecordType},
-		{"TupleType", gicel.TupleType},
-		{"TypePretty", gicel.TypePretty},
+		{"ClosedRowType", gicel.ClosedRowType},
 		{"ResetBudgetCounters", gicel.ResetBudgetCounters},
 	}
 	for _, c := range checks {
 		if c.fn == nil {
 			t.Errorf("%s is nil", c.name)
 		}
+	}
+
+	// TypeOps methods (replaced standalone type constructors).
+	ops := &gicel.TypeOps{}
+	if ops.Con("Int") == nil {
+		t.Error("TypeOps.Con returned nil")
+	}
+	if ops.Arrow(ops.Con("Int"), ops.Con("Int")) == nil {
+		t.Error("TypeOps.Arrow returned nil")
+	}
+	if ops.Comp(gicel.EmptyRowType(), gicel.EmptyRowType(), ops.Con("Bool"), nil) == nil {
+		t.Error("TypeOps.Comp returned nil")
+	}
+	if ops.Var("a") == nil {
+		t.Error("TypeOps.Var returned nil")
+	}
+	if ops.App(ops.Con("List"), ops.Con("Int")) == nil {
+		t.Error("TypeOps.App returned nil")
+	}
+	if ops.Pretty(ops.Con("Int")) == "" {
+		t.Error("TypeOps.Pretty returned empty string")
 	}
 }
 

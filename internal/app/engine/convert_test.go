@@ -136,19 +136,22 @@ func TestFromRecordNonRecord(t *testing.T) {
 }
 
 func TestRecordTypeHelper(t *testing.T) {
-	rty := RecordType(
-		RowField{Label: "x", Type: ConType("Int")},
-		RowField{Label: "y", Type: ConType("Int")},
-	)
-	got := TypePretty(rty)
+	rty := testOps.App(testOps.Con(types.TyConRecord), types.ClosedRow(
+		RowField{Label: "x", Type: testOps.Con("Int")},
+		RowField{Label: "y", Type: testOps.Con("Int")},
+	))
+	got := testOps.Pretty(rty)
 	if !strings.Contains(got, "Record") {
 		t.Errorf("expected Record type, got %s", got)
 	}
 }
 
 func TestTupleTypeHelper(t *testing.T) {
-	tt := TupleType(ConType("Int"), ConType("Bool"))
-	got := TypePretty(tt)
+	tt := testOps.App(testOps.Con(types.TyConRecord), types.ClosedRow(
+		RowField{Label: types.TupleLabel(1), Type: testOps.Con("Int")},
+		RowField{Label: types.TupleLabel(2), Type: testOps.Con("Bool")},
+	))
+	got := testOps.Pretty(tt)
 	if got != "(Int, Bool)" {
 		t.Errorf("expected (Int, Bool), got %s", got)
 	}
@@ -205,46 +208,46 @@ func TestFromRecordDefensiveCopy(t *testing.T) {
 }
 
 func TestTypeHelpers(t *testing.T) {
-	// ConType constructs a type constructor.
-	intTy := ConType("Int")
-	if TypePretty(intTy) != "Int" {
-		t.Errorf("expected Int, got %s", TypePretty(intTy))
+	// Con constructs a type constructor.
+	intTy := testOps.Con("Int")
+	if testOps.Pretty(intTy) != "Int" {
+		t.Errorf("expected Int, got %s", testOps.Pretty(intTy))
 	}
 
-	// ArrowType constructs a function type.
-	arrTy := ArrowType(ConType("Bool"), ConType("Bool"))
-	if got := TypePretty(arrTy); got != "Bool -> Bool" {
+	// Arrow constructs a function type.
+	arrTy := testOps.Arrow(testOps.Con("Bool"), testOps.Con("Bool"))
+	if got := testOps.Pretty(arrTy); got != "Bool -> Bool" {
 		t.Errorf("expected Bool -> Bool, got %s", got)
 	}
 
 	// EmptyRowType constructs an empty row.
 	row := EmptyRowType()
-	if TypePretty(row) != "{}" {
-		t.Errorf("expected {}, got %s", TypePretty(row))
+	if testOps.Pretty(row) != "{}" {
+		t.Errorf("expected {}, got %s", testOps.Pretty(row))
 	}
 
 	// ClosedRowType constructs a row with fields.
-	row2 := ClosedRowType(RowField{Label: "x", Type: ConType("Int")})
-	if got := TypePretty(row2); !strings.Contains(got, "x") {
+	row2 := ClosedRowType(RowField{Label: "x", Type: testOps.Con("Int")})
+	if got := testOps.Pretty(row2); !strings.Contains(got, "x") {
 		t.Errorf("expected row with field x, got %s", got)
 	}
 
-	// ForallType constructs a quantified type.
-	forallTy := ForallType("a", ArrowType(VarType("a"), VarType("a")))
-	if got := TypePretty(forallTy); !strings.Contains(got, `\`) {
+	// Forall constructs a quantified type.
+	forallTy := testOps.Forall("a", types.TypeOfTypes, testOps.Arrow(testOps.Var("a"), testOps.Var("a")))
+	if got := testOps.Pretty(forallTy); !strings.Contains(got, `\`) {
 		t.Errorf(`expected \ in pretty, got %s`, got)
 	}
 
-	// CompType constructs a computation type.
-	compTy := CompType(EmptyRowType(), EmptyRowType(), ConType("Bool"), nil)
-	if got := TypePretty(compTy); !strings.Contains(got, "Bool") {
+	// Comp constructs a computation type.
+	compTy := testOps.Comp(EmptyRowType(), EmptyRowType(), testOps.Con("Bool"), nil)
+	if got := testOps.Pretty(compTy); !strings.Contains(got, "Bool") {
 		t.Errorf("expected Bool in computation type, got %s", got)
 	}
 
-	// VarType constructs a type variable.
-	tv := VarType("a")
-	if TypePretty(tv) != "a" {
-		t.Errorf("expected a, got %s", TypePretty(tv))
+	// Var constructs a type variable.
+	tv := testOps.Var("a")
+	if testOps.Pretty(tv) != "a" {
+		t.Errorf("expected a, got %s", testOps.Pretty(tv))
 	}
 
 	// Kind helpers.
@@ -256,16 +259,16 @@ func TestTypeHelpers(t *testing.T) {
 	if types.Equal(kr, KindType()) {
 		t.Errorf("Row should not equal Type")
 	}
-	ka := KindArrow(KindType(), KindType())
-	if !types.Equal(ka, KindArrow(KindType(), KindType())) {
+	ka := testOps.Arrow(KindType(), KindType())
+	if !types.Equal(ka, testOps.Arrow(KindType(), KindType())) {
 		t.Errorf("Arrow(Type,Type) should equal itself")
 	}
 
-	// TypeEqual
-	if !TypeEqual(ConType("Int"), ConType("Int")) {
+	// Equal
+	if !testOps.Equal(testOps.Con("Int"), testOps.Con("Int")) {
 		t.Errorf("Int should equal Int")
 	}
-	if TypeEqual(ConType("Int"), ConType("Bool")) {
+	if testOps.Equal(testOps.Con("Int"), testOps.Con("Bool")) {
 		t.Errorf("Int should not equal Bool")
 	}
 }

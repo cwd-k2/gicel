@@ -444,10 +444,13 @@ func (e *Engine) RegisterModule(name, source string) (err error) {
 }
 
 // CoreProgram is an opaque compiled Core IR for inspection.
-type CoreProgram struct{ prog *ir.Program }
+type CoreProgram struct {
+	prog    *ir.Program
+	typeOps *types.TypeOps
+}
 
 // Pretty returns a human-readable representation of the Core IR.
-func (c *CoreProgram) Pretty() string { return ir.PrettyProgram(c.prog) }
+func (c *CoreProgram) Pretty() string { return ir.PrettyProgram(c.prog, c.typeOps) }
 
 // CompileResult holds all static information produced by compilation.
 type CompileResult struct {
@@ -456,7 +459,7 @@ type CompileResult struct {
 }
 
 // Pretty returns the Core IR as a human-readable string.
-func (cr *CompileResult) Pretty() string { return ir.PrettyProgram(cr.prog) }
+func (cr *CompileResult) Pretty() string { return ir.PrettyProgram(cr.prog, cr.typeOps) }
 
 // BindingNames returns the names of all top-level bindings.
 func (cr *CompileResult) BindingNames() []string {
@@ -489,7 +492,7 @@ func (cr *CompileResult) BindingType(name string) (types.Type, bool) {
 
 // CoreProgram returns the compiled Core IR for inspection.
 func (cr *CompileResult) CoreProgram() *CoreProgram {
-	return &CoreProgram{prog: cr.prog}
+	return &CoreProgram{prog: cr.prog, typeOps: cr.typeOps}
 }
 
 // Parse lexes and parses source code, checking for syntax errors only.

@@ -18,7 +18,7 @@ func TestHostBinding(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +148,7 @@ func TestRuntimeReuse(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestRuntimeReuse(t *testing.T) {
 func TestRuntimePrimRegistryIsolation(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareAssumption("f", ArrowType(ConType("Bool"), ConType("Bool")))
+	eng.DeclareAssumption("f", testOps.Arrow(testOps.Con("Bool"), testOps.Con("Bool")))
 	eng.RegisterPrim("f", func(_ context.Context, ce eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return &eval.ConVal{Con: "True"}, ce, nil
 	})
@@ -349,7 +349,7 @@ func TestMissingRuntimeBinding(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)
@@ -374,8 +374,8 @@ func TestPrimPartialApplication(t *testing.T) {
 		b := MustHost[int](args[1])
 		return ToValue(a + b), capEnv, nil
 	})
-	eng.DeclareBinding("a", ConType("Int"))
-	eng.DeclareBinding("b", ConType("Int"))
+	eng.DeclareBinding("a", testOps.Con("Int"))
+	eng.DeclareBinding("b", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `
 import Prelude
 add :: Int -> Int -> Int
@@ -454,7 +454,7 @@ func TestEngineMutationAfterRuntime(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
 	eng.RegisterType("Int", KindType())
-	eng.DeclareBinding("x", ConType("Int"))
+	eng.DeclareBinding("x", testOps.Con("Int"))
 	rt, err := eng.NewRuntime(context.Background(), `main := x`)
 	if err != nil {
 		t.Fatal(err)

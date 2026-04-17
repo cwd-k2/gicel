@@ -62,8 +62,8 @@ func (o *TypeOps) Pretty(t Type) string {
 
 // PrettyAtom renders a type as a single syntactic atom.
 // Compound types (arrows, applications, foralls, etc.) are wrapped in parentheses.
-func PrettyAtom(t Type) string {
-	return prettyAtom(&defaultOps, t)
+func (o *TypeOps) PrettyAtom(t Type) string {
+	return prettyAtom(o, t)
 }
 
 func prettyAtom(o *TypeOps, t Type) string {

@@ -16,7 +16,7 @@ var grammarPrograms = []stressProgram{
 		file: "10_full_grammar.gicel",
 		setup: func(e *gicel.Engine) {
 			capEnvSetup(e)
-			e.DeclareBinding("seed", gicel.ConType("Int"))
+			e.DeclareBinding("seed", stressOps.Con("Int"))
 			e.RegisterPrim("readS", func(ctx context.Context, ce gicel.CapEnv, args []gicel.Value, _ gicel.Applier) (gicel.Value, gicel.CapEnv, error) {
 				v, _ := ce.Get("s")
 				n, _ := v.(int)

@@ -389,7 +389,7 @@ func (ch *Checker) initContext() {
 		ch.ctx.Push(&CtxVar{Name: name, Type: ty})
 	}
 	// Built-in identifiers.
-	for name, ty := range builtinTypes {
+	for name, ty := range makeBuiltinTypes(ch.typeOps) {
 		if gatedBuiltins[name] {
 			if ch.config.GatedBuiltins != nil && ch.config.GatedBuiltins[name] {
 				ch.ctx.Push(&CtxVar{Name: name, Type: ty})

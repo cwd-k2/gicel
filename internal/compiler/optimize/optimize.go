@@ -11,6 +11,7 @@ import (
 	"context"
 
 	"github.com/cwd-k2/gicel/internal/lang/ir"
+	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 // optimize applies algebraic simplifications and registered rewrite rules.
@@ -19,13 +20,13 @@ import (
 // passes so that a timeout or cancellation aborts the optimization loop
 // before runaway IR growth (e.g. recursive dictionary inlining) exhausts
 // memory.
-func optimize(ctx context.Context, c ir.Core, rules []func(ir.Core) ir.Core) ir.Core {
+func optimize(ctx context.Context, c ir.Core, rules []func(ir.Core) ir.Core, ops *types.TypeOps) ir.Core {
 	const maxPasses = 4
 	for range maxPasses {
 		if ctx.Err() != nil {
 			break
 		}
-		rw := &rewriter{ctx: ctx, rules: rules}
+		rw := &rewriter{ctx: ctx, rules: rules, ops: ops}
 		c = ir.TransformMut(c, rw.apply)
 		if !rw.changed {
 			break
@@ -41,7 +42,7 @@ func optimize(ctx context.Context, c ir.Core, rules []func(ir.Core) ir.Core) ir.
 // fix, force) that are eligible for inlining at qualified call sites.
 // The context is checked between optimization passes so that timeout or
 // cancellation can abort before runaway IR growth exhausts memory.
-func OptimizeProgram(ctx context.Context, prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, externalDicts ...map[ir.VarKey]ExternalBinding) {
+func OptimizeProgram(ctx context.Context, prog *ir.Program, rules []func(ir.Core) ir.Core, userBindings map[string]bool, externalBindings []ExternalBinding, ops *types.TypeOps, externalDicts ...map[ir.VarKey]ExternalBinding) {
 	candidates := collectInlineCandidates(prog, userBindings, externalBindings)
 	allRules := rules
 	if len(candidates) > 0 {
@@ -56,7 +57,7 @@ func OptimizeProgram(ctx context.Context, prog *ir.Program, rules []func(ir.Core
 		allRules = append([]func(ir.Core) ir.Core{caseOfKnownDict(dicts, prog)}, allRules...)
 	}
 	for i, b := range prog.Bindings {
-		prog.Bindings[i].Expr = optimize(ctx, b.Expr, allRules)
+		prog.Bindings[i].Expr = optimize(ctx, b.Expr, allRules, ops)
 	}
 }
 
@@ -178,6 +179,7 @@ func normalizeConApp(expr ir.Core) *ir.Con {
 type rewriter struct {
 	ctx     context.Context
 	rules   []func(ir.Core) ir.Core
+	ops     *types.TypeOps
 	changed bool
 }
 
@@ -192,7 +194,7 @@ func (rw *rewriter) apply(c ir.Core) ir.Core {
 	orig := c
 	// Phase 1: algebraic simplifications (always active).
 	c = betaReduce(c)
-	c = tyAppBeta(c)
+	c = tyAppBeta(c, rw.ops)
 	c = appTyLamFloat(c)
 	c = caseOfKnownCtor(c)
 	c = caseOfKnownLit(c)

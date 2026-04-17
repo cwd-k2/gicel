@@ -270,7 +270,7 @@ main := host_x
 	makeEngine := func() *Engine {
 		eng := NewEngine()
 		stdlib.Prelude(eng)
-		eng.DeclareBinding("host_x", ConType("Int"))
+		eng.DeclareBinding("host_x", testOps.Con("Int"))
 		return eng
 	}
 
@@ -407,8 +407,8 @@ main := 1
 		name   string
 		mutate func(e *Engine)
 	}{
-		{"DeclareBinding", func(e *Engine) { e.DeclareBinding("x", ConType("Int")) }},
-		{"DeclareAssumption", func(e *Engine) { e.DeclareAssumption("op", ConType("Int")) }},
+		{"DeclareBinding", func(e *Engine) { e.DeclareBinding("x", testOps.Con("Int")) }},
+		{"DeclareAssumption", func(e *Engine) { e.DeclareAssumption("op", testOps.Con("Int")) }},
 		{"RegisterType", func(e *Engine) { e.RegisterType("Extra", nil) }},
 		{"RegisterPrim", func(e *Engine) {
 			e.RegisterPrim("p_extra", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, apply eval.Applier) (eval.Value, eval.CapEnv, error) {

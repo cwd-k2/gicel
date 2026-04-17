@@ -39,12 +39,13 @@ type UnifyError interface {
 // types are known the diagnostic context already conveys the expectation,
 // so the unifier message is suppressed to avoid duplication.
 type MismatchError struct {
-	A, B types.Type
+	A, B    types.Type
+	TypeOps *types.TypeOps
 }
 
 func (e *MismatchError) Kind() UnifyErrorKind { return UnifyMismatch }
 func (e *MismatchError) Error() string {
-	return "type mismatch: " + types.Pretty(e.A) + " vs " + types.Pretty(e.B)
+	return "type mismatch: " + e.TypeOps.Pretty(e.A) + " vs " + e.TypeOps.Pretty(e.B)
 }
 
 // GradeMismatchError reports a grade count mismatch for a specific row label.
@@ -94,6 +95,7 @@ type OccursError struct {
 	MetaID  int
 	Type    types.Type // nil for level occurs check
 	IsLevel bool       // discriminates "infinite type" vs "infinite level"
+	TypeOps *types.TypeOps
 }
 
 func (e *OccursError) Kind() UnifyErrorKind { return UnifyOccursCheck }
@@ -101,7 +103,7 @@ func (e *OccursError) Error() string {
 	if e.IsLevel {
 		return "infinite level: level variable occurs in itself"
 	}
-	return "infinite type: inferred type occurs in " + types.Pretty(e.Type)
+	return "infinite type: inferred type occurs in " + e.TypeOps.Pretty(e.Type)
 }
 
 // DupLabelError reports a duplicate label in a row.
@@ -167,6 +169,7 @@ type SkolemRigidError struct {
 	SkolemID     int
 	Other        types.Type
 	SkolemOnLeft bool
+	TypeOps      *types.TypeOps
 }
 
 func (e *SkolemRigidError) Kind() UnifyErrorKind { return UnifySkolemRigid }
@@ -183,9 +186,9 @@ func (e *SkolemRigidError) Error() string {
 		return "cannot unify " + otherStr + " with rigid type variable " + skolemStr
 	}
 	if e.SkolemOnLeft {
-		return "cannot unify rigid type variable " + skolemStr + " with " + types.Pretty(e.Other)
+		return "cannot unify rigid type variable " + skolemStr + " with " + e.TypeOps.Pretty(e.Other)
 	}
-	return "cannot unify " + types.Pretty(e.Other) + " with rigid type variable " + skolemStr
+	return "cannot unify " + e.TypeOps.Pretty(e.Other) + " with rigid type variable " + skolemStr
 }
 
 // UntouchableMetaError reports an attempt to solve a metavariable from a

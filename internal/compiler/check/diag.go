@@ -39,10 +39,11 @@ func (d diagWithErr) DiagnosticMessage() string { return d.Context + ": " + d.Er
 type diagWithType struct {
 	Context string
 	Type    types.Type
+	TypeOps *types.TypeOps
 }
 
 func (d diagWithType) DiagnosticMessage() string {
-	return d.Context + types.Pretty(d.Type)
+	return d.Context + d.TypeOps.Pretty(d.Type)
 }
 
 // diagExpectGot reports "expected X, got Y" with pretty-printed types.
@@ -50,10 +51,11 @@ type diagExpectGot struct {
 	Context  string
 	Expected types.Type
 	Got      types.Type
+	TypeOps  *types.TypeOps
 }
 
 func (d diagExpectGot) DiagnosticMessage() string {
-	return d.Context + ": expected " + types.Pretty(d.Expected) + ", got " + types.Pretty(d.Got)
+	return d.Context + ": expected " + d.TypeOps.Pretty(d.Expected) + ", got " + d.TypeOps.Pretty(d.Got)
 }
 
 // diagFmt uses fmt.Sprintf for complex messages.

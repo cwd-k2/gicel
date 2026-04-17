@@ -87,7 +87,7 @@ func (ch *Checker) matchRecordField(ty types.Type, label string, s span.Span) ty
 	}
 	expectedRecTy := ch.typeOps.AppAt(ch.typeOps.Con(types.TyConRecord), expectedRow, s)
 	if err := ch.unifier.Unify(ty, expectedRecTy); err != nil {
-		ch.addDiag(diagnostic.ErrRowMismatch, s, diagWithType{Context: "expected record with field " + label + ", got ", Type: ty})
+		ch.addDiag(diagnostic.ErrRowMismatch, s, diagWithType{Context: "expected record with field " + label + ", got ", Type: ty, TypeOps: ch.typeOps})
 		return ch.freshMeta(types.TypeOfTypes)
 	}
 	return ch.unifier.Zonk(fieldMeta)

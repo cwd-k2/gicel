@@ -189,7 +189,7 @@ func (pc *pipelineCtx) compileModule(name, source string) (*compiledModule, erro
 // After postCheck, the ir.Program is ready for backend-specific lowering.
 // The VM backend calls annotateForVM to add FV analysis and de Bruijn indices.
 func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool) {
-	ir.EraseLabelArgsProgram(prog)
+	ir.EraseLabelArgsProgram(prog, pc.typeOps)
 	if pc.pipelineFlags.verifyIR {
 		if errs := ir.VerifyProgram(prog); len(errs) > 0 {
 			panic("IR verification failed: " + errs[0].Error())
@@ -197,7 +197,7 @@ func (pc *pipelineCtx) postCheck(prog *ir.Program, userBindings map[string]bool)
 	}
 	externalInline := pc.collectExternalInlineBindings()
 	externalDicts := pc.collectExternalDictionaries()
-	optimize.OptimizeProgram(pc.ctx, prog, pc.host.rewriteRules, userBindings, externalInline, externalDicts)
+	optimize.OptimizeProgram(pc.ctx, prog, pc.host.rewriteRules, userBindings, externalInline, pc.typeOps, externalDicts)
 }
 
 // annotateForVM runs VM-backend-specific preparation: free-variable analysis
@@ -257,6 +257,7 @@ func (pc *pipelineCtx) assembleRuntime(prog *ir.Program, annots *ir.FVAnnotation
 		prog:               prog,
 		annots:             annots,
 		prims:              pc.host.prims.Clone(),
+		typeOps:            pc.typeOps,
 		stepLimit:          pc.runtimeLimits.stepLimit,
 		depthLimit:         pc.runtimeLimits.depthLimit,
 		nestingLimit:       pc.compilerLimits.nestingLimit,

@@ -399,7 +399,8 @@ func TestStressConcurrentRunWith(t *testing.T) {
 	if err := eng.Use(gicel.Prelude); err != nil {
 		t.Fatal(err)
 	}
-	eng.DeclareBinding("x", gicel.ConType("Int"))
+	ops := &gicel.TypeOps{}
+	eng.DeclareBinding("x", ops.Con("Int"))
 	eng.SetStepLimit(10_000_000)
 
 	rt, err := eng.NewRuntime(context.Background(), `
@@ -674,7 +675,8 @@ main := id (id (id (id (id True))))
 func TestStressDepthLimitWithThunkForce(t *testing.T) {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
-	eng.DeclareBinding("f", gicel.ArrowType(gicel.ConType("Bool"), gicel.ConType("Bool")))
+	ops := &gicel.TypeOps{}
+	eng.DeclareBinding("f", ops.Arrow(ops.Con("Bool"), ops.Con("Bool")))
 
 	const depth = 10
 	var sb strings.Builder

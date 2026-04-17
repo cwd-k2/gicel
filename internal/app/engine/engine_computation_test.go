@@ -52,7 +52,7 @@ func TestPure(t *testing.T) {
 func TestAssumption(t *testing.T) {
 	eng := NewEngine()
 	eng.Use(stdlib.Prelude)
-	eng.DeclareAssumption("getUnit", ArrowType(ConType("Bool"), ConType("Bool")))
+	eng.DeclareAssumption("getUnit", testOps.Arrow(testOps.Con("Bool"), testOps.Con("Bool")))
 	eng.RegisterPrim("getUnit", func(ctx context.Context, capEnv eval.CapEnv, args []eval.Value, _ eval.Applier) (eval.Value, eval.CapEnv, error) {
 		return &eval.ConVal{Con: "True"}, capEnv, nil
 	})

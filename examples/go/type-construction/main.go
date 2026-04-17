@@ -17,17 +17,18 @@ import (
 func main() {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
+	ops := &gicel.TypeOps{}
 
-	// --- ConType: simple type constructor ---
-	intTy := gicel.ConType("Int")
+	// --- Con: simple type constructor ---
+	intTy := ops.Con("Int")
 
-	// --- ArrowType: function type Int -> Int ---
-	_ = gicel.ArrowType(intTy, intTy) // Int -> Int
+	// --- Arrow: function type Int -> Int ---
+	_ = ops.Arrow(intTy, intTy) // Int -> Int
 
-	// --- ForallType: polymorphic types ---
+	// --- Forall: polymorphic types ---
 	// \ a. a -> Maybe a
-	wrapMaybeTy := gicel.ForallType("a",
-		gicel.ArrowType(gicel.VarType("a"), gicel.AppType(gicel.ConType("Maybe"), gicel.VarType("a"))))
+	wrapMaybeTy := ops.Forall("a", gicel.KindType(),
+		ops.Arrow(ops.Var("a"), ops.App(ops.Con("Maybe"), ops.Var("a"))))
 
 	// DeclareAssumption from Go (alternative to :: in source).
 	eng.DeclareAssumption("wrapJust", wrapMaybeTy)
@@ -37,20 +38,20 @@ func main() {
 
 	// --- RowBuilder: record types ---
 	// Record { x: Int, y: Int }
-	pointRow := gicel.NewRow().
+	pointRow := gicel.NewRow(ops).
 		And("x", intTy).
 		And("y", intTy).
 		Closed()
-	pointTy := gicel.AppType(gicel.ConType("Record"), pointRow)
+	pointTy := ops.App(ops.Con("Record"), pointRow)
 
 	eng.DeclareBinding("origin", pointTy)
 
-	// --- ForallRow: row-polymorphic types ---
+	// --- Forall(Row): row-polymorphic types ---
 	// \ (r: Row). Record { x: Int | r } -> Int
-	getXTy := gicel.ForallRow("r",
-		gicel.ArrowType(
-			gicel.AppType(gicel.ConType("Record"),
-				gicel.NewRow().And("x", intTy).Open("r")),
+	getXTy := ops.Forall("r", gicel.KindRow(),
+		ops.Arrow(
+			ops.App(ops.Con("Record"),
+				gicel.NewRow(ops).And("x", intTy).Open("r")),
 			intTy))
 
 	// The source uses wrapJust (declared from Go) and origin (bound from Go).
@@ -81,8 +82,8 @@ main := wrapJust (origin.#x + origin.#y)
 	fmt.Println("wrapJust (3 + 4) =", result.Value)
 	// Output: wrapJust (3 + 4) = Just HostVal(7)
 
-	// --- TypePretty: inspect constructed types ---
-	fmt.Println("pointTy:", gicel.TypePretty(pointTy))
-	fmt.Println("wrapMaybeTy:", gicel.TypePretty(wrapMaybeTy))
-	fmt.Println("getXTy:", gicel.TypePretty(getXTy))
+	// --- Pretty: inspect constructed types ---
+	fmt.Println("pointTy:", ops.Pretty(pointTy))
+	fmt.Println("wrapMaybeTy:", ops.Pretty(wrapMaybeTy))
+	fmt.Println("getXTy:", ops.Pretty(getXTy))
 }

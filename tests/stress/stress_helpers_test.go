@@ -17,6 +17,9 @@ import (
 	"github.com/cwd-k2/gicel"
 )
 
+// stressOps provides type construction for stress tests.
+var stressOps = &gicel.TypeOps{}
+
 // ---------------------------------------------------------------------------
 // Shared types
 // ---------------------------------------------------------------------------

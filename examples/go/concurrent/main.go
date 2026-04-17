@@ -24,8 +24,9 @@ main := Just n
 func main() {
 	eng := gicel.NewEngine()
 	eng.Use(gicel.Prelude)
+	ops := &gicel.TypeOps{}
 	eng.RegisterType("Int", gicel.KindType())
-	eng.DeclareBinding("n", gicel.ConType("Int"))
+	eng.DeclareBinding("n", ops.Con("Int"))
 
 	// Compile once.
 	rt, err := eng.NewRuntime(context.Background(), source)

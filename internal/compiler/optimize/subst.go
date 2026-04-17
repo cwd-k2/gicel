@@ -268,7 +268,7 @@ func substMany(expr ir.Core, subs map[string]ir.Core, subsFV map[string]struct{}
 // can then reduce.
 //
 // Does NOT introduce new TyApp nodes (satisfies package INVARIANT).
-func tyAppBeta(c ir.Core) ir.Core {
+func tyAppBeta(c ir.Core, ops *types.TypeOps) ir.Core {
 	ta, ok := c.(*ir.TyApp)
 	if !ok {
 		return c
@@ -277,7 +277,7 @@ func tyAppBeta(c ir.Core) ir.Core {
 	if !ok {
 		return c
 	}
-	return substTyVarInCore(tl.Body, tl.TyParam, ta.TyArg)
+	return substTyVarInCore(tl.Body, tl.TyParam, ta.TyArg, ops)
 }
 
 // appTyLamFloat floats a value argument past a TyLam wrapper:
@@ -316,12 +316,12 @@ func appTyLamFloat(c ir.Core) ir.Core {
 // binders, so it would incorrectly substitute locally-bound type
 // variables. The pre-order shadow check (TyLam.TyParam == tyVar →
 // return unchanged) is essential for correctness.
-func substTyVarInCore(c ir.Core, tyVar string, ty types.Type) ir.Core {
+func substTyVarInCore(c ir.Core, tyVar string, ty types.Type, ops *types.TypeOps) ir.Core {
 	st := func(t types.Type) types.Type {
 		if t == nil {
 			return nil
 		}
-		return types.Subst(t, tyVar, ty)
+		return ops.Subst(t, tyVar, ty)
 	}
 	var walk func(ir.Core) ir.Core
 	walk = func(c ir.Core) ir.Core {
