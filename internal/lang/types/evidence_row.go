@@ -238,7 +238,7 @@ type constraintMatch struct {
 // classHeadArgsEqual checks if two class-headed constraint entries have the
 // same class name and structurally equal head args. Non-class variants and
 // mismatched classes return false.
-func classHeadArgsEqual(ops *TypeOps, a, b ConstraintEntry) bool {
+func (o *TypeOps) classHeadArgsEqual(a, b ConstraintEntry) bool {
 	clsA := HeadClassName(a)
 	if clsA == "" || clsA != HeadClassName(b) {
 		return false
@@ -249,7 +249,7 @@ func classHeadArgsEqual(ops *TypeOps, a, b ConstraintEntry) bool {
 		return false
 	}
 	for i := range argsA {
-		if !ops.Equal(argsA[i], argsB[i]) {
+		if !o.Equal(argsA[i], argsB[i]) {
 			return false
 		}
 	}
@@ -287,7 +287,7 @@ func (o *TypeOps) ClassifyConstraints(a, b []ConstraintEntry) (
 				if bUsed[bi] {
 					continue
 				}
-				if classHeadArgsEqual(o, ea, b[bi]) {
+				if o.classHeadArgsEqual(ea, b[bi]) {
 					shared = append(shared, constraintMatch{A: ea, B: b[bi]})
 					bUsed[bi] = true
 					matched = true
