@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/cwd-k2/gicel/internal/lang/types"
 )
 
 func TestWalkCountNodes(t *testing.T) {
@@ -183,7 +181,7 @@ func TestPrettySimple(t *testing.T) {
 		Var:  "_",
 		Body: &Pure{Expr: &Con{Name: "Unit"}},
 	}
-	got := Pretty(term, &types.TypeOps{})
+	got := Pretty(term, testOps)
 	if !strings.Contains(got, "bind") || !strings.Contains(got, "dbOpen") {
 		t.Errorf("unexpected pretty output: %s", got)
 	}

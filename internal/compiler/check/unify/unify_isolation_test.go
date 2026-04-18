@@ -16,7 +16,7 @@ import (
 // TestProbeIsolated_RollbackSoln verifies that solutions written during
 // the probe are rolled back on End.
 func TestProbeIsolated_RollbackSoln(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 
 	tok := u.BeginProbeIsolated()
@@ -36,7 +36,7 @@ func TestProbeIsolated_RollbackSoln(t *testing.T) {
 // TestProbeIsolated_SuspendsSolverLevel verifies that touchability is
 // disabled inside the scope and restored on exit.
 func TestProbeIsolated_SuspendsSolverLevel(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	u.SolverLevel = 5
 	tok := u.BeginProbeIsolated()
 	if u.SolverLevel != -1 {
@@ -54,7 +54,7 @@ func TestProbeIsolated_SuspendsSolverLevel(t *testing.T) {
 // prevents the trial from reaching into the solver's worklist via
 // Reactivate, since worklist mutations are not rolled back by Snapshot.
 func TestProbeIsolated_NilsCallbacks(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	called := 0
 	u.OnSolve = func(int) { called++ }
 	famCalled := 0
@@ -102,7 +102,7 @@ func TestProbeIsolated_NilsCallbacks(t *testing.T) {
 // unify with arbitrary types, and the surrounding code must NOT see
 // the flag set after the scope exits.
 func TestProbeIsolated_FlexSkolemsRoundtrip(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	if u.FlexSkolems {
 		t.Fatalf("expected fresh Unifier to have FlexSkolems == false")
 	}
@@ -118,7 +118,7 @@ func TestProbeIsolated_FlexSkolemsRoundtrip(t *testing.T) {
 // inner unification FAILS, no partial state remains after End. The
 // snapshot must capture the state before any partial soln writes.
 func TestProbeIsolated_NoLeakAfterFailedUnify(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 
 	tok := u.BeginProbeIsolated()
@@ -141,7 +141,7 @@ func TestProbeIsolated_NoLeakAfterFailedUnify(t *testing.T) {
 // inner Begin (NOT the outer Begin), so that the outer scope still sees
 // its own modifications until its own End.
 func TestProbeIsolated_NestedScopes(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 
 	outerTok := u.BeginProbeIsolated()
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}

@@ -16,7 +16,7 @@ func sp(start, end int) span.Span {
 }
 
 func TestHoverIndex_RecordAndLen(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	b.Record(sp(0, 5), tycon("Int", sp(0, 0)))
 	b.Record(sp(6, 10), tycon("String", sp(0, 0)))
 	idx := b.Finalize()
@@ -26,7 +26,7 @@ func TestHoverIndex_RecordAndLen(t *testing.T) {
 }
 
 func TestHoverIndex_FilterZeroSpan(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	b.Record(span.Span{}, tycon("Int", sp(0, 0)))
 	idx := b.Finalize()
 	if idx.Len() != 0 {
@@ -35,7 +35,7 @@ func TestHoverIndex_FilterZeroSpan(t *testing.T) {
 }
 
 func TestHoverIndex_FilterZeroWidthSpan(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	b.Record(sp(5, 5), tycon("Int", sp(0, 0)))
 	idx := b.Finalize()
 	if idx.Len() != 0 {
@@ -44,7 +44,7 @@ func TestHoverIndex_FilterZeroWidthSpan(t *testing.T) {
 }
 
 func TestHoverIndex_FilterTyError(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	b.Record(sp(0, 5), &types.TyError{S: sp(0, 5)})
 	idx := b.Finalize()
 	if idx.Len() != 0 {
@@ -53,7 +53,7 @@ func TestHoverIndex_FilterTyError(t *testing.T) {
 }
 
 func TestHoverIndex_TypeAtBasic(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	b.Record(sp(0, 3), tycon("Int", sp(0, 0)))
 	b.Record(sp(5, 11), tycon("String", sp(0, 0)))
 	idx := b.Finalize()
@@ -84,7 +84,7 @@ func TestHoverIndex_TypeAtBasic(t *testing.T) {
 }
 
 func TestHoverIndex_InnermostSpan(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	// Outer: [0, 20), inner: [5, 10).
 	b.Record(sp(0, 20), tycon("Outer", sp(0, 0)))
 	b.Record(sp(5, 10), tycon("Inner", sp(0, 0)))
@@ -110,7 +110,7 @@ func TestHoverIndex_InnermostSpan(t *testing.T) {
 }
 
 func TestHoverIndex_EmptyIndex(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	idx := b.Finalize()
 	if ty := idx.TypeAt(span.Pos(0)); ty != nil {
 		t.Fatalf("expected nil from empty index, got %v", ty)
@@ -118,7 +118,7 @@ func TestHoverIndex_EmptyIndex(t *testing.T) {
 }
 
 func TestHoverIndex_BoundaryPositions(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	b.Record(sp(5, 10), tycon("A", sp(0, 0)))
 	idx := b.Finalize()
 
@@ -137,7 +137,7 @@ func TestHoverIndex_BoundaryPositions(t *testing.T) {
 }
 
 func TestHoverIndex_RecordDecl(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	intTy := tycon("Int", sp(0, 0))
 	b.RecordDecl(sp(0, 12), HoverBinding, "main", intTy, "")
 	idx := b.Finalize()
@@ -152,7 +152,7 @@ func TestHoverIndex_RecordDecl(t *testing.T) {
 }
 
 func TestHoverIndex_ExprWinsOverDecl(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	intTy := tycon("Int", sp(0, 0))
 	// Binding declaration covers [0, 15).
 	b.RecordDecl(sp(0, 15), HoverBinding, "main", intTy, "")
@@ -195,14 +195,14 @@ func TestHoverIndex_FormatHover(t *testing.T) {
 		ty:     testOps.Arrow(tycon("Int", sp(0, 0)), testOps.Arrow(tycon("Int", sp(0, 0)), tycon("Int", sp(0, 0)))),
 		fixity: &OperatorFixity{Assoc: "infixl", Prec: 6},
 	}
-	opGot := formatHover(opEntry, &types.TypeOps{})
+	opGot := formatHover(opEntry, testOps)
 	opWant := "(Prelude.+) :: Int -> Int -> Int\ninfixl 6"
 	if opGot != opWant {
 		t.Errorf("formatHover(HoverOperator) = %q, want %q", opGot, opWant)
 	}
 	for _, tt := range tests {
 		e := &hoverEntry{kind: tt.kind, label: tt.label, ty: tt.ty}
-		got := formatHover(e, &types.TypeOps{})
+		got := formatHover(e, testOps)
 		if got != tt.want {
 			t.Errorf("formatHover(%v) = %q, want %q", tt.kind, got, tt.want)
 		}
@@ -210,7 +210,7 @@ func TestHoverIndex_FormatHover(t *testing.T) {
 }
 
 func TestHoverIndex_RezonkAll(t *testing.T) {
-	b := NewHoverIndexBuilder(&types.TypeOps{})
+	b := NewHoverIndexBuilder(testOps)
 	meta := &types.TyMeta{ID: 42}
 	b.Record(sp(0, 5), meta)
 

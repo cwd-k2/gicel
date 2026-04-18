@@ -11,7 +11,7 @@ import (
 // TestSolverLevelDisabledAllowsSolve verifies that SolverLevel = -1
 // (disabled) allows solving any meta regardless of its level.
 func TestSolverLevelDisabledAllowsSolve(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	// SolverLevel is -1 by default.
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	if err := u.Unify(m, testOps.Con("Int")); err != nil {
@@ -26,7 +26,7 @@ func TestSolverLevelDisabledAllowsSolve(t *testing.T) {
 // TestSolverLevelBlocksOuterMeta verifies that a meta at level 0
 // cannot be solved when SolverLevel = 1 (inner implication scope).
 func TestSolverLevelBlocksOuterMeta(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	u.SolverLevel = 1
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	err := u.Unify(m, testOps.Con("Int"))
@@ -45,7 +45,7 @@ func TestSolverLevelBlocksOuterMeta(t *testing.T) {
 // TestSolverLevelAllowsSameLevelMeta verifies that a meta at level 1
 // can be solved when SolverLevel = 1.
 func TestSolverLevelAllowsSameLevelMeta(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	u.SolverLevel = 1
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 1}
 	if err := u.Unify(m, testOps.Con("Bool")); err != nil {
@@ -60,7 +60,7 @@ func TestSolverLevelAllowsSameLevelMeta(t *testing.T) {
 // TestSolverLevelZeroAllowsLevelZeroMeta verifies that SolverLevel = 0
 // allows solving a level-0 meta (touchable at top level).
 func TestSolverLevelZeroAllowsLevelZeroMeta(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	u.SolverLevel = 0
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	if err := u.Unify(m, testOps.Con("String")); err != nil {
@@ -75,7 +75,7 @@ func TestSolverLevelZeroAllowsLevelZeroMeta(t *testing.T) {
 // TestSolverLevelBlocksRHS verifies untouchable check applies symmetrically
 // when the meta is on the RHS of unification.
 func TestSolverLevelBlocksRHS(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	u.SolverLevel = 2
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 0}
 	err := u.Unify(testOps.Con("Int"), m)
@@ -94,7 +94,7 @@ func TestSolverLevelBlocksRHS(t *testing.T) {
 // TestSolverLevelAllowsHigherLevelMeta verifies that a meta at level 2
 // can be solved when SolverLevel = 1 (meta is "inner" relative to solver).
 func TestSolverLevelAllowsHigherLevelMeta(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	u.SolverLevel = 1
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes, Level: 2}
 	if err := u.Unify(m, testOps.Con("Rune")); err != nil {

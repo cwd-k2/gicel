@@ -43,7 +43,7 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 		nil,
 	)
 	arrowTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: compTy}
-	result := quantifyFreeVars(&types.TypeOps{}, arrowTy)
+	result := quantifyFreeVars(testOps, arrowTy)
 
 	forall1, ok := result.(*types.TyForall)
 	if !ok {
@@ -70,7 +70,7 @@ func TestQuantifyFreeVarsKindInference(t *testing.T) {
 
 	// Pure type variable should get Type.
 	pureTy := &types.TyArrow{From: &types.TyVar{Name: "a"}, To: &types.TyVar{Name: "a"}}
-	pureResult := quantifyFreeVars(&types.TypeOps{}, pureTy)
+	pureResult := quantifyFreeVars(testOps, pureTy)
 	pureForall, ok := pureResult.(*types.TyForall)
 	if !ok {
 		t.Fatalf("expected TyForall, got %T", pureResult)
@@ -126,7 +126,7 @@ func TestInferFreeVarKindsNoFreeVars(t *testing.T) {
 }
 
 func BenchmarkZonkDeepChain(b *testing.B) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	// Build a deep TyApp chain with no metavariables.
 	var ty types.Type = testOps.Con("Base")
 	for range 50 {

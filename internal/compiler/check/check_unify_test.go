@@ -11,7 +11,7 @@ import (
 )
 
 func TestUnifySimple(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	if err := u.Unify(testOps.Con("Int"), testOps.Con("Int")); err != nil {
 		t.Errorf("Int ~ Int should succeed: %v", err)
 	}
@@ -21,7 +21,7 @@ func TestUnifySimple(t *testing.T) {
 }
 
 func TestUnifyMeta(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, testOps.Con("Int")); err != nil {
 		t.Errorf("?1 ~ Int should succeed: %v", err)
@@ -36,7 +36,7 @@ func TestUnifyMeta(t *testing.T) {
 }
 
 func TestUnifyArrow(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	a := testOps.Arrow(testOps.Con("Int"), m)
 	b := testOps.Arrow(testOps.Con("Int"), testOps.Con("Bool"))
@@ -49,7 +49,7 @@ func TestUnifyArrow(t *testing.T) {
 }
 
 func TestUnifyOccursCheck(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	m := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	if err := u.Unify(m, testOps.Arrow(m, testOps.Con("Int"))); err == nil {
 		t.Error("should fail: infinite type")
@@ -57,7 +57,7 @@ func TestUnifyOccursCheck(t *testing.T) {
 }
 
 func TestUnifyRow(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	r1 := types.ClosedRow(types.RowField{Label: "a", Type: testOps.Con("Int")})
 	r2 := types.ClosedRow(types.RowField{Label: "a", Type: testOps.Con("Int")})
 	if err := u.Unify(r1, r2); err != nil {
@@ -66,7 +66,7 @@ func TestUnifyRow(t *testing.T) {
 }
 
 func TestUnifyRowOpenOpen(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 
 	// r1 = { a: Int, b: Bool | ?1 }
 	// r2 = { a: Int, c: Str  | ?2 }
@@ -141,7 +141,7 @@ func TestUnifyRowOpenOpen(t *testing.T) {
 
 func TestUnifyRowOpenOpenShared(t *testing.T) {
 	// Open-Open where both rows have the same labels → tails unify to same fresh.
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 
 	m1 := &types.TyMeta{ID: 200, Kind: types.TypeOfRows}
 	m2 := &types.TyMeta{ID: 201, Kind: types.TypeOfRows}
@@ -180,7 +180,7 @@ func TestUnifyRowOpenOpenShared(t *testing.T) {
 
 func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 	// Open-Open where rows have entirely different labels.
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 
 	m1 := &types.TyMeta{ID: 300, Kind: types.TypeOfRows}
 	m2 := &types.TyMeta{ID: 301, Kind: types.TypeOfRows}
@@ -223,7 +223,7 @@ func TestUnifyRowOpenOpenDisjoint(t *testing.T) {
 func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 	// Computation pre post result as TyApp chain: ((Computation pre) post) result
 	// normalizeCompApp must preserve: Pre=pre, Post=post, Result=result.
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	pre := testOps.Con("Pre")
 	post := testOps.Con("Post")
 	result := testOps.Con("Result")
@@ -254,7 +254,7 @@ func TestNormalizeCompAppPrePostOrder(t *testing.T) {
 }
 
 func TestNormalizeThunkAppPrePostOrder(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	pre := testOps.Con("Pre")
 	post := testOps.Con("Post")
 	result := testOps.Con("Result")
@@ -303,7 +303,7 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 	// Open row { x: Int, y: Bool | ?tail } vs closed { x: Int }
 	// The open side has extra label y — tail can absorb nothing since closed.
 	// But the open row's tail should solve to {} (empty), and y is extra → error.
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	m := &types.TyMeta{ID: 400, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
@@ -321,7 +321,7 @@ func TestUnifyRowOpenClosedExtraLabels(t *testing.T) {
 func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 	// Closed row { x: Int } vs open row { x: Int, y: Bool | ?tail }
 	// Reversed direction: same constraint.
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	m := &types.TyMeta{ID: 500, Kind: types.TypeOfRows}
 
 	r1 := types.ClosedRow(types.RowField{Label: "x", Type: testOps.Con("Int")})
@@ -339,7 +339,7 @@ func TestUnifyRowClosedOpenAbsorbExtra(t *testing.T) {
 func TestUnifyRowOpenClosedSubset(t *testing.T) {
 	// Open row { x: Int | ?tail } vs closed { x: Int, y: Bool }
 	// Closed has extra y — tail absorbs { y: Bool }.
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	m := &types.TyMeta{ID: 600, Kind: types.TypeOfRows}
 
 	r1 := types.OpenRow([]types.RowField{
@@ -366,7 +366,7 @@ func TestUnifyRowOpenClosedSubset(t *testing.T) {
 }
 
 func TestZonkPathCompression(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	// Chain via permanent solutions: m1 → m2 → Int.
 	m1 := &types.TyMeta{ID: 1, Kind: types.TypeOfTypes}
 	m2 := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
@@ -389,7 +389,7 @@ func TestZonkPathCompression(t *testing.T) {
 }
 
 func TestZonkTempSolutionNoCompression(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	// Chain via temp solutions: m1 → m2 → Int.
 	// Temp solutions must resolve correctly but NOT path-compress
 	// into the permanent solution map.
@@ -422,7 +422,7 @@ func TestZonkTempSolutionNoCompression(t *testing.T) {
 }
 
 func TestZonkNoAllocUnchanged(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	// A type with no metavariables should return the exact same pointer.
 	ty := testOps.Arrow(testOps.Con("Int"), testOps.Con("Bool"))
 	result := u.Zonk(ty)

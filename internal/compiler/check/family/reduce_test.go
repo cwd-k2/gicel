@@ -35,7 +35,7 @@ func newTestHarness(cfg *testEnvConfig) *testHarness {
 	if cfg == nil {
 		cfg = &testEnvConfig{}
 	}
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	b := budget.NewCheckBudget(context.Background())
 	limit := MaxReductionWork
 	if cfg.tfLimit > 0 {

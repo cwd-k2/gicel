@@ -38,7 +38,7 @@ chain := id_k (id_k (id_k True))
 
 // TestStressKindUnificationLargeArrow — large kind arrow with variables
 func TestStressKindUnificationLargeArrow(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	// Build k1 -> k2 -> ... -> k20 -> Type with each ki as a kind meta
 	var metas []*types.TyMeta
 	var k1 types.Type = types.TypeOfTypes
@@ -65,7 +65,7 @@ func TestStressKindUnificationLargeArrow(t *testing.T) {
 
 // TestStressKindMetaChain — chain of kind meta solutions: ?k1 -> ?k2 -> ... -> ?k50
 func TestStressKindMetaChain(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	const n = 50
 	metas := make([]*types.TyMeta, n)
 	for i := range n {

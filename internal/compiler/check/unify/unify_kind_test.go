@@ -16,28 +16,28 @@ func kindMeta(id int) *types.TyMeta {
 // =============================================================================
 
 func TestUnifyKindsTypeType(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	if err := u.Unify(types.TypeOfTypes, types.TypeOfTypes); err != nil {
 		t.Errorf("Type ~ Type should succeed: %v", err)
 	}
 }
 
 func TestUnifyKindsRowRow(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	if err := u.Unify(types.TypeOfRows, types.TypeOfRows); err != nil {
 		t.Errorf("Row ~ Row should succeed: %v", err)
 	}
 }
 
 func TestUnifyKindsMismatch(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	if err := u.Unify(types.TypeOfTypes, types.TypeOfRows); err == nil {
 		t.Error("Type ~ Row should fail")
 	}
 }
 
 func TestUnifyKindsArrow(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	k1 := &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfRows}
 	k2 := &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfRows}
 	if err := u.Unify(k1, k2); err != nil {
@@ -46,7 +46,7 @@ func TestUnifyKindsArrow(t *testing.T) {
 }
 
 func TestUnifyKindsArrowMismatch(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	k1 := &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfRows}
 	k2 := &types.TyArrow{From: types.TypeOfTypes, To: types.TypeOfTypes}
 	if err := u.Unify(k1, k2); err == nil {
@@ -59,7 +59,7 @@ func TestUnifyKindsArrowMismatch(t *testing.T) {
 // =============================================================================
 
 func TestUnifyKindsMetaSolve(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := kindMeta(1)
 	if err := u.Unify(m, types.TypeOfTypes); err != nil {
 		t.Errorf("?k1 ~ Type should succeed: %v", err)
@@ -71,7 +71,7 @@ func TestUnifyKindsMetaSolve(t *testing.T) {
 }
 
 func TestUnifyKindsMetaSolveBoth(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m1 := kindMeta(1)
 	m2 := kindMeta(2)
 	if err := u.Unify(m1, m2); err != nil {
@@ -87,7 +87,7 @@ func TestUnifyKindsMetaSolveBoth(t *testing.T) {
 }
 
 func TestUnifyKindsMetaInArrow(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := kindMeta(1)
 	k1 := &types.TyArrow{From: m, To: types.TypeOfTypes}
 	k2 := &types.TyArrow{From: types.TypeOfRows, To: types.TypeOfTypes}
@@ -104,7 +104,7 @@ func TestUnifyKindsMetaInArrow(t *testing.T) {
 // =============================================================================
 
 func TestUnifyKindsOccursCheck(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := kindMeta(1)
 	// ?k1 ~ ?k1 -> Type should fail (infinite kind).
 	k := &types.TyArrow{From: m, To: types.TypeOfTypes}
@@ -118,7 +118,7 @@ func TestUnifyKindsOccursCheck(t *testing.T) {
 // =============================================================================
 
 func TestUnifyKindsVarVar(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	v1 := &types.TyVar{Name: "k"}
 	v2 := &types.TyVar{Name: "k"}
 	if err := u.Unify(v1, v2); err != nil {
@@ -127,7 +127,7 @@ func TestUnifyKindsVarVar(t *testing.T) {
 }
 
 func TestUnifyKindsVarMismatch(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	v1 := &types.TyVar{Name: "k"}
 	v2 := &types.TyVar{Name: "j"}
 	if err := u.Unify(v1, v2); err == nil {
@@ -140,7 +140,7 @@ func TestUnifyKindsVarMismatch(t *testing.T) {
 // =============================================================================
 
 func TestZonkKindUnsolved(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := kindMeta(1)
 	result := u.Zonk(m)
 	if !testOps.Equal(result, m) {
@@ -149,7 +149,7 @@ func TestZonkKindUnsolved(t *testing.T) {
 }
 
 func TestZonkKindArrow(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	m := kindMeta(1)
 	// Install solution directly via the soln map (kind metas now live in soln).
 	u.InstallTempSolution(1, types.TypeOfRows)
@@ -165,7 +165,7 @@ func TestZonkKindArrow(t *testing.T) {
 }
 
 func TestZonkKindChain(t *testing.T) {
-	u := NewUnifier(&types.TypeOps{})
+	u := NewUnifier(testOps)
 	// ?k1 -> ?k2, ?k2 solved to Type
 	m1 := kindMeta(1)
 	m2 := kindMeta(2)

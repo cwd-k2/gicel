@@ -23,7 +23,7 @@ import (
 // TestProbeD_Skolem_RigidUnifyWithConcrete — trying to unify a skolem
 // with a concrete type should produce an error.
 func TestProbeD_Skolem_RigidUnifyWithConcrete(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
 	err := u.Unify(sk, testOps.Con("Int"))
 	if err == nil {
@@ -38,7 +38,7 @@ func TestProbeD_Skolem_RigidUnifyWithConcrete(t *testing.T) {
 // TestProbeD_Skolem_SameSkolemUnifies — unifying a skolem with itself
 // should succeed.
 func TestProbeD_Skolem_SameSkolemUnifies(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
 	if err := u.Unify(sk, sk); err != nil {
 		t.Fatalf("same skolem should unify: %v", err)
@@ -48,7 +48,7 @@ func TestProbeD_Skolem_SameSkolemUnifies(t *testing.T) {
 // TestProbeD_Skolem_DifferentSkolemsRefuse — two different skolems should
 // not unify.
 func TestProbeD_Skolem_DifferentSkolemsRefuse(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	sk1 := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
 	sk2 := &types.TySkolem{ID: 2, Name: "b", Kind: types.TypeOfTypes}
 	err := u.Unify(sk1, sk2)
@@ -60,7 +60,7 @@ func TestProbeD_Skolem_DifferentSkolemsRefuse(t *testing.T) {
 // TestProbeD_Skolem_MetaSolvedToSkolemInRow — a meta inside a row solved
 // to contain a skolem should be detected if the skolem escapes.
 func TestProbeD_Skolem_MetaSolvedToSkolemInRow(t *testing.T) {
-	u := unify.NewUnifier(&types.TypeOps{})
+	u := unify.NewUnifier(testOps)
 	sk := &types.TySkolem{ID: 1, Name: "a", Kind: types.TypeOfTypes}
 	meta := &types.TyMeta{ID: 2, Kind: types.TypeOfTypes}
 
