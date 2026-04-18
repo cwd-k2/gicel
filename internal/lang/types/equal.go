@@ -4,14 +4,21 @@ package types
 // For rows: compares normalized forms (label order irrelevant).
 // For forall: alpha-equivalence (bound variable names irrelevant).
 func (o *TypeOps) Equal(a, b Type) bool {
-	return equalAlpha(o, a, b, nil)
+	eq := typeEqualizer{ops: o}
+	return eq.alpha(a, b, nil)
 }
 
 type alphaBinding struct {
 	left, right string
 }
 
-func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
+// typeEqualizer captures the TypeOps context for the recursive
+// alpha-equivalence walk, avoiding per-call parameter threading.
+type typeEqualizer struct {
+	ops *TypeOps
+}
+
+func (eq *typeEqualizer) alpha(a, b Type, bindings []alphaBinding) bool {
 	switch at := a.(type) {
 	case *TyVar:
 		bt, ok := b.(*TyVar)
@@ -38,32 +45,32 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 		if !ok {
 			return false
 		}
-		return equalAlpha(ops, at.Fun, bt.Fun, bindings) && equalAlpha(ops, at.Arg, bt.Arg, bindings)
+		return eq.alpha(at.Fun, bt.Fun, bindings) && eq.alpha(at.Arg, bt.Arg, bindings)
 
 	case *TyArrow:
 		bt, ok := b.(*TyArrow)
 		if !ok {
 			return false
 		}
-		return equalAlpha(ops, at.From, bt.From, bindings) && equalAlpha(ops, at.To, bt.To, bindings)
+		return eq.alpha(at.From, bt.From, bindings) && eq.alpha(at.To, bt.To, bindings)
 
 	case *TyForall:
 		bt, ok := b.(*TyForall)
 		if !ok {
 			return false
 		}
-		if !equalAlpha(ops, at.Kind, bt.Kind, bindings) {
+		if !eq.alpha(at.Kind, bt.Kind, bindings) {
 			return false
 		}
 		newBindings := append(bindings, alphaBinding{at.Var, bt.Var})
-		return equalAlpha(ops, at.Body, bt.Body, newBindings)
+		return eq.alpha(at.Body, bt.Body, newBindings)
 
 	case *TyCBPV:
 		bt, ok := b.(*TyCBPV)
 		if !ok || at.Tag != bt.Tag {
 			return false
 		}
-		if !equalAlpha(ops, at.Pre, bt.Pre, bindings) || !equalAlpha(ops, at.Post, bt.Post, bindings) || !equalAlpha(ops, at.Result, bt.Result, bindings) {
+		if !eq.alpha(at.Pre, bt.Pre, bindings) || !eq.alpha(at.Post, bt.Post, bindings) || !eq.alpha(at.Result, bt.Result, bindings) {
 			return false
 		}
 		// CBPV grade duality (see types/doc.go): Equal is structural and
@@ -77,7 +84,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 		if !at.IsGraded() || !bt.IsGraded() {
 			return false
 		}
-		return equalAlpha(ops, at.Grade, bt.Grade, bindings)
+		return eq.alpha(at.Grade, bt.Grade, bindings)
 
 	case *TyEvidenceRow:
 		bt, ok := b.(*TyEvidenceRow)
@@ -101,7 +108,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 				if aFields[i].Label != bFields[i].Label {
 					return false
 				}
-				if !equalAlpha(ops, aFields[i].Type, bFields[i].Type, bindings) {
+				if !eq.alpha(aFields[i].Type, bFields[i].Type, bindings) {
 					return false
 				}
 				// Compare grade annotations.
@@ -109,7 +116,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 					return false
 				}
 				for j := range aFields[i].Grades {
-					if !equalAlpha(ops, aFields[i].Grades[j], bFields[i].Grades[j], bindings) {
+					if !eq.alpha(aFields[i].Grades[j], bFields[i].Grades[j], bindings) {
 						return false
 					}
 				}
@@ -118,7 +125,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 				return false
 			}
 			if at.IsOpen() {
-				return equalAlpha(ops, at.Tail, bt.Tail, bindings)
+				return eq.alpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
 		case *ConstraintEntries:
@@ -128,15 +135,15 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 			}
 			// Defensive normalization: constraint rows may be constructed
 			// directly without ExtendConstraint in tests or external code.
-			an := ops.NormalizeConstraints(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail, Flags: EvidenceRowFlags(aEntries, at.Tail)})
-			bn := ops.NormalizeConstraints(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail, Flags: EvidenceRowFlags(bEntries, bt.Tail)})
+			an := eq.ops.NormalizeConstraints(&TyEvidenceRow{Entries: aEntries, Tail: at.Tail, Flags: EvidenceRowFlags(aEntries, at.Tail)})
+			bn := eq.ops.NormalizeConstraints(&TyEvidenceRow{Entries: bEntries, Tail: bt.Tail, Flags: EvidenceRowFlags(bEntries, bt.Tail)})
 			aCons := an.ConEntries()
 			bCons := bn.ConEntries()
 			if len(aCons) != len(bCons) {
 				return false
 			}
 			for i := range aCons {
-				if !equalConstraintEntry(ops, aCons[i], bCons[i], bindings) {
+				if !eq.constraintEntry(aCons[i], bCons[i], bindings) {
 					return false
 				}
 			}
@@ -144,7 +151,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 				return false
 			}
 			if at.IsOpen() {
-				return equalAlpha(ops, at.Tail, bt.Tail, bindings)
+				return eq.alpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
 		default:
@@ -155,7 +162,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 				return false
 			}
 			for i := range aChildren {
-				if !equalAlpha(ops, aChildren[i], bChildren[i], bindings) {
+				if !eq.alpha(aChildren[i], bChildren[i], bindings) {
 					return false
 				}
 			}
@@ -163,7 +170,7 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 				return false
 			}
 			if at.IsOpen() {
-				return equalAlpha(ops, at.Tail, bt.Tail, bindings)
+				return eq.alpha(at.Tail, bt.Tail, bindings)
 			}
 			return true
 		}
@@ -173,10 +180,10 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 		if !ok {
 			return false
 		}
-		if !equalAlpha(ops, at.Constraints, bt.Constraints, bindings) {
+		if !eq.alpha(at.Constraints, bt.Constraints, bindings) {
 			return false
 		}
-		return equalAlpha(ops, at.Body, bt.Body, bindings)
+		return eq.alpha(at.Body, bt.Body, bindings)
 
 	case *TyFamilyApp:
 		bt, ok := b.(*TyFamilyApp)
@@ -184,12 +191,12 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 			return false
 		}
 		for i := range at.Args {
-			if !equalAlpha(ops, at.Args[i], bt.Args[i], bindings) {
+			if !eq.alpha(at.Args[i], bt.Args[i], bindings) {
 				return false
 			}
 		}
 		if at.Kind != nil && bt.Kind != nil {
-			return equalAlpha(ops, at.Kind, bt.Kind, bindings)
+			return eq.alpha(at.Kind, bt.Kind, bindings)
 		}
 		return true
 
@@ -217,49 +224,49 @@ func equalAlpha(ops *TypeOps, a, b Type, bindings []alphaBinding) bool {
 	}
 }
 
-func equalConstraintEntry(ops *TypeOps, a, b ConstraintEntry, bindings []alphaBinding) bool {
+func (eq *typeEqualizer) constraintEntry(a, b ConstraintEntry, bindings []alphaBinding) bool {
 	switch av := a.(type) {
 	case *ClassEntry:
 		bv, ok := b.(*ClassEntry)
 		if !ok {
 			return false
 		}
-		return equalClassEntry(ops, av, bv, bindings)
+		return eq.classEntry(av, bv, bindings)
 	case *EqualityEntry:
 		bv, ok := b.(*EqualityEntry)
 		if !ok {
 			return false
 		}
-		return equalAlpha(ops, av.Lhs, bv.Lhs, bindings) && equalAlpha(ops, av.Rhs, bv.Rhs, bindings)
+		return eq.alpha(av.Lhs, bv.Lhs, bindings) && eq.alpha(av.Rhs, bv.Rhs, bindings)
 	case *VarEntry:
 		bv, ok := b.(*VarEntry)
 		if !ok {
 			return false
 		}
-		return equalAlpha(ops, av.Var, bv.Var, bindings)
+		return eq.alpha(av.Var, bv.Var, bindings)
 	case *QuantifiedConstraint:
 		bv, ok := b.(*QuantifiedConstraint)
 		if !ok {
 			return false
 		}
-		return equalQuantifiedConstraint(ops, av, bv, bindings)
+		return eq.quantifiedConstraint(av, bv, bindings)
 	}
 	return false
 }
 
-func equalClassEntry(ops *TypeOps, a, b *ClassEntry, bindings []alphaBinding) bool {
+func (eq *typeEqualizer) classEntry(a, b *ClassEntry, bindings []alphaBinding) bool {
 	if a.ClassName != b.ClassName || len(a.Args) != len(b.Args) {
 		return false
 	}
 	for j := range a.Args {
-		if !equalAlpha(ops, a.Args[j], b.Args[j], bindings) {
+		if !eq.alpha(a.Args[j], b.Args[j], bindings) {
 			return false
 		}
 	}
 	return true
 }
 
-func equalQuantifiedConstraint(ops *TypeOps, a, b *QuantifiedConstraint, bindings []alphaBinding) bool {
+func (eq *typeEqualizer) quantifiedConstraint(a, b *QuantifiedConstraint, bindings []alphaBinding) bool {
 	if len(a.Vars) != len(b.Vars) {
 		return false
 	}
@@ -267,7 +274,7 @@ func equalQuantifiedConstraint(ops *TypeOps, a, b *QuantifiedConstraint, binding
 	newBindings := make([]alphaBinding, len(bindings), len(bindings)+len(a.Vars))
 	copy(newBindings, bindings)
 	for i, av := range a.Vars {
-		if !equalAlpha(ops, av.Kind, b.Vars[i].Kind, bindings) {
+		if !eq.alpha(av.Kind, b.Vars[i].Kind, bindings) {
 			return false
 		}
 		newBindings = append(newBindings, alphaBinding{av.Name, b.Vars[i].Name})
@@ -276,7 +283,7 @@ func equalQuantifiedConstraint(ops *TypeOps, a, b *QuantifiedConstraint, binding
 		return false
 	}
 	for i := range a.Context {
-		if !equalConstraintEntry(ops, a.Context[i], b.Context[i], newBindings) {
+		if !eq.constraintEntry(a.Context[i], b.Context[i], newBindings) {
 			return false
 		}
 	}
@@ -286,5 +293,5 @@ func equalQuantifiedConstraint(ops *TypeOps, a, b *QuantifiedConstraint, binding
 	if a.Head == nil {
 		return true
 	}
-	return equalClassEntry(ops, a.Head, b.Head, newBindings)
+	return eq.classEntry(a.Head, b.Head, newBindings)
 }
