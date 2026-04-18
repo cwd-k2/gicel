@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.34.0 — 2026-04-18
+
+TypeOps architecture: all type-level operations consolidated under a single owner, eliminating scattered direct construction and preparing for allocation optimization.
+
+### Performance
+
+- **Fingerprint streaming** — `Engine.Fingerprint` streams hash computation directly instead of materializing `bytes.Buffer` intermediaries. Removes the dominant allocation source in cache-key generation.
+
+### Internal Refactors (no behavior change)
+
+- **`TypeOps` as single owner** — All type construction, substitution, equality, display, and serialization methods are now on `*TypeOps`. The zero value is ready to use; allocation strategy (hash-consing, arena) can be added without changing signatures.
+- **Span-free / At split** — Construction methods split into span-free defaults (synthetic types) and `At`-suffixed variants (user-syntax types with source location).
+- **CBPV symmetry** — `Comp`/`Thunk` constructors are structurally symmetric via a shared `makeCBPV` helper. Grade-duality documented in `doc.go`.
+- **`typeEqualizer` extraction** — Alpha-equivalence recursion captures `*TypeOps` once instead of threading it through every call.
+- **Backward-compat removal** — `defaultOps`, wrapper functions, and all transitional shims removed. Callers migrated (68 production files, 26 test files).
+- **Test `testOps` consolidation** — ~180 inline `&types.TypeOps{}` allocations replaced with package-level `testOps`. Helpers files added for `family/`, `solve/`, `unify/`, `ir/`, and `types/` packages. `newTestChecker` fixed to share a single ops instance (was creating two independent instances with `ch.typeOps` left nil).
+- **Dead code removal** — Unused `AppGrade` span-free variant removed (only `AppGradeAt` had callers).
+- **`classHeadArgsEqual`** promoted from free function to `TypeOps` method, aligning with the "all operations through TypeOps" principle.
+
 ## v0.33.0 — 2026-04-16
 
 Type-theoretic correctness pass, field-test bug closures, internal symmetry restoration, and engine API hardening. Includes the v0.32.1 LSP source-preservation fix.
