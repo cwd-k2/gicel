@@ -71,36 +71,33 @@ func (o *TypeOps) AppGradeAt(fun, arg Type, s span.Span) *TyApp {
 // Comp creates a CBPV Computation type. grade == nil produces the ungraded
 // (3-arg) form; non-nil produces the graded (4-arg) form.
 func (o *TypeOps) Comp(pre, post, result, grade Type) *TyCBPV {
-	if grade != nil {
-		return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade)}
-	}
-	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
+	return makeCBPV(TagComp, pre, post, result, grade, span.Span{})
 }
 
 // CompAt creates a CBPV Computation type with source location.
 func (o *TypeOps) CompAt(pre, post, result, grade Type, s span.Span) *TyCBPV {
-	if grade != nil {
-		return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade), S: s}
-	}
-	return &TyCBPV{Tag: TagComp, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: s}
+	return makeCBPV(TagComp, pre, post, result, grade, s)
 }
 
 // Thunk creates a CBPV Thunk type. grade == nil produces the ungraded
 // (3-arg) form; non-nil produces the graded (4-arg) form.
 // Symmetric with Comp by the CBPV adjunction (Thunk ⊣ Force).
 func (o *TypeOps) Thunk(pre, post, result, grade Type) *TyCBPV {
-	if grade != nil {
-		return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade)}
-	}
-	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result)}
+	return makeCBPV(TagThunk, pre, post, result, grade, span.Span{})
 }
 
 // ThunkAt creates a CBPV Thunk type with source location.
 func (o *TypeOps) ThunkAt(pre, post, result, grade Type, s span.Span) *TyCBPV {
+	return makeCBPV(TagThunk, pre, post, result, grade, s)
+}
+
+// makeCBPV is the single construction point for TyCBPV nodes.
+// grade == nil selects the ungraded form; non-nil selects the graded form.
+func makeCBPV(tag CBPVTag, pre, post, result, grade Type, s span.Span) *TyCBPV {
 	if grade != nil {
-		return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade), S: s}
+		return &TyCBPV{Tag: tag, Pre: pre, Post: post, Result: result, Grade: grade, Flags: MetaFreeFlags(pre, post, result, grade), S: s}
 	}
-	return &TyCBPV{Tag: TagThunk, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: s}
+	return &TyCBPV{Tag: tag, Pre: pre, Post: post, Result: result, Flags: MetaFreeFlags(pre, post, result), S: s}
 }
 
 // Evidence creates a qualified type ({ C1, C2 | c } => body).
