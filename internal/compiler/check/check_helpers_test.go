@@ -194,9 +194,10 @@ func newTestChecker() *Checker {
 	ch.budget.SetTFStepLimit(family.MaxReductionWork)
 	ch.budget.SetSolverStepLimit(100_000)
 	ch.budget.SetResolveDepthLimit(64)
-	ch.unifier = unify.NewUnifierShared(&ch.freshID, &types.TypeOps{})
+	ch.typeOps = testOps
+	ch.unifier = unify.NewUnifierShared(&ch.freshID, testOps)
 	ch.unifier.Budget = ch.budget
-	ch.solver = solve.New(ch, &types.TypeOps{})
+	ch.solver = solve.New(ch, testOps)
 	ch.solverLevel = ch.solver.Level
 	return ch
 }
