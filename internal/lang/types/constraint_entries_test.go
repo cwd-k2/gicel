@@ -4,9 +4,6 @@ import (
 	"testing"
 )
 
-// testOps is the shared TypeOps instance for all test files in this package.
-var testOps = &TypeOps{}
-
 // =============================================================================
 // TyEvidenceRow — type node interface
 // =============================================================================
