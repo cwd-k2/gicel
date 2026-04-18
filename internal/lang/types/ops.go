@@ -58,11 +58,6 @@ func (o *TypeOps) AppAt(fun, arg Type, s span.Span) *TyApp {
 	return &TyApp{Fun: fun, Arg: arg, Flags: MetaFreeFlags(fun, arg), S: s}
 }
 
-// AppGrade creates a grade-annotated type application (F @A).
-func (o *TypeOps) AppGrade(fun, arg Type) *TyApp {
-	return &TyApp{Fun: fun, Arg: arg, IsGrade: true, Flags: MetaFreeFlags(fun, arg)}
-}
-
 // AppGradeAt creates a grade-annotated type application with source location.
 func (o *TypeOps) AppGradeAt(fun, arg Type, s span.Span) *TyApp {
 	return &TyApp{Fun: fun, Arg: arg, IsGrade: true, Flags: MetaFreeFlags(fun, arg), S: s}
